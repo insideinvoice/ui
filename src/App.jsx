@@ -54,7 +54,6 @@ function AppRoutes() {
       <Route path="/login" element={<Login />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/change-password" element={<ChangePassword />} />
-      <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/privacy-policy" element={<PrivacyPolicy />} />
       <Route path="/terms-and-condition" element={<TermsandConditions />} />
       <Route path="/refund-policy" element={<RefundPolicy />} />

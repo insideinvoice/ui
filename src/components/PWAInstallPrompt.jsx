@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { Download, X } from "lucide-react";
+import insideInvoiceLogo from "../assets/inside-invoice-logo.svg";
 
 function isIOS() {
   return /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
@@ -58,11 +59,9 @@ export default function PWAInstallPrompt() {
 
   if (showAndroidPrompt && deferredPrompt) {
     return (
-      <div className="fixed bottom-20 left-4 right-4 z-[998] sm:left-auto sm:right-4 sm:w-80">
+      <div className="fixed bottom-20 left-4 right-4 z-[998] pb-[env(safe-area-inset-bottom,0px)] sm:left-auto sm:right-4 sm:w-80">
         <div className="bg-white rounded-xl shadow-lg border border-slate-200 p-4 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-slate-600 to-slate-800 flex items-center justify-center shrink-0">
-            <span className="text-white font-bold text-sm" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>ii</span>
-          </div>
+            <img src={insideInvoiceLogo} alt="Inside Invoice" className="w-10 h-10 shrink-0" />
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold text-slate-800">Install Inside Invoice</p>
             <p className="text-xs text-slate-500">Add to home screen for quick access</p>
@@ -84,12 +83,10 @@ export default function PWAInstallPrompt() {
 
   if (showIOSHint) {
     return (
-      <div className="fixed bottom-20 left-4 right-4 z-[998] sm:left-auto sm:right-4 sm:w-80">
+      <div className="fixed bottom-20 left-4 right-4 z-[998] pb-[env(safe-area-inset-bottom,0px)] sm:left-auto sm:right-4 sm:w-80">
         <div className="bg-white rounded-xl shadow-lg border border-slate-200 p-4">
           <div className="flex items-start gap-3">
-            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-slate-600 to-slate-800 flex items-center justify-center shrink-0">
-              <span className="text-white font-bold text-sm" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>ii</span>
-            </div>
+            <img src={insideInvoiceLogo} alt="Inside Invoice" className="w-10 h-10 shrink-0" />
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-slate-800">Add to Home Screen</p>
               <p className="text-xs text-slate-500 mt-0.5">Tap the <strong>Share</strong> icon in Safari, then select <strong>Add to Home Screen</strong> for quick access.</p>

@@ -143,7 +143,7 @@ export default function Dashboard() {
   }, [invoices]);
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-[100dvh] bg-slate-50">
       <AppNavbar />
 
       <div className="px-3 sm:px-4 lg:px-6 max-w-[1900px] mx-auto">

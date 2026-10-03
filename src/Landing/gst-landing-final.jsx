@@ -106,7 +106,7 @@ export default function GSTBillingLanding() {
     {
       question: "Can I track inventory with this tool?",
       answer:
-        "Absolutely! Inside Invoice includes comprehensive inventory management. Track stock levels in real-time, get low stock alerts, manage multiple product categories, and generate inventory reports.",
+        "Absolutely! Inside Invoice includes inventory management. Track stock levels, manage multiple product categories, and view your product catalog in one place.",
     },
     {
       question: "How do I get support if I need help?",
@@ -266,7 +266,7 @@ export default function GSTBillingLanding() {
                 <div className="flex justify-between items-start mb-4">
                   <div>
                     <div className="text-xl font-bold gradient-text mb-1">TAX INVOICE</div>
-                    <div className="text-xs text-gray-600 font-medium">Invoice #INV-2024-001</div>
+                    <div className="text-xs text-gray-600 font-medium">Invoice #INV-2026-001</div>
                   </div>
                   <div className="px-3 py-1.5 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-lg font-medium text-xs">PAID</div>
                 </div>
@@ -370,7 +370,7 @@ export default function GSTBillingLanding() {
                 color: "from-gray-500 to-slate-600",
                 title: "Inventory Management",
                 description:
-                  "Track stock levels in real-time. Get low stock alerts and manage your products effortlessly.",
+                  "Track stock levels and manage your products effortlessly.",
               },
               {
                 icon: <BarChart3 className="w-6 h-6" />,
@@ -391,7 +391,7 @@ export default function GSTBillingLanding() {
                 color: "from-slate-500 to-gray-600",
                 title: "Payment Tracking",
                 description:
-                  "Track payments, send reminders, and reconcile accounts automatically. Never miss a payment.",
+                  "Track payments and keep your records organized in one place.",
               },
               {
                 icon: <TrendingUp className="w-6 h-6" />,
@@ -425,169 +425,178 @@ export default function GSTBillingLanding() {
       {/* Invoice Analytics Section */}
       <section
         id="tracking"
-        className="py-16 sm:py-20 lg:py-24 px-4 sm:px-6 lg:px-8 bg-white"
+        className="py-12 sm:py-16 lg:py-20 px-3 sm:px-4 lg:px-6 bg-white"
       >
-        <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-12 lg:mb-16">
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 rounded-full text-xs sm:text-sm font-semibold text-slate-700 mb-6 tracking-wide uppercase">
+        <div className="max-w-full mx-auto">
+          <div className="text-center mb-8 sm:mb-12 lg:mb-16 px-2">
+            <div className="inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 bg-slate-100 rounded-full text-xs sm:text-sm font-semibold text-slate-700 mb-4 sm:mb-6 tracking-wide uppercase">
               <BarChart3 className="w-4 h-4" />
               Invoice Analytics
             </div>
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-slate-900 mb-4 tracking-tight">
+            <h2 className="text-2xl sm:text-3xl lg:text-5xl font-bold text-slate-900 mb-3 tracking-tight">
               Track Every <span className="gradient-text">Invoice</span> in
               Real-Time
             </h2>
-            <p className="text-base sm:text-lg text-slate-500 font-normal max-w-2xl mx-auto">
+            <p className="text-sm sm:text-base lg:text-lg text-slate-500 font-normal max-w-2xl mx-auto">
               Enterprise-grade insights to help you manage your business with
               confidence
             </p>
           </div>
 
-          <div className="grid lg:grid-cols-2 gap-8 lg:gap-10">
-            {/* Left Column */}
-            <div className="space-y-6">
-              {/* Dashboard Stats */}
-              <div className="bg-slate-50 rounded-2xl p-6 sm:p-8 border border-slate-200">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="w-10 h-10 bg-slate-900 rounded-xl flex items-center justify-center">
-                    <BarChart3 className="w-5 h-5 text-white" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-bold text-slate-900">
-                      Invoice Dashboard
-                    </h3>
-                    <p className="text-xs text-slate-500">
-                      Live overview of your receivables
-                    </p>
-                  </div>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6 px-2 sm:px-4">
+            {/* Column 1 — Invoice Dashboard */}
+            <div className="bg-slate-50 rounded-2xl p-6 sm:p-8 border border-slate-200">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 bg-slate-900 rounded-xl flex items-center justify-center">
+                  <BarChart3 className="w-5 h-5 text-white" />
                 </div>
-
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="bg-white rounded-xl p-4 border border-slate-200 text-center">
-                    <div className="w-10 h-10 bg-emerald-100 rounded-lg flex items-center justify-center mx-auto mb-3">
-                      <Check className="w-5 h-5 text-emerald-600" />
-                    </div>
-                    <div className="text-xs text-slate-500 font-medium mb-1">
-                      Paid
-                    </div>
-                    <div className="text-lg font-bold text-slate-900">
-                      ₹2,45,000
-                    </div>
-                    <div className="text-xs font-semibold text-emerald-600 mt-1">
-                      156 invoices
-                    </div>
-                  </div>
-
-                  <div className="bg-white rounded-xl p-4 border border-slate-200 text-center">
-                    <div className="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center mx-auto mb-3">
-                      <Clock className="w-5 h-5 text-amber-600" />
-                    </div>
-                    <div className="text-xs text-slate-500 font-medium mb-1">
-                      Pending
-                    </div>
-                    <div className="text-lg font-bold text-slate-900">
-                      ₹45,000
-                    </div>
-                    <div className="text-xs font-semibold text-amber-600 mt-1">
-                      23 invoices
-                    </div>
-                  </div>
-
-                  <div className="bg-white rounded-xl p-4 border border-slate-200 text-center">
-                    <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center mx-auto mb-3">
-                      <X className="w-5 h-5 text-red-600" />
-                    </div>
-                    <div className="text-xs text-slate-500 font-medium mb-1">
-                      Overdue
-                    </div>
-                    <div className="text-lg font-bold text-slate-900">
-                      ₹12,000
-                    </div>
-                    <div className="text-xs font-semibold text-red-600 mt-1">
-                      8 invoices
-                    </div>
-                  </div>
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900">
+                    Invoice Dashboard
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Live overview of your receivables
+                  </p>
                 </div>
               </div>
 
-              {/* Key Benefits */}
-              <div className="bg-slate-50 rounded-2xl p-6 sm:p-8 border border-slate-200">
-                <div className="flex items-center gap-3 mb-5">
-                  <div className="w-10 h-10 bg-slate-900 rounded-xl flex items-center justify-center">
-                    <Check className="w-5 h-5 text-white" />
-                  </div>
-                  <h3 className="text-lg font-bold text-slate-900">
-                    Key Benefits
-                  </h3>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {[
-                    "Real-time invoice status tracking",
-                    "Automated payment reminders",
-                    "Visual analytics and reports",
-                    "Export data to Excel/PDF",
-                    "Filter by date, customer, status",
-                    "GST-compliant reporting",
-                  ].map((benefit, i) => (
-                    <div
-                      key={i}
-                      className="flex items-center gap-3 bg-white rounded-lg px-4 py-3 border border-slate-200"
-                    >
-                      <div className="w-5 h-5 bg-emerald-100 rounded-full flex items-center justify-center flex-shrink-0">
-                        <Check
-                          className="w-3 h-3 text-emerald-600"
-                          strokeWidth={3}
-                        />
+              <div className="space-y-3">
+                <div className="bg-white rounded-xl p-4 border border-slate-200">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-9 h-9 bg-emerald-100 rounded-lg flex items-center justify-center">
+                        <Check className="w-4 h-4 text-emerald-600" />
                       </div>
-                      <span className="text-slate-700 font-medium text-sm">
-                        {benefit}
-                      </span>
+                      <div>
+                        <div className="text-xs text-slate-500 font-medium">
+                          Paid Invoices
+                        </div>
+                        <div className="text-base font-bold text-slate-900">
+                          ₹2,45,000
+                        </div>
+                      </div>
                     </div>
-                  ))}
+                    <div className="text-right">
+                      <div className="text-lg font-bold text-emerald-600">
+                        156
+                      </div>
+                      <div className="text-[10px] text-slate-400 font-medium">
+                        invoices
+                      </div>
+                    </div>
+                  </div>
+                  <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-emerald-400 to-emerald-600 rounded-full"
+                      style={{ width: "85%" }}
+                    ></div>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-xl p-4 border border-slate-200">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-9 h-9 bg-amber-100 rounded-lg flex items-center justify-center">
+                        <Clock className="w-4 h-4 text-amber-600" />
+                      </div>
+                      <div>
+                        <div className="text-xs text-slate-500 font-medium">
+                          Pending Invoices
+                        </div>
+                        <div className="text-base font-bold text-slate-900">
+                          ₹45,000
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-lg font-bold text-amber-600">
+                        23
+                      </div>
+                      <div className="text-[10px] text-slate-400 font-medium">
+                        invoices
+                      </div>
+                    </div>
+                  </div>
+                  <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-amber-400 to-orange-500 rounded-full"
+                      style={{ width: "40%" }}
+                    ></div>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-xl p-4 border border-slate-200">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-9 h-9 bg-red-100 rounded-lg flex items-center justify-center">
+                        <X className="w-4 h-4 text-red-600" />
+                      </div>
+                      <div>
+                        <div className="text-xs text-slate-500 font-medium">
+                          Overdue Invoices
+                        </div>
+                        <div className="text-base font-bold text-slate-900">
+                          ₹12,000
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-lg font-bold text-red-600">8</div>
+                      <div className="text-[10px] text-slate-400 font-medium">
+                        invoices
+                      </div>
+                    </div>
+                  </div>
+                  <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-red-400 to-rose-500 rounded-full"
+                      style={{ width: "15%" }}
+                    ></div>
+                  </div>
                 </div>
               </div>
             </div>
 
-            {/* Right Column — Revenue Chart */}
-            <div className="bg-slate-900 rounded-2xl p-6 sm:p-8 border border-slate-800">
+            {/* Column 2 — Monthly Revenue */}
+            <div className="bg-slate-50 rounded-2xl p-6 sm:p-8 border border-slate-200">
               <div className="flex items-center justify-between mb-8">
                 <div>
-                  <h3 className="text-xl font-bold text-white">
+                  <h3 className="text-lg font-bold text-slate-900">
                     Monthly Revenue
                   </h3>
-                  <p className="text-xs text-slate-400 mt-1">
+                  <p className="text-xs text-slate-500 mt-1">
                     Year-to-date performance
                   </p>
                 </div>
-                <div className="px-3 py-1.5 bg-emerald-500/20 text-emerald-400 rounded-lg font-semibold text-xs border border-emerald-500/30">
-                  ↑ 23% Growth
+                <div className="px-2.5 py-1 bg-emerald-100 text-emerald-700 rounded-lg font-semibold text-[10px] border border-emerald-200">
+                  ↑ 23%
                 </div>
               </div>
 
-              <div className="space-y-4">
+              <div className="space-y-3.5">
                 {[
-                  { month: "Jan", amount: 45000, percentage: 60 },
-                  { month: "Feb", amount: 52000, percentage: 70 },
-                  { month: "Mar", amount: 38000, percentage: 50 },
-                  { month: "Apr", amount: 68000, percentage: 90 },
-                  { month: "May", amount: 72000, percentage: 95 },
-                  { month: "Jun", amount: 85000, percentage: 100 },
+                  { month: "Apr", amount: 45000, percentage: 60 },
+                  { month: "May", amount: 52000, percentage: 70 },
+                  { month: "Jun", amount: 38000, percentage: 50 },
+                  { month: "Jul", amount: 68000, percentage: 90 },
+                  { month: "Aug", amount: 72000, percentage: 95 },
+                  { month: "Sep", amount: 85000, percentage: 100 },
                 ].map((data, i) => (
-                  <div key={i} className="space-y-1.5">
+                  <div key={i} className="space-y-1">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-slate-300">
+                      <span className="text-xs font-medium text-slate-600">
                         {data.month}
                       </span>
-                      <span className="text-sm font-bold text-white">
+                      <span className="text-xs font-bold text-slate-900">
                         ₹{data.amount.toLocaleString()}
                       </span>
                     </div>
-                    <div className="relative h-8 bg-slate-800 rounded-lg overflow-hidden">
+                    <div className="relative h-6 bg-white rounded-md overflow-hidden border border-slate-200">
                       <div
-                        className="absolute inset-y-0 left-0 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-lg flex items-center justify-end pr-3 transition-all duration-1000"
+                        className="absolute inset-y-0 left-0 bg-gradient-to-r from-emerald-400 to-teal-500 rounded-md flex items-center justify-end pr-2 transition-all duration-1000"
                         style={{ width: `${data.percentage}%` }}
                       >
-                        <span className="text-white text-xs font-bold">
+                        <span className="text-white text-[10px] font-bold">
                           {data.percentage}%
                         </span>
                       </div>
@@ -596,21 +605,280 @@ export default function GSTBillingLanding() {
                 ))}
               </div>
 
-              <div className="mt-8 pt-6 border-t border-slate-700">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-slate-800 rounded-xl p-4 border border-slate-700">
-                    <div className="text-xs text-slate-400 font-medium mb-1">
+              <div className="mt-8 pt-6 border-t border-slate-200">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-white rounded-xl p-3.5 border border-slate-200">
+                    <div className="text-[10px] text-slate-500 font-medium mb-1">
                       Total Generated
                     </div>
-                    <div className="text-2xl font-bold text-white">₹3.6L</div>
+                    <div className="text-xl font-bold text-slate-900">₹3.6L</div>
                   </div>
-                  <div className="bg-slate-800 rounded-xl p-4 border border-slate-700">
-                    <div className="text-xs text-slate-400 font-medium mb-1">
+                  <div className="bg-white rounded-xl p-3.5 border border-slate-200">
+                    <div className="text-[10px] text-slate-500 font-medium mb-1">
                       Avg. Invoice
                     </div>
-                    <div className="text-2xl font-bold text-white">₹60K</div>
+                    <div className="text-xl font-bold text-slate-900">₹60K</div>
                   </div>
                 </div>
+              </div>
+            </div>
+
+            {/* Column 3 — Collection Rate & Aging */}
+            <div className="bg-slate-50 rounded-2xl p-6 sm:p-8 border border-slate-200">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 bg-slate-900 rounded-xl flex items-center justify-center">
+                  <TrendingUp className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900">
+                    Collection Rate
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Payment efficiency & aging
+                  </p>
+                </div>
+              </div>
+
+              {/* Circular Progress */}
+              <div className="flex justify-center mb-6">
+                <div className="relative w-36 h-36">
+                  <svg className="w-36 h-36 -rotate-90" viewBox="0 0 120 120">
+                    <circle
+                      cx="60"
+                      cy="60"
+                      r="52"
+                      fill="none"
+                      stroke="#e2e8f0"
+                      strokeWidth="10"
+                    />
+                    <circle
+                      cx="60"
+                      cy="60"
+                      r="52"
+                      fill="none"
+                      stroke="url(#collectionGradient)"
+                      strokeWidth="10"
+                      strokeLinecap="round"
+                      strokeDasharray="327"
+                      strokeDashoffset="26"
+                    />
+                    <defs>
+                      <linearGradient
+                        id="collectionGradient"
+                        x1="0%"
+                        y1="0%"
+                        x2="100%"
+                        y2="100%"
+                      >
+                        <stop offset="0%" stopColor="#10b981" />
+                        <stop offset="100%" stopColor="#14b8a6" />
+                      </linearGradient>
+                    </defs>
+                  </svg>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <div className="text-3xl font-bold text-slate-900">
+                      92%
+                    </div>
+                    <div className="text-[10px] text-slate-500 font-medium mt-0.5">
+                      Collected
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Aging Buckets */}
+              <div className="space-y-3">
+                <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
+                  Invoice Aging
+                </div>
+                {[
+                  {
+                    label: "Current",
+                    amount: "₹2,10,000",
+                    pct: 75,
+                    color: "from-emerald-400 to-emerald-600",
+                  },
+                  {
+                    label: "1–30 Days",
+                    amount: "₹35,000",
+                    pct: 40,
+                    color: "from-amber-400 to-orange-500",
+                  },
+                  {
+                    label: "31–60 Days",
+                    amount: "₹12,000",
+                    pct: 18,
+                    color: "from-orange-400 to-red-500",
+                  },
+                  {
+                    label: "60+ Days",
+                    amount: "₹5,000",
+                    pct: 8,
+                    color: "from-red-400 to-rose-600",
+                  },
+                ].map((bucket, i) => (
+                  <div key={i}>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-medium text-slate-600">
+                        {bucket.label}
+                      </span>
+                      <span className="text-xs font-bold text-slate-900">
+                        {bucket.amount}
+                      </span>
+                    </div>
+                    <div className="h-2 bg-white rounded-full overflow-hidden border border-slate-200">
+                      <div
+                        className={`h-full bg-gradient-to-r ${bucket.color} rounded-full transition-all duration-1000`}
+                        style={{ width: `${bucket.pct}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Column 4 — Live Invoice Sales Trend */}
+            <div className="bg-slate-50 rounded-2xl p-6 sm:p-8 border border-slate-200">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 bg-slate-900 rounded-xl flex items-center justify-center">
+                  <TrendingUp className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900">
+                    Sales Trend
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Live invoice revenue
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                {/* Mini Bar Chart */}
+                <div className="bg-white rounded-xl border border-slate-200 p-4">
+                  <div className="relative h-36">
+                    <div className="absolute inset-0 flex items-end justify-between gap-1.5">
+                      {[
+                        { month: "Apr", value: 18000, h: 30 },
+                        { month: "May", value: 32000, h: 53 },
+                        { month: "Jun", value: 45000, h: 75 },
+                        { month: "Jul", value: 28000, h: 47 },
+                        { month: "Aug", value: 52000, h: 87 },
+                        { month: "Sep", value: 38000, h: 63 },
+                        { month: "Oct", value: 60000, h: 100 },
+                      ].map((bar, i) => (
+                        <div
+                          key={i}
+                          className="flex flex-col items-center justify-end gap-1 flex-1 h-full"
+                        >
+                          <span className="text-[8px] font-bold text-slate-600">
+                            ₹{(bar.value / 1000).toFixed(0)}K
+                          </span>
+                          <div
+                            className={`w-full rounded-t-md ${
+                              i === 6
+                                ? "bg-gradient-to-t from-emerald-500 to-teal-400"
+                                : "bg-gradient-to-t from-slate-200 to-slate-300"
+                            }`}
+                            style={{ height: `${bar.h}%` }}
+                          ></div>
+                          <span className="text-[9px] font-medium text-slate-500">
+                            {bar.month}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Last 7 Days */}
+                <div className="bg-white rounded-xl border border-slate-200 p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 bg-emerald-500 rounded-full"></span>
+                      <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                        Last 7 Days
+                      </span>
+                    </div>
+                    <span className="text-xs font-bold text-slate-900">
+                      ₹24,500
+                    </span>
+                  </div>
+                  <div className="space-y-1.5">
+                    {[
+                      { day: "Thu", amount: 4200, pct: 70 },
+                      { day: "Fri", amount: 6800, pct: 100 },
+                      { day: "Sat", amount: 3100, pct: 45 },
+                      { day: "Sun", amount: 1500, pct: 22 },
+                      { day: "Mon", amount: 5400, pct: 79 },
+                      { day: "Tue", amount: 2300, pct: 34 },
+                      { day: "Wed", amount: 1200, pct: 18 },
+                    ].map((item, i) => (
+                      <div key={i} className="flex items-center gap-2">
+                        <span className="text-[10px] font-medium text-slate-500 w-6">
+                          {item.day}
+                        </span>
+                        <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full ${
+                              i === 1
+                                ? "bg-gradient-to-r from-emerald-400 to-teal-500"
+                                : "bg-gradient-to-r from-slate-300 to-slate-400"
+                            }`}
+                            style={{ width: `${item.pct}%` }}
+                          ></div>
+                        </div>
+                        <span className="text-[10px] font-bold text-slate-700 w-12 text-right">
+                          ₹{item.amount.toLocaleString()}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          </div>
+
+          {/* Key Benefits Row */}
+          <div className="mt-6 sm:mt-8 lg:mt-10 mx-2 sm:mx-4">
+            <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center">
+                    <Sparkles className="w-5 h-5 text-slate-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-slate-900">
+                      Key Benefits
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      Everything you need to run your billing
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+                {[
+                  { icon: <Clock className="w-5 h-5" />, label: "Real-time invoice status tracking", color: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-100" },
+                  { icon: <CreditCard className="w-5 h-5" />, label: "Payment tracking & records", color: "text-sky-600", bg: "bg-sky-50", border: "border-sky-100" },
+                  { icon: <BarChart3 className="w-5 h-5" />, label: "Visual analytics and reports", color: "text-violet-600", bg: "bg-violet-50", border: "border-violet-100" },
+                  { icon: <FileText className="w-5 h-5" />, label: "Export data to Excel/PDF", color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-100" },
+                  { icon: <CheckCircle className="w-5 h-5" />, label: "Filter by date, customer, status", color: "text-rose-600", bg: "bg-rose-50", border: "border-rose-100" },
+                  { icon: <Shield className="w-5 h-5" />, label: "GST-compliant reporting", color: "text-teal-600", bg: "bg-teal-50", border: "border-teal-100" },
+                ].map((benefit, i) => (
+                  <div
+                    key={i}
+                    className={`rounded-xl p-4 border ${benefit.border} ${benefit.bg} hover:shadow-md transition-shadow`}
+                  >
+                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center mb-3 bg-white ${benefit.color}`}>
+                      {benefit.icon}
+                    </div>
+                    <span className="text-slate-700 font-medium text-xs leading-snug block">
+                      {benefit.label}
+                    </span>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
@@ -877,7 +1145,7 @@ export default function GSTBillingLanding() {
               <ul className="space-y-1.5 sm:space-y-2 text-xs sm:text-sm font-normal">
                 <li><Link to="/help" className="hover:text-slate-400 transition-colors">Help Center</Link></li>
                 <li><Link to="/video" className="hover:text-slate-400 transition-colors">Video Tutorials</Link></li>
-                <li><a href="/documentation" className="hover:text-slate-400 transition-colors">Documentation</a></li>
+                <li><Link to="/documentation" className="hover:text-slate-400 transition-colors">Documentation</Link></li>
                 <li><Link to="/contact" className="hover:text-slate-400 transition-colors">Contact Us</Link></li>
               </ul>
             </div>
@@ -897,19 +1165,19 @@ export default function GSTBillingLanding() {
             <p className="text-[10px] sm:text-xs text-gray-400 font-normal">
               &copy; {year} Inside Invoice by 2X+1. All rights reserved.
             </p>
-            <div className="flex gap-4 sm:gap-6">
-              <a href="#" className="text-gray-400 hover:text-slate-400 transition-colors">
-                <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="currentColor" viewBox="0 0 24 24">
+            <div className="flex gap-2 sm:gap-4">
+              <a href="#" className="text-gray-400 hover:text-slate-400 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center">
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M24 4.557c-.883.392-1.832.656-2.828.775 1.017-.609 1.798-1.574 2.165-2.724-.951.564-2.005.974-3.127 1.195-.897-.957-2.178-1.555-3.594-1.555-3.179 0-5.515 2.966-4.797 6.045-4.091-.205-7.719-2.165-10.148-5.144-1.29 2.213-.669 5.108 1.523 6.574-.806-.026-1.566-.247-2.229-.616-.054 2.281 1.581 4.415 3.949 4.89-.693.188-1.452.232-2.224.084.626 1.956 2.444 3.379 4.6 3.419-2.07 1.623-4.678 2.348-7.29 2.04 2.179 1.397 4.768 2.212 7.548 2.212 9.142 0 14.307-7.721 13.995-14.646.962-.695 1.797-1.562 2.457-2.549z" />
                 </svg>
               </a>
-              <a href="https://github.com/insideinvoice" className="text-gray-400 hover:text-slate-400 transition-colors" target="_blank">
-                <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="currentColor" viewBox="0 0 24 24">
+              <a href="https://github.com/insideinvoice" className="text-gray-400 hover:text-slate-400 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center" target="_blank">
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
                 </svg>
               </a>
-              <a href="#" className="text-gray-400 hover:text-slate-400 transition-colors">
-                <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="currentColor" viewBox="0 0 24 24">
+              <a href="#" className="text-gray-400 hover:text-slate-400 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center">
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z" />
                 </svg>
               </a>

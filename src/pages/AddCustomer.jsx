@@ -43,7 +43,7 @@ export default function AddCustomer() {
   const labelClass = "block text-xs font-semibold text-slate-600 mb-1.5 tracking-wide uppercase";
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-gray-100">
+    <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-gray-100">
       <AppNavbar />
       <div className="px-4 sm:px-5 lg:px-6 py-3 sm:py-4 lg:py-5 max-w-[1900px] mx-auto">
         <PageHeader title="Add New Customer" />

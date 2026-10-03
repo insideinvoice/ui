@@ -95,7 +95,7 @@ function App() {
     <AuthProvider>
       <AppRoutes />
       <PWAInstallPrompt />
-      <Toaster position="top-right" toastOptions={{ duration: 4000, style: { fontSize: '14px' } }} />
+      <Toaster position="top-center" toastOptions={{ duration: 4000, style: { fontSize: '14px' } }} />
     </AuthProvider>
   );
 }

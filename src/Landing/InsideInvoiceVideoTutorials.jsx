@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import React, { useEffect, useState } from "react";
 import InvoiceNav from "./Navigation/InvoiceNav";
 
@@ -11,6 +12,11 @@ export default function InsideInvoiceVideoTutorials() {
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-slate-50 to-gray-100">
       <InvoiceNav scrolled={true} isMenuOpen={isMenuOpen} setIsMenuOpen={setIsMenuOpen} />
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-12 text-slate-800 text-center" style={{ paddingTop: "calc(5rem + env(safe-area-inset-top, 0px))" }}>
+        <div className="text-left">
+          <Link to="/" className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 font-medium mb-6 transition-colors">
+            <span aria-hidden="true">←</span> Back to Home
+          </Link>
+        </div>
         <h1 className="text-2xl sm:text-3xl font-bold mb-4" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Video Tutorials</h1>
 
         <p className="text-sm sm:text-lg text-slate-600 mb-6 sm:mb-8">

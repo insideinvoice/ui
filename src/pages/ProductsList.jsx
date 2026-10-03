@@ -35,7 +35,7 @@ export default function ProductsList() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-gray-100">
+      <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-gray-100">
         <AppNavbar />
         <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8 max-w-[1900px] mx-auto">
           <div className="w-8 h-8 rounded-lg bg-white border border-slate-200 mb-4" />
@@ -48,7 +48,7 @@ export default function ProductsList() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-gray-100">
+    <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-gray-100">
       <AppNavbar />
       <div className="px-4 sm:px-5 lg:px-6 py-3 sm:py-4 lg:py-5 max-w-[1900px] mx-auto">
         <PageHeader title="Products" />
@@ -69,7 +69,7 @@ export default function ProductsList() {
               <p className="text-sm font-semibold text-slate-700">{search ? "No products match your search" : "No products yet"}</p>
               <p className="text-xs text-slate-400 mt-1 mb-4">{search ? "Try a different name or HSN/SAC" : "Add your first product to get started"}</p>
               <button onClick={() => navigate("/products/new")}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 transition-all shadow-sm">
+                className="inline-flex items-center gap-2 px-5 py-2.5 min-h-[44px] bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 transition-all shadow-sm">
                 <Package className="w-4 h-4" /> Add Product
               </button>
             </div>

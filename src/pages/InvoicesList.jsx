@@ -295,7 +295,7 @@ export default function InvoicesList() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-gray-100">
+      <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-gray-100">
         <AppNavbar />
         <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 max-w-[1900px] mx-auto">
           <div className="w-8 h-8 rounded-lg bg-white border border-slate-200 mb-4" />
@@ -318,7 +318,7 @@ export default function InvoicesList() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-gray-100">
+    <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-gray-100">
       <AppNavbar />
       <div className="px-4 sm:px-5 lg:px-6 py-3 sm:py-4 lg:py-5 max-w-[1900px] mx-auto">
         <PageHeader title="View Invoices" />
@@ -354,7 +354,7 @@ export default function InvoicesList() {
               <p className="text-sm font-semibold text-slate-700">No invoices yet</p>
               <p className="text-xs text-slate-400 mt-1 mb-4">Create your first invoice to get started</p>
               <button onClick={() => navigate("/invoice")}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 transition-all shadow-sm">
+                className="inline-flex items-center gap-2 px-5 py-2.5 min-h-[44px] bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 transition-all shadow-sm">
                 <PlusCircle className="w-4 h-4" /> Create Invoice
               </button>
             </div>
@@ -408,7 +408,7 @@ export default function InvoicesList() {
                             </button>
                             {ghostMode && (
                               <button onClick={() => deleteInvoice(inv.id)}
-                                className="p-2 hover:bg-red-50 rounded-lg transition-colors text-slate-400 hover:text-red-600" title="Delete Invoice">
+                                className="min-h-[44px] min-w-[44px] flex items-center justify-center p-2 hover:bg-red-50 rounded-lg transition-colors text-slate-400 hover:text-red-600" title="Delete Invoice">
                                 <Trash2 className="w-4 h-4" />
                               </button>
                             )}

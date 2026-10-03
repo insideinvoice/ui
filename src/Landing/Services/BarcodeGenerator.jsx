@@ -98,9 +98,11 @@ const BarcodeGenerator = () => {
         isMenuOpen={isMenuOpen}
         setIsMenuOpen={setIsMenuOpen}
       />
-      <div className="fixed top-0 left-0 w-full h-20 bg-white/90 backdrop-blur-md z-40 border-b border-gray-100 "></div>
 
-      <div className="max-w-6xl mx-auto p-6 font-sans text-gray-800 mt-20">
+      <div className="max-w-6xl mx-auto px-6 pb-6 font-sans text-gray-800 pt-24">
+      <Link to="/" className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 font-medium mb-6 transition-colors">
+        <span aria-hidden="true">←</span> Back to Home
+      </Link>
         {/* --- HEADER --- */}
         <div className="text-center mb-10">
           <h1 className="text-3xl font-bold text-blue-700 mb-2">
@@ -366,7 +368,7 @@ const BarcodeGenerator = () => {
             <p className="mb-6">
               Take your business to the next level with Inside Invoice!
             </p>
-            <Link to="/signup">
+            <Link to="/login">
               <button className="bg-white text-blue-700 font-bold py-3 px-8 rounded-full hover:bg-gray-100 transition shadow-lg">
                 Get Started Now
               </button>
@@ -398,7 +400,7 @@ const BarcodeGenerator = () => {
                 },
                 {
                   q: "Are the barcodes generated unique to my business?",
-                  a: "Once you register for GS1, you comply with Global standards. It allows you to create barcodes that include your company code, making it unique to your company.",
+                  a: "This free tool generates a visual barcode from the code you enter. It does not provide GS1 registration. If your industry requires GS1 standards, register with GS1 India separately.",
                 },
                 {
                   q: "Is it free to use the Inside Invoice barcode generator?",

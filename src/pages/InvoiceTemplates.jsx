@@ -39,18 +39,18 @@ const sampleCustomer = {
 };
 
 const sampleForm = {
-  invoiceDate: "2026-06-15",
-  dueDate: "2026-07-15",
+  invoiceDate: "2026-10-01",
+  dueDate: "2026-10-31",
   placeOfSupply: "Karnataka",
-  deliveryNote: "DN-2026-001",
-  deliveryNoteDate: "2026-06-14",
+  deliveryNote: "DN-2026-101",
+  deliveryNoteDate: "2026-09-30",
   referenceNumber: "REF-001",
-  buyerOrderNumber: "PO-2026-042",
-  dispatchDocNumber: "DD-2026-001",
+  buyerOrderNumber: "PO-2026-142",
+  dispatchDocNumber: "DD-2026-101",
   dispatchedThrough: "Express Logistics",
   termsOfDelivery: "Free delivery",
   paymentTerms: "Net 30",
-  otherReferences: "Quotation Q-2026-018",
+  otherReferences: "Quotation Q-2026-118",
   destination: "Bengaluru",
 };
 
@@ -173,7 +173,7 @@ export default function InvoiceTemplates() {
   const previewTemplate = ALL_TEMPLATES.find((t) => t.id === previewId);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-gray-100">
+    <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-gray-100">
       <AppNavbar />
       <div className="max-w-[1900px] mx-auto px-4 sm:px-6 py-6">
         <PageHeader title="Invoice Templates" />
@@ -201,7 +201,7 @@ export default function InvoiceTemplates() {
           <div className="relative w-full sm:w-auto mx-0 sm:mx-4" onClick={(e) => e.stopPropagation()}>
             <button
               onClick={() => setPreviewId(null)}
-              className="absolute -top-3 -right-3 z-10 w-8 h-8 bg-white rounded-full shadow-md border border-slate-200 flex items-center justify-center text-slate-500 hover:text-slate-700 transition-colors"
+              className="absolute -top-2 -right-2 z-10 w-10 h-10 bg-white rounded-full shadow-md border border-slate-200 flex items-center justify-center text-slate-500 hover:text-slate-700 transition-colors"
             >
               <X className="w-4 h-4" />
             </button>
@@ -231,7 +231,7 @@ export default function InvoiceTemplates() {
                   )}
                 </div>
               </div>
-              <div className="p-4 sm:p-6 overflow-auto max-h-[calc(100vh-4rem)] sm:max-h-[80vh]">
+              <div className="p-4 sm:p-6 overflow-auto max-h-[calc(100dvh-4rem)] sm:max-h-[80vh]">
                 <TemplatePreview templateId={previewId} />
               </div>
             </div>

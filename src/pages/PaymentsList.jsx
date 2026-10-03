@@ -47,7 +47,7 @@ export default function PaymentsList() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-gray-100">
+      <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-gray-100">
         <AppNavbar />
         <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8 max-w-[1900px] mx-auto">
           <div className="w-8 h-8 rounded-lg bg-white border border-slate-200 mb-4" />
@@ -78,7 +78,7 @@ export default function PaymentsList() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-gray-100">
+    <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-gray-100">
       <AppNavbar />
       <div className="px-4 sm:px-5 lg:px-6 py-3 sm:py-4 lg:py-5 max-w-[1900px] mx-auto">
         <PageHeader title="Payments" />
@@ -137,7 +137,7 @@ export default function PaymentsList() {
                     </td>
                     <td className="py-3 px-4 text-right">
                       <button onClick={() => handleDelete(p.id)}
-                        className="p-1.5 hover:bg-red-50 rounded-lg transition-colors text-slate-400 hover:text-red-500">
+                        className="min-h-[44px] min-w-[44px] flex items-center justify-center p-2 hover:bg-red-50 rounded-lg transition-colors text-slate-400 hover:text-red-500">
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </td>
@@ -169,7 +169,7 @@ export default function PaymentsList() {
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-slate-500 font-mono">Ref: {p.referenceNo || "-"}</span>
                   <button onClick={() => handleDelete(p.id)}
-                    className="p-1.5 hover:bg-red-50 rounded-lg transition-colors text-slate-400 hover:text-red-500">
+                    className="min-h-[44px] min-w-[44px] flex items-center justify-center p-2 hover:bg-red-50 rounded-lg transition-colors text-slate-400 hover:text-red-500">
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>

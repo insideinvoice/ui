@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import React, { useEffect, useState } from "react";
 import InvoiceNav from "./Navigation/InvoiceNav";
 import axios from "axios";
@@ -51,8 +52,11 @@ import axios from "axios";
          isMenuOpen={isMenuOpen}
          setIsMenuOpen={setIsMenuOpen}
        />
-       <div className="min-h-screen bg-gradient-to-br from-gray-50 via-slate-50 to-gray-100 pt-20">
-         <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
+       <div className="min-h-screen bg-gradient-to-br from-gray-50 via-slate-50 to-gray-100 pt-24">
+         <div className="max-w-3xl mx-auto px-4 sm:px-6 pb-8 sm:pb-12">
+          <Link to="/" className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 font-medium mb-6 transition-colors">
+            <span aria-hidden="true">←</span> Back to Home
+          </Link>
            <h1 className="text-2xl sm:text-3xl font-bold mb-2 text-slate-900" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Contact Inside Invoice</h1>
            <p className="text-slate-500 mb-6 sm:mb-8 text-sm sm:text-base">
              Have a question or need help? Our team is always happy to assist you.

@@ -154,7 +154,7 @@ export default function AdminInvoiceView() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-slate-50 to-gray-100 flex items-center justify-center">
+      <div className="min-h-[100dvh] bg-gradient-to-br from-gray-50 via-slate-50 to-gray-100 flex items-center justify-center">
         <div className="w-8 h-8 border-4 border-slate-700 border-t-transparent rounded-full animate-spin" />
       </div>
     );
@@ -162,7 +162,7 @@ export default function AdminInvoiceView() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-slate-50 to-gray-100">
+      <div className="min-h-[100dvh] bg-gradient-to-br from-gray-50 via-slate-50 to-gray-100">
         <AppNavbar />
         <div className="max-w-3xl mx-auto px-6 py-8">
           <button onClick={() => navigate("/admin/invoices")}
@@ -182,7 +182,7 @@ export default function AdminInvoiceView() {
   const labelClass = "block text-xs font-semibold text-slate-600 mb-1.5 tracking-wide uppercase";
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-slate-50 to-gray-100">
+    <div className="min-h-[100dvh] bg-gradient-to-br from-gray-50 via-slate-50 to-gray-100">
       <AppNavbar />
       <div className="max-w-[1900px] mx-auto px-4 sm:px-5 lg:px-6 py-3 sm:py-4 lg:py-5">
         <PageHeader title="Invoice Details" backTo={-1} />
@@ -286,7 +286,7 @@ export default function AdminInvoiceView() {
           </div>
 
           <div className="overflow-x-auto mb-6">
-            <table className="w-full text-sm">
+            <table className="w-full text-sm min-w-[800px]">
               <thead>
                 <tr className="border-b border-slate-200">
                   <th className="text-left py-2 px-2 text-[10px] font-medium text-slate-500 uppercase">#</th>

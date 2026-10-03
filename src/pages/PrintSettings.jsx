@@ -144,7 +144,7 @@ export default function PrintSettings({ noWrapper }) {
   if (noWrapper) return docSettings;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-gray-100">
+    <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-gray-100">
       <AppNavbar />
       <PageHeader title="Print Settings" />
       <div className="max-w-[1900px] mx-auto m-[5px] bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">

@@ -602,14 +602,14 @@ export default function InvoiceForm() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 via-slate-50 to-gray-100">
+      <div className="min-h-[100dvh] flex items-center justify-center bg-gradient-to-br from-gray-50 via-slate-50 to-gray-100">
         <div className="w-8 h-8 border-4 border-slate-700 border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-gray-100">
+    <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-gray-100">
       <AppNavbar />
       {/* Hidden Invoice PDF for capture */}
       <div style={{ position: "absolute", left: "-9999px", top: 0, pointerEvents: "none" }}>
@@ -627,7 +627,7 @@ export default function InvoiceForm() {
           template={(getPrintSettings()[form.invoiceType] || {}).template}
         />
       </div>
-      <div className="max-w-[1900px] mx-auto px-4 sm:px-5 lg:px-6 py-3 sm:py-4 lg:py-5 overflow-x-hidden">
+      <div className="max-w-[1900px] mx-auto px-4 sm:px-5 lg:px-6 py-3 sm:py-4 lg:py-5">
         <PageHeader title="Create Invoice" />
         {showPrefillBanner && (
           <div className="flex items-center gap-2 p-3 bg-indigo-50 border border-indigo-200 rounded-lg mb-4">
@@ -896,8 +896,8 @@ export default function InvoiceForm() {
                   setDiscountEnabled(next);
                   if (!next) setDiscountPercent("");
                 }}
-                  className={`relative w-9 h-5 rounded-full transition-colors ${discountEnabled ? "bg-blue-500" : "bg-slate-300"}`}>
-                  <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${discountEnabled ? "translate-x-4" : ""}`} />
+                  className={`relative w-12 h-6 rounded-full transition-colors ${discountEnabled ? "bg-blue-500" : "bg-slate-300"}`}>
+                  <span className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${discountEnabled ? "translate-x-6" : ""}`} />
                 </button>
               </div>
               {discountEnabled && (
@@ -1087,7 +1087,7 @@ export default function InvoiceForm() {
           </div>
 
           <div className="mt-5 pt-4 border-t border-slate-200 flex justify-end">
-            <div className="w-72 space-y-2">
+            <div className="w-full sm:w-72 space-y-2">
               <div className="flex justify-between text-sm">
                 <span className="text-slate-500">Subtotal:</span>
                 <span className="font-mono font-medium text-slate-700">Rs. {totals.subtotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>

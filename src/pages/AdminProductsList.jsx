@@ -28,7 +28,7 @@ export default function AdminProductsList() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-gray-100">
+      <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-gray-100">
         <AppNavbar />
         <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8 max-w-[1900px] mx-auto">
           <div className="w-8 h-8 rounded-lg bg-white border border-slate-200 mb-4" />
@@ -41,7 +41,7 @@ export default function AdminProductsList() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-gray-100">
+    <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-gray-100">
       <AppNavbar />
       <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8 max-w-[1900px] mx-auto">
         <PageHeader title="All Products" />

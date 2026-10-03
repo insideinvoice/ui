@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import React, { useEffect, useState } from "react";
 import InvoiceNav from "./Navigation/InvoiceNav";
 
@@ -11,6 +12,9 @@ export default function InsideInvoiceHelpCenter() {
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-slate-50 to-gray-100">
       <InvoiceNav scrolled={true} isMenuOpen={isMenuOpen} setIsMenuOpen={setIsMenuOpen} />
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-10 text-slate-800" style={{ paddingTop: "calc(5rem + env(safe-area-inset-top, 0px))" }}>
+        <Link to="/" className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 font-medium mb-6 transition-colors">
+          <span aria-hidden="true">←</span> Back to Home
+        </Link>
         <h1 className="text-2xl sm:text-3xl font-bold mb-4" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Inside Invoice Help Center</h1>
         <p className="mb-6 sm:mb-8 text-slate-600 text-sm sm:text-base">
           Find quick answers, step-by-step guides, and support resources to get

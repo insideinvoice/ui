@@ -84,7 +84,7 @@ export default function AuthPage() {
 
   return (
     <div
-      className="min-h-screen min-h-[100dvh] flex lg:bg-slate-900"
+      className="min-h-[100dvh] min-h-[100dvh] flex lg:bg-slate-900"
       style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
     >
       {/* ===== LEFT PANEL — Brand (desktop only) ===== */}
@@ -288,7 +288,7 @@ export default function AuthPage() {
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-1 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 w-8 h-8 flex items-center justify-center rounded-md transition-colors"
+                      className="absolute right-1 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 w-10 h-10 flex items-center justify-center rounded-md transition-colors"
                     >
                       {showPassword ? (
                         <EyeOff className="w-4 h-4" />
@@ -312,7 +312,7 @@ export default function AuthPage() {
                   <input
                     type="checkbox"
                     id="remember"
-                    className="w-3.5 h-3.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                    className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
                   />
                   <label
                     htmlFor="remember"

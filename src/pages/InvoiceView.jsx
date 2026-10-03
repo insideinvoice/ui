@@ -364,7 +364,7 @@ export default function InvoiceView() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 via-slate-50 to-gray-100">
+      <div className="min-h-[100dvh] flex items-center justify-center bg-gradient-to-br from-gray-50 via-slate-50 to-gray-100">
         <div className="w-8 h-8 border-4 border-slate-700 border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
@@ -372,7 +372,7 @@ export default function InvoiceView() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-gray-100">
+      <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-gray-100">
         <AppNavbar />
         <div className="px-6 py-12 text-center">
           <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-3" />
@@ -384,7 +384,7 @@ export default function InvoiceView() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-gray-100">
+    <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-gray-100">
       <AppNavbar />
       {/* Hidden Invoice PDF for capture */}
       <div style={{ position: "absolute", left: "-9999px", top: 0, pointerEvents: "none" }}>
@@ -795,8 +795,8 @@ export default function InvoiceView() {
                   setDiscountEnabled(next);
                   if (!next) setDiscountPercent("");
                 }}
-                  className={`relative w-9 h-5 rounded-full transition-colors ${discountEnabled ? "bg-blue-500" : "bg-slate-300"}`}>
-                  <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${discountEnabled ? "translate-x-4" : ""}`} />
+                  className={`relative w-12 h-6 rounded-full transition-colors ${discountEnabled ? "bg-blue-500" : "bg-slate-300"}`}>
+                  <span className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${discountEnabled ? "translate-x-6" : ""}`} />
                 </button>
               </div>
               {discountEnabled && (

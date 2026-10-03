@@ -169,7 +169,7 @@ export default function Profile() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-slate-50 to-gray-100">
+    <div className="min-h-[100dvh] bg-gradient-to-br from-gray-50 via-slate-50 to-gray-100">
       <AppNavbar />
       <div className="px-4 sm:px-5 lg:px-6 py-3 sm:py-4 lg:py-5 max-w-[1900px] mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -307,7 +307,7 @@ export default function Profile() {
             </label>
             {signature && (
               <button onClick={handleRemoveSignature} disabled={uploadingSig}
-                className="flex items-center gap-2 px-4 py-2.5 bg-red-50 text-red-600 text-sm font-semibold rounded-lg hover:bg-red-100 transition-all">
+                className="flex items-center gap-2 px-4 py-2.5 min-h-[44px] bg-red-50 text-red-600 text-sm font-semibold rounded-lg hover:bg-red-100 transition-all">
                 <Trash2 className="w-4 h-4" /> Remove
               </button>
             )}

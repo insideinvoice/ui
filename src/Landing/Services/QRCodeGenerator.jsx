@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import React, { useEffect, useState } from "react";
 import { QRCodeCanvas } from "qrcode.react";
 import jsPDF from "jspdf";
@@ -107,9 +108,11 @@ const QRCodeGenerator = () => {
         isMenuOpen={isMenuOpen}
         setIsMenuOpen={setIsMenuOpen}
       />
-      <div className="fixed top-0 left-0 w-full h-20 bg-white/90 backdrop-blur-md z-40 border-b border-gray-100"></div>
 
-      <div className="max-w-6xl mx-auto p-6 font-sans text-gray-800 mt-20">
+      <div className="max-w-6xl mx-auto px-6 pb-6 font-sans text-gray-800 pt-24">
+      <Link to="/" className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 font-medium mb-6 transition-colors">
+        <span aria-hidden="true">←</span> Back to Home
+      </Link>
         {/* --- HEADER --- */}
         <div className="text-center mb-10">
           <h1 className="text-3xl font-bold text-blue-700 mb-2">
@@ -320,8 +323,8 @@ const QRCodeGenerator = () => {
             <ul className="list-disc pl-6 space-y-2">
               <li>
                 <strong>Select type of QR code:</strong> You can choose from
-                multiple QR code options, including URL, vCard, plain text, SMS,
-                WhatsApp, email, Wi-Fi, and many more.
+                multiple QR code options, including URL, plain text, WhatsApp,
+                phone number, and contact (vCard).
               </li>
               <li>
                 <strong>Fill in the details:</strong> Put in all the information

@@ -28,6 +28,7 @@ export default function AuthPage() {
   const [successMessage, setSuccessMessage] = useState("");
   const [emailFocused, setEmailFocused] = useState(false);
   const [passwordFocused, setPasswordFocused] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
 
   const [formData, setFormData] = useState({
     email: "",
@@ -71,7 +72,7 @@ export default function AuthPage() {
       if (isForgotMode) {
         setSuccessMessage("If the email exists in our system, a reset link will be sent.");
       } else {
-        const data = await login(formData.email, formData.password);
+        const data = await login(formData.email, formData.password, rememberMe);
         navigate(data.businessSetupCompleted ? "/dashboard" : "/business-setup");
       }
     } catch (err) {
@@ -312,6 +313,8 @@ export default function AuthPage() {
                   <input
                     type="checkbox"
                     id="remember"
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
                     className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
                   />
                   <label

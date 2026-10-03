@@ -14,6 +14,8 @@ import InsideInvoiceVideoTutorials from "./Landing/InsideInvoiceVideoTutorials";
 import GSTCalculator from "./Landing/Services/GSTCalculator";
 import QRCodeGenerator from "./Landing/Services/QRCodeGenerator";
 import Login from "./Authentication/Login";
+import ForgotPassword from "./Authentication/ForgotPassword";
+import ChangePassword from "./Authentication/ChangePassword";
 import BarcodeGenerator from "./Landing/Services/BarcodeGenerator";
 import BusinessCardMaker from "./Landing/Services/BusinessCardMaker";
 import BusinessSetup from "./pages/BusinessSetup";
@@ -50,7 +52,9 @@ function AppRoutes() {
     <Routes>
       <Route path="/" element={<GSTBillingLanding />} />
       <Route path="/login" element={<Login />} />
-      <Route path="/forgot-password" element={<Login />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/change-password" element={<ChangePassword />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/privacy-policy" element={<PrivacyPolicy />} />
       <Route path="/terms-and-condition" element={<TermsandConditions />} />
       <Route path="/refund-policy" element={<RefundPolicy />} />

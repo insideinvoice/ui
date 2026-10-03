@@ -4,6 +4,33 @@ import { setAuthToken } from "../api/axios";
 
 const AuthContext = createContext(null);
 
+const TOKEN_KEY = "ii_token";
+const USER_KEY = "user";
+const REMEMBER_KEY = "ii_remember";
+
+function readStorage(key) {
+  return sessionStorage.getItem(key) || localStorage.getItem(key);
+}
+
+function writeStorage(key, value, rememberMe) {
+  if (rememberMe) {
+    localStorage.setItem(key, value);
+    sessionStorage.removeItem(key);
+  } else {
+    sessionStorage.setItem(key, value);
+    localStorage.removeItem(key);
+  }
+}
+
+function clearAuthStorage() {
+  localStorage.removeItem(TOKEN_KEY);
+  sessionStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(USER_KEY);
+  sessionStorage.removeItem(USER_KEY);
+  localStorage.removeItem(REMEMBER_KEY);
+  localStorage.removeItem("token");
+}
+
 function isTokenExpired(token) {
   try {
     const base64Url = token.split(".")[1];
@@ -24,35 +51,52 @@ export function AuthProvider({ children }) {
   );
 
   useEffect(() => {
-    localStorage.removeItem("token");
-    const storedToken = localStorage.getItem("ii_token");
-    const storedUser = localStorage.getItem("user");
-    if (storedToken && storedUser && !isTokenExpired(storedToken)) {
-      setAuthToken(storedToken);
-      setToken(storedToken);
-      const parsed = JSON.parse(storedUser);
+    clearAuthStorage();
+    const storedToken = sessionStorage.getItem(TOKEN_KEY);
+    const storedUser = sessionStorage.getItem(USER_KEY);
+    const rememberMe = localStorage.getItem(REMEMBER_KEY) === "true";
+    const fallbackToken = rememberMe ? localStorage.getItem(TOKEN_KEY) : null;
+    const fallbackUser = rememberMe ? localStorage.getItem(USER_KEY) : null;
+    const finalToken = storedToken || fallbackToken;
+    const finalUser = storedUser || fallbackUser;
+    if (finalToken && finalUser && !isTokenExpired(finalToken)) {
+      setAuthToken(finalToken);
+      setToken(finalToken);
+      const parsed = JSON.parse(finalUser);
       setUser(parsed);
       if (parsed.selectedTemplate) {
         localStorage.setItem("invoice_template", parsed.selectedTemplate);
         setSelectedTemplate(parsed.selectedTemplate);
       }
+      if (parsed.mustChangePassword) {
+        localStorage.setItem("mustChangePassword", "true");
+      } else {
+        localStorage.removeItem("mustChangePassword");
+      }
     } else {
-      localStorage.removeItem("ii_token");
-      localStorage.removeItem("user");
+      clearAuthStorage();
+      localStorage.removeItem("mustChangePassword");
     }
     setLoading(false);
   }, []);
 
-  const login = async (email, password) => {
-    const res = await authAPI.login({ email, password });
+  const login = async (email, password, rememberMe = false) => {
+    const res = await authAPI.login({ email, password, rememberMe });
     const data = res.data.data;
     setAuthToken(data.accessToken);
-    localStorage.setItem("user", JSON.stringify(data));
+    writeStorage(TOKEN_KEY, data.accessToken, rememberMe);
+    writeStorage(USER_KEY, JSON.stringify(data), rememberMe);
+    localStorage.setItem(REMEMBER_KEY, String(rememberMe));
     setToken(data.accessToken);
     setUser(data);
     if (data.selectedTemplate) {
       localStorage.setItem("invoice_template", data.selectedTemplate);
       setSelectedTemplate(data.selectedTemplate);
+    }
+    if (data.mustChangePassword) {
+      localStorage.setItem("mustChangePassword", "true");
+    } else {
+      localStorage.removeItem("mustChangePassword");
     }
     return data;
   };
@@ -62,22 +106,25 @@ export function AuthProvider({ children }) {
     localStorage.setItem("invoice_template", templateId);
     setSelectedTemplate(templateId);
     const updated = { ...user, selectedTemplate: templateId };
-    localStorage.setItem("user", JSON.stringify(updated));
+    const rememberMe = localStorage.getItem(REMEMBER_KEY) === "true";
+    writeStorage(USER_KEY, JSON.stringify(updated), rememberMe);
     setUser(updated);
   };
 
   const setupBusiness = async (businessData) => {
     const res = await businessAPI.setup(businessData);
     const updatedUser = { ...user, businessSetupCompleted: true };
-    localStorage.setItem("user", JSON.stringify(updatedUser));
+    const rememberMe = localStorage.getItem(REMEMBER_KEY) === "true";
+    writeStorage(USER_KEY, JSON.stringify(updatedUser), rememberMe);
     setUser(updatedUser);
     return res.data.data;
   };
 
   const logout = () => {
     setAuthToken(null);
-    localStorage.removeItem("user");
+    clearAuthStorage();
     localStorage.removeItem("invoice_template");
+    localStorage.removeItem("mustChangePassword");
     setToken(null);
     setUser(null);
     setSelectedTemplate("template-1");
@@ -86,6 +133,7 @@ export function AuthProvider({ children }) {
   const isAuthenticated = !!token;
   const isBusinessSetupComplete = user?.businessSetupCompleted;
   const isAdmin = user?.role === "ADMIN";
+  const mustChangePassword = user?.mustChangePassword === true || localStorage.getItem("mustChangePassword") === "true";
 
   return (
     <AuthContext.Provider
@@ -101,6 +149,7 @@ export function AuthProvider({ children }) {
         isAuthenticated,
         isBusinessSetupComplete,
         isAdmin,
+        mustChangePassword,
         selectedTemplate,
         updateTemplate,
       }}

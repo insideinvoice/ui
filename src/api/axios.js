@@ -13,7 +13,10 @@ const api = axios.create({
 
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem(TOKEN_KEY) || localStorage.getItem("token");
+    const token =
+      sessionStorage.getItem(TOKEN_KEY) ||
+      localStorage.getItem(TOKEN_KEY) ||
+      localStorage.getItem("token");
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -29,12 +32,8 @@ api.interceptors.response.use(
 
 export function setAuthToken(token) {
   if (token) {
-    localStorage.setItem(TOKEN_KEY, token);
-    localStorage.removeItem("token");
     api.defaults.headers.common["Authorization"] = `Bearer ${token}`;
   } else {
-    localStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem("token");
     delete api.defaults.headers.common["Authorization"];
   }
 }

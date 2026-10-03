@@ -51,7 +51,6 @@ export function AuthProvider({ children }) {
   );
 
   useEffect(() => {
-    clearAuthStorage();
     const storedToken = sessionStorage.getItem(TOKEN_KEY);
     const storedUser = sessionStorage.getItem(USER_KEY);
     const rememberMe = localStorage.getItem(REMEMBER_KEY) === "true";

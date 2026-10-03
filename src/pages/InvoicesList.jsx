@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { createRoot } from "react-dom/client";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import Spinner from "../components/Spinner";
 import AppNavbar from "../components/AppNavbar";
 import PageHeader from "../components/PageHeader";
 import { invoiceAPI, businessAPI } from "../api/auth";
@@ -297,21 +298,8 @@ export default function InvoicesList() {
     return (
       <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-gray-100">
         <AppNavbar />
-        <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 max-w-[1900px] mx-auto">
-          <div className="w-8 h-8 rounded-lg bg-white border border-slate-200 mb-4" />
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-            <div className="p-6 space-y-4">
-              {[1,2,3,4,5].map((i) => (
-                <div key={i} className="flex gap-4">
-                  <div className="h-4 bg-slate-100 rounded animate-pulse w-24" />
-                  <div className="h-4 bg-slate-100 rounded animate-pulse w-32" />
-                  <div className="h-4 bg-slate-100 rounded animate-pulse w-20" />
-                  <div className="h-4 bg-slate-100 rounded animate-pulse w-16" />
-                  <div className="h-4 bg-slate-100 rounded animate-pulse w-28 ml-auto" />
-                </div>
-              ))}
-            </div>
-          </div>
+        <div className="flex items-center justify-center" style={{ minHeight: "calc(100dvh - 80px)" }}>
+          <Spinner size={48} />
         </div>
       </div>
     );

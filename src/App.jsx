@@ -21,7 +21,6 @@ import BusinessCardMaker from "./Landing/Services/BusinessCardMaker";
 import BusinessSetup from "./pages/BusinessSetup";
 import Dashboard from "./pages/Dashboard";
 import InvoiceForm from "./pages/InvoiceForm";
-import InvoiceUpload from "./pages/InvoiceUpload";
 import InvoiceView from "./pages/InvoiceView";
 import InvoicesList from "./pages/InvoicesList";
 import AddCustomer from "./pages/AddCustomer";
@@ -69,7 +68,6 @@ function AppRoutes() {
       <Route path="/business-setup" element={<PrivateRoute><BusinessSetup /></PrivateRoute>} />
       <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
       <Route path="/invoice" element={<PrivateRoute><InvoiceForm /></PrivateRoute>} />
-      <Route path="/invoice/upload" element={<PrivateRoute><InvoiceUpload /></PrivateRoute>} />
       <Route path="/invoice/:id" element={<PrivateRoute><InvoiceView /></PrivateRoute>} />
       <Route path="/invoices" element={<PrivateRoute><InvoicesList /></PrivateRoute>} />
       <Route path="/customers/new" element={<PrivateRoute><AddCustomer /></PrivateRoute>} />

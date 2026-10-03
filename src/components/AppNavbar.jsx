@@ -4,7 +4,7 @@ import { useAuth } from "../context/AuthContext";
 import {
   LogOut, Users, Plus, List, UserPlus, UserCheck,
   LayoutDashboard, Shield, Package, FileText, Settings,
-  ChevronDown, Menu, X, Home, Camera
+  ChevronDown, Menu, X, Home
 } from "lucide-react";
 import insideInvoiceLogo from "../assets/inside-invoice-logo.svg";
 
@@ -19,7 +19,6 @@ const sections = (isAdmin) => [
     header: "Invoices",
     items: [
       { label: "New Invoice", icon: Plus, path: "/invoice" },
-      { label: "Upload Invoice", icon: Camera, path: "/invoice/upload" },
       { label: "View Invoices", icon: List, path: "/invoices" },
       { label: "Invoice Templates", icon: FileText, path: "/invoice-templates" },
       { label: "Add Product", icon: Package, path: "/products/new" },

@@ -20,6 +20,7 @@ export default function ForgotPassword() {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [countdown, setCountdown] = useState(15);
+  const [resendCooldown, setResendCooldown] = useState(0);
   const otpInputRef = useRef(null);
 
   useEffect(() => {
@@ -36,6 +37,13 @@ export default function ForgotPassword() {
     const timer = setTimeout(() => setCountdown((c) => c - 1), 1000);
     return () => clearTimeout(timer);
   }, [step, countdown, navigate]);
+
+  // Resend cooldown timer (5 minutes)
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timer = setTimeout(() => setResendCooldown((c) => c - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [resendCooldown]);
 
   // Focus OTP input when step 2
   useEffect(() => {
@@ -64,6 +72,7 @@ export default function ForgotPassword() {
 
       if (res.ok) {
         setStep(2);
+        setResendCooldown(300);
       } else {
         setApiError(data.message || "Something went wrong. Please try again.");
       }
@@ -163,6 +172,7 @@ export default function ForgotPassword() {
       if (res.ok) {
         setOtp("");
         setOtpError("");
+        setResendCooldown(300);
       } else {
         setApiError(data.message || "Failed to resend code. Please try again.");
       }
@@ -207,19 +217,14 @@ export default function ForgotPassword() {
 
         {/* Card */}
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-7">
-          {/* Step indicator */}
-          {step < 4 && (
-            <div className="flex items-center gap-2 mb-5">
-              {[1, 2, 3].map((s) => (
-                <div
-                  key={s}
-                  className={`h-1.5 rounded-full transition-all duration-300 ${
-                    s <= step ? "w-8 bg-indigo-500" : "w-4 bg-slate-200"
-                  }`}
-                />
-              ))}
-            </div>
-          )}
+          {/* Back to Sign in */}
+          <button
+            onClick={() => navigate("/login")}
+            className="flex items-center gap-1.5 text-[13px] text-slate-500 hover:text-slate-700 font-medium transition-colors mb-5"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to Sign in
+          </button>
 
           <div className="flex items-center gap-2 mb-1">
             <h1 className="text-xl font-bold text-slate-900" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
@@ -354,10 +359,21 @@ export default function ForgotPassword() {
                 <button
                   type="button"
                   onClick={handleResendOtp}
-                  disabled={isLoading}
-                  className="text-indigo-600 font-medium hover:underline disabled:opacity-50"
+                  disabled={isLoading || resendCooldown > 0}
+                  className={`font-medium flex items-center gap-1.5 ${
+                    resendCooldown > 0
+                      ? "text-slate-400 cursor-not-allowed"
+                      : "text-indigo-600 hover:underline"
+                  }`}
                 >
-                  Resend code
+                  {resendCooldown > 0 ? (
+                    <>
+                      <div className="w-3.5 h-3.5 border-2 border-slate-300 border-t-slate-500 rounded-full animate-spin" />
+                      Resend in {Math.floor(resendCooldown / 60)}:{(resendCooldown % 60).toString().padStart(2, "0")}
+                    </>
+                  ) : (
+                    "Resend code"
+                  )}
                 </button>
                 <button
                   type="button"
@@ -365,6 +381,7 @@ export default function ForgotPassword() {
                     setStep(1);
                     setOtp("");
                     setApiError("");
+                    setResendCooldown(0);
                   }}
                   className="text-slate-500 hover:text-slate-700 flex items-center gap-1"
                 >
@@ -517,14 +534,10 @@ export default function ForgotPassword() {
 
         {/* Back to login / signup */}
         {step !== 4 && (
-          <div className="mt-5 flex items-center justify-center gap-4 text-[13px]">
+          <div className="mt-5 flex items-center justify-center text-[13px]">
             <Link to="/login" className="text-slate-500 hover:text-slate-700 flex items-center gap-1">
               <ArrowLeft className="w-3 h-3" />
               Back to login
-            </Link>
-            <span className="text-slate-300">|</span>
-            <Link to="/signup" className="text-slate-500 hover:text-slate-700">
-              Create account
             </Link>
           </div>
         )}

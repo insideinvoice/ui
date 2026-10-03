@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import Spinner from "../components/Spinner";
+import LoadingDots from "../components/LoadingDots";
 import { useAuth } from "../context/AuthContext";
 import AppNavbar from "../components/AppNavbar";
 import PageHeader from "../components/PageHeader";
@@ -88,7 +90,7 @@ export default function AddProduct() {
           </div>
           <button type="submit" disabled={saving || !form.name.trim() || !form.rate}
             className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-800 text-white text-sm font-semibold rounded-lg hover:bg-slate-700 disabled:opacity-50 transition-all shadow-sm mt-6 mb-4">
-            {saving ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Save className="w-4 h-4" />}
+            {saving ? <LoadingDots className="text-white" /> : <Save className="w-4 h-4" />}
             {saving ? "Saving..." : "Save Product"}
           </button>
         </form>

@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+import Spinner from "../components/Spinner";
+import LoadingDots from "../components/LoadingDots";
 import { useAuth } from "../context/AuthContext";
 import AppNavbar from "../components/AppNavbar";
 import PageHeader from "../components/PageHeader";
@@ -603,7 +605,7 @@ export default function InvoiceForm() {
   if (loading) {
     return (
       <div className="min-h-[100dvh] flex items-center justify-center bg-gradient-to-br from-gray-50 via-slate-50 to-gray-100">
-        <div className="w-8 h-8 border-4 border-slate-700 border-t-transparent rounded-full animate-spin"></div>
+        <Spinner size={32} />
       </div>
     );
   }
@@ -652,7 +654,7 @@ export default function InvoiceForm() {
                 </div>
                 <div className="flex items-center gap-2">
                   {customerCheckLoading && (
-                    <div className="w-4 h-4 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin" />
+                    <Spinner size={16} />
                   )}
                   {existingCustomer && (
                     <span className="text-[11px] font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">Existing customer</span>
@@ -960,7 +962,7 @@ export default function InvoiceForm() {
               <div className="space-y-3">
                 <button onClick={handleSave} disabled={saving}
                   className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-800 text-white text-sm font-semibold rounded-lg hover:bg-slate-700 disabled:opacity-50 transition-all shadow-sm min-h-[44px]">
-                  {saving ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Save className="w-4 h-4" />}
+                  {saving ? <LoadingDots className="text-white" /> : <Save className="w-4 h-4" />}
                   {saving ? "Saving..." : "Save Invoice"}
                 </button>
                 <button onClick={() => generatePDF("TAX_INVOICE")} disabled={sealRequired || totals.grandTotal <= 0}

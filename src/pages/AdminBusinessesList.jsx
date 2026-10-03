@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import Spinner from "../components/Spinner";
 import { adminAPI } from "../api/auth";
 import { ArrowLeft, Building2 } from "lucide-react";
 import AppNavbar from "../components/AppNavbar";
@@ -26,7 +27,7 @@ export default function AdminBusinessesList() {
 
         {loading ? (
           <div className="flex items-center justify-center py-24">
-            <div className="w-6 h-6 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin" />
+            <Spinner size={24} />
           </div>
         ) : businesses.length > 0 ? (
           <>

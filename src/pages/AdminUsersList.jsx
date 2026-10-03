@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import Spinner from "../components/Spinner";
 import { useAuth } from "../context/AuthContext";
 import AppNavbar from "../components/AppNavbar";
 import PageHeader from "../components/PageHeader";
@@ -96,7 +97,7 @@ export default function AdminUsersList() {
 
         {loading ? (
           <div className="flex items-center justify-center py-24">
-            <div className="w-6 h-6 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin" />
+            <Spinner size={24} />
           </div>
         ) : users.length === 0 ? (
           <div className="text-center py-16 text-sm text-slate-400">No users found</div>

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import Spinner from "../components/Spinner";
 import { adminAPI } from "../api/auth";
 import toast from "react-hot-toast";
 import { ArrowLeft, FileText, Building2 } from "lucide-react";
@@ -46,7 +47,7 @@ export default function BusinessInvoices() {
 
         {loading ? (
           <div className="flex items-center justify-center py-24">
-            <div className="w-6 h-6 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin" />
+            <Spinner size={24} />
           </div>
         ) : invoices.length > 0 ? (
           <>

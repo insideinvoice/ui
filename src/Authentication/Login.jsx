@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import Spinner from "../components/Spinner";
+import LoadingDots from "../components/LoadingDots";
 import { useAuth } from "../context/AuthContext";
 import {
   Mail,
@@ -334,7 +336,7 @@ export default function AuthPage() {
               >
                 {isLoading ? (
                   <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <LoadingDots className="text-white" />
                     Signing in...
                   </>
                 ) : (

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import Spinner from "../components/Spinner";
 import { adminAPI } from "../api/auth";
 import toast from "react-hot-toast";
 import { ArrowLeft, FileText, Save, Edit2, Download } from "lucide-react";
@@ -155,7 +156,7 @@ export default function AdminInvoiceView() {
   if (loading) {
     return (
       <div className="min-h-[100dvh] bg-gradient-to-br from-gray-50 via-slate-50 to-gray-100 flex items-center justify-center">
-        <div className="w-8 h-8 border-4 border-slate-700 border-t-transparent rounded-full animate-spin" />
+        <Spinner size={32} />
       </div>
     );
   }

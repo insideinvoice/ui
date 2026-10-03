@@ -1,5 +1,6 @@
 import { Toaster } from "react-hot-toast";
 import { Route, Routes, Navigate } from "react-router-dom";
+import Spinner from "./components/Spinner";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import PWAInstallPrompt from "./components/PWAInstallPrompt";
 import GSTBillingLanding from "./Landing/gst-landing-final";
@@ -42,7 +43,7 @@ import MorePage from "./pages/MorePage";
 
 function PrivateRoute({ children }) {
   const { isAuthenticated, loading } = useAuth();
-  if (loading) return <div className="min-h-screen flex items-center justify-center"><div className="w-8 h-8 border-4 border-slate-700 border-t-transparent rounded-full animate-spin"></div></div>;
+  if (loading) return <div className="min-h-screen flex items-center justify-center"><Spinner size={32} /></div>;
   return isAuthenticated ? <div className="lg:ml-60">{children}</div> : <Navigate to="/login" />;
 }
 

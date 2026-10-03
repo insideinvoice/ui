@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import Spinner from "../components/Spinner";
+import LoadingDots from "../components/LoadingDots";
 import { useAuth } from "../context/AuthContext";
 import AppNavbar from "../components/AppNavbar";
 import PageHeader from "../components/PageHeader";
@@ -176,7 +178,7 @@ export default function BusinessSetup() {
             <button type="submit" disabled={isLoading}
               className="w-full bg-gradient-to-r from-slate-700 to-slate-800 text-white font-medium py-2.5 rounded-lg hover:shadow-lg transition-all text-sm flex items-center justify-center gap-2 disabled:opacity-50">
               {isLoading ? (
-                <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> Setting up...</>
+                <><LoadingDots className="text-white" /> Setting up...</>
               ) : (
                 <><Check className="w-4 h-4" /> Complete Setup <ArrowRight className="w-4 h-4" /></>
               )}

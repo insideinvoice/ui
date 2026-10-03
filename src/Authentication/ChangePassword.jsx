@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
+import Spinner from "../components/Spinner";
+import LoadingDots from "../components/LoadingDots";
 import { useAuth } from "../context/AuthContext";
 import { Lock, Eye, EyeOff, CheckCircle, AlertCircle } from "lucide-react";
 
@@ -267,7 +269,7 @@ export default function ChangePassword() {
             >
               {isLoading ? (
                 <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <LoadingDots className="text-white" />
                   Changing...
                 </>
               ) : (

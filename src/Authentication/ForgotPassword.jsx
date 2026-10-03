@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Mail, AlertCircle, CheckCircle, Info, ShieldCheck, KeyRound, ArrowLeft } from "lucide-react";
+import Spinner from "../components/Spinner";
+import LoadingDots from "../components/LoadingDots";
 import insideInvoiceLogo from "../assets/inside-invoice-logo.svg";
 
 export default function ForgotPassword() {
@@ -294,7 +296,7 @@ export default function ForgotPassword() {
               >
                 {isLoading ? (
                   <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <LoadingDots className="text-white" />
                     Sending code...
                   </>
                 ) : (
@@ -344,7 +346,7 @@ export default function ForgotPassword() {
               >
                 {isLoading ? (
                   <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <LoadingDots className="text-white" />
                     Verifying...
                   </>
                 ) : (
@@ -368,7 +370,7 @@ export default function ForgotPassword() {
                 >
                   {resendCooldown > 0 ? (
                     <>
-                      <div className="w-3.5 h-3.5 border-2 border-slate-300 border-t-slate-500 rounded-full animate-spin" />
+                      <Spinner size={14} />
                       Resend in {Math.floor(resendCooldown / 60)}:{(resendCooldown % 60).toString().padStart(2, "0")}
                     </>
                   ) : (
@@ -498,7 +500,7 @@ export default function ForgotPassword() {
               >
                 {isLoading ? (
                   <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <LoadingDots className="text-white" />
                     Resetting...
                   </>
                 ) : (

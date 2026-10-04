@@ -717,10 +717,16 @@ export default function InvoiceForm() {
           className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 text-white text-sm font-semibold rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-all shadow-sm min-h-[44px]">
           <Download className="w-4 h-4" /> Proforma PDF
         </button>
-        <button onClick={handlePrint} disabled={sealRequired || totals.grandTotal <= 0}
-          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-white text-slate-700 text-sm font-semibold rounded-lg border border-slate-300 hover:bg-slate-50 disabled:opacity-50 transition-all shadow-sm min-h-[44px]">
-          <Share2 className="w-4 h-4" /> Share PDF
-        </button>
+        <div className="flex items-stretch gap-3">
+          <button onClick={handlePrint} disabled={sealRequired || totals.grandTotal <= 0}
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-white text-slate-700 text-sm font-semibold rounded-lg border border-slate-300 hover:bg-slate-50 disabled:opacity-50 transition-all shadow-sm min-h-[44px] whitespace-nowrap">
+            <Share2 className="w-4 h-4" /> Share PDF
+          </button>
+          <button type="button" onClick={shareViaWhatsApp} onPointerEnter={prefetchInvoicePdf} onFocus={prefetchInvoicePdf} disabled={sharing || sealRequired || totals.grandTotal <= 0} title="Share on WhatsApp" aria-label="Share on WhatsApp"
+            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-[#25D366] text-white text-sm font-semibold rounded-lg hover:bg-[#1ebe5b] disabled:opacity-50 transition-all shadow-sm min-h-[44px] whitespace-nowrap flex-shrink-0">
+            {sharing ? <Spinner size={18} /> : <WhatsAppIcon className="w-5 h-5" />} WhatsApp
+          </button>
+        </div>
       </div>
 
       <div className="mt-6 pt-4 border-t border-slate-100">
@@ -790,12 +796,7 @@ export default function InvoiceForm() {
         </div>
       )}
       <div className="max-w-[1900px] mx-auto px-4 sm:px-5 lg:px-6 py-3 sm:py-4 lg:py-5">
-        <PageHeader title="Create Invoice">
-          <button type="button" onClick={shareViaWhatsApp} onPointerEnter={prefetchInvoicePdf} onFocus={prefetchInvoicePdf} disabled={sharing} title="Share on WhatsApp" aria-label="Share on WhatsApp"
-            className="flex items-center justify-center w-11 h-11 rounded-lg bg-[#25D366] text-white hover:bg-[#1ebe5b] disabled:opacity-60 transition-all shadow-sm">
-            {sharing ? <Spinner size={18} /> : <WhatsAppIcon className="w-5 h-5" />}
-          </button>
-        </PageHeader>
+        <PageHeader title="Create Invoice" />
         {showPrefillBanner && (
           <div className="flex items-center gap-2 p-3 bg-indigo-50 border border-indigo-200 rounded-lg mb-4">
             <Info className="w-4 h-4 text-indigo-500 shrink-0" />

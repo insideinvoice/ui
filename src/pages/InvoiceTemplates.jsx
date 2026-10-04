@@ -86,6 +86,52 @@ function TemplatePreview({ templateId }) {
   return <InvoiceTemplateVariants ref={previewRef} theme={templateId} {...commonProps} />;
 }
 
+/* Invoice templates render at a fixed print width (~716px). Inside the preview
+   modal nothing constrains that width, so on a phone the document is wider than
+   the screen and a tap inside it triggers the browser's own smart-zoom — after
+   which the modal is unusable. Scaling the document down to the available width
+   keeps it fully readable and stops the viewport from ever overflowing. */
+const PREVIEW_NATIVE_WIDTH = 832;
+
+function ScaledPreview({ templateId }) {
+  const wrapRef = useRef(null);
+  const [scale, setScale] = useState(1);
+  const [height, setHeight] = useState(0);
+
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return undefined;
+    const measure = () => {
+      const avail = el.clientWidth;
+      if (!avail) return;
+      const next = Math.min(1, avail / PREVIEW_NATIVE_WIDTH);
+      setScale(next);
+      setHeight(el.scrollHeight * next);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [templateId]);
+
+  return (
+    <div ref={wrapRef} className="w-full overflow-hidden">
+      <div
+        style={{
+          transform: `scale(${scale})`,
+          transformOrigin: "top left",
+          width: `${PREVIEW_NATIVE_WIDTH}px`,
+          maxWidth: "none",
+        }}
+      >
+        <TemplatePreview templateId={templateId} />
+      </div>
+      {/* reserve the scaled height so the scroll container sizes correctly */}
+      <div style={{ height: `${height}px` }} aria-hidden="true" />
+    </div>
+  );
+}
+
 function TemplateCard({ template, isSelected, onSelect, onPreview }) {
   const [scale, setScale] = useState(1);
   const containerRef = useRef(null);
@@ -195,7 +241,8 @@ export default function InvoiceTemplates() {
       {/* Full-size Preview Modal */}
       {previewId && previewTemplate && (
         <div
-          className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-start sm:items-center justify-center overflow-y-auto py-0 sm:py-10"
+          className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-start sm:items-center justify-center overflow-y-auto overflow-x-hidden overscroll-contain py-0 sm:py-10"
+          style={{ touchAction: "pan-y" }}
           onClick={() => setPreviewId(null)}
         >
           <div className="relative w-full sm:w-auto mx-0 sm:mx-4" onClick={(e) => e.stopPropagation()}>
@@ -231,8 +278,11 @@ export default function InvoiceTemplates() {
                   )}
                 </div>
               </div>
-              <div className="p-4 sm:p-6 overflow-auto max-h-[calc(100dvh-4rem)] sm:max-h-[80vh]">
-                <TemplatePreview templateId={previewId} />
+              <div
+                className="p-4 sm:p-6 overflow-y-auto overflow-x-hidden overscroll-contain max-h-[calc(100dvh-4rem)] sm:max-h-[80vh]"
+                style={{ touchAction: "pan-y" }}
+              >
+                <ScaledPreview templateId={previewId} />
               </div>
             </div>
           </div>

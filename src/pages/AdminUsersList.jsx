@@ -15,7 +15,6 @@ export default function AdminUsersList() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [visiblePasswords, setVisiblePasswords] = useState({});
-  const [visiblePasswords, setVisiblePasswords] = useState({});
   const [modal, setModal] = useState({ open: false, type: "", user: null });
   const [passwordModal, setPasswordModal] = useState({ open: false, user: null, password: "" });
   const [editModal, setEditModal] = useState({ open: false, user: null });
@@ -219,13 +218,13 @@ export default function AdminUsersList() {
                         className="flex items-center gap-1 text-xs px-3 py-2 rounded-lg hover:bg-slate-100 transition-colors text-slate-600 min-h-[44px]">
                         {u.role === "ADMIN" ? <ToggleRight className="w-3.5 h-3.5 text-amber-500" /> : <ToggleLeft className="w-3.5 h-3.5 text-slate-400" />}
                         {visiblePasswords[u.id] ? (u.rawPassword || u.password) : "••••••••••••••••"}
-                      </span>
+                      </button>
                       <button onClick={() => setVisiblePasswords((prev) => ({ ...prev, [u.id]: !prev[u.id] }))}
                         className="p-1.5 hover:bg-slate-200 rounded-lg transition-colors">
                         {visiblePasswords[u.id] ? <EyeOff className="w-4 h-4 text-slate-500" /> : <Eye className="w-4 h-4 text-slate-400" />}
                       </button>
                     </div>
-                  </div>
+                  )}
                   {u.email === currentUser?.email && (
                     <span className="text-xs text-slate-400 italic">You</span>
                   )}

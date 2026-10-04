@@ -393,7 +393,6 @@ const printInvoice = useCallback(async (invoice) => {
       setBusy("");
     }
   }, []);
-}, []);
 
 const shareViaWhatsApp = useCallback(async (invoice) => {
     if (busy) return;
@@ -413,8 +412,7 @@ const shareViaWhatsApp = useCallback(async (invoice) => {
     } finally {
       setBusy("");
     }
-  }, [busy];
-);
+  }, [busy]);
 
 const createInvoicePdfFileFromInvoice = async (invoice) => {
   try {

@@ -263,7 +263,7 @@ export default function HazmatLabelForm() {
 
             <div className="flex items-center gap-3 pb-8">
               <button type="submit" disabled={saving}
-                className="px-5 py-2.5 min-h-[44px] bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 transition-all shadow-sm disabled:opacity-50">
+                className="px-5 py-2.5 min-h-[44px] bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 transition-all shadow-sm whitespace-nowrap disabled:opacity-50 flex-shrink-0">
                 {saving ? "Saving..." : editing ? "Update Label" : "Create Label"}
               </button>
               <p className="text-[11px] text-slate-400">UN data shown is reference info. Verify shipping requirements with your carrier.</p>

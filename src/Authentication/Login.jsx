@@ -347,19 +347,6 @@ export default function AuthPage() {
               </button>
             </form>
 
-            {/* Sign up link */}
-            {!isForgotMode && (
-              <p className="mt-5 text-center text-[13px] text-slate-500">
-                Don&apos;t have an account?{" "}
-                <Link
-                  to="/"
-                  className="text-slate-900 font-semibold hover:underline"
-                >
-                  Get started
-                </Link>
-              </p>
-            )}
-
             {isForgotMode && (
               <p className="mt-5 text-center text-[13px] text-slate-500">
                 Remember your password?{" "}

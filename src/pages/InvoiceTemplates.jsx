@@ -248,7 +248,7 @@ export default function InvoiceTemplates() {
           <div className="relative w-full sm:w-auto mx-0 sm:mx-4" onClick={(e) => e.stopPropagation()}>
             <button
               onClick={() => setPreviewId(null)}
-              className="absolute -top-2 -right-2 z-10 w-10 h-10 bg-white rounded-full shadow-md border border-slate-200 flex items-center justify-center text-slate-500 hover:text-slate-700 transition-colors"
+              className="absolute -top-2 -right-2 z-10 w-10 h-10 bg-white rounded-full shadow-md border border-slate-200 flex items-center justify-center text-slate-500 hover:text-slate-700 transition-colors max-sm:top-2 max-sm:right-2"
             >
               <X className="w-4 h-4" />
             </button>

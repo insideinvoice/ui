@@ -1,8 +1,192 @@
+# robots.txt — Inside Invoice (insideinvoice.com)
+#
+# Scope: this file governs crawler access to the public marketing site only.
+# Authenticated application routes (/dashboard, /invoices, /settings, /labels,
+# /admin, ...) require a valid JWT and are additionally protected server-side.
+# Nothing here grants access to any private data.
+
 User-agent: *
 Allow: /
 
+# Public marketing / informational pages are welcome to be indexed.
+Allow: /$
+Allow: /about
+Allow: /features
+Allow: /pricing
+Allow: /gst-calculator
+Allow: /qr-generator
+Allow: /barcode-generator
+Allow: /business-card
+Allow: /documentation
+Allow: /help
+Allow: /video
+Allow: /contact
+Allow: /privacy-policy
+Allow: /terms-and-condition
+Allow: /refund-policy
+Allow: /updates
+
+# ---------------------------------------------------------------------------
+# No scraping. Everything below is refused to every crawler and bot.
+# ---------------------------------------------------------------------------
+
+# Authenticated application — no indexing, no crawling.
 Disallow: /dashboard
+Disallow: /invoices
 Disallow: /invoice
+Disallow: /customers
+Disallow: /customer
+Disallow: /products
+Disallow: /product
+Disallow: /payments
+Disallow: /invoice-templates
+Disallow: /settings
+Disallow: /profile
+Disallow: /more
+Disallow: /business-setup
+Disallow: /admin
+Disallow: /labels
+Disallow: /api
+
+# Auth endpoints — never crawl or probe.
+Disallow: /auth
+Disallow: /login
+Disallow: /logout
+Disallow: /forgot-password
+Disallow: /change-password
+
+# Bulk exports, label/shipping documents, invoices, reports, ZPL and PDF
+# artefacts — these are customer documents, not content for redistribution.
+Disallow: /*/pdf
+Disallow: /*/preview
+Disallow: /*/download
+Disallow: /*/export
+Disallow: /*/report
+Disallow: /*/generate
+Disallow: /*/zpl
+Disallow: /*.pdf$
+Disallow: /*.csv$
+Disallow: /*.xlsx$
+Disallow: /*.xls$
+Disallow: /*.zip$
+Disallow: /*.json$
+
+# Search/query endpoints must not be crawled or mirrored.
+Disallow: /*?*
+Disallow: /*&*
+Disallow: /*search*
+Disallow: /*query*
+Disallow: /*filter*
+Disallow: /*?q=
+Disallow: /*?query=
+Disallow: /*?search=
+
+# Free-tool generators and asset paths that are not for bulk harvesting.
+Disallow: /*/generate-pdf
+Disallow: /assets
+Disallow: /icons
+Disallow: /manifest.json
+Disallow: /*.map$
+
+# Crawl-delay: be considerate if you are indexing the marketing pages.
+Crawl-delay: 10
+
+# ---------------------------------------------------------------------------
+# Aggressive / commercial crawlers, scrapers and AI training bots are
+# refused outright. A plain "Allow: /" above does not re-grant them access:
+# the most specific matching group wins, and these groups match everything.
+# ---------------------------------------------------------------------------
+
+User-agent: GPTBot
+Disallow: /
+
+User-agent: CCBot
+Disallow: /
+
+User-agent: anthropic-ai
+Disallow: /
+
+User-agent: ClaudeBot
+Disallow: /
+
+User-agent: Google-Extended
+Disallow: /
+
+User-agent: Applebot-Extended
+Disallow: /
+
+User-agent: Bytespider
+Disallow: /
+
+User-agent: CCBot-CC
+Disallow: /
+
+User-agent: meta-externalagent
+Disallow: /
+
+User-agent: FacebookBot
+Disallow: /
+
+User-agent: Twitterbot
+Disallow: /
+
+User-agent: LinkedInBot
+Disallow: /
+
+User-agent: Pinterest
+Disallow: /
+
+User-agent: Slackbot
+Disallow: /
+
+User-agent: Discordbot
+Disallow: /
+
+User-agent: TelegramBot
+Disallow: /
+
+User-agent: WhatsApp
+Disallow: /
+
+User-agent: AhrefsBot
+Disallow: /
+
+User-agent: SemrushBot
+Disallow: /
+
+User-agent: MJ12bot
+Disallow: /
+
+User-agent: DotBot
+Disallow: /
+
+User-agent: PetalBot
+Disallow: /
+
+User-agent: BLEXBot
+Disallow: /
+
+User-agent: YandexBot
+Disallow: /
+
+User-agent: Baiduspider
+Disallow: /
+
+User-agent: DuckDuckBot
+Disallow: /
+
+User-agent: archive.org_bot
+Disallow: /
+
+User-agent: ia_archiver
+Disallow: /
+
+# Generic catch-alls for unnamed scrapers, downloaders and headless clients.
+User-agent: *
+Disallow: /api
+Disallow: /admin
+Disallow: /labels
+Disallow: /dashboard
 Disallow: /settings
 
 Sitemap: https://insideinvoice.com/sitemap.xml

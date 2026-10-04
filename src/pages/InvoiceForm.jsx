@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback, memo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import Spinner from "../components/Spinner";
 import LoadingDots from "../components/LoadingDots";
+import Spinner from "../components/Spinner";
 import { useAuth } from "../context/AuthContext";
 import AppNavbar from "../components/AppNavbar";
 import PageHeader from "../components/PageHeader";
@@ -13,8 +13,10 @@ import {
   Package, FileSpreadsheet, Share2, Info, X
 } from "lucide-react";
 import InvoiceTemplateRenderer from "../components/InvoiceTemplateRenderer";
+import WhatsAppIcon from "../components/WhatsAppIcon";
 import { processQueue } from "../utils/retryQueue";
 import { processPrint } from "../utils/printInvoice";
+import { openWhatsApp, buildInvoiceWhatsAppMessage, createInvoicePdfFile, prefetchInvoicePdf } from "../utils/whatsapp";
 import { getPrintSettings, getPaperDimensions } from "../constants/paperSizes";
 import { INDIAN_STATES, DELIVERY_TERMS, PAYMENT_TERMS } from "../constants/indianStates";
 
@@ -33,7 +35,7 @@ const focusNext = (currentName) => {
 
 const FOCUS_FIELDS = ["hsn", "desc", "qty", "rate", "gst"];
 
-const ItemRow = ({ item, idx, onItemChange, onRemove, onAdd, onHsnLookup }) => {
+const ItemRow = memo(({ item, idx, onItemChange, onRemove, onAdd, onHsnLookup }) => {
   const handleKeyDown = (e, field) => {
     if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
@@ -67,15 +69,15 @@ const ItemRow = ({ item, idx, onItemChange, onRemove, onAdd, onHsnLookup }) => {
     <td className="py-3 px-3 border-b border-slate-100">
       <div className="relative">
         <input type="text" value={item.hsn} name={`hsn-${idx + 1}`}
-          onChange={(e) => onItemChange(idx, "hsn", e.target.value)}
+          onChange={(e) => { delete e.target.dataset.enterPressed; onItemChange(idx, "hsn", e.target.value); }}
           onKeyDown={(e) => {
             if (e.key === "Enter" && !(e.metaKey || e.ctrlKey)) {
               e.target.dataset.enterPressed = "true";
-              onHsnLookup(idx, item.hsn);
+              onHsnLookup(idx, e.target.value);
             }
             handleKeyDown(e, "hsn");
           }}
-          onBlur={(e) => { if (item.hsn && !e.target.dataset.enterPressed) onHsnLookup(idx, item.hsn); delete e.target.dataset.enterPressed; }}
+          onBlur={(e) => { if (e.target.value && !e.target.dataset.enterPressed) onHsnLookup(idx, e.target.value); delete e.target.dataset.enterPressed; }}
           className="w-full px-3 py-2 border border-slate-200 rounded text-sm focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono pr-8"
           placeholder="Scan or type" />
         <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-300" title="Barcode scannable">
@@ -128,9 +130,9 @@ const ItemRow = ({ item, idx, onItemChange, onRemove, onAdd, onHsnLookup }) => {
     </td>
   </tr>
   );
-};
+});
 
-const ItemCard = ({ item, idx, onItemChange, onRemove, onAdd, onHsnLookup, totalItems }) => {
+const ItemCard = memo(({ item, idx, onItemChange, onRemove, onAdd, onHsnLookup }) => {
   const handleKeyDown = (e, field) => {
     if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
@@ -161,25 +163,25 @@ const ItemCard = ({ item, idx, onItemChange, onRemove, onAdd, onHsnLookup, total
       </div>
       <div className="space-y-3">
         <div>
+          <label className="block text-[10px] font-semibold text-slate-500 uppercase mb-1">HSN/SAC</label>
+          <input type="text" value={item.hsn} data-mobile-field={`hsn-${idx}`}
+            onChange={(e) => { delete e.target.dataset.enterPressed; onItemChange(idx, "hsn", e.target.value); }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !(e.metaKey || e.ctrlKey)) {
+                e.target.dataset.enterPressed = "true";
+                onHsnLookup(idx, e.target.value);
+              }
+              handleKeyDown(e, "hsn");
+            }}
+            onBlur={(e) => { if (e.target.value && !e.target.dataset.enterPressed) onHsnLookup(idx, e.target.value); delete e.target.dataset.enterPressed; }}
+            className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono min-h-[44px]" placeholder="Scan or type" />
+        </div>
+        <div>
           <label className="block text-[10px] font-semibold text-slate-500 uppercase mb-1">Description</label>
           <input type="text" value={item.itemName} data-mobile-field={`desc-${idx}`}
             onChange={(e) => onItemChange(idx, "itemName", e.target.value)}
             onKeyDown={(e) => handleKeyDown(e, "desc")}
             className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white min-h-[44px]" placeholder="Item name" />
-        </div>
-        <div>
-          <label className="block text-[10px] font-semibold text-slate-500 uppercase mb-1">HSN/SAC</label>
-          <input type="text" value={item.hsn} data-mobile-field={`hsn-${idx}`}
-            onChange={(e) => onItemChange(idx, "hsn", e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !(e.metaKey || e.ctrlKey)) {
-                e.target.dataset.enterPressed = "true";
-                onHsnLookup(idx, item.hsn);
-              }
-              handleKeyDown(e, "hsn");
-            }}
-            onBlur={(e) => { if (item.hsn && !e.target.dataset.enterPressed) onHsnLookup(idx, item.hsn); delete e.target.dataset.enterPressed; }}
-            className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono min-h-[44px]" placeholder="Scan or type" />
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
@@ -221,7 +223,7 @@ const ItemCard = ({ item, idx, onItemChange, onRemove, onAdd, onHsnLookup, total
       </div>
     </div>
   );
-};
+});
 
 export default function InvoiceForm() {
   const { logout } = useAuth();
@@ -232,6 +234,7 @@ export default function InvoiceForm() {
   const [business, setBusiness] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [sharing, setSharing] = useState(false);
   const [savedInvoiceNumber, setSavedInvoiceNumber] = useState(null);
   const [savedInvoiceId, setSavedInvoiceId] = useState(null);
   const [customInvoiceNumber, setCustomInvoiceNumber] = useState("");
@@ -244,6 +247,23 @@ export default function InvoiceForm() {
   const [showPrefillBanner, setShowPrefillBanner] = useState(!!prefilledData);
   const discountVal = parseFloat(discountPercent) || 0;
   const invoiceRef = useRef(null);
+  // The hidden A4 invoice preview is only mounted while a PDF is being generated.
+  // Re-rendering it on every keystroke was the main source of typing lag.
+  const [showPdfPreview, setShowPdfPreview] = useState(false);
+
+  // Pull the html2canvas/jsPDF chunk in before it is needed so the WhatsApp
+  // click-to-share window stays inside the browser's transient-activation limit.
+  useEffect(() => {
+    const id = window.setTimeout(prefetchInvoicePdf, 800);
+    return () => window.clearTimeout(id);
+  }, []);
+  const mountPdfPreview = async () => {
+    setShowPdfPreview(true);
+    // Wait for React to commit + paint so invoiceRef points at real DOM
+    for (let i = 0; i < 5 && !invoiceRef.current; i++) {
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    }
+  };
 
   const today = new Date().toISOString().split("T")[0];
 
@@ -282,6 +302,12 @@ export default function InvoiceForm() {
       ? prefilledData.items.map((item) => ({ ...emptyItem, ...item }))
       : [{ ...emptyItem }]
   );
+
+  // Latest HSN typed per row — lets async lookups detect stale/rapid (scanner) input
+  const hsnRef = useRef({});
+  // Last lookup result per row — Enter and blur can both trigger a lookup for the
+  // same code, so we skip repeat calls until the user edits the code.
+  const hsnLookupRef = useRef({});
 
   const nextInvoiceNumber = business
     ? `INV-${new Date().getFullYear()}-${String(business.nextInvoiceSequence).padStart(3, "0")}`
@@ -366,6 +392,10 @@ export default function InvoiceForm() {
   };
 
   const handleItemChange = useCallback((idx, field, value) => {
+    if (field === "hsn") {
+      hsnRef.current[idx] = value;
+      delete hsnLookupRef.current[idx];
+    }
     setItems((prev) => prev.map((item, i) => {
       if (i !== idx) return item;
       if (field === "gstPercentage" && parseFloat(value) > 40) value = "40";
@@ -384,37 +414,59 @@ export default function InvoiceForm() {
     }));
   }, []);
 
-  const handleHsnLookup = useCallback(async (idx, hsn) => {
-    if (!hsn || hsn.length < 3) return;
+  const handleHsnLookup = useCallback(async (idx, hsnRaw) => {
+    const code = (hsnRaw || "").trim();
+    if (!code || code.length < 3) return;
+
+    // Dedupe: Enter (keydown) and blur both fire a lookup for the same code —
+    // only re-call when the row's code changes or the last attempt errored.
+    const seen = hsnLookupRef.current[idx];
+    if (seen && seen.code === code && seen.status !== "error") return;
+    hsnLookupRef.current[idx] = { code, status: "pending" };
+
     try {
-      const res = await productAPI.findByHsn(hsn);
-      if (res.data.data) {
-        const p = res.data.data;
-        setItems((prev) => prev.map((item, i) => {
-          if (i !== idx) return item;
-          const qty = item.qty || "1";
-          const rate = p.rate?.toString() || item.rate;
-          const gst = p.gstPercentage?.toString() || item.gstPercentage;
-          const q = parseFloat(qty) || 0;
-          const r = parseFloat(rate) || 0;
-          const g = parseFloat(gst) || 0;
-          const taxableValue = q * r;
-          const taxAmount = (taxableValue * g) / 100;
-          return {
-            ...item,
-            itemName: p.name || item.itemName,
-            rate,
-            gstPercentage: gst,
-            qty,
-            taxableValue: Math.round(taxableValue * 100) / 100,
-            taxAmount: Math.round(taxAmount * 100) / 100,
-            total: Math.round((taxableValue + taxAmount) * 100) / 100,
-          };
-        }));
-        toast.success(`Found: ${p.name}`);
+      const res = await productAPI.findByHsn(code);
+      const p = res.data.data;
+      if (!p) {
+        hsnLookupRef.current[idx] = { code, status: "notfound" };
+        toast(`No product found for HSN/SAC ${code} — add it in Products first`);
+        return;
       }
-    } catch {
-      // No product found with this HSN - silently ignore
+      hsnLookupRef.current[idx] = { code, status: "done" };
+      // User typed more on this row while the request was in flight — skip
+      const latest = hsnRef.current[idx];
+      if (latest !== undefined && (latest || "").trim() !== code) return;
+      setItems((prev) => prev.map((item, i) => {
+        if (i !== idx) return item;
+        if ((item.hsn || "").trim() !== code) return item;
+        const qty = item.qty || "1";
+        const rate = p.rate?.toString() || item.rate;
+        const gst = p.gstPercentage?.toString() || item.gstPercentage;
+        const q = parseFloat(qty) || 0;
+        const r = parseFloat(rate) || 0;
+        const g = parseFloat(gst) || 0;
+        const taxableValue = q * r;
+        const taxAmount = (taxableValue * g) / 100;
+        return {
+          ...item,
+          itemName: p.name || item.itemName,
+          rate,
+          gstPercentage: gst,
+          qty,
+          taxableValue: Math.round(taxableValue * 100) / 100,
+          taxAmount: Math.round(taxAmount * 100) / 100,
+          total: Math.round((taxableValue + taxAmount) * 100) / 100,
+        };
+      }));
+      toast.success(`Found: ${p.name}`);
+    } catch (err) {
+      if (err?.response?.status === 404) {
+        hsnLookupRef.current[idx] = { code, status: "notfound" };
+        toast(`No product found for HSN/SAC ${code} — add it in Products first`);
+      } else {
+        hsnLookupRef.current[idx] = { code, status: "error" };
+        toast.error("HSN lookup failed — check your connection and try again");
+      }
     }
   }, []);
 
@@ -453,6 +505,11 @@ export default function InvoiceForm() {
     return { subtotal, discountAmount, taxableAmount, taxAmount, grandTotal: taxableAmount + taxAmount };
   }, [items, discountEnabled, discountVal]);
 
+  const validItemsCount = useMemo(
+    () => items.filter((i) => i.itemName.trim() && parseFloat(i.qty) > 0).length,
+    [items]
+  );
+
   const validate = () => {
     if (!customer.name.trim()) { toast.error("Customer name is required"); return false; }
     if (!form.dueDate) { toast.error("Due date is required"); return false; }
@@ -489,14 +546,18 @@ export default function InvoiceForm() {
 
   const saveInvoice = async () => {
     recalcAll();
-    const custRes = await customerAPI.create({
-      name: customer.name,
-      email: customer.email || undefined,
-      phone: customer.phone || undefined,
-      billingAddress: customer.billingAddress || undefined,
-      gstIn: customer.gstIn || undefined,
-    });
-    const customerId = custRes.data.data?.id;
+    // Reuse the customer found via phone/email check instead of creating a duplicate every save
+    let customerId = existingCustomer?.id;
+    if (!customerId) {
+      const custRes = await customerAPI.create({
+        name: customer.name,
+        email: customer.email || undefined,
+        phone: customer.phone || undefined,
+        billingAddress: customer.billingAddress || undefined,
+        gstIn: customer.gstIn || undefined,
+      });
+      customerId = custRes.data.data?.id;
+    }
     let res;
     if (savedInvoiceId) {
       res = await invoiceAPI.update(savedInvoiceId, { ...buildPayload(customerId), status: "DRAFT" });
@@ -526,16 +587,16 @@ export default function InvoiceForm() {
     if (!validate()) return;
     recalcAll();
 
-    const expectedNumber = savedInvoiceNumber || customInvoiceNumber || nextInvoiceNumber || "";
-
     setSaving(true);
+    await mountPdfPreview();
     try {
       const filename = `${type === "PROFORMA_INVOICE" ? "Proforma_Invoice" : "Tax_Invoice"}_${form.invoiceDate || new Date().toISOString().split("T")[0]}.pdf`;
       const ps = (getPrintSettings()[type] || {}).paperSize || "A4_PORTRAIT";
       await new Promise((r) => setTimeout(r, 100));
       await processPrint(invoiceRef, type, filename, ps);
-    } catch (err) {
+    } catch {
       toast.error("Failed to generate PDF");
+      setShowPdfPreview(false);
       setSaving(false);
       return;
     }
@@ -548,6 +609,7 @@ export default function InvoiceForm() {
         toast.error("Failed to save invoice");
       }
     }
+    setShowPdfPreview(false);
     setSaving(false);
   };
 
@@ -555,6 +617,7 @@ export default function InvoiceForm() {
     if (!validate()) return;
     recalcAll();
     setSaving(true);
+    await mountPdfPreview();
     try {
       const { jsPDF } = await import("jspdf");
       const html2canvas = (await import("html2canvas")).default;
@@ -572,7 +635,7 @@ export default function InvoiceForm() {
         sc.width = canvas.width; sc.height = sliceH;
         sc.getContext("2d").drawImage(canvas, 0, pageStartPx, canvas.width, sliceH, 0, 0, canvas.width, sliceH);
         if (!isFirstPage) pdf.addPage();
-        pdf.addImage(sc.toDataURL("image/png"), "PNG", LEFT, 10, CONTENT_W, sliceH * pxToMm);
+        pdf.addImage(sc.toDataURL("image/jpeg", 0.95), "JPEG", LEFT, 10, CONTENT_W, sliceH * pxToMm);
         pageStartPx += sliceH; isFirstPage = false;
       }
       const blob = pdf.output("blob");
@@ -586,7 +649,7 @@ export default function InvoiceForm() {
             shared = true;
           }
         }
-      } catch (_) {}
+      } catch { /* share cancelled or unsupported — fall back to download */ }
       if (!shared) {
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
@@ -598,7 +661,34 @@ export default function InvoiceForm() {
       console.error("Print error:", err);
       toast.error("Failed to generate PDF");
     } finally {
+      setShowPdfPreview(false);
       setSaving(false);
+    }
+  };
+
+  const shareViaWhatsApp = async () => {
+    if (sharing) return;
+    setSharing(true);
+    try {
+      const ps = (getPrintSettings()[form.invoiceType] || {}).paperSize || "A4_PORTRAIT";
+      const invNo = savedInvoiceNumber || customInvoiceNumber || nextInvoiceNumber;
+      const filename = `${form.invoiceType === "PROFORMA_INVOICE" ? "Proforma" : "Tax"}_Invoice_${invNo || "Draft"}.pdf`;
+      await openWhatsApp({
+        text: buildInvoiceWhatsAppMessage({
+          customerName: form.customerName,
+          invoiceNumber: invNo,
+          invoiceType: form.invoiceType,
+          total: totals.grandTotal,
+          businessName: business?.businessName,
+        }),
+        getPdfFile: async () => {
+          await mountPdfPreview();
+          return createInvoicePdfFile(invoiceRef.current, ps, filename);
+        },
+      });
+    } finally {
+      setShowPdfPreview(false);
+      setSharing(false);
     }
   };
 
@@ -610,27 +700,102 @@ export default function InvoiceForm() {
     );
   }
 
+  const actionsCard = (
+    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 sticky top-6">
+      <h2 className="text-sm font-bold text-slate-800 mb-4 pb-3 border-b border-slate-100">Actions</h2>
+      <div className="space-y-3">
+        <button onClick={handleSave} disabled={saving}
+          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-800 text-white text-sm font-semibold rounded-lg hover:bg-slate-700 disabled:opacity-50 transition-all shadow-sm min-h-[44px]">
+          {saving ? <LoadingDots className="text-white" /> : <Save className="w-4 h-4" />}
+          {saving ? "Saving..." : "Save Invoice"}
+        </button>
+        <button onClick={() => generatePDF("TAX_INVOICE")} disabled={sealRequired || totals.grandTotal <= 0}
+          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-all shadow-sm min-h-[44px]">
+          <Download className="w-4 h-4" /> Tax Invoice PDF
+        </button>
+        <button onClick={() => generatePDF("PROFORMA_INVOICE")} disabled={sealRequired || totals.grandTotal <= 0}
+          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 text-white text-sm font-semibold rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-all shadow-sm min-h-[44px]">
+          <Download className="w-4 h-4" /> Proforma PDF
+        </button>
+        <button onClick={handlePrint} disabled={sealRequired || totals.grandTotal <= 0}
+          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-white text-slate-700 text-sm font-semibold rounded-lg border border-slate-300 hover:bg-slate-50 disabled:opacity-50 transition-all shadow-sm min-h-[44px]">
+          <Share2 className="w-4 h-4" /> Share PDF
+        </button>
+      </div>
+
+      <div className="mt-6 pt-4 border-t border-slate-100">
+        <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Summary</h3>
+        <div className="space-y-2 text-sm">
+          <div className="flex justify-between gap-3">
+            <span className="text-slate-500">Items:</span>
+            <span className="font-semibold text-slate-800">{validItemsCount}</span>
+          </div>
+          <div className="flex justify-between gap-3">
+            <span className="text-slate-500">Subtotal:</span>
+            <span className="font-mono text-slate-700">Rs. {totals.subtotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+          </div>
+          {discountEnabled && discountVal > 0 && (
+            <div className="flex justify-between gap-3 text-emerald-600">
+              <span>Discount ({discountVal}%):</span>
+              <span className="font-mono">-Rs. {totals.discountAmount.toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
+            </div>
+          )}
+          <div className="flex justify-between gap-3">
+            <span className="text-slate-500 whitespace-nowrap">Taxable Amount:</span>
+            <span className="font-mono text-slate-700">Rs. {totals.taxableAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+          </div>
+          <div className="flex justify-between gap-3">
+            <span className="text-slate-500">Tax:</span>
+            <span className="font-mono text-slate-700">Rs. {totals.taxAmount.toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
+          </div>
+          <div className="flex justify-between gap-3 font-bold text-slate-800 pt-2 border-t border-slate-200">
+            <span>Total:</span>
+            <span className="font-mono">Rs. {totals.grandTotal.toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
+          </div>
+        </div>
+      </div>
+
+      {business && (
+        <div className="mt-6 pt-4 border-t border-slate-100">
+          <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Business</h3>
+          <p className="text-xs text-slate-600 font-medium">{business.businessName}</p>
+          {business.phone && <p className="text-xs text-slate-400">Phone: {business.phone}</p>}
+          {business.email && <p className="text-xs text-slate-400">Email: {business.email}</p>}
+          {business.addressLine1 && <p className="text-xs text-slate-400">{business.addressLine1}{business.city ? `, ${business.city}` : ""}{business.state ? `, ${business.state}` : ""}{business.pincode ? ` - ${business.pincode}` : ""}</p>}
+          {business.gstIn && <p className="text-xs text-slate-400 font-mono">GST: {business.gstIn}</p>}
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-gray-100">
       <AppNavbar />
-      {/* Hidden Invoice PDF for capture */}
-      <div style={{ position: "absolute", left: "-9999px", top: 0, pointerEvents: "none" }}>
-        <InvoiceTemplateRenderer
-          ref={invoiceRef}
-          business={business}
-          customer={customer}
-          form={form}
-          items={items}
-          totals={totals}
-          discountPercent={discountEnabled ? discountPercent : "0"}
-          type={form.invoiceType}
-          invoiceNumber={savedInvoiceNumber || customInvoiceNumber || nextInvoiceNumber || ""}
-          paperSize={(getPrintSettings()[form.invoiceType] || {}).paperSize || "A4_PORTRAIT"}
-          template={(getPrintSettings()[form.invoiceType] || {}).template}
-        />
-      </div>
+      {/* Hidden Invoice PDF for capture — mounted only while generating a PDF */}
+      {showPdfPreview && (
+        <div style={{ position: "absolute", left: "-9999px", top: 0, pointerEvents: "none" }}>
+          <InvoiceTemplateRenderer
+            ref={invoiceRef}
+            business={business}
+            customer={customer}
+            form={form}
+            items={items}
+            totals={totals}
+            discountPercent={discountEnabled ? discountPercent : "0"}
+            type={form.invoiceType}
+            invoiceNumber={savedInvoiceNumber || customInvoiceNumber || nextInvoiceNumber || ""}
+            paperSize={(getPrintSettings()[form.invoiceType] || {}).paperSize || "A4_PORTRAIT"}
+            template={(getPrintSettings()[form.invoiceType] || {}).template}
+          />
+        </div>
+      )}
       <div className="max-w-[1900px] mx-auto px-4 sm:px-5 lg:px-6 py-3 sm:py-4 lg:py-5">
-        <PageHeader title="Create Invoice" />
+        <PageHeader title="Create Invoice">
+          <button type="button" onClick={shareViaWhatsApp} onPointerEnter={prefetchInvoicePdf} onFocus={prefetchInvoicePdf} disabled={sharing} title="Share on WhatsApp" aria-label="Share on WhatsApp"
+            className="flex items-center justify-center w-11 h-11 rounded-lg bg-[#25D366] text-white hover:bg-[#1ebe5b] disabled:opacity-60 transition-all shadow-sm">
+            {sharing ? <Spinner size={18} /> : <WhatsAppIcon className="w-5 h-5" />}
+          </button>
+        </PageHeader>
         {showPrefillBanner && (
           <div className="flex items-center gap-2 p-3 bg-indigo-50 border border-indigo-200 rounded-lg mb-4">
             <Info className="w-4 h-4 text-indigo-500 shrink-0" />
@@ -654,7 +819,7 @@ export default function InvoiceForm() {
                 </div>
                 <div className="flex items-center gap-2">
                   {customerCheckLoading && (
-                    <Spinner size={16} />
+                    <LoadingDots className="text-slate-400" />
                   )}
                   {existingCustomer && (
                     <span className="text-[11px] font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">Existing customer</span>
@@ -957,70 +1122,8 @@ export default function InvoiceForm() {
                 </div>
               </div>
             )}
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 sticky top-6">
-              <h2 className="text-sm font-bold text-slate-800 mb-4 pb-3 border-b border-slate-100">Actions</h2>
-              <div className="space-y-3">
-                <button onClick={handleSave} disabled={saving}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-800 text-white text-sm font-semibold rounded-lg hover:bg-slate-700 disabled:opacity-50 transition-all shadow-sm min-h-[44px]">
-                  {saving ? <LoadingDots className="text-white" /> : <Save className="w-4 h-4" />}
-                  {saving ? "Saving..." : "Save Invoice"}
-                </button>
-                <button onClick={() => generatePDF("TAX_INVOICE")} disabled={sealRequired || totals.grandTotal <= 0}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-all shadow-sm min-h-[44px]">
-                  <Download className="w-4 h-4" /> Tax Invoice PDF
-                </button>
-                <button onClick={() => generatePDF("PROFORMA_INVOICE")} disabled={sealRequired || totals.grandTotal <= 0}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 text-white text-sm font-semibold rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-all shadow-sm min-h-[44px]">
-                  <Download className="w-4 h-4" /> Proforma PDF
-                </button>
-                <button onClick={handlePrint} disabled={sealRequired || totals.grandTotal <= 0}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-white text-slate-700 text-sm font-semibold rounded-lg border border-slate-300 hover:bg-slate-50 disabled:opacity-50 transition-all shadow-sm min-h-[44px]">
-                  <Share2 className="w-4 h-4" /> Share PDF
-                </button>
-              </div>
-
-              <div className="mt-6 pt-4 border-t border-slate-100">
-                <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Summary</h3>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between gap-3">
-                    <span className="text-slate-500">Items:</span>
-                    <span className="font-semibold text-slate-800">{items.filter((i) => i.itemName.trim() && parseFloat(i.qty) > 0).length}</span>
-                  </div>
-                  <div className="flex justify-between gap-3">
-                    <span className="text-slate-500">Subtotal:</span>
-                    <span className="font-mono text-slate-700">Rs. {totals.subtotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
-                  </div>
-                  {discountEnabled && discountVal > 0 && (
-                    <div className="flex justify-between gap-3 text-emerald-600">
-                      <span>Discount ({discountVal}%):</span>
-                      <span className="font-mono">-Rs. {totals.discountAmount.toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between gap-3">
-                    <span className="text-slate-500 whitespace-nowrap">Taxable Amount:</span>
-                    <span className="font-mono text-slate-700">Rs. {totals.taxableAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
-                  </div>
-                  <div className="flex justify-between gap-3">
-                    <span className="text-slate-500">Tax:</span>
-                    <span className="font-mono text-slate-700">Rs. {totals.taxAmount.toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
-                  </div>
-                  <div className="flex justify-between gap-3 font-bold text-slate-800 pt-2 border-t border-slate-200">
-                    <span>Total:</span>
-                    <span className="font-mono">Rs. {totals.grandTotal.toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
-                  </div>
-                </div>
-              </div>
-
-              {business && (
-                <div className="mt-6 pt-4 border-t border-slate-100">
-                  <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Business</h3>
-                  <p className="text-xs text-slate-600 font-medium">{business.businessName}</p>
-                  {business.phone && <p className="text-xs text-slate-400">Phone: {business.phone}</p>}
-                  {business.email && <p className="text-xs text-slate-400">Email: {business.email}</p>}
-                  {business.addressLine1 && <p className="text-xs text-slate-400">{business.addressLine1}{business.city ? `, ${business.city}` : ""}{business.state ? `, ${business.state}` : ""}{business.pincode ? ` - ${business.pincode}` : ""}</p>}
-                  {business.gstIn && <p className="text-xs text-slate-400 font-mono">GST: {business.gstIn}</p>}
-                </div>
-              )}
+            <div className="hidden xl:block">
+              {actionsCard}
             </div>
           </div>
         </div>
@@ -1080,7 +1183,7 @@ export default function InvoiceForm() {
           {/* Mobile cards */}
           <div className="md:hidden space-y-3">
             {items.map((item, idx) => (
-              <ItemCard key={idx} item={item} idx={idx} totalItems={items.length} onItemChange={handleItemChange} onRemove={removeItem} onAdd={addItem} onHsnLookup={handleHsnLookup} />
+              <ItemCard key={idx} item={item} idx={idx} onItemChange={handleItemChange} onRemove={removeItem} onAdd={addItem} onHsnLookup={handleHsnLookup} />
             ))}
             <button onClick={addItem}
               className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-slate-800 text-white text-sm font-semibold rounded-lg hover:bg-slate-700 transition-all shadow-sm min-h-[48px] sticky bottom-20 md:bottom-6 z-10">
@@ -1104,6 +1207,11 @@ export default function InvoiceForm() {
               </div>
             </div>
           </div>
+      </div>
+
+      {/* Actions — mobile/tablet only, after Items and before Notes */}
+      <div className="xl:hidden w-full my-6">
+        {actionsCard}
       </div>
 
       {/* Notes — full width below Items */}

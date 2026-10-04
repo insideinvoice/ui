@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback, memo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import Spinner from "../components/Spinner";
 import LoadingDots from "../components/LoadingDots";
+import Spinner from "../components/Spinner";
 import { useAuth } from "../context/AuthContext";
 import AppNavbar from "../components/AppNavbar";
 import PageHeader from "../components/PageHeader";
@@ -10,8 +10,10 @@ import toast from "react-hot-toast";
 import { ArrowLeft, Download, Save, Edit3, Plus, Trash2, FileText, AlertCircle, User, Building2, Phone, MapPin, Hash, Package, Mail, Globe, X, Share2, Smartphone } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import InvoiceTemplateRenderer from "../components/InvoiceTemplateRenderer";
+import WhatsAppIcon from "../components/WhatsAppIcon";
 import { processQueue } from "../utils/retryQueue";
 import { processPrint } from "../utils/printInvoice";
+import { openWhatsApp, buildInvoiceWhatsAppMessage, createInvoicePdfFile, prefetchInvoicePdf } from "../utils/whatsapp";
 import { getPrintSettings, getPaperDimensions } from "../constants/paperSizes";
 import { INDIAN_STATES, DELIVERY_TERMS, PAYMENT_TERMS } from "../constants/indianStates";
 
@@ -107,6 +109,7 @@ export default function InvoiceView() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [busyAction, setBusyAction] = useState("");
   const [error, setError] = useState("");
   const [isEditing, setIsEditing] = useState(false);
   const [invoiceType, setInvoiceType] = useState("TAX_INVOICE");
@@ -130,6 +133,13 @@ export default function InvoiceView() {
   const [items, setItems] = useState([{ ...emptyItem() }]);
   const [showPdfPreview, setShowPdfPreview] = useState(false);
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState(null);
+
+  // Pull the html2canvas/jsPDF chunk in before it is needed so the WhatsApp
+  // click-to-share window stays inside the browser's transient-activation limit.
+  useEffect(() => {
+    const id = window.setTimeout(prefetchInvoicePdf, 800);
+    return () => window.clearTimeout(id);
+  }, []);
 
   useEffect(() => {
     Promise.all([
@@ -222,6 +232,11 @@ export default function InvoiceView() {
     return { subtotal, discountAmount, taxableAmount, taxAmount, grandTotal: taxableAmount + taxAmount };
   }, [items, discountEnabled, discountVal]);
 
+  const validItemsCount = useMemo(
+    () => items.filter((i) => i.itemName.trim() && parseFloat(i.qty) > 0).length,
+    [items]
+  );
+
   const validate = () => {
     if (!form.customerName.trim()) { toast.error("Customer name is required"); return false; }
     if (!form.invoiceDate) { toast.error("Invoice date is required"); return false; }
@@ -276,6 +291,7 @@ export default function InvoiceView() {
       if (!validate()) return;
       handleSave().catch(() => {});
     }
+    setBusyAction(`download:${type}`);
     try {
       const filename = `${type === "PROFORMA_INVOICE" ? "Proforma" : "Tax"}_Invoice_${form.invoiceNumber}.pdf`;
       const captureRef = type === "PROFORMA_INVOICE" ? proformaRef : invoiceRef;
@@ -283,10 +299,35 @@ export default function InvoiceView() {
       await processPrint(captureRef, type, filename, ps);
     } catch (err) {
       toast.error("Failed to generate");
+    } finally {
+      setBusyAction("");
+    }
+  };
+
+  const shareViaWhatsApp = async () => {
+    if (busyAction) return;
+    setBusyAction("whatsapp");
+    try {
+      const ps = (getPrintSettings()[invoiceType] || {}).paperSize || "A4_PORTRAIT";
+      const filename = `${invoiceType === "PROFORMA_INVOICE" ? "Proforma" : "Tax"}_Invoice_${form.invoiceNumber}.pdf`;
+      const captureRef = invoiceType === "PROFORMA_INVOICE" ? proformaRef : invoiceRef;
+      await openWhatsApp({
+        text: buildInvoiceWhatsAppMessage({
+          customerName: form.customerName,
+          invoiceNumber: form.invoiceNumber,
+          invoiceType,
+          total: totals.grandTotal,
+          businessName: business?.businessName,
+        }),
+        getPdfFile: () => createInvoicePdfFile(captureRef.current, ps, filename),
+      });
+    } finally {
+      setBusyAction("");
     }
   };
 
   const viewPDF = async () => {
+    setBusyAction("view");
     try {
       const { jsPDF } = await import("jspdf");
       const { default: html2canvas } = await import("html2canvas");
@@ -304,7 +345,7 @@ export default function InvoiceView() {
         sc.width = canvas.width; sc.height = sliceH;
         sc.getContext("2d").drawImage(canvas, 0, pageStartPx, canvas.width, sliceH, 0, 0, canvas.width, sliceH);
         if (!isFirstPage) pdf.addPage();
-        pdf.addImage(sc.toDataURL("image/png"), "PNG", LEFT, PY, CONTENT_W, sliceH * pxToMm);
+        pdf.addImage(sc.toDataURL("image/jpeg", 0.95), "JPEG", LEFT, PY, CONTENT_W, sliceH * pxToMm);
         pageStartPx += sliceH; isFirstPage = false;
       }
       const blob = pdf.output("blob");
@@ -313,10 +354,13 @@ export default function InvoiceView() {
       setShowPdfPreview(true);
     } catch (err) {
       toast.error("Failed to generate PDF preview");
+    } finally {
+      setBusyAction("");
     }
   };
 
   const printPDF = async () => {
+    setBusyAction("share");
     try {
       const { jsPDF } = await import("jspdf");
       const { default: html2canvas } = await import("html2canvas");
@@ -334,7 +378,7 @@ export default function InvoiceView() {
         sc.width = canvas.width; sc.height = sliceH;
         sc.getContext("2d").drawImage(canvas, 0, pageStartPx, canvas.width, sliceH, 0, 0, canvas.width, sliceH);
         if (!isFirstPage) pdf.addPage();
-        pdf.addImage(sc.toDataURL("image/png"), "PNG", LEFT, PY, CONTENT_W, sliceH * pxToMm);
+        pdf.addImage(sc.toDataURL("image/jpeg", 0.95), "JPEG", LEFT, PY, CONTENT_W, sliceH * pxToMm);
         pageStartPx += sliceH; isFirstPage = false;
       }
       const blob = pdf.output("blob");
@@ -359,6 +403,8 @@ export default function InvoiceView() {
     } catch (err) {
       console.error("Print error:", err);
       toast.error("Failed to generate PDF");
+    } finally {
+      setBusyAction("");
     }
   };
 
@@ -367,7 +413,7 @@ export default function InvoiceView() {
   if (loading) {
     return (
       <div className="min-h-[100dvh] flex items-center justify-center bg-gradient-to-br from-gray-50 via-slate-50 to-gray-100">
-        <Spinner size={32} />
+        <LoadingDots className="text-slate-400" />
       </div>
     );
   }
@@ -429,6 +475,10 @@ export default function InvoiceView() {
             }`}>
               {invoiceType === "PROFORMA_INVOICE" ? "Proforma" : "Tax"} Invoice
             </span>
+            <button type="button" onClick={shareViaWhatsApp} onPointerEnter={prefetchInvoicePdf} onFocus={prefetchInvoicePdf} disabled={sealRequired || !!busyAction} title="Share on WhatsApp" aria-label="Share on WhatsApp"
+              className="flex items-center justify-center w-9 h-9 rounded-full bg-[#25D366] text-white hover:bg-[#1ebe5b] disabled:opacity-60 transition-all shadow-sm">
+              {busyAction === "whatsapp" ? <Spinner size={18} /> : <WhatsAppIcon className="w-5 h-5" />}
+            </button>
           </div>
         </div>
 
@@ -878,21 +928,21 @@ export default function InvoiceView() {
                     <Edit3 className="w-4 h-4" /> Update Invoice
                   </button>
                 )}
-                <button onClick={() => viewPDF(invoiceType)} disabled={sealRequired}
+                <button onClick={() => viewPDF(invoiceType)} disabled={sealRequired || !!busyAction}
                   className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-all shadow-sm">
-                  <FileText className="w-4 h-4" /> View PDF
+                  {busyAction === "view" ? <Spinner size={16} /> : <FileText className="w-4 h-4" />} {busyAction === "view" ? "Generating..." : "View PDF"}
                 </button>
-                <button onClick={() => downloadPDF(invoiceType)} disabled={sealRequired}
+                <button onClick={() => downloadPDF(invoiceType)} disabled={sealRequired || !!busyAction}
                   className="w-full flex items-center justify-center gap-2 px-4 py-2.5 border border-indigo-300 text-indigo-700 text-sm font-semibold rounded-lg hover:bg-indigo-50 disabled:opacity-50 transition-all">
-                  <Download className="w-4 h-4" /> Download PDF
+                  {busyAction === `download:${invoiceType}` ? <Spinner size={16} /> : <Download className="w-4 h-4" />} {busyAction === `download:${invoiceType}` ? "Preparing..." : "Download PDF"}
                 </button>
-                <button onClick={printPDF}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 text-white text-sm font-semibold rounded-lg hover:bg-emerald-700 transition-all shadow-sm">
-                  <Share2 className="w-4 h-4" /> Share PDF
+                <button onClick={printPDF} disabled={!!busyAction}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 text-white text-sm font-semibold rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-all shadow-sm">
+                  {busyAction === "share" ? <Spinner size={16} /> : <Share2 className="w-4 h-4" />} {busyAction === "share" ? "Preparing..." : "Share PDF"}
                 </button>
-                <button onClick={() => downloadPDF("PROFORMA_INVOICE")} disabled={sealRequired}
+                <button onClick={() => downloadPDF("PROFORMA_INVOICE")} disabled={sealRequired || !!busyAction}
                   className="w-full flex items-center justify-center gap-2 px-4 py-2.5 border border-emerald-300 text-emerald-700 text-sm font-semibold rounded-lg hover:bg-emerald-50 disabled:opacity-50 transition-all">
-                  <Download className="w-4 h-4" /> Proforma PDF
+                  {busyAction === "download:PROFORMA_INVOICE" ? <Spinner size={16} /> : <Download className="w-4 h-4" />} {busyAction === "download:PROFORMA_INVOICE" ? "Preparing..." : "Proforma PDF"}
                 </button>
               </div>
 
@@ -901,7 +951,7 @@ export default function InvoiceView() {
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
                     <span className="text-slate-500">Items:</span>
-                    <span className="font-semibold text-slate-800">{items.filter((i) => i.itemName.trim() && parseFloat(i.qty) > 0).length}</span>
+                    <span className="font-semibold text-slate-800">{validItemsCount}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-500">Subtotal:</span>
@@ -941,13 +991,13 @@ export default function InvoiceView() {
                 <h2 className="text-sm font-bold text-slate-800 truncate">Invoice PDF</h2>
               </div>
               <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-                <button onClick={() => printPDF()}
-                  className="flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-indigo-600 text-white text-xs sm:text-sm font-semibold rounded-lg hover:bg-indigo-700 transition-all shadow-sm">
-                  <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span className="hidden sm:inline">Share</span>
+                <button onClick={() => printPDF()} disabled={!!busyAction}
+                  className="flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-indigo-600 text-white text-xs sm:text-sm font-semibold rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-all shadow-sm">
+                  {busyAction === "share" ? <Spinner size={14} /> : <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4" />} <span className="hidden sm:inline">{busyAction === "share" ? "Preparing..." : "Share"}</span>
                 </button>
-                <button onClick={() => downloadPDF(invoiceType)}
-                  className="flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-slate-800 text-white text-xs sm:text-sm font-semibold rounded-lg hover:bg-slate-700 transition-all shadow-sm">
-                  <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span className="hidden sm:inline">Download</span>
+                <button onClick={() => downloadPDF(invoiceType)} disabled={!!busyAction}
+                  className="flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-slate-800 text-white text-xs sm:text-sm font-semibold rounded-lg hover:bg-slate-700 disabled:opacity-50 transition-all shadow-sm">
+                  {busyAction === `download:${invoiceType}` ? <Spinner size={14} /> : <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4" />} <span className="hidden sm:inline">{busyAction === `download:${invoiceType}` ? "Preparing..." : "Download"}</span>
                 </button>
                 <button onClick={() => { setShowPdfPreview(false); setPdfPreviewUrl(null); }}
                   className="p-2 hover:bg-slate-100 rounded-lg transition-colors text-slate-400 hover:text-slate-600">

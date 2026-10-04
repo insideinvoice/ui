@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import Spinner from "../components/Spinner";
+import LoadingDots from "../components/LoadingDots";
 import { useAuth } from "../context/AuthContext";
 import AppNavbar from "../components/AppNavbar";
 import PageHeader from "../components/PageHeader";
@@ -20,7 +20,7 @@ export default function AdminUsersList() {
 
   const fetchUsers = () => {
     adminAPI.getAllUsers()
-      .then((res) => setUsers(res.data.data || []))
+      .then((res) => { const d = res.data.data; setUsers(Array.isArray(d) ? d : d?.content || []); })
       .catch(() => {})
       .finally(() => setLoading(false));
   };
@@ -97,7 +97,7 @@ export default function AdminUsersList() {
 
         {loading ? (
           <div className="flex items-center justify-center py-24">
-            <Spinner size={24} />
+            <LoadingDots className="text-slate-400" />
           </div>
         ) : users.length === 0 ? (
           <div className="text-center py-16 text-sm text-slate-400">No users found</div>

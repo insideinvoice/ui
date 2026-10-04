@@ -1,27 +1,76 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { createRoot } from "react-dom/client";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import LoadingDots from "../components/LoadingDots";
 import Spinner from "../components/Spinner";
 import AppNavbar from "../components/AppNavbar";
 import PageHeader from "../components/PageHeader";
-import { invoiceAPI, businessAPI } from "../api/auth";
+import ConfirmModal from "../components/ConfirmModal";
+import { invoiceAPI } from "../api/auth";
+import { resolveBusinessProfile, getBusinessProfile } from "../utils/businessProfile";
 import toast from "react-hot-toast";
-import { ArrowLeft, FileText, Download, Eye, PlusCircle, Share2, Trash2, Search } from "lucide-react";
+import { ArrowLeft, FileText, Download, Eye, PlusCircle, Share2, Trash2, Search, X } from "lucide-react";
 import { downloadInvoicePDF } from "../components/InvoicePDF";
 import InvoiceTemplateRenderer from "../components/InvoiceTemplateRenderer";
 import { getPrintSettings, getPaperDimensions } from "../constants/paperSizes";
 
+const MONTH_NAMES = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+const waitForPaint = (el) => new Promise((resolve) => {
+  requestAnimationFrame(() => requestAnimationFrame(async () => {
+    try {
+      if (document.fonts?.ready) await document.fonts.ready;
+      const imgs = el ? Array.from(el.querySelectorAll("img")) : [];
+      await Promise.all(imgs.map((img) => (img.complete ? Promise.resolve() : new Promise((r) => {
+        img.addEventListener("load", r, { once: true });
+        img.addEventListener("error", r, { once: true });
+      }))));
+    } catch {
+      // ignore
+    }
+    resolve();
+  }));
+});
+
+const parseDate = (dateStr) => {
+  if (!dateStr) return { month: 0, year: 0 };
+  const parts = dateStr.split(/[-/]/);
+  if (parts.length < 2) return { month: 0, year: 0 };
+  let month = 0, year = 0;
+  const first = parseInt(parts[0], 10);
+  if (first > 31) {
+    year = first;
+    month = parseInt(parts[1], 10) || 0;
+  } else {
+    month = parseInt(parts[1], 10) || 0;
+    year = parts.length >= 3 ? parseInt(parts[2], 10) || 0 : 0;
+  }
+  return { month, year };
+};
+
 export default function InvoicesList() {
   const { logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [selectedMonth, setSelectedMonth] = useState("");
-  const [selectedYear, setSelectedYear] = useState("");
+  const [selectedMonth, setSelectedMonth] = useState(() => location.state?.month ? String(location.state.month) : "");
+  const [selectedYear, setSelectedYear] = useState(() => location.state?.year ? String(location.state.year) : "");
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [invoiceToDelete, setInvoiceToDelete] = useState(null);
+  const [busy, setBusy] = useState("");
 
-  const fetchInvoices = async () => {
+  const isBusy = (id, action) => busy === `${id}:${action}`;
+  const rowBusy = (id) => busy.startsWith(`${id}:`);
+
+  const goToInvoice = useCallback((invoice) => {
+    setBusy(`${invoice.id}:view`);
+    window.setTimeout(() => navigate(`/invoice/${invoice.id}`), 80);
+  }, [navigate]);
+
+  const fetchInvoices = useCallback(async () => {
     try {
       const res = await invoiceAPI.getAll({ size: 100, sortBy: "createdAt", sortDir: "desc" });
       setInvoices(res.data.data?.content || res.data.data || []);
@@ -30,11 +79,14 @@ export default function InvoicesList() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  useEffect(() => { fetchInvoices(); }, []);
+  useEffect(() => { fetchInvoices(); }, [fetchInvoices]);
 
-  const filtered = invoices.filter((inv) => {
+  // Warm the business profile cache so the first PDF/share click is instant
+  useEffect(() => { getBusinessProfile().catch(() => {}); }, []);
+
+  const filtered = useMemo(() => invoices.filter((inv) => {
     if (search.trim()) {
       const q = search.toLowerCase();
       const matchesSearch = (inv.invoiceNumber || "").toLowerCase().includes(q)
@@ -42,35 +94,74 @@ export default function InvoicesList() {
       if (!matchesSearch) return false;
     }
     if (selectedMonth || selectedYear) {
-      const dateStr = inv.invoiceDate || "";
-      if (!dateStr) return false;
-      const parts = dateStr.split(/[-/]/);
-      const invMonth = parts.length >= 2 ? parseInt(parts[1], 10) : 0;
-      const invYear = parts.length >= 3 ? parseInt(parts[2] || parts[0], 10) : 0;
-      if (selectedMonth && invMonth !== parseInt(selectedMonth, 10)) return false;
-      if (selectedYear && invYear !== parseInt(selectedYear, 10)) return false;
+      const { month, year } = parseDate(inv.invoiceDate || "");
+      if (!month && !year) return false;
+      if (selectedMonth && month !== parseInt(selectedMonth, 10)) return false;
+      if (selectedYear && year !== parseInt(selectedYear, 10)) return false;
     }
     return true;
-  });
+  }), [invoices, search, selectedMonth, selectedYear]);
 
-  const availableMonths = [...new Set(invoices.map((inv) => {
-    const parts = (inv.invoiceDate || "").split(/[-/]/);
-    return parts.length >= 2 ? parseInt(parts[1], 10) : 0;
-  }).filter((m) => m > 0))].sort((a, b) => a - b);
+  const monthNames = MONTH_NAMES;
 
-  const availableYears = [...new Set(invoices.map((inv) => {
-    const parts = (inv.invoiceDate || "").split(/[-/]/);
-    return parts.length >= 3 ? parseInt(parts[2] || parts[0], 10) : 0;
-  }).filter((y) => y > 0))].sort((a, b) => b - a);
+  // Get all year+month combos from invoices
+  const yearMonthPairs = useMemo(() => invoices
+    .map((inv) => parseDate(inv.invoiceDate || ""))
+    .filter((d) => d.month > 0 && d.year > 0), [invoices]);
 
-  const monthNames = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  // Available years: unique years from all invoices
+  const availableYears = useMemo(
+    () => [...new Set(yearMonthPairs.map((d) => d.year))].sort((a, b) => b - a),
+    [yearMonthPairs]
+  );
 
-  const downloadPDF = async (invoice) => {
-    let business = null;
-    try {
-      const bRes = await businessAPI.getProfile();
-      business = bRes.data.data;
-    } catch (_) {}
+  // Available months: depends on selected year
+  const availableMonths = useMemo(() => [...new Set(
+    yearMonthPairs
+      .filter((d) => {
+        if (!selectedYear) return true;
+        return d.year === parseInt(selectedYear, 10);
+      })
+      .map((d) => d.month)
+  )].sort((a, b) => a - b), [yearMonthPairs, selectedYear]);
+
+  // Available years: depends on selected month
+  const availableYearsForMonth = useMemo(() => [...new Set(
+    yearMonthPairs
+      .filter((d) => {
+        if (!selectedMonth) return true;
+        return d.month === parseInt(selectedMonth, 10);
+      })
+      .map((d) => d.year)
+  )].sort((a, b) => b - a), [yearMonthPairs, selectedMonth]);
+
+  // Handle year change - reset month if not available in new year
+  const handleYearChange = useCallback((e) => {
+    const newYear = e.target.value;
+    setSelectedYear(newYear);
+    if (newYear && selectedMonth) {
+      const monthExists = yearMonthPairs.some(
+        (d) => d.year === parseInt(newYear, 10) && d.month === parseInt(selectedMonth, 10)
+      );
+      if (!monthExists) setSelectedMonth("");
+    }
+  }, [selectedMonth, yearMonthPairs]);
+
+  // Handle month change - reset year if not available in new month
+  const handleMonthChange = useCallback((e) => {
+    const newMonth = e.target.value;
+    setSelectedMonth(newMonth);
+    if (newMonth && selectedYear) {
+      const yearExists = yearMonthPairs.some(
+        (d) => d.month === parseInt(newMonth, 10) && d.year === parseInt(selectedYear, 10)
+      );
+      if (!yearExists) setSelectedYear("");
+    }
+  }, [selectedYear, yearMonthPairs]);
+
+  const downloadPDF = useCallback(async (invoice) => {
+    setBusy(`${invoice.id}:pdf`);
+    const business = await resolveBusinessProfile();
     const items = (invoice.items || []).map((i) => ({
       itemName: i.itemName, hsn: i.hsn || "", qty: String(i.qty), rate: String(i.rate),
       gstPercentage: String(i.gstPercentage), taxableValue: i.taxableValue, taxAmount: i.taxAmount, total: i.total,
@@ -95,9 +186,7 @@ export default function InvoicesList() {
             ref={(el) => {
               if (el && !done) {
                 done = true;
-                setTimeout(() => {
-                  downloadInvoicePDF(el, filename).then(resolve).catch(reject);
-                }, 150);
+                waitForPaint(el).then(() => downloadInvoicePDF(el, filename)).then(resolve).catch(reject);
               }
             }}
             business={business}
@@ -137,28 +226,38 @@ export default function InvoicesList() {
     } finally {
       root.unmount();
       document.body.removeChild(container);
+      setBusy("");
     }
-  };
+  }, []);
 
-  const ghostMode = localStorage.getItem("ghost_mode") === "true";
+  const ghostMode = useMemo(() => localStorage.getItem("ghost_mode") === "true", []);
 
-  const deleteInvoice = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this invoice? This action cannot be undone.")) return;
+  const openDeleteModal = useCallback((invoice) => {
+    setInvoiceToDelete(invoice);
+    setDeleteModalOpen(true);
+  }, []);
+
+  const handleDeleteConfirm = useCallback(async () => {
+    if (!invoiceToDelete) return;
     try {
-      await invoiceAPI.delete(id);
+      await invoiceAPI.delete(invoiceToDelete.id);
       toast.success("Invoice deleted");
-      setInvoices((prev) => prev.filter((inv) => inv.id !== id));
+      setInvoices((prev) => prev.filter((inv) => inv.id !== invoiceToDelete.id));
+      setDeleteModalOpen(false);
+      setInvoiceToDelete(null);
     } catch (err) {
       toast.error(err.response?.data?.message || "Failed to delete invoice");
     }
-  };
+  }, [invoiceToDelete]);
 
-  const printInvoice = async (invoice) => {
-    let business = null;
-    try {
-      const bRes = await businessAPI.getProfile();
-      business = bRes.data.data;
-    } catch (_) {}
+  const handleDeleteCancel = useCallback(() => {
+    setDeleteModalOpen(false);
+    setInvoiceToDelete(null);
+  }, []);
+
+  const printInvoice = useCallback(async (invoice) => {
+    setBusy(`${invoice.id}:share`);
+    const business = await resolveBusinessProfile();
     const items = (invoice.items || []).map((i) => ({
       itemName: i.itemName, hsn: i.hsn || "", qty: String(i.qty), rate: String(i.rate),
       gstPercentage: String(i.gstPercentage), taxableValue: i.taxableValue, taxAmount: i.taxAmount, total: i.total,
@@ -184,7 +283,7 @@ export default function InvoicesList() {
             ref={(el) => {
               if (el && !done) {
                 done = true;
-                setTimeout(async () => {
+                waitForPaint(el).then(async () => {
                   try {
                     const { jsPDF } = await import("jspdf");
                     const html2canvas = (await import("html2canvas")).default;
@@ -202,7 +301,6 @@ export default function InvoicesList() {
                     const allRowEls = el.querySelectorAll(rowSelectors.join(", "));
                     const invoiceRect = el.getBoundingClientRect();
                     const canvas = await html2canvas(el, { scale: SCALE, useCORS: true, logging: false });
-                    const imgData = canvas.toDataURL("image/png");
                     const imgW = CONTENT_W;
                     const imgH = (canvas.height / canvas.width) * imgW;
                     const pdf = new jsPDF(dim.orientation, "mm", dim.format);
@@ -225,9 +323,9 @@ export default function InvoicesList() {
                       pageCanvas.height = srcH;
                       const ctx = pageCanvas.getContext("2d");
                       ctx.drawImage(canvas, 0, srcY, canvas.width, srcH, 0, 0, canvas.width, srcH);
-                      const pageImgData = pageCanvas.toDataURL("image/png");
+                      const pageImgData = pageCanvas.toDataURL("image/jpeg", 0.95);
                       if (hPos > 0) pdf.addPage();
-                      pdf.addImage(pageImgData, "PNG", LEFT, 0, imgW, sliceH);
+                      pdf.addImage(pageImgData, "JPEG", LEFT, 0, imgW, sliceH);
                       hPos += availH;
                     }
                     const blob = pdf.output("blob");
@@ -250,7 +348,7 @@ export default function InvoicesList() {
                     }
                     resolve();
                   } catch (e) { reject(e); }
-                }, 150);
+                });
               }
             }}
             business={business}
@@ -291,15 +389,16 @@ export default function InvoicesList() {
     } finally {
       root.unmount();
       document.body.removeChild(container);
+      setBusy("");
     }
-  };
+  }, []);
 
   if (loading) {
     return (
       <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-gray-100">
         <AppNavbar />
         <div className="flex items-center justify-center" style={{ minHeight: "calc(100dvh - 80px)" }}>
-          <Spinner size={48} />
+          <LoadingDots className="text-slate-400" />
         </div>
       </div>
     );
@@ -313,14 +412,14 @@ export default function InvoicesList() {
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
           <div className="p-4 sm:p-5 border-b border-slate-200">
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2 sm:gap-3">
-              <select value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)}
+              <select value={selectedMonth} onChange={handleMonthChange}
                 className="px-3 py-2 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-400/30 focus:border-indigo-400 bg-white">
                 <option value="">All Months</option>
                 {availableMonths.map((m) => (
                   <option key={m} value={m}>{monthNames[m]}</option>
                 ))}
               </select>
-              <select value={selectedYear} onChange={(e) => setSelectedYear(e.target.value)}
+              <select value={selectedYear} onChange={handleYearChange}
                 className="px-3 py-2 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-400/30 focus:border-indigo-400 bg-white">
                 <option value="">All Years</option>
                 {availableYears.map((y) => (
@@ -364,7 +463,7 @@ export default function InvoicesList() {
                     {filtered.map((inv, i) => (
                       <tr key={inv.id} className={`border-b border-slate-100 hover:bg-slate-100 transition-colors ${i % 2 === 1 ? "bg-slate-50/40" : ""}`}>
                         <td className="py-3 px-4">
-                          <button onClick={() => navigate(`/invoice/${inv.id}`)} className="font-mono text-xs font-semibold text-indigo-600 hover:text-indigo-700 hover:underline text-left">
+                          <button onClick={() => navigate(`/invoice/${inv.id}`)} className="inline-flex items-center font-mono text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1 rounded-md border border-indigo-200 hover:border-indigo-300 transition-all">
                             {inv.invoiceNumber}
                           </button>
                         </td>
@@ -382,20 +481,20 @@ export default function InvoicesList() {
                         </td>
                         <td className="py-3 px-4 text-right">
                           <div className="flex items-center justify-end gap-1.5">
-                            <button onClick={() => navigate(`/invoice/${inv.id}`)}
-                              className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors">
-                              <Eye className="w-3.5 h-3.5" /> View
+                            <button onClick={() => goToInvoice(inv)} disabled={rowBusy(inv.id)}
+                              className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors disabled:opacity-60">
+                              {isBusy(inv.id, "view") ? <Spinner size={14} /> : <Eye className="w-3.5 h-3.5" />} {isBusy(inv.id, "view") ? "Loading..." : "View"}
                             </button>
-                            <button onClick={() => downloadPDF(inv)}
-                              className="p-2 hover:bg-indigo-50 rounded-lg transition-colors text-slate-400 hover:text-indigo-600" title="Download PDF">
-                              <Download className="w-4 h-4" />
+                            <button onClick={() => downloadPDF(inv)} disabled={rowBusy(inv.id)}
+                              className="p-2 hover:bg-indigo-50 rounded-lg transition-colors text-slate-400 hover:text-indigo-600 disabled:opacity-60" title="Download PDF">
+                              {isBusy(inv.id, "pdf") ? <Spinner size={16} /> : <Download className="w-4 h-4" />}
                             </button>
-                            <button onClick={() => printInvoice(inv)}
-                              className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors">
-                              <Share2 className="w-3.5 h-3.5" /> Share
+                            <button onClick={() => printInvoice(inv)} disabled={rowBusy(inv.id)}
+                              className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors disabled:opacity-60">
+                              {isBusy(inv.id, "share") ? <Spinner size={14} /> : <Share2 className="w-3.5 h-3.5" />} {isBusy(inv.id, "share") ? "Loading..." : "Share"}
                             </button>
                             {ghostMode && (
-                              <button onClick={() => deleteInvoice(inv.id)}
+                              <button onClick={() => openDeleteModal(inv)}
                                 className="min-h-[44px] min-w-[44px] flex items-center justify-center p-2 hover:bg-red-50 rounded-lg transition-colors text-slate-400 hover:text-red-600" title="Delete Invoice">
                                 <Trash2 className="w-4 h-4" />
                               </button>
@@ -409,14 +508,20 @@ export default function InvoicesList() {
               </div>
               <div className="md:hidden space-y-3">
                 {filtered.map((inv) => (
-                  <div key={inv.id} className="bg-white rounded-xl shadow-sm border border-slate-100 p-4 hover:bg-slate-50 transition-colors" onClick={() => navigate(`/invoice/${inv.id}`)}>
+                  <div key={inv.id} className="bg-white rounded-xl shadow-sm border border-slate-100 p-4 hover:bg-slate-50 transition-colors" onClick={() => goToInvoice(inv)}>
                     <div className="flex items-center justify-between mb-2">
-                      <span className="font-mono text-xs font-semibold text-indigo-600">{inv.invoiceNumber}</span>
-                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
-                        inv.invoiceType === "PROFORMA_INVOICE" ? "bg-emerald-100 text-emerald-700" : "bg-blue-100 text-blue-700"
-                      }`}>
-                        {inv.invoiceType === "PROFORMA_INVOICE" ? "Proforma" : "Tax"}
+                      <span className="inline-flex items-center font-mono text-xs font-bold text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded-md border border-indigo-200">
+                        {inv.invoiceNumber}
                       </span>
+                      {isBusy(inv.id, "view") ? (
+                        <Spinner size={18} className="text-indigo-500" />
+                      ) : (
+                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                          inv.invoiceType === "PROFORMA_INVOICE" ? "bg-emerald-100 text-emerald-700" : "bg-blue-100 text-blue-700"
+                        }`}>
+                          {inv.invoiceType === "PROFORMA_INVOICE" ? "Proforma" : "Tax"}
+                        </span>
+                      )}
                     </div>
                     <div className="text-sm font-medium text-slate-800 mb-2">{inv.customerName}</div>
                     <div className="flex items-center justify-between">
@@ -426,17 +531,17 @@ export default function InvoicesList() {
                       </span>
                     </div>
                     <div className="flex items-center gap-2 mt-3 pt-2 border-t border-slate-100">
-                      <button onClick={(e) => { e.stopPropagation(); navigate(`/invoice/${inv.id}`); }}
-                        className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-xs font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors min-h-[44px]">
-                        <Eye className="w-3.5 h-3.5" /> View
+                      <button onClick={(e) => { e.stopPropagation(); goToInvoice(inv); }} disabled={rowBusy(inv.id)}
+                        className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-xs font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors min-h-[44px] disabled:opacity-60">
+                        {isBusy(inv.id, "view") ? <Spinner size={14} /> : <Eye className="w-3.5 h-3.5" />} {isBusy(inv.id, "view") ? "Loading..." : "View"}
                       </button>
-                      <button onClick={(e) => { e.stopPropagation(); downloadPDF(inv); }}
-                        className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors min-h-[44px]">
-                        <Download className="w-3.5 h-3.5" /> PDF
+                      <button onClick={(e) => { e.stopPropagation(); downloadPDF(inv); }} disabled={rowBusy(inv.id)}
+                        className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors min-h-[44px] disabled:opacity-60">
+                        {isBusy(inv.id, "pdf") ? <Spinner size={14} /> : <Download className="w-3.5 h-3.5" />} {isBusy(inv.id, "pdf") ? "Loading..." : "PDF"}
                       </button>
-                      <button onClick={(e) => { e.stopPropagation(); printInvoice(inv); }}
-                        className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors min-h-[44px]">
-                        <Share2 className="w-3.5 h-3.5" /> Share
+                      <button onClick={(e) => { e.stopPropagation(); printInvoice(inv); }} disabled={rowBusy(inv.id)}
+                        className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors min-h-[44px] disabled:opacity-60">
+                        {isBusy(inv.id, "share") ? <Spinner size={14} /> : <Share2 className="w-3.5 h-3.5" />} {isBusy(inv.id, "share") ? "Loading..." : "Share"}
                       </button>
                     </div>
                   </div>
@@ -446,6 +551,24 @@ export default function InvoicesList() {
           )}
         </div>
       </div>
+
+      <ConfirmModal
+        open={deleteModalOpen}
+        title="Delete Invoice"
+        message={
+          <>
+            Are you sure you want to delete invoice{" "}
+            <span className="inline-flex items-center font-mono text-xs font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-200 mx-0.5">
+              {invoiceToDelete?.invoiceNumber || ""}
+            </span>
+            ? This action cannot be undone.
+          </>
+        }
+        confirmLabel="Delete"
+        confirmVariant="danger"
+        onConfirm={handleDeleteConfirm}
+        onCancel={handleDeleteCancel}
+      />
     </div>
   );
 }

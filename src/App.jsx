@@ -1,6 +1,7 @@
 import { Toaster } from "react-hot-toast";
-import { Route, Routes, Navigate } from "react-router-dom";
-import Spinner from "./components/Spinner";
+import { Route, Routes, Navigate, useLocation } from "react-router-dom";
+import { useEffect } from "react";
+import LoadingDots from "./components/LoadingDots";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import PWAInstallPrompt from "./components/PWAInstallPrompt";
 import GSTBillingLanding from "./Landing/gst-landing-final";
@@ -20,6 +21,10 @@ import ChangePassword from "./Authentication/ChangePassword";
 import BarcodeGenerator from "./Landing/Services/BarcodeGenerator";
 import BusinessCardMaker from "./Landing/Services/BusinessCardMaker";
 import BusinessSetup from "./pages/BusinessSetup";
+import ShippingLabelsList from "./pages/ShippingLabelsList";
+import HazmatLabelsList from "./pages/HazmatLabelsList";
+import ShippingLabelForm from "./pages/ShippingLabelForm";
+import HazmatLabelForm from "./pages/HazmatLabelForm";
 import Dashboard from "./pages/Dashboard";
 import InvoiceForm from "./pages/InvoiceForm";
 import InvoiceView from "./pages/InvoiceView";
@@ -41,15 +46,31 @@ import AdminInvoicesList from "./pages/AdminInvoicesList";
 import CustomersList from "./pages/CustomersList";
 import MorePage from "./pages/MorePage";
 
+function ScrollToTop() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+  return null;
+}
+
 function PrivateRoute({ children }) {
   const { isAuthenticated, loading } = useAuth();
-  if (loading) return <div className="min-h-screen flex items-center justify-center"><Spinner size={32} /></div>;
-  return isAuthenticated ? <div className="lg:ml-60">{children}</div> : <Navigate to="/login" />;
+  if (loading) return <div className="min-h-screen flex items-center justify-center"><LoadingDots className="text-slate-400" /></div>;
+  // Bottom padding clears the fixed mobile tab bar + home indicator — scoped to app pages
+  // only, so landing/legal pages don't get a white strip below their footer
+  return isAuthenticated ? (
+    <div className="lg:ml-60 pb-[calc(env(safe-area-inset-bottom,0px)_+_64px)] lg:pb-0">
+      {children}
+    </div>
+  ) : <Navigate to="/login" />;
 }
 
 function AppRoutes() {
   return (
-    <Routes>
+    <>
+      <ScrollToTop />
+      <Routes>
       <Route path="/" element={<GSTBillingLanding />} />
       <Route path="/login" element={<Login />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
@@ -77,6 +98,12 @@ function AppRoutes() {
       <Route path="/products" element={<PrivateRoute><ProductsList /></PrivateRoute>} />
       <Route path="/invoice-templates" element={<PrivateRoute><InvoiceTemplates /></PrivateRoute>} />
       <Route path="/payments" element={<PrivateRoute><PaymentsList /></PrivateRoute>} />
+      <Route path="/labels/shipping" element={<PrivateRoute><ShippingLabelsList /></PrivateRoute>} />
+      <Route path="/labels/shipping/new" element={<PrivateRoute><ShippingLabelForm /></PrivateRoute>} />
+      <Route path="/labels/shipping/:id/edit" element={<PrivateRoute><ShippingLabelForm /></PrivateRoute>} />
+      <Route path="/labels/hazmat" element={<PrivateRoute><HazmatLabelsList /></PrivateRoute>} />
+      <Route path="/labels/hazmat/new" element={<PrivateRoute><HazmatLabelForm /></PrivateRoute>} />
+      <Route path="/labels/hazmat/:id/edit" element={<PrivateRoute><HazmatLabelForm /></PrivateRoute>} />
       <Route path="/settings" element={<PrivateRoute><Profile /></PrivateRoute>} />
       <Route path="/more" element={<PrivateRoute><MorePage /></PrivateRoute>} />
       <Route path="/profile" element={<Navigate to="/settings" replace />} />
@@ -89,6 +116,7 @@ function AppRoutes() {
       <Route path="/admin/businesses/:businessId/invoices" element={<PrivateRoute><BusinessInvoices /></PrivateRoute>} />
       <Route path="/admin/invoices/:id" element={<PrivateRoute><AdminInvoiceView /></PrivateRoute>} />
     </Routes>
+    </>
   );
 }
 

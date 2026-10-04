@@ -16,7 +16,7 @@ const BouncingDots = React.forwardRef<HTMLDivElement, BouncingDotsProps>(
       {Array.from({ length: dotCount }).map((_, i) => (
         <span
           key={i}
-          className="inline-block h-[0.45em] w-[0.45em] rounded-full bg-current"
+          className="inline-block h-[0.55em] w-[0.55em] rounded-full bg-current"
           style={{
             animation: `bouncing-dot ${duration} ease-in-out ${i * 0.15}s infinite`,
           }}

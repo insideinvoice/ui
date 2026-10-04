@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import Spinner from "../components/Spinner";
 import LoadingDots from "../components/LoadingDots";
 import { useAuth } from "../context/AuthContext";
+import api from "../api/axios";
 import { Lock, Eye, EyeOff, CheckCircle, AlertCircle } from "lucide-react";
 
 export default function ChangePassword() {
@@ -69,26 +69,16 @@ export default function ChangePassword() {
     setSuccessMessage("");
 
     try {
-      const res = await fetch("/api/auth/change-password", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(formData),
+      const res = await api.put("/auth/change-password", {
+        currentPassword: formData.currentPassword,
+        newPassword: formData.newPassword,
       });
-
-      const data = await res.json();
-
-      if (res.ok) {
-        setSuccessMessage(data.message || "Password changed successfully");
-        setTimeout(() => {
-          navigate("/login");
-        }, 2000);
-      } else {
-        setApiError(data.message || "Something went wrong. Please try again.");
-      }
+      setSuccessMessage(res.data?.message || "Password changed successfully");
+      setTimeout(() => {
+        navigate("/login");
+      }, 2000);
     } catch (err) {
-      setApiError("Something went wrong. Please try again.");
+      setApiError(err.response?.data?.message || "Something went wrong. Please try again.");
     } finally {
       setIsLoading(false);
     }

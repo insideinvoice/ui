@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import Spinner from "../components/Spinner";
+import LoadingDots from "../components/LoadingDots";
 import AppNavbar from "../components/AppNavbar";
 import PageHeader from "../components/PageHeader";
 import { productAPI } from "../api/auth";
@@ -28,18 +28,18 @@ export default function ProductsList() {
     fetch();
   }, []);
 
-  const filtered = products.filter((p) => {
+  const filtered = useMemo(() => products.filter((p) => {
     if (!search.trim()) return true;
     const q = search.toLowerCase();
     return (p.name || "").toLowerCase().includes(q) || (p.hsn || "").toLowerCase().includes(q);
-  });
+  }), [products, search]);
 
   if (loading) {
     return (
       <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-gray-100">
         <AppNavbar />
         <div className="flex items-center justify-center" style={{ minHeight: "calc(100dvh - 80px)" }}>
-          <Spinner size={48} />
+          <LoadingDots className="text-slate-400" />
         </div>
       </div>
     );

@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import Spinner from "../components/Spinner";
 import LoadingDots from "../components/LoadingDots";
 import { useAuth } from "../context/AuthContext";
 import AppNavbar from "../components/AppNavbar";
@@ -41,8 +40,8 @@ export default function AdminAddUsers() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.name || !formData.email || !formData.password) {
-      toast.error("Name, email, and password are required");
+    if (!formData.name || !formData.username || !formData.email || !formData.password) {
+      toast.error("Name, username, email, and password are required");
       return;
     }
     setIsLoading(true);

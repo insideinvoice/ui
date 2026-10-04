@@ -1,10 +1,10 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo, memo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import {
   LogOut, Users, Plus, List, UserPlus, UserCheck,
   LayoutDashboard, Shield, Package, FileText, Settings,
-  ChevronDown, Menu, X, Home
+  ChevronDown, Menu, X, Home, Truck, Flame
 } from "lucide-react";
 import insideInvoiceLogo from "../assets/inside-invoice-logo.svg";
 
@@ -32,6 +32,15 @@ const sections = (isAdmin) => [
       { label: "View Customers", icon: UserCheck, path: "/customers" },
     ],
   },
+  {
+    header: "Labels",
+    items: [
+      { label: "New Shipping Label", icon: Truck, path: "/labels/shipping/new" },
+      { label: "Shipping Labels", icon: List, path: "/labels/shipping" },
+      { label: "New Hazmat Label", icon: Flame, path: "/labels/hazmat/new" },
+      { label: "Hazmat Labels", icon: List, path: "/labels/hazmat" },
+    ],
+  },
   ...(isAdmin ? [
     {
       header: "Admin",
@@ -51,18 +60,18 @@ const bottomTabs = [
   { label: "More", icon: Menu, path: "/more" },
 ];
 
-export default function AppNavbar() {
+export default memo(function AppNavbar() {
   const { user, logout, isAdmin } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const handleLogout = () => {
+  const handleLogout = useCallback(() => {
     logout();
     navigate("/");
-  };
+  }, [logout, navigate]);
 
-  const dropdownSections = sections(isAdmin).filter((s) => s.header);
+  const dropdownSections = useMemo(() => sections(isAdmin).filter((s) => s.header), [isAdmin]);
 
   const closeMobile = useCallback(() => {
     setMobileMenuOpen(false);
@@ -73,7 +82,7 @@ export default function AppNavbar() {
     setMobileMenuOpen(false);
   }, [navigate]);
 
-  const isActive = (path) => location.pathname === path;
+  const isActive = useCallback((path) => location.pathname === path, [location.pathname]);
 
   useEffect(() => {
     if (mobileMenuOpen) {
@@ -189,7 +198,10 @@ export default function AppNavbar() {
       </aside>
 
       {/* ===== MOBILE TOP NAV ===== */}
-      <nav className="lg:hidden bg-white border-b border-slate-200 px-3 sm:px-4 py-2 sm:py-3 relative z-[99]">
+      <nav
+        className="lg:hidden bg-white border-b border-slate-200 px-3 sm:px-4 py-2 sm:py-3 sticky top-0 z-[99]"
+        style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)" }}
+      >
         <div className="flex items-center justify-between max-w-full">
           <div className="flex items-center gap-2 min-w-0 flex-1">
             <button onClick={() => handleNav("/dashboard")} className="flex items-center gap-2 hover:opacity-80 transition-opacity shrink-0">
@@ -281,4 +293,4 @@ export default function AppNavbar() {
       </div>
     </>
   );
-}
+});

@@ -4,6 +4,7 @@ import { useAuth } from "../context/AuthContext";
 import AppNavbar from "../components/AppNavbar";
 import PrintSettings from "./PrintSettings";
 import { authAPI, businessAPI } from "../api/auth";
+import { invalidateBusinessProfile } from "../utils/businessProfile";
 import toast from "react-hot-toast";
 import { User, Lock, Upload, Trash2, Pen, Eye, EyeOff, Landmark, Building, MapPin, Globe, Phone, Mail, Hash, FileText } from "lucide-react";
 
@@ -111,6 +112,7 @@ export default function Profile() {
     setUploadingSig(true);
     try {
       const res = await businessAPI.uploadSignature(file);
+      invalidateBusinessProfile();
       setSignature(res.data.data);
       toast.success("Signature uploaded successfully");
     } catch (err) {
@@ -125,6 +127,7 @@ export default function Profile() {
     setUploadingSig(true);
     try {
       await businessAPI.removeSignature();
+      invalidateBusinessProfile();
       setSignature(null);
       toast.success("Signature removed");
     } catch (err) {
@@ -139,6 +142,7 @@ export default function Profile() {
     setSavingBank(true);
     try {
       await businessAPI.update(bankForm);
+      invalidateBusinessProfile();
       toast.success("Bank details updated");
     } catch (err) {
       toast.error(err.response?.data?.message || "Failed to update bank details");
@@ -156,6 +160,7 @@ export default function Profile() {
     setSavingBiz(true);
     try {
       await businessAPI.update(bizForm);
+      invalidateBusinessProfile();
       toast.success("Business information updated");
     } catch (err) {
       toast.error(err.response?.data?.message || "Failed to update business information");

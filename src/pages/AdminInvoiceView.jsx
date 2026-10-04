@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import Spinner from "../components/Spinner";
+import LoadingDots from "../components/LoadingDots";
 import { adminAPI } from "../api/auth";
 import toast from "react-hot-toast";
 import { ArrowLeft, FileText, Save, Edit2, Download } from "lucide-react";
@@ -93,7 +93,7 @@ export default function AdminInvoiceView() {
   const addItem = () => setItems([...items, { ...emptyItem }]);
   const removeItem = (idx) => { if (items.length > 1) setItems(items.filter((_, i) => i !== idx)); };
 
-  const totals = items.reduce(
+  const totals = useMemo(() => items.reduce(
     (acc, item) => {
       const tv = parseFloat(item.taxableValue) || 0;
       const ta = parseFloat(item.taxAmount) || 0;
@@ -101,7 +101,7 @@ export default function AdminInvoiceView() {
       return { subtotal: acc.subtotal + tv, taxAmount: acc.taxAmount + ta, grandTotal: acc.grandTotal + t };
     },
     { subtotal: 0, taxAmount: 0, grandTotal: 0 }
-  );
+  ), [items]);
 
   const downloadPDF = async () => {
     try {
@@ -156,7 +156,7 @@ export default function AdminInvoiceView() {
   if (loading) {
     return (
       <div className="min-h-[100dvh] bg-gradient-to-br from-gray-50 via-slate-50 to-gray-100 flex items-center justify-center">
-        <Spinner size={32} />
+        <LoadingDots className="text-slate-400" />
       </div>
     );
   }

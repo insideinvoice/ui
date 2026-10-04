@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import Spinner from "../components/Spinner";
 import LoadingDots from "../components/LoadingDots";
 import { useAuth } from "../context/AuthContext";
 import {

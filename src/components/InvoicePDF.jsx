@@ -666,8 +666,8 @@ export async function downloadInvoicePDF(element, filename, paperSizeId) {
       }
 
       pdf.addImage(
-        sliceCanvas.toDataURL("image/png"),
-        "PNG",
+        sliceCanvas.toDataURL("image/jpeg", 0.95),
+        "JPEG",
         LEFT,
         10,
         CONTENT_W,

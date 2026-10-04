@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import React, { useEffect, useState } from "react";
 import InvoiceNav from "./Navigation/InvoiceNav";
-import axios from "axios";
+import api from "../api/axios";
 
  export default function ContactNow() {
    const [form, setForm] = useState({
@@ -26,7 +26,7 @@ import axios from "axios";
      setError("");
 
       try {
-        await axios.post("/contact", {
+        await api.post("/contact", {
          name: form.name,
          email: form.email,
          phone: form.phone,

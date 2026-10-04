@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Mail, AlertCircle, CheckCircle, Info, ShieldCheck, KeyRound, ArrowLeft } from "lucide-react";
-import Spinner from "../components/Spinner";
 import LoadingDots from "../components/LoadingDots";
 import insideInvoiceLogo from "../assets/inside-invoice-logo.svg";
+import api from "../api/axios";
 
 export default function ForgotPassword() {
   const navigate = useNavigate();
@@ -65,21 +65,11 @@ export default function ForgotPassword() {
     setApiError("");
 
     try {
-      const res = await fetch("/api/auth/forgot-password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
-      });
-      const data = await res.json();
-
-      if (res.ok) {
-        setStep(2);
-        setResendCooldown(300);
-      } else {
-        setApiError(data.message || "Something went wrong. Please try again.");
-      }
-    } catch {
-      setApiError("Something went wrong. Please try again.");
+      await api.post("/auth/forgot-password", { email });
+      setStep(2);
+      setResendCooldown(300);
+    } catch (err) {
+      setApiError(err.response?.data?.message || "Something went wrong. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -96,20 +86,10 @@ export default function ForgotPassword() {
     setApiError("");
 
     try {
-      const res = await fetch("/api/auth/verify-otp", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, otp }),
-      });
-      const data = await res.json();
-
-      if (res.ok) {
-        setStep(3);
-      } else {
-        setOtpError(data.message || "Invalid or expired code. Please try again.");
-      }
-    } catch {
-      setOtpError("Something went wrong. Please try again.");
+      await api.post("/auth/verify-otp", { email, otp });
+      setStep(3);
+    } catch (err) {
+      setOtpError(err.response?.data?.message || "Invalid or expired code. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -139,21 +119,11 @@ export default function ForgotPassword() {
     setApiError("");
 
     try {
-      const res = await fetch("/api/auth/reset-password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, otp, newPassword }),
-      });
-      const data = await res.json();
-
-      if (res.ok) {
-        setStep(4);
-        setCountdown(15);
-      } else {
-        setApiError(data.message || "Something went wrong. Please try again.");
-      }
-    } catch {
-      setApiError("Something went wrong. Please try again.");
+      await api.post("/auth/reset-password", { email, otp, newPassword });
+      setStep(4);
+      setCountdown(15);
+    } catch (err) {
+      setApiError(err.response?.data?.message || "Something went wrong. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -164,22 +134,12 @@ export default function ForgotPassword() {
     setApiError("");
 
     try {
-      const res = await fetch("/api/auth/forgot-password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
-      });
-      const data = await res.json();
-
-      if (res.ok) {
-        setOtp("");
-        setOtpError("");
-        setResendCooldown(300);
-      } else {
-        setApiError(data.message || "Failed to resend code. Please try again.");
-      }
-    } catch {
-      setApiError("Failed to resend code. Please try again.");
+      await api.post("/auth/forgot-password", { email });
+      setOtp("");
+      setOtpError("");
+      setResendCooldown(300);
+    } catch (err) {
+      setApiError(err.response?.data?.message || "Failed to resend code. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -370,7 +330,7 @@ export default function ForgotPassword() {
                 >
                   {resendCooldown > 0 ? (
                     <>
-                      <Spinner size={14} />
+                      <LoadingDots className="text-slate-400" />
                       Resend in {Math.floor(resendCooldown / 60)}:{(resendCooldown % 60).toString().padStart(2, "0")}
                     </>
                   ) : (

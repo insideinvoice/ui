@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import Spinner from "../components/Spinner";
+import LoadingDots from "../components/LoadingDots";
 import { adminAPI } from "../api/auth";
 import { ArrowLeft, Building2 } from "lucide-react";
 import AppNavbar from "../components/AppNavbar";
@@ -13,7 +13,7 @@ export default function AdminBusinessesList() {
 
   useEffect(() => {
     adminAPI.getAllBusinesses()
-      .then((res) => setBusinesses(res.data.data || []))
+      .then((res) => { const d = res.data.data; setBusinesses(Array.isArray(d) ? d : d?.content || []); })
       .catch((err) => console.error(err))
       .finally(() => setLoading(false));
   }, []);
@@ -27,7 +27,7 @@ export default function AdminBusinessesList() {
 
         {loading ? (
           <div className="flex items-center justify-center py-24">
-            <Spinner size={24} />
+            <LoadingDots className="text-slate-400" />
           </div>
         ) : businesses.length > 0 ? (
           <>

@@ -17,14 +17,18 @@ html, body, #root {
 
 html {
   background-color: #f8fafc;
+  /* Clip horizontal overflow at the viewport level (iOS Safari ignores body-level clip) */
+  overflow-x: clip;
+  /* Prevent rubber-band / lateral pan on mobile */
+  overscroll-behavior-x: none;
 }
 
 body {
   margin: 0;
   padding: 0;
-  overflow-x: hidden;
   -webkit-tap-highlight-color: transparent;
   background-color: #f8fafc;
+  overscroll-behavior-x: none;
 }
 
 #root {
@@ -34,20 +38,19 @@ body {
   min-height: 100dvh;
   background-color: #f8fafc;
   padding-top: env(safe-area-inset-top, 0px);
-  padding-bottom: env(safe-area-inset-bottom, 0px);
   padding-left: env(safe-area-inset-left, 0px);
   padding-right: env(safe-area-inset-right, 0px);
   box-sizing: border-box;
 }
 
-/* On mobile, add bottom padding to clear the fixed bottom tab bar */
-@media (max-width: 1023px) {
-  #root {
-    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 64px);
-  }
-}
-
 /* iOS Safari: prevent auto-zoom on input focus (requires font-size >= 16px) */
 input, textarea, select {
   font-size: 16px !important;
+}
+
+/* Toasts: sit just below the sticky mobile top navbar (hidden at lg+) */
+@media (max-width: 1023px) {
+  [data-rht-toaster] {
+    top: calc(env(safe-area-inset-top, 0px) + 68px) !important;
+  }
 }

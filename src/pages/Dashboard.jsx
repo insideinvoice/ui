@@ -1,100 +1,138 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { adminAPI, invoiceAPI, customerAPI } from "../api/auth";
-import { FileText, Users, Package, Building2, PlusCircle, List, UserPlus, BarChart3, UserCheck, UserCircle, Settings, DollarSign, TrendingUp, CreditCard, Calendar, ArrowUpRight } from "lucide-react";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LineChart, Line } from "recharts";
+import { FileText, Users, Package, Building2, PlusCircle, List, BarChart3, DollarSign, TrendingUp, Calendar } from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LineChart, Line, PieChart, Pie, Legend } from "recharts";
 
 import AppNavbar from "../components/AppNavbar";
+import Spinner from "../components/Spinner";
+import { getCache, setCache } from "../utils/cache";
 
 const PAYMENT_COLORS = { UPI: "#6366f1", CASH: "#10b981", CARD: "#f59e0b", CHEQUE: "#8b5cf6", NEFT: "#3b82f6", IMPS: "#ec4899", OTHER: "#94a3b8" };
+const STATUS_COLORS = { PAID: "#10b981", PENDING: "#f59e0b", SENT: "#3b82f6", OVERDUE: "#ef4444", DRAFT: "#94a3b8", CANCELLED: "#64748b" };
+
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+const round2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
+const money = (v) => `₹ ${Number(v || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 export default function Dashboard() {
   const { user, isBusinessSetupComplete, isAdmin } = useAuth();
   const navigate = useNavigate();
-  const [stats, setStats] = useState(null);
-  const [loadingStats, setLoadingStats] = useState(false);
-  const [analytics, setAnalytics] = useState(null);
-  const [users, setUsers] = useState([]);
-  const [visiblePasswords, setVisiblePasswords] = useState({});
-  const [businesses, setBusinesses] = useState([]);
-  const [invoices, setInvoices] = useState([]);
-  const [loadingInvoices, setLoadingInvoices] = useState(false);
-  const [customerCount, setCustomerCount] = useState(0);
 
+  // Storage-backed cache: renders instantly from localStorage, revalidates in background
+  const cacheKey = `dashboard:${user?.userId ?? user?.id ?? "anon"}:${isAdmin ? "admin" : "user"}`;
+  const [cached] = useState(() => getCache(cacheKey, CACHE_TTL));
+
+  const [stats, setStats] = useState(cached?.data?.stats ?? null);
+  const [users, setUsers] = useState(cached?.data?.users ?? []);
+  const [businesses, setBusinesses] = useState(cached?.data?.businesses ?? []);
+  const [analytics, setAnalytics] = useState(cached?.data?.analytics ?? null);
+  const [invoices, setInvoices] = useState(cached?.data?.invoices ?? []);
+  const [customerCount, setCustomerCount] = useState(cached?.data?.customerCount ?? 0);
+  const [loadingStats, setLoadingStats] = useState(!cached);
+  const [loadingInvoices, setLoadingInvoices] = useState(!cached);
+
+  // Redirect if business setup not complete
   useEffect(() => {
     if (!isBusinessSetupComplete && !isAdmin) {
       navigate("/business-setup");
     }
   }, [isBusinessSetupComplete, navigate, isAdmin]);
 
-  useEffect(() => {
-    if (isAdmin) {
-      setLoadingStats(true);
-      Promise.all([
+  // Fetch admin data
+  const fetchAdminData = useCallback(async () => {
+    setLoadingStats(true);
+    try {
+      const [statsRes, usersRes, bizRes, analyticsRes] = await Promise.all([
         adminAPI.getStats(),
         adminAPI.getAllUsers(),
         adminAPI.getAllBusinesses(),
         adminAPI.getAnalytics(),
-      ])
-        .then(([statsRes, usersRes, bizRes, analyticsRes]) => {
-          setStats(statsRes.data.data);
-          setUsers(usersRes.data.data || []);
-          setBusinesses(bizRes.data.data || []);
-          setAnalytics(analyticsRes.data.data);
-        })
-        .catch((err) => console.error("Admin data fetch failed:", err.response?.status, err.message))
-        .finally(() => setLoadingStats(false));
-    }
-  }, [isAdmin]);
+      ]);
+      const unwrap = (d) => (Array.isArray(d) ? d : Array.isArray(d?.content) ? d.content : []);
+      const statsData = statsRes.data.data;
+      const usersData = unwrap(usersRes.data.data);
+      const bizData = unwrap(bizRes.data.data);
+      const analyticsData = analyticsRes.data.data;
 
-  useEffect(() => {
-    if (!isAdmin) {
-      customerAPI.getAll()
-        .then((res) => {
-          const raw = res.data?.data || res.data;
-          setCustomerCount(Array.isArray(raw) ? raw.length : 0);
-        })
-        .catch(() => {});
+      setStats(statsData);
+      setUsers(usersData);
+      setBusinesses(bizData);
+      setAnalytics(analyticsData);
+    } catch (err) {
+      console.error("Admin data fetch failed:", err.response?.status, err.message);
+    } finally {
+      setLoadingStats(false);
     }
-  }, [isAdmin]);
+  }, []);
 
-  useEffect(() => {
+  // Fetch customer count for non-admin
+  const fetchCustomerCount = useCallback(async () => {
+    try {
+      const res = await customerAPI.getAll({ size: 1000 });
+      const raw = res.data?.data;
+      const list = Array.isArray(raw) ? raw : Array.isArray(raw?.content) ? raw.content : [];
+      setCustomerCount(list.length);
+    } catch {
+      // silent
+    }
+  }, []);
+
+  // Fetch invoices
+  const fetchInvoices = useCallback(async () => {
     setLoadingInvoices(true);
-    const fetch = isAdmin ? adminAPI.getAllInvoices() : invoiceAPI.getAll({ limit: 1000 });
-    fetch
-      .then((res) => {
-        const raw = res.data?.data || res.data;
-        setInvoices(Array.isArray(raw) ? raw : []);
-      })
-      .catch(() => {})
-      .finally(() => setLoadingInvoices(false));
+    try {
+      const fetch = isAdmin ? adminAPI.getAllInvoices() : invoiceAPI.getAll({ size: 1000 });
+      const res = await fetch;
+      const raw = res.data?.data;
+      const list = Array.isArray(raw) ? raw : Array.isArray(raw?.content) ? raw.content : [];
+      setInvoices(list);
+    } catch {
+      // silent
+    } finally {
+      setLoadingInvoices(false);
+    }
   }, [isAdmin]);
 
-  const navItems = [
-    { label: "New Invoice", icon: PlusCircle, path: "/invoice", color: "from-blue-500 to-blue-600" },
-    { label: "View Invoices", icon: List, path: "/invoices", color: "from-indigo-500 to-indigo-600" },
-    { label: "Payments", icon: CreditCard, path: "/payments", color: "from-emerald-500 to-emerald-600" },
-    { label: "Add Customer", icon: Users, path: "/customers/new", color: "from-emerald-500 to-emerald-600" },
-    { label: "Add Product", icon: Package, path: "/products/new", color: "from-purple-500 to-purple-600" },
-    { label: "Profile", icon: UserCircle, path: "/settings", color: "from-amber-500 to-amber-600" },
-    ...(isAdmin ? [
-      { label: "Add User", icon: UserPlus, path: "/admin/users", color: "from-rose-500 to-rose-600" },
-      { label: "All Users", icon: UserCheck, path: "/admin/users-list", color: "from-teal-500 to-teal-600" },
-    ] : []),
-  ];
+  // Main data loading effect — skip network only when storage cache is fresh
+  useEffect(() => {
+    if (cached?.fresh && cached?.data) {
+      // Fresh cache hit: charts already rendered from storage, no fetch needed
+      setLoadingStats(false);
+      setLoadingInvoices(false);
+      return;
+    }
 
-  const chartData = stats ? [
-    { name: "Users", value: stats.totalUsers },
-    { name: "Businesses", value: stats.totalBusinesses },
-    { name: "Invoices", value: stats.totalInvoices },
-    { name: "Customers", value: stats.totalCustomers },
-    { name: "Products", value: stats.totalProducts },
-  ] : [];
+    // Cache miss or stale: fetch fresh data (stale data stays visible meanwhile)
+    if (isAdmin) {
+      fetchAdminData();
+    } else {
+      fetchCustomerCount();
+    }
+    fetchInvoices();
+  }, [isAdmin, cached, fetchAdminData, fetchCustomerCount, fetchInvoices]);
+
+  // Persist to storage whenever data changes
+  useEffect(() => {
+    if (!loadingStats && !loadingInvoices && (stats || invoices.length > 0)) {
+      setCache(cacheKey, { stats, users, businesses, analytics, invoices, customerCount });
+    }
+  }, [stats, users, businesses, analytics, invoices, customerCount, loadingStats, loadingInvoices, cacheKey]);
+
+  const chartData = useMemo(() => {
+    return stats ? [
+      { name: "Users", value: stats.totalUsers },
+      { name: "Businesses", value: stats.totalBusinesses },
+      { name: "Invoices", value: stats.totalInvoices },
+      { name: "Customers", value: stats.totalCustomers },
+      { name: "Products", value: stats.totalProducts },
+    ] : [];
+  }, [stats]);
 
   const invoiceAnalytics = useMemo(() => {
-    const valid = invoices.filter((inv) => inv.status !== "CANCELLED" && inv.status !== "PENDING");
-    const totalGrand = valid.reduce((s, inv) => s + (parseFloat(inv.grandTotal) || 0), 0);
+    const valid = invoices;
+    const totalGrand = round2(valid.reduce((s, inv) => s + (parseFloat(inv.grandTotal) || 0), 0));
 
     const salesByMonth = {};
     const revenueByMonth = {};
@@ -110,17 +148,17 @@ export default function Dashboard() {
       const monthKey = `${monthNames[d.getMonth()]} ${d.getFullYear()}`;
       const amt = parseFloat(inv.grandTotal) || 0;
 
-      salesByMonth[monthKey] = (salesByMonth[monthKey] || 0) + amt;
+      salesByMonth[monthKey] = round2((salesByMonth[monthKey] || 0) + amt);
       if (inv.status === "PAID") {
-        revenueByMonth[monthKey] = (revenueByMonth[monthKey] || 0) + amt;
+        revenueByMonth[monthKey] = round2((revenueByMonth[monthKey] || 0) + amt);
       }
 
       const pm = inv.paymentMode || "OTHER";
-      salesByPayment[pm] = (salesByPayment[pm] || 0) + amt;
+      salesByPayment[pm] = round2((salesByPayment[pm] || 0) + amt);
 
       if (d >= sevenDaysAgo && d <= today) {
         const dayKey = d.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
-        last7[dayKey] = (last7[dayKey] || 0) + amt;
+        last7[dayKey] = round2((last7[dayKey] || 0) + amt);
       }
     });
 
@@ -141,6 +179,17 @@ export default function Dashboard() {
       invoiceCount: valid.length,
     };
   }, [invoices]);
+
+  const handleMonthClick = (monthKey) => {
+    // monthKey format: "Jul 2026" -> navigate to invoices with filter
+    const parts = monthKey.split(" ");
+    const monthName = parts[0];
+    const year = parts[1];
+    const monthIndex = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"].indexOf(monthName) + 1;
+    if (monthIndex > 0 && year) {
+      navigate("/invoices", { state: { month: monthIndex, year: parseInt(year, 10) } });
+    }
+  };
 
   return (
     <div className="min-h-[100dvh] bg-slate-50">
@@ -177,12 +226,12 @@ export default function Dashboard() {
           {/* Stats Row - 2-col grid on mobile, 4-col on desktop */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-4 sm:mb-6">
             {[
-              { label: "Revenue", value: `₹ ${invoiceAnalytics.totalRevenue.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`, icon: DollarSign, color: "bg-emerald-500", gradient: "from-emerald-500 to-emerald-600" },
-              { label: "Invoices", value: invoiceAnalytics.invoiceCount, icon: FileText, color: "bg-blue-500", gradient: "from-blue-500 to-blue-600" },
-              { label: "Customers", value: isAdmin ? (stats?.totalCustomers || 0) : customerCount, icon: Users, color: "bg-indigo-500", gradient: "from-indigo-500 to-indigo-600" },
-              { label: "This Month", value: `₹ ${(invoiceAnalytics.salesByMonth.length > 0 ? invoiceAnalytics.salesByMonth[invoiceAnalytics.salesByMonth.length - 1].sales : 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`, icon: Calendar, color: "bg-amber-500", gradient: "from-amber-500 to-amber-600" },
+              { label: "Revenue", value: `₹ ${invoiceAnalytics.totalRevenue.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`, icon: DollarSign, gradient: "from-emerald-500 to-emerald-600", path: "/invoices" },
+              { label: "Invoices", value: invoiceAnalytics.invoiceCount, icon: FileText, gradient: "from-blue-500 to-blue-600", path: "/invoices" },
+              { label: "Customers", value: isAdmin ? (stats?.totalCustomers || 0) : customerCount, icon: Users, gradient: "from-indigo-500 to-indigo-600", path: "/customers" },
+              { label: "This Month", value: `₹ ${(invoiceAnalytics.salesByMonth.length > 0 ? invoiceAnalytics.salesByMonth[invoiceAnalytics.salesByMonth.length - 1].sales : 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`, icon: Calendar, gradient: "from-amber-500 to-amber-600", path: "/invoices" },
             ].map((stat) => (
-              <div key={stat.label} className="bg-white rounded-xl border border-slate-200 p-3 sm:p-4 shadow-sm">
+              <div key={stat.label} onClick={() => navigate(stat.path)} className="bg-white rounded-xl border border-slate-200 p-3 sm:p-4 shadow-sm cursor-pointer active:scale-[0.97] transition-all hover:shadow-md">
                 <div className="flex items-center gap-2 mb-1.5">
                   <div className={`w-7 h-7 rounded-lg bg-gradient-to-br ${stat.gradient} flex items-center justify-center`}>
                     <stat.icon className="w-3.5 h-3.5 text-white" />
@@ -202,14 +251,18 @@ export default function Dashboard() {
                 <TrendingUp className="w-4 h-4 text-emerald-600" />
                 <h2 className="text-sm font-semibold text-slate-900">Sales Trend</h2>
               </div>
-              {invoiceAnalytics.salesByMonth.length > 0 ? (
+              {loadingInvoices && invoices.length === 0 ? (
+                <div className="h-44 sm:h-56 flex items-center justify-center">
+                  <Spinner size={32} />
+                </div>
+              ) : invoiceAnalytics.salesByMonth.length > 0 ? (
                 <div className="h-44 sm:h-56">
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={invoiceAnalytics.salesByMonth} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                       <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#64748b' }} />
                       <YAxis tick={{ fontSize: 10, fill: '#64748b' }} />
-                      <Tooltip contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '11px' }} />
+                      <Tooltip formatter={(v) => money(v)} contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '11px' }} />
                       <Line type="monotone" dataKey="sales" stroke="#10b981" strokeWidth={2} dot={{ r: 3, fill: "#10b981" }} name="Sales (₹)" />
                     </LineChart>
                   </ResponsiveContainer>
@@ -225,14 +278,18 @@ export default function Dashboard() {
                 <BarChart3 className="w-4 h-4 text-indigo-600" />
                 <h2 className="text-sm font-semibold text-slate-900">Last 7 Days</h2>
               </div>
-              {invoiceAnalytics.last7Days.length > 0 ? (
+              {loadingInvoices && invoices.length === 0 ? (
+                <div className="h-44 sm:h-56 flex items-center justify-center">
+                  <Spinner size={32} />
+                </div>
+              ) : invoiceAnalytics.last7Days.length > 0 ? (
                 <div className="h-44 sm:h-56">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={invoiceAnalytics.last7Days} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                       <XAxis dataKey="day" tick={{ fontSize: 10, fill: '#64748b' }} />
                       <YAxis tick={{ fontSize: 10, fill: '#64748b' }} />
-                      <Tooltip contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '11px' }} cursor={{ fill: '#f8fafc' }} />
+                      <Tooltip formatter={(v) => money(v)} contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '11px' }} cursor={{ fill: '#f8fafc' }} />
                       <Bar dataKey="sales" fill="#6366f1" radius={[4, 4, 0, 0]} maxBarSize={40} name="Sales (₹)" />
                     </BarChart>
                   </ResponsiveContainer>
@@ -246,17 +303,24 @@ export default function Dashboard() {
             <div className="bg-white rounded-xl border border-slate-200 p-3 sm:p-4 shadow-sm">
               <div className="flex items-center gap-2 mb-3">
                 <DollarSign className="w-4 h-4 text-emerald-600" />
-                <h2 className="text-sm font-semibold text-slate-900">Monthly Revenue</h2>
+                <h2 className="text-sm font-semibold text-slate-900">Monthly Sales & Revenue</h2>
+                <span className="text-[10px] text-slate-400 ml-auto">Click month to view invoices</span>
               </div>
-              {invoiceAnalytics.salesByMonth.length > 0 ? (
+              {loadingInvoices && invoices.length === 0 ? (
+                <div className="h-44 sm:h-56 flex items-center justify-center">
+                  <Spinner size={32} />
+                </div>
+              ) : invoiceAnalytics.salesByMonth.length > 0 ? (
                 <div className="h-44 sm:h-56">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={invoiceAnalytics.salesByMonth} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                       <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#64748b' }} />
                       <YAxis tick={{ fontSize: 10, fill: '#64748b' }} />
-                      <Tooltip contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '11px' }} cursor={{ fill: '#f8fafc' }} />
-                      <Bar dataKey="revenue" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={40} name="Revenue (₹)" />
+                      <Tooltip formatter={(v) => money(v)} contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '11px' }} cursor={{ fill: '#f8fafc' }} />
+                      <Legend wrapperStyle={{ fontSize: '11px' }} />
+                      <Bar dataKey="sales" fill="#6366f1" radius={[4, 4, 0, 0]} maxBarSize={40} name="Sales (₹)" cursor="pointer" onClick={(data, index, event) => { const m = data?.month || data?.activePayload?.[0]?.payload?.month; if (m) handleMonthClick(m); }} />
+                      <Bar dataKey="revenue" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={40} name="Revenue (₹)" cursor="pointer" onClick={(data, index, event) => { const m = data?.month || data?.activePayload?.[0]?.payload?.month; if (m) handleMonthClick(m); }} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
@@ -275,10 +339,11 @@ export default function Dashboard() {
                     </thead>
                     <tbody>
                       {invoiceAnalytics.salesByMonth.slice().reverse().map((row, i) => (
-                        <tr key={row.month} className={`border-b border-slate-50 ${i % 2 === 1 ? "bg-slate-50/50" : ""}`}>
+                        <tr key={row.month} onClick={() => handleMonthClick(row.month)}
+                          className={`border-b border-slate-50 cursor-pointer transition-colors hover:bg-indigo-50/50 ${i % 2 === 1 ? "bg-slate-50/50" : ""}`}>
                           <td className="py-1.5 font-medium text-slate-700">{row.month}</td>
-                          <td className="py-1.5 text-right text-slate-600 font-mono">₹ {row.sales.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
-                          <td className="py-1.5 text-right text-emerald-600 font-semibold font-mono">₹ {row.revenue.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                          <td className="py-1.5 text-right text-slate-600 font-mono">₹ {row.sales.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                          <td className="py-1.5 text-right text-emerald-600 font-semibold font-mono">₹ {row.revenue.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -307,7 +372,7 @@ export default function Dashboard() {
                         <span className="text-[10px] font-bold text-white">{typeof card.count === "number" ? (card.count > 99 ? "99+" : card.count) : card.count?.[0]}</span>
                       </div>
                       <div className="text-sm sm:text-base font-bold text-slate-900 truncate">
-                        {loadingStats ? <span className="inline-block w-8 h-5 bg-slate-200 rounded animate-pulse" /> : (card.count ?? 0)}
+                        {loadingStats && !stats ? <span className="inline-block w-8 h-5 bg-slate-200 rounded animate-pulse" /> : (card.count ?? 0)}
                       </div>
                       <div className="text-[10px] text-slate-500">{card.label}</div>
                     </div>
@@ -320,7 +385,11 @@ export default function Dashboard() {
                     <BarChart3 className="w-4 h-4 text-indigo-600" />
                     <h2 className="text-sm font-semibold text-slate-900">Platform Overview</h2>
                   </div>
-                  {chartData.length > 0 ? (
+                  {loadingStats && !stats ? (
+                    <div className="h-44 sm:h-56 flex items-center justify-center">
+                      <Spinner size={32} />
+                    </div>
+                  ) : chartData.length > 0 ? (
                     <div className="h-44 sm:h-56">
                       <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={chartData} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
@@ -349,7 +418,11 @@ export default function Dashboard() {
                       <Users className="w-4 h-4 text-indigo-600" />
                       <h2 className="text-sm font-semibold text-slate-900">User Signups</h2>
                     </div>
-                    {analytics?.usersByMonth?.length > 0 ? (
+                    {loadingStats && !analytics ? (
+                      <div className="h-40 sm:h-48 flex items-center justify-center">
+                        <Spinner size={32} />
+                      </div>
+                    ) : analytics?.usersByMonth?.length > 0 ? (
                       <div className="h-40 sm:h-48">
                         <ResponsiveContainer width="100%" height="100%">
                           <BarChart data={analytics.usersByMonth} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
@@ -370,7 +443,11 @@ export default function Dashboard() {
                       <FileText className="w-4 h-4 text-slate-600" />
                       <h2 className="text-sm font-semibold text-slate-900">Invoices</h2>
                     </div>
-                    {analytics?.invoicesByMonth?.length > 0 ? (
+                    {loadingStats && !analytics ? (
+                      <div className="h-40 sm:h-48 flex items-center justify-center">
+                        <Spinner size={32} />
+                      </div>
+                    ) : analytics?.invoicesByMonth?.length > 0 ? (
                       <div className="h-40 sm:h-48">
                         <ResponsiveContainer width="100%" height="100%">
                           <BarChart data={analytics.invoicesByMonth} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>

@@ -1103,7 +1103,7 @@ export default function GSTBillingLanding() {
       </section>
 
       {/* Footer */}
-      <footer className="bg-gray-900 text-gray-300 py-8 sm:py-10 lg:py-12 px-3 sm:px-4 lg:px-6">
+      <footer className="bg-gray-900 text-gray-300 pt-8 sm:pt-10 lg:pt-12 pb-[calc(2rem_+_env(safe-area-inset-bottom,0px))] sm:pb-[calc(2.5rem_+_env(safe-area-inset-bottom,0px))] lg:pb-12 px-3 sm:px-4 lg:px-6">
         <div className="max-w-full mx-auto px-2 sm:px-4">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 sm:gap-8 mb-6 sm:mb-8">
             <div className="col-span-2 md:col-span-1">

@@ -18,6 +18,7 @@ export const businessAPI = {
     formData.append("file", file);
     return api.post("/business/signature", formData, {
       headers: { "Content-Type": "multipart/form-data" },
+      timeout: 120000,
     });
   },
   removeSignature: () => api.delete("/business/signature"),
@@ -38,7 +39,7 @@ export const productAPI = {
   getById: (id) => api.get(`/products/${id}`),
   update: (id, data) => api.put(`/products/${id}`, data),
   delete: (id) => api.delete(`/products/${id}`),
-  findByHsn: (hsn) => api.get(`/products/by-hsn/${hsn}`),
+  findByHsn: (hsn) => api.get(`/products/by-hsn/${encodeURIComponent(hsn.trim())}`),
 };
 
 export const invoiceAPI = {
@@ -55,6 +56,46 @@ export const paymentAPI = {
   getById: (id) => api.get(`/payments/${id}`),
   getByInvoice: (invoiceId) => api.get(`/payments/by-invoice/${invoiceId}`),
   delete: (id) => api.delete(`/payments/${id}`),
+};
+
+export const labelAPI = {
+  shipping: {
+    create: (data) => api.post("/labels/shipping", data),
+    list: (params) => api.get("/labels/shipping", { params }),
+    get: (id) => api.get(`/labels/shipping/${id}`),
+    update: (id, data) => api.put(`/labels/shipping/${id}`, data),
+    remove: (id) => api.delete(`/labels/shipping/${id}`),
+    preview: (data) =>
+      api.post("/labels/shipping/preview", data, { responseType: "blob", timeout: 120000 }),
+    previewById: (id) =>
+      api.post(`/labels/shipping/${id}/preview`, {}, { responseType: "blob", timeout: 120000 }),
+    pdf: (id) => api.get(`/labels/shipping/${id}/pdf`, { responseType: "blob", timeout: 120000 }),
+    generate: (id) =>
+      api.post(`/labels/shipping/${id}/generate`, {}, { responseType: "blob", timeout: 120000 }),
+    bulkPdf: (ids) =>
+      api.post(`/labels/shipping/bulk-pdf?ids=${ids.join(",")}`, {}, { responseType: "blob", timeout: 120000 }),
+    zpl: (id) => api.get(`/labels/shipping/${id}/zpl`, { responseType: "blob" }),
+    markPrinted: (id) => api.post(`/labels/shipping/${id}/mark-printed`),
+    fromInvoice: (invoiceId) => api.post(`/labels/shipping/from-invoice/${invoiceId}`),
+  },
+  hazmat: {
+    create: (data) => api.post("/labels/hazmat", data),
+    list: (params) => api.get("/labels/hazmat", { params }),
+    get: (id) => api.get(`/labels/hazmat/${id}`),
+    update: (id, data) => api.put(`/labels/hazmat/${id}`, data),
+    remove: (id) => api.delete(`/labels/hazmat/${id}`),
+    preview: (data) =>
+      api.post("/labels/hazmat/preview", data, { responseType: "blob", timeout: 120000 }),
+    pdf: (id) => api.get(`/labels/hazmat/${id}/pdf`, { responseType: "blob", timeout: 120000 }),
+    generate: (id) =>
+      api.post(`/labels/hazmat/${id}/generate`, {}, { responseType: "blob", timeout: 120000 }),
+    bulkPdf: (ids) =>
+      api.post(`/labels/hazmat/bulk-pdf?ids=${ids.join(",")}`, {}, { responseType: "blob", timeout: 120000 }),
+    zpl: (id) => api.get(`/labels/hazmat/${id}/zpl`, { responseType: "blob" }),
+    markPrinted: (id) => api.post(`/labels/hazmat/${id}/mark-printed`),
+    unNumbers: (q) => api.get(`/labels/hazmat/un-numbers?q=${encodeURIComponent(q || "")}`),
+    classes: () => api.get("/labels/hazmat/classes"),
+  },
 };
 
 export const adminAPI = {

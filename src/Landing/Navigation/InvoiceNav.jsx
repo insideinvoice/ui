@@ -56,25 +56,44 @@ export default function InvoiceNav({ scrolled, setIsMenuOpen, isMenuOpen }) {
             {isMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
         </div>
+      </div>
 
-        {/* Mobile Menu */}
-        {isMenuOpen && (
-          <div className="md:hidden pb-4 bg-white rounded-b-2xl shadow-xl border-t border-slate-100">
-            <Link to="/contact" className="block px-4 py-3 text-slate-700 hover:bg-slate-50 transition-colors font-semibold min-h-[44px]">
-              Contact
+      {/* Mobile Menu - opens top to bottom */}
+      <div
+        aria-hidden={!isMenuOpen}
+        className={`md:hidden w-full overflow-hidden bg-white border-t border-slate-100 shadow-xl transition-all duration-300 ease-out ${
+          isMenuOpen ? "max-h-72 opacity-100" : "max-h-0 opacity-0 border-transparent pointer-events-none"
+        }`}
+      >
+        <div
+          className={`transition-transform duration-300 ease-out ${
+            isMenuOpen ? "translate-y-0" : "-translate-y-4"
+          }`}
+        >
+          <Link
+            to="/contact"
+            className={`block px-4 py-3 text-slate-700 hover:bg-slate-50 transition-all duration-300 ease-out font-semibold min-h-[44px] ${
+              isMenuOpen ? "opacity-100 delay-75" : "opacity-0"
+            }`}
+          >
+            Contact
+          </Link>
+          <Link
+            to="/login"
+            className={`block px-4 py-3 text-slate-700 hover:bg-slate-50 transition-all duration-300 ease-out font-semibold min-h-[44px] ${
+              isMenuOpen ? "opacity-100 delay-100" : "opacity-0"
+            }`}
+          >
+            Login
+          </Link>
+          <div className={`px-4 pt-2 pb-4 transition-opacity duration-300 ease-out ${isMenuOpen ? "opacity-100 delay-150" : "opacity-0"}`}>
+            <Link to="/login" className="block">
+              <button className="w-full px-6 py-3 bg-slate-900 text-white rounded-xl font-bold min-h-[48px] text-sm hover:bg-slate-800 active:scale-[0.98] transition-all duration-200 shadow-sm">
+                Start Billing
+              </button>
             </Link>
-            <Link to="/login" className="block px-4 py-3 text-slate-700 hover:bg-slate-50 transition-colors font-semibold min-h-[44px]">
-              Login
-            </Link>
-            <div className="px-4 pt-2">
-              <Link to="/login">
-                <button className="w-full px-6 py-3 bg-slate-900 text-white rounded-xl font-bold min-h-[48px] text-sm">
-                  Start Billing
-                </button>
-              </Link>
-            </div>
           </div>
-        )}
+        </div>
       </div>
     </nav>
   );

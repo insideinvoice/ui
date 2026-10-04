@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from "react";
+import { createContext, useContext, useState, useEffect, useMemo, useCallback } from "react";
 import { authAPI, businessAPI } from "../api/auth";
 import { setAuthToken } from "../api/axios";
 
@@ -79,7 +79,7 @@ export function AuthProvider({ children }) {
     setLoading(false);
   }, []);
 
-  const login = async (email, password, rememberMe = false) => {
+  const login = useCallback(async (email, password, rememberMe = false) => {
     const res = await authAPI.login({ email, password, rememberMe });
     const data = res.data.data;
     setAuthToken(data.accessToken);
@@ -98,9 +98,9 @@ export function AuthProvider({ children }) {
       localStorage.removeItem("mustChangePassword");
     }
     return data;
-  };
+  }, []);
 
-  const updateTemplate = async (templateId) => {
+  const updateTemplate = useCallback(async (templateId) => {
     await authAPI.updateProfile({ ...user, selectedTemplate: templateId });
     localStorage.setItem("invoice_template", templateId);
     setSelectedTemplate(templateId);
@@ -108,18 +108,18 @@ export function AuthProvider({ children }) {
     const rememberMe = localStorage.getItem(REMEMBER_KEY) === "true";
     writeStorage(USER_KEY, JSON.stringify(updated), rememberMe);
     setUser(updated);
-  };
+  }, [user]);
 
-  const setupBusiness = async (businessData) => {
+  const setupBusiness = useCallback(async (businessData) => {
     const res = await businessAPI.setup(businessData);
     const updatedUser = { ...user, businessSetupCompleted: true };
     const rememberMe = localStorage.getItem(REMEMBER_KEY) === "true";
     writeStorage(USER_KEY, JSON.stringify(updatedUser), rememberMe);
     setUser(updatedUser);
     return res.data.data;
-  };
+  }, [user]);
 
-  const logout = () => {
+  const logout = useCallback(() => {
     setAuthToken(null);
     clearAuthStorage();
     localStorage.removeItem("invoice_template");
@@ -127,32 +127,37 @@ export function AuthProvider({ children }) {
     setToken(null);
     setUser(null);
     setSelectedTemplate("template-1");
-  };
+  }, []);
 
   const isAuthenticated = !!token;
   const isBusinessSetupComplete = user?.businessSetupCompleted;
   const isAdmin = user?.role === "ADMIN";
   const mustChangePassword = user?.mustChangePassword === true || localStorage.getItem("mustChangePassword") === "true";
 
+  // Memoized context value: consumers only re-render when auth state actually changes
+  const value = useMemo(() => ({
+    user,
+    token,
+    loading,
+    login,
+    setupBusiness,
+    logout,
+    setUser,
+    setToken,
+    isAuthenticated,
+    isBusinessSetupComplete,
+    isAdmin,
+    mustChangePassword,
+    selectedTemplate,
+    updateTemplate,
+  }), [
+    user, token, loading, login, setupBusiness, logout, setUser, setToken,
+    isAuthenticated, isBusinessSetupComplete, isAdmin, mustChangePassword,
+    selectedTemplate, updateTemplate,
+  ]);
+
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        token,
-        loading,
-        login,
-        setupBusiness,
-        logout,
-        setUser,
-        setToken,
-        isAuthenticated,
-        isBusinessSetupComplete,
-        isAdmin,
-        mustChangePassword,
-        selectedTemplate,
-        updateTemplate,
-      }}
-    >
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );

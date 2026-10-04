@@ -393,7 +393,15 @@ export default function InvoiceView() {
           }
         }
       } catch (_) {}
-      if (!shared) {
+      if (shared) {
+        // The user shared the document and came back — close the preview so the
+        // PDF does not reappear over the invoice.
+        setShowPdfPreview(false);
+        if (pdfPreviewUrl) {
+          URL.revokeObjectURL(pdfPreviewUrl.split("#")[0]);
+          setPdfPreviewUrl(null);
+        }
+      } else {
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url; a.download = filename; a.click();

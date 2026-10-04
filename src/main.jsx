@@ -29,12 +29,19 @@ if ("caches" in window) {
    layout never shifts and floating controls (e.g. Add Item) stay put. */
 (function () {
   var root = document.documentElement;
-  var isField = function (el) {
-    return !!el && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName);
-  };
+  var vv = window.visualViewport;
 
   var sync = function () {
-    if (isField(document.activeElement)) {
+    var fieldFocused = !!document.activeElement && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName);
+    // The soft keyboard shrinks the visual viewport well below the layout
+    // viewport. This is the reliable cross-browser signal that it is open —
+    // focus events alone miss it on Android, where opening the IME also fires
+    // a window blur that used to strip the class straight back off again.
+    var keyboardOpen = false;
+    if (vv && window.innerHeight > 0) {
+      keyboardOpen = vv.height < window.innerHeight - 150;
+    }
+    if (fieldFocused || keyboardOpen) {
       root.classList.add("kb-open");
     } else {
       root.classList.remove("kb-open");
@@ -45,7 +52,9 @@ if ("caches" in window) {
   document.addEventListener("focusout", function () {
     setTimeout(sync, 0);
   });
-  window.addEventListener("blur", function () {
-    root.classList.remove("kb-open");
-  });
+  if (vv) {
+    vv.addEventListener("resize", sync);
+    vv.addEventListener("scroll", sync);
+  }
+  window.addEventListener("resize", sync);
 })();

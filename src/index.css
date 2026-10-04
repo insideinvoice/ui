@@ -77,15 +77,9 @@ div:has(> label + input[type="date"]) {
    a desktop has no soft keyboard, so focusing a field must not move the nav. */
 @media (max-width: 1023px) {
   .kb-open .app-nav-fixed {
-    opacity: 0 !important;
-    filter: blur(6px);
+    opacity: 0.3 !important;
+    filter: blur(12px);
     pointer-events: none !important;
-    transition: opacity 120ms ease, filter 120ms ease;
-  }
-
-  /* Floating "Add Item" style controls must not drift while the keyboard
-     resizes the visual viewport. */
-  .kb-open [data-floating-action] {
-    position: fixed !important;
+    transition: opacity 150ms ease, filter 150ms ease;
   }
 }

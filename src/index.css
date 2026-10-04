@@ -54,3 +54,19 @@ input, textarea, select {
     top: calc(env(safe-area-inset-top, 0px) + 68px) !important;
   }
 }
+
+/* iOS Safari: date inputs have an intrinsic min-width that overflows narrow grid cells */
+input[type="date"] {
+  -webkit-appearance: none;
+  appearance: none;
+  min-width: 0;
+  max-width: 100%;
+  width: 100%;
+  display: block;
+}
+
+/* Grid/flex parents of date inputs must be allowed to shrink on iOS Safari */
+div:has(> input[type="date"]),
+div:has(> label + input[type="date"]) {
+  min-width: 0;
+}

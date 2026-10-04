@@ -193,7 +193,7 @@ export default memo(function AppNavbar() {
   return (
     <>
       {/* ===== DESKTOP SIDEBAR (lg+) ===== */}
-      <aside className="app-nav-fixed hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 lg:left-0 lg:z-50 lg:w-60 lg:bg-white lg:border-r lg:border-slate-200">
+      <aside className="hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 lg:left-0 lg:z-50 lg:w-60 lg:bg-white lg:border-r lg:border-slate-200">
         {sidebarContent}
       </aside>
 

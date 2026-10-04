@@ -14,6 +14,7 @@ import { ArrowLeft, FileText, Download, Eye, PlusCircle, Share2, Trash2, Search,
 import { downloadInvoicePDF } from "../components/InvoicePDF";
 import InvoiceTemplateRenderer from "../components/InvoiceTemplateRenderer";
 import { getPrintSettings, getPaperDimensions } from "../constants/paperSizes";
+import { openWhatsApp, buildInvoiceWhatsAppMessage } from "../utils/whatsapp";
 
 const MONTH_NAMES = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -255,7 +256,7 @@ export default function InvoicesList() {
     setInvoiceToDelete(null);
   }, []);
 
-  const printInvoice = useCallback(async (invoice) => {
+const printInvoice = useCallback(async (invoice) => {
     setBusy(`${invoice.id}:share`);
     const business = await resolveBusinessProfile();
     const items = (invoice.items || []).map((i) => ({
@@ -297,6 +298,7 @@ export default function InvoicesList() {
                       "#section-subtotals", "#section-amount-words",
                       "#section-hsn-header", "#section-hsn-total", "#section-hsn-words",
                       "#section-footer", "#section-bottom-note",
+                      "#section-bottom-note",
                     ];
                     const allRowEls = el.querySelectorAll(rowSelectors.join(", "));
                     const invoiceRect = el.getBoundingClientRect();
@@ -379,7 +381,6 @@ export default function InvoicesList() {
             totals={totals}
             type={invoice.invoiceType}
             invoiceNumber={invoice.invoiceNumber}
-            paperSize={paperSizeId}
             template={localStorage.getItem("invoice_template") || "template-1"}
           />
         );
@@ -392,6 +393,80 @@ export default function InvoicesList() {
       setBusy("");
     }
   }, []);
+}, []);
+
+const shareViaWhatsApp = useCallback(async (invoice) => {
+    if (busy) return;
+    setBusy(`${invoice.id}:whatsapp`);
+    try {
+      const business = await resolveBusinessProfile();
+      const total = invoice.grandTotal || 0;
+      const label = invoice.invoiceType === "PROFORMA_INVOICE" ? "Proforma Invoice" : "Tax Invoice";
+      const text = `Hello,\n\n${label} ${invoice.invoiceNumber || ""} - Total: Rs. ${total.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      
+      await openWhatsApp({
+        text: `Hello ${invoice.customerName || ""},\n\n${label} ${invoice.invoiceNumber || ""} - Total: Rs. ${total.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n\n- ${business?.businessName || ""}`,
+        getPdfFile: () => createInvoicePdfFileFromInvoice(invoice),
+      });
+    } catch (err) {
+      toast.error("Failed to share on WhatsApp");
+    } finally {
+      setBusy("");
+    }
+  }, [busy];
+);
+
+const createInvoicePdfFileFromInvoice = async (invoice) => {
+  try {
+    const business = await resolveBusinessProfile();
+    const items = (invoice.items || []).map((i) => ({
+      itemName: i.itemName, hsn: i.hsn || "", qty: String(i.qty), rate: String(i.rate),
+      gstPercentage: String(i.gstPercentage), taxableValue: i.taxableValue, taxAmount: i.taxAmount, total: i.total,
+    }));
+    const totals = {
+      subtotal: invoice.subtotal || 0,
+      taxAmount: invoice.taxAmount || 0,
+      grandTotal: invoice.grandTotal || 0,
+    };
+    const filename = `${invoice.invoiceType === "PROFORMA_INVOICE" ? "Proforma" : "Tax"}_Invoice_${invoice.invoiceNumber}.pdf`;
+    
+    const container = document.createElement("div");
+    container.style.cssText = "position:absolute;left:-9999px;top:0;pointer-events:none;";
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    
+    const { jsPDF } = await import("jspdf");
+    const { default: html2canvas } = await import("html2canvas");
+    const dim = getPaperDimensions((getPrintSettings()[invoice.invoiceType] || {}).paperSize || "A4_PORTRAIT");
+    
+    const canvas = await html2canvas(root.current ? root.current : container, { scale: 2, useCORS: true, logging: false });
+    const pdf = new jsPDF(dim.orientation, "mm", dim.format);
+    const PAGE_W = dim.pageW, PAGE_H = dim.pageH, LEFT = dim.left, CONTENT_W = dim.contentW, PY = 10;
+    const usableH = dim.usableH;
+    const pxToMm = CONTENT_W / canvas.width;
+    const onePagePx = usableH / pxToMm;
+    let pageStartPx = 0, isFirstPage = true;
+    
+    while (pageStartPx < canvas.height) {
+      const sliceH = Math.min(onePagePx, canvas.height - pageStartPx);
+      const sc = document.createElement("canvas");
+      sc.width = canvas.width; sc.height = sliceH;
+      sc.getContext("2d").drawImage(canvas, 0, pageStartPx, canvas.width, sliceH, 0, 0, canvas.width, sliceH);
+      if (!isFirstPage) pdf.addPage();
+      pdf.addImage(sc.toDataURL("image/jpeg", 0.95), "JPEG", LEFT, PY, CONTENT_W, sliceH * pxToMm);
+      pageStartPx += sliceH; isFirstPage = false;
+    }
+    
+    const blob = pdf.output("blob");
+    URL.revokeObjectURL(container.toDataURL());
+    document.body.removeChild(container);
+    
+    return new File([blob], filename, { type: "application/pdf" });
+  } catch (err) {
+    toast.error("Failed to generate PDF for WhatsApp");
+    return null;
+  }
+};
 
   if (loading) {
     return (

@@ -6,7 +6,7 @@ import AppNavbar from "../components/AppNavbar";
 import PageHeader from "../components/PageHeader";
 import toast from "react-hot-toast";
 import { adminAPI } from "../api/auth";
-import { ArrowLeft, Users, Eye, EyeOff, Shield, AlertCircle, Trash2, ToggleLeft, ToggleRight, KeyRound } from "lucide-react";
+import { ArrowLeft, Users, Eye, EyeOff, Shield, AlertCircle, Trash2, ToggleLeft, ToggleRight, KeyRound, Pencil } from "lucide-react";
 import ConfirmModal from "../components/ConfirmModal";
 
 export default function AdminUsersList() {
@@ -15,8 +15,10 @@ export default function AdminUsersList() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [visiblePasswords, setVisiblePasswords] = useState({});
+  const [visiblePasswords, setVisiblePasswords] = useState({});
   const [modal, setModal] = useState({ open: false, type: "", user: null });
   const [passwordModal, setPasswordModal] = useState({ open: false, user: null, password: "" });
+  const [editModal, setEditModal] = useState({ open: false, user: null });
 
   const fetchUsers = () => {
     adminAPI.getAllUsers()
@@ -33,6 +35,10 @@ export default function AdminUsersList() {
 
   const handleDelete = async (u) => {
     setModal({ open: true, type: "delete", user: u });
+  };
+
+  const handleEdit = async (u) => {
+    setEditModal({ open: true, user: u });
   };
 
   const confirmAction = async () => {
@@ -53,6 +59,18 @@ export default function AdminUsersList() {
         fetchUsers();
       } catch (err) {
         toast.error(err.response?.data?.message || "Failed to delete user");
+      }
+    } else if (modal.type === "edit") {
+      try {
+        await adminAPI.updateUser(modal.user.id, {
+          name: modal.user.name,
+          email: modal.user.email,
+          username: modal.user.username,
+        });
+        toast.success(`${modal.user.name}'s details updated`);
+        fetchUsers();
+      } catch (err) {
+        toast.error(err.response?.data?.message || "Failed to update user");
       }
     }
     setModal({ open: false, type: "", user: null });
@@ -137,6 +155,11 @@ export default function AdminUsersList() {
                             className="p-1.5 hover:bg-slate-200 rounded-lg transition-colors">
                             {visiblePasswords[u.id] ? <EyeOff className="w-4 h-4 text-slate-500" /> : <Eye className="w-4 h-4 text-slate-400" />}
                           </button>
+                          <button onClick={() => handleEdit(u)}
+                            className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg hover:bg-slate-100 transition-colors text-slate-600"
+                            title="Edit user details">
+                            <Pencil className="w-3.5 h-3.5" /> Edit
+                          </button>
                         </div>
                       </td>
                       <td className="py-3 px-6">
@@ -195,18 +218,14 @@ export default function AdminUsersList() {
                       <button onClick={() => handleToggleRole(u)}
                         className="flex items-center gap-1 text-xs px-3 py-2 rounded-lg hover:bg-slate-100 transition-colors text-slate-600 min-h-[44px]">
                         {u.role === "ADMIN" ? <ToggleRight className="w-3.5 h-3.5 text-amber-500" /> : <ToggleLeft className="w-3.5 h-3.5 text-slate-400" />}
-                        {u.role === "ADMIN" ? "Revoke" : "Promote"}
-                      </button>
-                      <button onClick={() => setPasswordModal({ open: true, user: u, password: "" })}
-                        className="flex items-center gap-1 text-xs px-3 py-2 rounded-lg hover:bg-slate-100 transition-colors text-slate-600 min-h-[44px]">
-                        <KeyRound className="w-3.5 h-3.5" /> Password
-                      </button>
-                      <button onClick={() => handleDelete(u)}
-                        className="flex items-center gap-1 text-xs px-3 py-2 rounded-lg hover:bg-red-50 transition-colors text-red-500 min-h-[44px]">
-                        <Trash2 className="w-3.5 h-3.5" /> Delete
+                        {visiblePasswords[u.id] ? (u.rawPassword || u.password) : "••••••••••••••••"}
+                      </span>
+                      <button onClick={() => setVisiblePasswords((prev) => ({ ...prev, [u.id]: !prev[u.id] }))}
+                        className="p-1.5 hover:bg-slate-200 rounded-lg transition-colors">
+                        {visiblePasswords[u.id] ? <EyeOff className="w-4 h-4 text-slate-500" /> : <Eye className="w-4 h-4 text-slate-400" />}
                       </button>
                     </div>
-                  )}
+                  </div>
                   {u.email === currentUser?.email && (
                     <span className="text-xs text-slate-400 italic">You</span>
                   )}
@@ -253,6 +272,67 @@ export default function AdminUsersList() {
               <button onClick={handlePasswordChange}
                 className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors">
                 Save Password
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {editModal.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black/30 backdrop-blur-sm" onClick={() => setEditModal({ open: false, user: null })}></div>
+          <div className="relative bg-white rounded-xl shadow-xl border border-slate-200 w-full max-w-sm p-6">
+            <h3 className="text-sm font-semibold text-slate-900 mb-1">Edit User</h3>
+            <p className="text-sm text-slate-500 mb-4">Update details for <strong>{editModal.user?.name}</strong></p>
+            <div className="space-y-3 mb-4">
+              <div>
+                <label className="text-xs text-slate-500 mb-1 block">Name</label>
+                <input
+                  value={editModal.user?.name || ""}
+                  onChange={(e) => setEditModal({ ...editModal, user: { ...editModal.user, name: e.target.value } })}
+                  placeholder="Enter name"
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-slate-400 mb-2"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-slate-500 mb-1 block">Email</label>
+                <input
+                  value={editModal.user?.email || ""}
+                  onChange={(e) => setEditModal({ ...editModal, user: { ...editModal.user, email: e.target.value } })}
+                  placeholder="Enter email"
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-slate-400 mb-2"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-slate-500 mb-1 block">Username</label>
+                <input
+                  value={editModal.user?.username || ""}
+                  onChange={(e) => setEditModal({ ...editModal, user: { ...editModal.user, username: e.target.value } })}
+                  placeholder="Enter username"
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-slate-400 mb-2"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setEditModal({ open: false, user: null })}
+                className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">
+                Cancel
+              </button>
+              <button onClick={async () => {
+                try {
+                  await adminAPI.updateUser(editModal.user.id, {
+                    name: editModal.user.name,
+                    email: editModal.user.email,
+                    username: editModal.user.username,
+                  });
+                  toast.success(`${editModal.user.name}'s details updated`);
+                  setEditModal({ open: false, user: null });
+                  fetchUsers();
+                } catch (err) {
+                  toast.error(err.response?.data?.message || "Failed to update user");
+                }
+              }}>
+                Save Changes
               </button>
             </div>
           </div>

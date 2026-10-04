@@ -1186,10 +1186,14 @@ export default function InvoiceForm() {
             {items.map((item, idx) => (
               <ItemCard key={idx} item={item} idx={idx} onItemChange={handleItemChange} onRemove={removeItem} onAdd={addItem} onHsnLookup={handleHsnLookup} />
             ))}
-            <button onClick={addItem}
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-slate-800 text-white text-sm font-semibold rounded-lg hover:bg-slate-700 transition-all shadow-sm min-h-[48px] sticky bottom-20 md:bottom-6 z-10">
-              <Plus className="w-4 h-4" /> Add Item
-            </button>
+            <div data-floating-action className="fixed left-0 right-0 bottom-0 z-40 md:hidden pointer-events-none">
+              <div className="max-w-[1900px] mx-auto px-4 sm:px-5 lg:px-6 pb-[calc(env(safe-area-inset-bottom,0px)+76px)]">
+                <button onClick={addItem}
+                  className="w-full pointer-events-auto flex items-center justify-center gap-2 px-4 py-3 bg-slate-800 text-white text-sm font-semibold rounded-lg hover:bg-slate-700 transition-all shadow-lg min-h-[48px]">
+                  <Plus className="w-4 h-4" /> Add Item
+                </button>
+              </div>
+            </div>
           </div>
 
           <div className="mt-5 pt-4 border-t border-slate-200 flex justify-end">

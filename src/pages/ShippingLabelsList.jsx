@@ -68,7 +68,7 @@ export default function ShippingLabelsList() {
               <p className="text-sm font-semibold text-slate-700">No shipping labels yet</p>
               <p className="text-xs text-slate-400 mt-1 mb-4">Create your first shipping label</p>
               <button onClick={() => navigate("/labels/shipping/new")}
-                className="inline-flex items-center gap-2 px-5 py-2.5 min-h-[44px] bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 transition-all shadow-sm">
+                className="inline-flex items-center gap-2 px-5 py-2.5 min-h-[44px] bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 transition-all shadow-sm whitespace-nowrap">
                 Create Label
               </button>
             </div>

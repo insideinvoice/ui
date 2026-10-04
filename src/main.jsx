@@ -23,32 +23,29 @@ if ("caches" in window) {
   });
 }
 
-/* iOS Safari: when keyboard is shown, add padding-bottom to body so form fields
-   are not obscured and the user doesn't see "Dashboard Invoice customers more menu below" */
-(function() {
-  var_inputs = ['input', 'textarea', 'select'];
-  var lastFocused = null;
-  var uid = setInterval(function() {
-    var active = document.activeElement;
-    if (active && /^(INPUT|TEXTAREA|SELECT)$/.test(active.tagName)) {
-      if (lastFocused !== active) {
-        lastFocused = active;
-        var rect = active.getBoundingClientRect();
-        var vh = Math.max(document.documentElement.clientHeight, window.innerHeight || 0);
-        var keyboardHeight = vh - rect.bottom;
-        if (keyboardHeight > 0) {
-          document.body.style.paddingBottom = keyboardHeight + 'px';
-        } else {
-          document.body.style.paddingBottom = '0';
-        }
-      }
+/* iOS Safari: when a form field is focused the soft keyboard covers the lower
+   viewport. Hide/blur the fixed app navbars so their content is not visible
+   behind the focused field. Uses class toggling only (no body padding), so the
+   layout never shifts and floating controls (e.g. Add Item) stay put. */
+(function () {
+  var root = document.documentElement;
+  var isField = function (el) {
+    return !!el && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName);
+  };
+
+  var sync = function () {
+    if (isField(document.activeElement)) {
+      root.classList.add("kb-open");
     } else {
-      lastFocused = null;
-      document.body.style.paddingBottom = '0';
+      root.classList.remove("kb-open");
     }
-  }, 150);
-  window.addEventListener('blur', function() {
-    document.body.style.paddingBottom = '0';
-    lastFocused = null;
+  };
+
+  document.addEventListener("focusin", sync);
+  document.addEventListener("focusout", function () {
+    setTimeout(sync, 0);
+  });
+  window.addEventListener("blur", function () {
+    root.classList.remove("kb-open");
   });
 })();

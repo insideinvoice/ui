@@ -70,3 +70,18 @@ div:has(> input[type="date"]),
 div:has(> label + input[type="date"]) {
   min-width: 0;
 }
+
+/* Soft keyboard open: hide the fixed app navbars so their content (Dashboard /
+   Invoice / Customers / More) is not visible behind the focused form field. */
+.kb-open .app-nav-fixed {
+  opacity: 0 !important;
+  filter: blur(6px);
+  pointer-events: none !important;
+  transition: opacity 120ms ease, filter 120ms ease;
+}
+
+/* Floating "Add Item" style controls must not drift while the keyboard resizes
+   the visual viewport. */
+.kb-open [data-floating-action] {
+  position: fixed !important;
+}

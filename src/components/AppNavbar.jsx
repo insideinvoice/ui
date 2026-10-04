@@ -193,13 +193,13 @@ export default memo(function AppNavbar() {
   return (
     <>
       {/* ===== DESKTOP SIDEBAR (lg+) ===== */}
-      <aside className="hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 lg:left-0 lg:z-50 lg:w-60 lg:bg-white lg:border-r lg:border-slate-200">
+      <aside className="app-nav-fixed hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 lg:left-0 lg:z-50 lg:w-60 lg:bg-white lg:border-r lg:border-slate-200">
         {sidebarContent}
       </aside>
 
       {/* ===== MOBILE TOP NAV ===== */}
       <nav
-        className="lg:hidden bg-white border-b border-slate-200 px-3 sm:px-4 py-2 sm:py-3 sticky top-0 z-[99]"
+        className="app-nav-fixed lg:hidden bg-white border-b border-slate-200 px-3 sm:px-4 py-2 sm:py-3 sticky top-0 z-[99]"
         style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)" }}
       >
         <div className="flex items-center justify-between max-w-full">
@@ -276,7 +276,7 @@ export default memo(function AppNavbar() {
       </div>
 
       {/* ===== MOBILE BOTTOM TAB BAR ===== */}
-      <div className="fixed bottom-0 left-0 right-0 z-[1000] lg:hidden" style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)", backgroundColor: "#ffffff" }}>
+      <div className="app-nav-fixed fixed bottom-0 left-0 right-0 z-[1000] lg:hidden" style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)", backgroundColor: "#ffffff" }}>
         <div className="bg-white border-t border-slate-200">
           <div className="flex items-center justify-around px-2">
             {bottomTabs.map((tab) => (

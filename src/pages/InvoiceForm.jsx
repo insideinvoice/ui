@@ -17,7 +17,7 @@ import WhatsAppIcon from "../components/WhatsAppIcon";
 import { processQueue } from "../utils/retryQueue";
 import { processPrint } from "../utils/printInvoice";
 import { openWhatsApp, buildInvoiceWhatsAppMessage, createInvoicePdfFile, prefetchInvoicePdf } from "../utils/whatsapp";
-import { getPrintSettings, getPaperDimensions } from "../constants/paperSizes";
+import { getPrintSettings } from "../constants/paperSizes";
 import { INDIAN_STATES, DELIVERY_TERMS, PAYMENT_TERMS } from "../constants/indianStates";
 
 const emptyItem = { itemName: "", hsn: "", qty: "", rate: "", gstPercentage: "18", taxableValue: 0, taxAmount: 0, total: 0 };
@@ -619,25 +619,9 @@ export default function InvoiceForm() {
     setSaving(true);
     await mountPdfPreview();
     try {
-      const { jsPDF } = await import("jspdf");
-      const html2canvas = (await import("html2canvas")).default;
-      const dim = getPaperDimensions((getPrintSettings()[form.invoiceType] || {}).paperSize || "A4_PORTRAIT");
-      const canvas = await html2canvas(invoiceRef.current, { scale: 2, useCORS: true, logging: false, backgroundColor: "#ffffff" });
-      const pdf = new jsPDF(dim.orientation, "mm", dim.format);
-      const LEFT = dim.left, CONTENT_W = dim.contentW;
-      const usableH = dim.usableH;
-      const pxToMm = CONTENT_W / canvas.width;
-      const onePagePx = usableH / pxToMm;
-      let pageStartPx = 0, isFirstPage = true;
-      while (pageStartPx < canvas.height) {
-        const sliceH = Math.min(onePagePx, canvas.height - pageStartPx);
-        const sc = document.createElement("canvas");
-        sc.width = canvas.width; sc.height = sliceH;
-        sc.getContext("2d").drawImage(canvas, 0, pageStartPx, canvas.width, sliceH, 0, 0, canvas.width, sliceH);
-        if (!isFirstPage) pdf.addPage();
-        pdf.addImage(sc.toDataURL("image/jpeg", 0.95), "JPEG", LEFT, 10, CONTENT_W, sliceH * pxToMm);
-        pageStartPx += sliceH; isFirstPage = false;
-      }
+      const { buildInvoicePdf } = await import("../utils/invoicePdf");
+      const ps = (getPrintSettings()[form.invoiceType] || {}).paperSize || "A4_PORTRAIT";
+      const pdf = await buildInvoicePdf(invoiceRef.current, ps);
       const blob = pdf.output("blob");
       const filename = `Invoice_draft.pdf`;
       let shared = false;

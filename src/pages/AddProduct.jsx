@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import LoadingDots from "../components/LoadingDots";
-import { useAuth } from "../context/AuthContext";
 import AppNavbar from "../components/AppNavbar";
 import PageHeader from "../components/PageHeader";
 import { productAPI } from "../api/auth";
@@ -9,22 +8,43 @@ import toast from "react-hot-toast";
 import { Package, Hash, IndianRupee, Percent, Save, X } from "lucide-react";
 
 export default function AddProduct() {
-  const { logout } = useAuth();
   const navigate = useNavigate();
   const hsnRef = useRef(null);
   const [form, setForm] = useState({ name: "", hsn: "", rate: "", gstPercentage: "18" });
   const [saving, setSaving] = useState(false);
+  const [hsnError, setHsnError] = useState("");
 
   useEffect(() => {
     hsnRef.current?.focus();
   }, []);
 
-  const handleChange = (e) => setForm((p) => ({ ...p, [e.target.name]: e.target.value }));
+  const handleChange = (e) => {
+    setForm((p) => ({ ...p, [e.target.name]: e.target.value }));
+    if (e.target.name === "hsn") setHsnError("");
+  };
 
-  const handleHsnKeyDown = (e) => {
+  const checkHsnUnique = async (value) => {
+    const hsn = (value || "").trim();
+    setHsnError("");
+    if (!hsn) return true;
+    try {
+      const res = await productAPI.findByHsn(hsn);
+      const existing = res.data?.data;
+      if (existing) {
+        setHsnError(`HSN/SAC "${hsn}" is already used by "${existing.name}"`);
+        return false;
+      }
+    } catch {
+      /* lookup failed - let the server-side check decide on save */
+    }
+    return true;
+  };
+
+  const handleHsnKeyDown = async (e) => {
     if (e.key === "Enter" && form.hsn) {
       e.preventDefault();
-      document.querySelector("[name='name']")?.focus();
+      const ok = await checkHsnUnique(form.hsn);
+      if (ok) document.querySelector("[name='name']")?.focus();
     }
   };
 
@@ -39,6 +59,8 @@ export default function AddProduct() {
     e.preventDefault();
     if (!form.name.trim()) { toast.error("Product name is required"); return; }
     if (!parseFloat(form.rate) || parseFloat(form.rate) <= 0) { toast.error("Rate must be greater than 0"); return; }
+    const hsnOk = await checkHsnUnique(form.hsn);
+    if (!hsnOk) { hsnRef.current?.focus(); return; }
     setSaving(true);
     try {
       await productAPI.create({
@@ -47,9 +69,12 @@ export default function AddProduct() {
       });
       toast.success("Product created successfully");
       setForm({ name: "", hsn: "", rate: "", gstPercentage: "18" });
+      setHsnError("");
       hsnRef.current?.focus();
     } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to create product");
+      const msg = err.response?.data?.message || "Failed to create product";
+      if (msg.toLowerCase().includes("hsn")) setHsnError(msg);
+      toast.error(msg);
     } finally {
       setSaving(false);
     }
@@ -111,11 +136,15 @@ export default function AddProduct() {
                   value={form.hsn}
                   onChange={handleChange}
                   onKeyDown={handleHsnKeyDown}
-                  className={inputClass + " pl-11 font-mono uppercase tracking-wider"}
+                  onBlur={() => checkHsnUnique(form.hsn)}
+                  className={inputClass + " pl-11 font-mono uppercase tracking-wider" + (hsnError ? " border-red-400 focus:border-red-500 focus:ring-red-500/20" : "")}
                   placeholder="e.g. 9983"
                   autoComplete="off"
                 />
               </div>
+              {hsnError && (
+                <p className="mt-2 text-xs font-medium text-red-500">{hsnError}</p>
+              )}
             </div>
 
             {/* Rate & GST Row */}

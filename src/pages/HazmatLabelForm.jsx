@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import AppNavbar from "../components/AppNavbar";
 import PdfPreview from "../components/PdfPreview";
+import HazmatLabelPreview from "../components/labelPreview/HazmatLabelPreview";
 import usePdfPreview from "../hooks/usePdfPreview";
 import PageHeader from "../components/PageHeader";
 import LabelAddressBlock from "../components/LabelAddressBlock";
@@ -272,6 +273,7 @@ export default function HazmatLabelForm() {
           <div className="xl:col-span-2">
             <div className="sticky top-4">
               <PdfPreview pdfUrl={pdfUrl} error={error}
+                fallback={<HazmatLabelPreview payload={previewPayload} />}
                 onDownload={() => downloadLabelPdf(() => labelAPI.hazmat.preview(previewPayload), "hazmat-label.pdf")}
                 onPrint={() => printLabelPdf(() => labelAPI.hazmat.preview(previewPayload))} />
               {pdfUrl && !error && (

@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import AppNavbar from "../components/AppNavbar";
 import PdfPreview from "../components/PdfPreview";
+import ShippingLabelPreview from "../components/labelPreview/ShippingLabelPreview";
 import usePdfPreview from "../hooks/usePdfPreview";
 import PageHeader from "../components/PageHeader";
 import { labelAPI } from "../api/auth";
@@ -217,6 +218,7 @@ export default function ShippingLabelForm() {
           <div className="xl:col-span-2">
             <div className="sticky top-4">
               <PdfPreview pdfUrl={pdfUrl} error={error}
+                fallback={<ShippingLabelPreview payload={previewPayload} />}
                 onDownload={() => downloadLabelPdf(() => labelAPI.shipping.preview(previewPayload), "shipping-label.pdf")}
                 onPrint={() => printLabelPdf(() => labelAPI.shipping.preview(previewPayload))} />
             </div>

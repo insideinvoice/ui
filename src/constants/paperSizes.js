@@ -55,19 +55,25 @@ export const ALL_TEMPLATES = [
   { id: "template-1", label: "Original", desc: "Default classic black border layout" },
   { id: "template-3", label: "Corporate Blue", desc: "Professional navy blue accents" },
   { id: "template-5", label: "Minimalist", desc: "Borderless design with maximum whitespace" },
-  { id: "template-6", label: "Nature Green", desc: "Warm green tones with organic feel" },
   { id: "template-8", label: "Premium Gold", desc: "Elegant navy and gold luxury style" },
   { id: "template-10", label: "Slate Professional", desc: "Clean slate-grey corporate style" },
-  { id: "template-11", label: "Teal Modern", desc: "Fresh teal accents with mint undertones" },
-  { id: "template-12", label: "Side by Side", desc: "Seller and buyer side by side" },
-  { id: "template-13", label: "Stacked", desc: "Full-width sections stacked vertically" },
-  { id: "template-16", label: "Modern", desc: "Seller + metadata side by side, buyer below" },
-  { id: "template-17", label: "Centered", desc: "Centered formal layout with elegant symmetry" },
   { id: "template-18", label: "Executive", desc: "Company name in bold header band" },
   { id: "template-19", label: "Divided", desc: "Three-column grid: seller | buyer | details" },
-  { id: "template-21", label: "Letterhead", desc: "Formal letter style with company letterhead" },
   { id: "template-23", label: "Clean White", desc: "Ultra minimal greyscale" },
+  { id: "template-24", label: "Ironclad", desc: "Steel-grey structure with forge-amber accents — iron & steel works" },
+  { id: "template-25", label: "Copper Circuit", desc: "Deep navy header with copper highlights — electricals & electronics" },
+  { id: "template-26", label: "Timber Line", desc: "Warm walnut serif styling — wood, plywood & furniture" },
+  { id: "template-27", label: "Carbon Grid", desc: "Bold black grid with brand-red accent — hardware, tools & fasteners" },
+  { id: "template-28", label: "Blueprint Pro", desc: "Engineering blue with light spec-sheet table — fabrication & industrial supply" },
+  { id: "template-29", label: "Trade Command", desc: "Gunmetal three-column trade layout with gold accent — distribution & contracting" },
+  { id: "template-30", label: "Ledger Formal", desc: "Traditional double-rule ledger with oxblood accents — established merchants" },
 ];
+
+// Users may still have a removed template id stored locally or on the server;
+// fall back to the original template instead of rendering an unknown theme.
+export function sanitizeTemplate(id) {
+  return ALL_TEMPLATES.some((t) => t.id === id) ? id : "template-1";
+}
 
 export const DEFAULT_PRINT_SETTINGS = {
   TAX_INVOICE: { paperSize: "A4_PORTRAIT", template: "template-1" },
@@ -87,9 +93,10 @@ export function getPrintSettings() {
       if (!val) {
         result[key] = structuredClone(DEFAULT_PRINT_SETTINGS[key]);
       } else if (typeof val === "string") {
-        result[key] = { paperSize: val, template: parsed[key + "_template"] || "template-1" };
+        result[key] = { paperSize: val, template: sanitizeTemplate(parsed[key + "_template"]) };
       } else {
         result[key] = { ...DEFAULT_PRINT_SETTINGS[key], ...val };
+        result[key].template = sanitizeTemplate(result[key].template);
       }
     }
     return result;

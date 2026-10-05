@@ -1,6 +1,4 @@
 import React from "react";
-import html2canvas from "html2canvas";
-import { jsPDF } from "jspdf";
 import { QRCodeSVG } from "qrcode.react";
 import CompanySeal from "./CompanySeal";
 import CompanyStamp from "./CompanyStamp";
@@ -578,105 +576,8 @@ InvoicePDF.displayName = "InvoicePDF";
 export async function downloadInvoicePDF(element, filename, paperSizeId) {
   if (!element) return;
   try {
-    const { getPaperDimensions } = await import("../constants/paperSizes");
-    const dim = getPaperDimensions(paperSizeId);
-    const SCALE = 2;
-    const CONTENT_W = dim.contentW;
-    const LEFT = dim.left;
-    const PAGE_H = dim.usableH;
-
-    const rowSelectors = [
-      '[id^="section-item-row-"]',
-      '[id^="section-hsn-row-"]',
-      "#section-subtotals",
-      "#section-amount-words",
-      "#section-hsn-header",
-      "#section-hsn-total",
-      "#section-hsn-words",
-      "#section-footer",
-      "#section-bottom-note",
-    ];
-
-    const allRowEls = element.querySelectorAll(rowSelectors.join(", "));
-    const invoiceRect = element.getBoundingClientRect();
-
-    const canvas = await html2canvas(element, {
-      scale: SCALE,
-      useCORS: true,
-      logging: false,
-      backgroundColor: "#ffffff",
-    });
-
-    const pdf = new jsPDF(dim.orientation, "mm", dim.format);
-    const pxToMm = CONTENT_W / canvas.width;
-    const onePagePx = PAGE_H / pxToMm;
-
-    const safeCuts = new Set([0, canvas.height]);
-    allRowEls.forEach((el) => {
-      const rect = el.getBoundingClientRect();
-      const topInCanvas = Math.floor((rect.top - invoiceRect.top) * SCALE);
-      const bottomInCanvas = Math.ceil((rect.bottom - invoiceRect.top) * SCALE);
-      safeCuts.add(topInCanvas);
-      safeCuts.add(bottomInCanvas);
-    });
-
-    const cutPoints = [...safeCuts].sort((a, b) => a - b);
-
-    let pageStartPx = 0;
-    let isFirstPage = true;
-
-    while (pageStartPx < canvas.height) {
-      const pageEndLimit = pageStartPx + onePagePx;
-
-      let pageEndPx = null;
-      for (const cut of cutPoints) {
-        if (cut > pageStartPx && cut <= pageEndLimit) {
-          pageEndPx = cut;
-        }
-      }
-
-      if (!pageEndPx) {
-        pageEndPx = cutPoints.find((cut) => cut > pageStartPx) || canvas.height;
-      }
-
-      const sliceHeightPx = pageEndPx - pageStartPx;
-      const sliceHeightMM = sliceHeightPx * pxToMm;
-
-      const sliceCanvas = document.createElement("canvas");
-      sliceCanvas.width = canvas.width;
-      sliceCanvas.height = sliceHeightPx;
-
-      const ctx = sliceCanvas.getContext("2d");
-      ctx.drawImage(
-        canvas,
-        0,
-        pageStartPx,
-        canvas.width,
-        sliceHeightPx,
-        0,
-        0,
-        canvas.width,
-        sliceHeightPx
-      );
-
-      if (!isFirstPage) {
-        ctx.fillStyle = "#000";
-        ctx.fillRect(0, 0, canvas.width, 2);
-        pdf.addPage();
-      }
-
-      pdf.addImage(
-        sliceCanvas.toDataURL("image/jpeg", 0.95),
-        "JPEG",
-        LEFT,
-        10,
-        CONTENT_W,
-        sliceHeightMM
-      );
-
-      pageStartPx = pageEndPx;
-      isFirstPage = false;
-    }
+    const { buildInvoicePdf } = await import("../utils/invoicePdf");
+    const pdf = await buildInvoicePdf(element, paperSizeId);
 
     if (filename === null) {
       return pdf.output("bloburl");

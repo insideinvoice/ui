@@ -1,25 +1,27 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
 import LoadingDots from "../components/LoadingDots";
 import AppNavbar from "../components/AppNavbar";
 import PageHeader from "../components/PageHeader";
+import ConfirmModal from "../components/ConfirmModal";
 import { productAPI } from "../api/auth";
 import toast from "react-hot-toast";
-import { ArrowLeft, Package, Hash, IndianRupee, Percent, Search } from "lucide-react";
+import { ArrowLeft, Package, Hash, IndianRupee, Percent, Search, Trash2 } from "lucide-react";
 
 export default function ProductsList() {
   const navigate = useNavigate();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [productToDelete, setProductToDelete] = useState(null);
 
   useEffect(() => {
     const fetch = async () => {
       try {
         const res = await productAPI.getAll({ size: 100, sortBy: "createdAt", sortDir: "desc" });
         setProducts(res.data.data?.content || res.data.data || []);
-      } catch (err) {
+      } catch {
         toast.error("Failed to load products");
       } finally {
         setLoading(false);
@@ -33,6 +35,25 @@ export default function ProductsList() {
     const q = search.toLowerCase();
     return (p.name || "").toLowerCase().includes(q) || (p.hsn || "").toLowerCase().includes(q);
   }), [products, search]);
+
+  const handleDeleteConfirm = async () => {
+    if (!productToDelete) return;
+    try {
+      await productAPI.delete(productToDelete.id);
+      setProducts((prev) => prev.filter((p) => p.id !== productToDelete.id));
+      toast.success("Product deleted");
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to delete product");
+    } finally {
+      setDeleteModalOpen(false);
+      setProductToDelete(null);
+    }
+  };
+
+  const askDelete = (p) => {
+    setProductToDelete(p);
+    setDeleteModalOpen(true);
+  };
 
   if (loading) {
     return (
@@ -81,6 +102,7 @@ export default function ProductsList() {
                   <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">HSN/SAC</th>
                   <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Rate</th>
                   <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">GST %</th>
+                  <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -101,6 +123,15 @@ export default function ProductsList() {
                     <td className="py-3 px-4 text-right">
                       <span className="text-xs font-semibold text-slate-600">{p.gstPercentage || 0}%</span>
                     </td>
+                    <td className="py-3 px-4 text-right">
+                      <button
+                        onClick={() => askDelete(p)}
+                        className="p-1.5 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors"
+                        title="Delete product"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -110,9 +141,18 @@ export default function ProductsList() {
           <div className="md:hidden space-y-3">
             {filtered.map((p) => (
               <div key={p.id} className="bg-white rounded-xl shadow-sm border border-slate-100 p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <Package className="w-4 h-4 text-slate-400 shrink-0" />
-                  <span className="text-sm font-semibold text-slate-800">{p.name}</span>
+                <div className="flex items-start justify-between gap-2 mb-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Package className="w-4 h-4 text-slate-400 shrink-0" />
+                    <span className="text-sm font-semibold text-slate-800 truncate">{p.name}</span>
+                  </div>
+                  <button
+                    onClick={() => askDelete(p)}
+                    className="p-1.5 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors shrink-0"
+                    title="Delete product"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
                 </div>
                 <div className="space-y-0.5 text-xs text-slate-500">
                   <div className="font-mono">HSN/SAC: {p.hsn || "-"}</div>
@@ -127,6 +167,14 @@ export default function ProductsList() {
           </>
           )}
         </div>
+
+        <ConfirmModal
+          open={deleteModalOpen}
+          title="Delete Product"
+          message={`Are you sure you want to delete "${productToDelete?.name}"? This cannot be undone.`}
+          onConfirm={handleDeleteConfirm}
+          onCancel={() => { setDeleteModalOpen(false); setProductToDelete(null); }}
+        />
       </div>
     </div>
   );

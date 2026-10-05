@@ -2,6 +2,7 @@ import React from "react";
 import { useAuth } from "../context/AuthContext";
 import InvoicePDF from "./InvoicePDF";
 import InvoiceTemplateVariants from "./InvoiceTemplateVariants";
+import { sanitizeTemplate } from "../constants/paperSizes";
 
 const PAPER_WIDTHS = {
   A4_PORTRAIT: 794,
@@ -10,18 +11,24 @@ const PAPER_WIDTHS = {
   LETTER: 816,
 };
 
-const InvoiceTemplateRenderer = React.forwardRef((props, ref) => {
-  const { paperSize, template } = props;
-  let globalTemplate;
+// Kept as a separate component so the hook is always called unconditionally —
+// calling useAuth() inside try/catch breaks the Rules of Hooks whenever the
+// context happens to be available, changing hook order between renders.
+function useTemplatePreference() {
   try {
-    globalTemplate = useAuth().selectedTemplate;
+    return useAuth().selectedTemplate;
   } catch {
-    globalTemplate = typeof window !== "undefined"
+    return typeof window !== "undefined"
       ? localStorage.getItem("invoice_template") || "template-1"
       : "template-1";
   }
+}
 
-  const templateId = template || globalTemplate;
+const InvoiceTemplateRenderer = React.forwardRef((props, ref) => {
+  const { paperSize, template } = props;
+  const globalTemplate = useTemplatePreference();
+
+  const templateId = sanitizeTemplate(template || globalTemplate);
   const width = PAPER_WIDTHS[paperSize] || 794;
 
   const wrapperStyle = { width: `${width}px`, maxWidth: "100%", overflow: "hidden" };

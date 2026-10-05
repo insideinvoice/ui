@@ -13,7 +13,7 @@ import toast from "react-hot-toast";
 import { ArrowLeft, FileText, Download, Eye, PlusCircle, Share2, Trash2, Search, X } from "lucide-react";
 import { downloadInvoicePDF } from "../components/InvoicePDF";
 import InvoiceTemplateRenderer from "../components/InvoiceTemplateRenderer";
-import { getPrintSettings, getPaperDimensions } from "../constants/paperSizes";
+import { getPrintSettings, sanitizeTemplate } from "../constants/paperSizes";
 import { openWhatsApp, buildInvoiceWhatsAppMessage } from "../utils/whatsapp";
 
 const MONTH_NAMES = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -218,7 +218,7 @@ export default function InvoicesList() {
             totals={totals}
             type={invoice.invoiceType}
             invoiceNumber={invoice.invoiceNumber}
-            template={localStorage.getItem("invoice_template") || "template-1"}
+            template={sanitizeTemplate(localStorage.getItem("invoice_template") || "template-1")}
           />
         );
       });
@@ -286,50 +286,8 @@ const printInvoice = useCallback(async (invoice) => {
                 done = true;
                 waitForPaint(el).then(async () => {
                   try {
-                    const { jsPDF } = await import("jspdf");
-                    const html2canvas = (await import("html2canvas")).default;
-                    const dim = getPaperDimensions(paperSizeId);
-                    const SCALE = 2;
-                    const CONTENT_W = dim.contentW;
-                    const LEFT = dim.left;
-                    const PAGE_H = dim.usableH;
-                    const rowSelectors = [
-                      '[id^="section-item-row-"]', '[id^="section-hsn-row-"]',
-                      "#section-subtotals", "#section-amount-words",
-                      "#section-hsn-header", "#section-hsn-total", "#section-hsn-words",
-                      "#section-footer", "#section-bottom-note",
-                      "#section-bottom-note",
-                    ];
-                    const allRowEls = el.querySelectorAll(rowSelectors.join(", "));
-                    const invoiceRect = el.getBoundingClientRect();
-                    const canvas = await html2canvas(el, { scale: SCALE, useCORS: true, logging: false });
-                    const imgW = CONTENT_W;
-                    const imgH = (canvas.height / canvas.width) * imgW;
-                    const pdf = new jsPDF(dim.orientation, "mm", dim.format);
-                    let hPos = 0;
-                    const firstRow = allRowEls.length > 0 ? allRowEls[0] : el;
-                    const firstRowTop = firstRow.getBoundingClientRect().top - invoiceRect.top;
-                    const firstRowPageBreak = (firstRowTop / invoiceRect.height) * imgH;
-                    const bottomNote = el.querySelector("#section-bottom-note");
-                    const afterBottomNote = bottomNote
-                      ? ((bottomNote.getBoundingClientRect().top - invoiceRect.top + bottomNote.getBoundingClientRect().height) / invoiceRect.height) * imgH
-                      : imgH;
-                    const contentEnd = afterBottomNote;
-                    const availH = PAGE_H;
-                    while (hPos < contentEnd) {
-                      const srcY = (hPos / imgH) * canvas.height;
-                      const sliceH = Math.min(availH, contentEnd - hPos);
-                      const srcH = (sliceH / imgH) * canvas.height;
-                      const pageCanvas = document.createElement("canvas");
-                      pageCanvas.width = canvas.width;
-                      pageCanvas.height = srcH;
-                      const ctx = pageCanvas.getContext("2d");
-                      ctx.drawImage(canvas, 0, srcY, canvas.width, srcH, 0, 0, canvas.width, srcH);
-                      const pageImgData = pageCanvas.toDataURL("image/jpeg", 0.95);
-                      if (hPos > 0) pdf.addPage();
-                      pdf.addImage(pageImgData, "JPEG", LEFT, 0, imgW, sliceH);
-                      hPos += availH;
-                    }
+                    const { buildInvoicePdf } = await import("../utils/invoicePdf");
+                    const pdf = await buildInvoicePdf(el, paperSizeId);
                     const blob = pdf.output("blob");
                     let shared = false;
                     try {
@@ -381,7 +339,7 @@ const printInvoice = useCallback(async (invoice) => {
             totals={totals}
             type={invoice.invoiceType}
             invoiceNumber={invoice.invoiceNumber}
-            template={localStorage.getItem("invoice_template") || "template-1"}
+            template={sanitizeTemplate(localStorage.getItem("invoice_template") || "template-1")}
           />
         );
       });
@@ -415,6 +373,10 @@ const shareViaWhatsApp = useCallback(async (invoice) => {
   }, [busy]);
 
 const createInvoicePdfFileFromInvoice = async (invoice) => {
+  const container = document.createElement("div");
+  container.style.cssText = "position:absolute;left:-9999px;top:0;pointer-events:none;";
+  document.body.appendChild(container);
+  const root = createRoot(container);
   try {
     const business = await resolveBusinessProfile();
     const items = (invoice.items || []).map((i) => ({
@@ -427,42 +389,64 @@ const createInvoicePdfFileFromInvoice = async (invoice) => {
       grandTotal: invoice.grandTotal || 0,
     };
     const filename = `${invoice.invoiceType === "PROFORMA_INVOICE" ? "Proforma" : "Tax"}_Invoice_${invoice.invoiceNumber}.pdf`;
-    
-    const container = document.createElement("div");
-    container.style.cssText = "position:absolute;left:-9999px;top:0;pointer-events:none;";
-    document.body.appendChild(container);
-    const root = createRoot(container);
-    
-    const { jsPDF } = await import("jspdf");
-    const { default: html2canvas } = await import("html2canvas");
-    const dim = getPaperDimensions((getPrintSettings()[invoice.invoiceType] || {}).paperSize || "A4_PORTRAIT");
-    
-    const canvas = await html2canvas(root.current ? root.current : container, { scale: 2, useCORS: true, logging: false });
-    const pdf = new jsPDF(dim.orientation, "mm", dim.format);
-    const PAGE_W = dim.pageW, PAGE_H = dim.pageH, LEFT = dim.left, CONTENT_W = dim.contentW, PY = 10;
-    const usableH = dim.usableH;
-    const pxToMm = CONTENT_W / canvas.width;
-    const onePagePx = usableH / pxToMm;
-    let pageStartPx = 0, isFirstPage = true;
-    
-    while (pageStartPx < canvas.height) {
-      const sliceH = Math.min(onePagePx, canvas.height - pageStartPx);
-      const sc = document.createElement("canvas");
-      sc.width = canvas.width; sc.height = sliceH;
-      sc.getContext("2d").drawImage(canvas, 0, pageStartPx, canvas.width, sliceH, 0, 0, canvas.width, sliceH);
-      if (!isFirstPage) pdf.addPage();
-      pdf.addImage(sc.toDataURL("image/jpeg", 0.95), "JPEG", LEFT, PY, CONTENT_W, sliceH * pxToMm);
-      pageStartPx += sliceH; isFirstPage = false;
-    }
-    
+    const paperSizeId = (getPrintSettings()[invoice.invoiceType] || {}).paperSize || "A4_PORTRAIT";
+
+    const pdf = await new Promise((resolve, reject) => {
+      let done = false;
+      root.render(
+        <InvoiceTemplateRenderer
+          ref={(el) => {
+            if (el && !done) {
+              done = true;
+              waitForPaint(el)
+                .then(async () => {
+                  const { buildInvoicePdf } = await import("../utils/invoicePdf");
+                  resolve(await buildInvoicePdf(el, paperSizeId));
+                })
+                .catch(reject);
+            }
+          }}
+          business={business}
+          customer={{
+            name: invoice.customerName || "",
+            billingAddress: invoice.billingAddress || "",
+            gstIn: invoice.customerGstIn || "",
+            phone: invoice.customerPhone || "",
+            email: invoice.customerEmail || "",
+          }}
+          form={{
+            invoiceDate: invoice.invoiceDate || "",
+            dueDate: invoice.dueDate || "",
+            placeOfSupply: invoice.placeOfSupply || "",
+            destination: invoice.destination || "",
+            termsOfDelivery: invoice.termsOfDelivery || "",
+            paymentTerms: invoice.paymentTerms || "",
+            deliveryNote: invoice.deliveryNote || "",
+            otherReferences: invoice.otherReferences || "",
+            notes: invoice.notes || "",
+            deliveryNoteDate: invoice.deliveryNoteDate || "",
+            referenceNumber: invoice.referenceNumber || "",
+            buyerOrderNumber: invoice.buyerOrderNumber || "",
+            dispatchDocNumber: invoice.dispatchDocNumber || "",
+            dispatchedThrough: invoice.dispatchedThrough || "",
+          }}
+          items={items}
+          totals={totals}
+          type={invoice.invoiceType}
+          invoiceNumber={invoice.invoiceNumber}
+          template={sanitizeTemplate(localStorage.getItem("invoice_template") || "template-1")}
+        />
+      );
+    });
+
     const blob = pdf.output("blob");
-    URL.revokeObjectURL(container.toDataURL());
-    document.body.removeChild(container);
-    
     return new File([blob], filename, { type: "application/pdf" });
   } catch (err) {
     toast.error("Failed to generate PDF for WhatsApp");
     return null;
+  } finally {
+    root.unmount();
+    document.body.removeChild(container);
   }
 };
 

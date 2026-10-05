@@ -17,11 +17,16 @@ export default function CompanySeal({
 
   const wrapped = useMemo(() => {
     const name = companyName.toUpperCase().trim();
-    return `\u2736 ${name} \u2736`;
+    const base = `\u2736 ${name} \u2736`;
+    // keep the ring text within the circle's circumference so letter spacing
+    // never collapses on itself when stretched around the full circle
+    const maxChars = 47;
+    return base.length > maxChars ? `\u2736 ${name.slice(0, maxChars - 4).trimEnd()} \u2736` : base;
   }, [companyName]);
 
   const circleId = `seal-path-${uid}`;
   const circlePath = `M ${cx},${cy - textR} A ${textR},${textR} 0 1,1 ${cx - 0.01},${cy - textR}`;
+  const circumference = 2 * Math.PI * textR;
 
   return (
     <svg
@@ -43,6 +48,8 @@ export default function CompanySeal({
         fontSize={26}
         fontWeight="bold"
         fill={color}
+        textLength={circumference}
+        lengthAdjust="spacing"
       >
         <textPath href={`#${circleId}`} startOffset="0%" textAnchor="start">
           {wrapped}

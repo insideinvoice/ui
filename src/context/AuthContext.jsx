@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useMemo, useCallback } from "react";
 import { authAPI, businessAPI } from "../api/auth";
 import { setAuthToken } from "../api/axios";
+import { sanitizeTemplate } from "../constants/paperSizes";
 
 const AuthContext = createContext(null);
 
@@ -47,7 +48,7 @@ export function AuthProvider({ children }) {
   const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selectedTemplate, setSelectedTemplate] = useState(() =>
-    localStorage.getItem("invoice_template") || "template-1"
+    sanitizeTemplate(localStorage.getItem("invoice_template") || "template-1")
   );
 
   useEffect(() => {
@@ -64,8 +65,9 @@ export function AuthProvider({ children }) {
       const parsed = JSON.parse(finalUser);
       setUser(parsed);
       if (parsed.selectedTemplate) {
-        localStorage.setItem("invoice_template", parsed.selectedTemplate);
-        setSelectedTemplate(parsed.selectedTemplate);
+        const tpl = sanitizeTemplate(parsed.selectedTemplate);
+        localStorage.setItem("invoice_template", tpl);
+        setSelectedTemplate(tpl);
       }
       if (parsed.mustChangePassword) {
         localStorage.setItem("mustChangePassword", "true");
@@ -89,8 +91,9 @@ export function AuthProvider({ children }) {
     setToken(data.accessToken);
     setUser(data);
     if (data.selectedTemplate) {
-      localStorage.setItem("invoice_template", data.selectedTemplate);
-      setSelectedTemplate(data.selectedTemplate);
+      const tpl = sanitizeTemplate(data.selectedTemplate);
+      localStorage.setItem("invoice_template", tpl);
+      setSelectedTemplate(tpl);
     }
     if (data.mustChangePassword) {
       localStorage.setItem("mustChangePassword", "true");
@@ -101,10 +104,11 @@ export function AuthProvider({ children }) {
   }, []);
 
   const updateTemplate = useCallback(async (templateId) => {
-    await authAPI.updateProfile({ ...user, selectedTemplate: templateId });
-    localStorage.setItem("invoice_template", templateId);
-    setSelectedTemplate(templateId);
-    const updated = { ...user, selectedTemplate: templateId };
+    const tpl = sanitizeTemplate(templateId);
+    await authAPI.updateProfile({ ...user, selectedTemplate: tpl });
+    localStorage.setItem("invoice_template", tpl);
+    setSelectedTemplate(tpl);
+    const updated = { ...user, selectedTemplate: tpl };
     const rememberMe = localStorage.getItem(REMEMBER_KEY) === "true";
     writeStorage(USER_KEY, JSON.stringify(updated), rememberMe);
     setUser(updated);

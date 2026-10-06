@@ -25,6 +25,7 @@ export default function CompanySeal({
   }, [companyName]);
 
   const circleId = `seal-path-${uid}`;
+  const clipId = `seal-clip-${uid}`;
   const circlePath = `M ${cx},${cy - textR} A ${textR},${textR} 0 1,1 ${cx - 0.01},${cy - textR}`;
   const circumference = 2 * Math.PI * textR;
 
@@ -34,27 +35,33 @@ export default function CompanySeal({
       height={size}
       viewBox={`0 0 ${vw} ${vw}`}
       xmlns="http://www.w3.org/2000/svg"
-      style={{ display: "block" }}
+      style={{ display: "block", overflow: "hidden" }}
     >
       <defs>
         <path id={circleId} d={circlePath} />
+        {/* words can never draw past the seal's outer ring */}
+        <clipPath id={clipId}>
+          <circle cx={cx} cy={cy} r={outerR - 2} />
+        </clipPath>
       </defs>
 
       <circle cx={cx} cy={cy} r={outerR} fill="none" stroke={color} strokeWidth={3.5} />
       <circle cx={cx} cy={cy} r={innerR} fill="none" stroke={color} strokeWidth={2} />
 
-      <text
-        fontFamily={font}
-        fontSize={26}
-        fontWeight="bold"
-        fill={color}
-        textLength={circumference}
-        lengthAdjust="spacing"
-      >
-        <textPath href={`#${circleId}`} startOffset="0%" textAnchor="start">
-          {wrapped}
-        </textPath>
-      </text>
+      <g clipPath={`url(#${clipId})`}>
+        <text
+          fontFamily={font}
+          fontSize={26}
+          fontWeight="bold"
+          fill={color}
+          textLength={circumference}
+          lengthAdjust="spacing"
+        >
+          <textPath href={`#${circleId}`} startOffset="0%" textAnchor="start">
+            {wrapped}
+          </textPath>
+        </text>
+      </g>
 
       <text
         x={cx}

@@ -1,29 +1,8 @@
 import React from "react";
 import CompanySeal from "./CompanySeal";
 import CompanyStamp from "./CompanyStamp";
-
-const numberToWords = (num) => {
-  const ones = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten",
-    "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
-  const tens = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
-  const convert = (n) => {
-    if (n < 20) return ones[n];
-    if (n < 100) return tens[Math.floor(n / 10)] + (n % 10 ? " " + ones[n % 10] : "");
-    if (n < 1000) return ones[Math.floor(n / 100)] + " Hundred" + (n % 100 ? " " + convert(n % 100) : "");
-    if (n < 100000) return convert(Math.floor(n / 1000)) + " Thousand" + (n % 1000 ? " " + convert(n % 1000) : "");
-    return convert(Math.floor(n / 100000)) + " Lakh" + (n % 100000 ? " " + convert(n % 100000) : "");
-  };
-  const whole = Math.floor(num);
-  const decimal = Math.round((num - whole) * 100);
-  let result = convert(whole) + " Rupees";
-  if (decimal > 0) result += " and " + convert(decimal) + " Paise";
-  return result + " Only";
-};
-
-const formatINR = (val) => {
-  const n = parseFloat(val) || 0;
-  return n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-};
+import InvoiceTemplateRetro from "./InvoiceTemplateRetro";
+import { numberToWords, formatINR } from "../utils/invoiceFormat";
 
 const cell = (width) => ({
   width: `${width}px`,
@@ -76,9 +55,18 @@ const L = {
   "bold-corporate": "bold-corporate",
   "classic-formal": "classic-formal",
   "dark-modern": "dark-modern",
+  retro: "retro",
 };
 
 const TEMPLATE_THEMES = {
+  "template-31": {
+    id: "template-31", label: "Retro", desc: "Fixed A4 page in classic shop-bill style — No / Particulars / Qty / Rate / Amount",
+    layout: L.retro, font: "Arial, Helvetica, sans-serif", bodyBg: "#ffffff",
+    borderColor: "#000000", borderWidth: "2px", borderStyle: "solid", primary: "#000000",
+    headerBg: "#ffffff", headerText: "#000000", accentBg: "#000000", accentText: "#ffffff",
+    sectionTitleBorder: true, tableHeaderBg: "#d6d6d6", tableHeaderText: "#000000",
+    tableRowHeight: 26, compact: false, labelStyle: "normal",
+  },
   "template-3": {
     id: "template-3", label: "Corporate Blue", desc: "Professional navy blue accents",
     layout: L.classic, font: "'Segoe UI', Arial, sans-serif", bodyBg: "#ffffff",
@@ -195,6 +183,23 @@ const TEMPLATE_THEMES = {
 
 const InvoiceTemplateVariants = React.memo(React.forwardRef(({ theme, business, customer, form, items, totals, discountPercent, type, invoiceNumber }, ref) => {
   const t = TEMPLATE_THEMES[theme] || TEMPLATE_THEMES["template-3"];
+  // The retro shop-bill layout is a self-contained fixed page (repeated per
+  // overflow page), so it renders outside the shared table skeleton.
+  if (t.layout === L.retro) {
+    return (
+      <InvoiceTemplateRetro
+        ref={ref}
+        business={business}
+        customer={customer}
+        form={form}
+        items={items}
+        totals={totals}
+        discountPercent={discountPercent}
+        type={type}
+        invoiceNumber={invoiceNumber}
+      />
+    );
+  }
   const S = { border: `${t.borderWidth} ${t.borderStyle} ${t.borderColor}` };
   const displayInvNo = invoiceNumber || "DRAFT";
   const isProforma = type === "PROFORMA_INVOICE";

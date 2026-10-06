@@ -53,6 +53,7 @@ export const PAPER_SIZE_LIST = Object.values(PAPER_SIZES);
 
 export const ALL_TEMPLATES = [
   { id: "template-1", label: "Original", desc: "Default classic black border layout" },
+  { id: "template-31", label: "Retro", desc: "Fixed A4 page in classic shop-bill style — No / Particulars / Qty / Rate / Amount" },
   { id: "template-3", label: "Corporate Blue", desc: "Professional navy blue accents" },
   { id: "template-5", label: "Minimalist", desc: "Borderless design with maximum whitespace" },
   { id: "template-8", label: "Premium Gold", desc: "Elegant navy and gold luxury style" },
@@ -75,11 +76,14 @@ export function sanitizeTemplate(id) {
   return ALL_TEMPLATES.some((t) => t.id === id) ? id : "template-1";
 }
 
+// No `template` key in the defaults: an explicit "template-1" here used to
+// shadow the global choice made on the Templates page (the renderer treats a
+// defined prop as an override), so every download printed "Original".
 export const DEFAULT_PRINT_SETTINGS = {
-  TAX_INVOICE: { paperSize: "A4_PORTRAIT", template: "template-1" },
-  PROFORMA_INVOICE: { paperSize: "A4_PORTRAIT", template: "template-1" },
-  QUOTATION: { paperSize: "A4_PORTRAIT", template: "template-1" },
-  PURCHASE_ORDER: { paperSize: "A4_PORTRAIT", template: "template-1" },
+  TAX_INVOICE: { paperSize: "A4_PORTRAIT" },
+  PROFORMA_INVOICE: { paperSize: "A4_PORTRAIT" },
+  QUOTATION: { paperSize: "A4_PORTRAIT" },
+  PURCHASE_ORDER: { paperSize: "A4_PORTRAIT" },
 };
 
 export function getPrintSettings() {
@@ -93,15 +97,57 @@ export function getPrintSettings() {
       if (!val) {
         result[key] = structuredClone(DEFAULT_PRINT_SETTINGS[key]);
       } else if (typeof val === "string") {
-        result[key] = { paperSize: val, template: sanitizeTemplate(parsed[key + "_template"]) };
+        const tpl = parsed[key + "_template"];
+        result[key] = { paperSize: val, ...(tpl ? { template: sanitizeTemplate(tpl) } : {}) };
       } else {
         result[key] = { ...DEFAULT_PRINT_SETTINGS[key], ...val };
-        result[key].template = sanitizeTemplate(result[key].template);
+        if (result[key].template) {
+          result[key].template = sanitizeTemplate(result[key].template);
+        } else {
+          delete result[key].template;
+        }
       }
     }
     return result;
   } catch {
     return structuredClone(DEFAULT_PRINT_SETTINGS);
+  }
+}
+
+// Per-type template override from Print Settings; null when the type follows
+// the global choice from the Templates page.
+export function getInvoiceTemplate(type) {
+  const t = (getPrintSettings()[type] || {}).template;
+  return t ? sanitizeTemplate(t) : null;
+}
+
+// Global template chosen on the Templates page (kept in sync by AuthContext).
+export function getGlobalTemplate() {
+  return sanitizeTemplate(localStorage.getItem("invoice_template") || "template-1");
+}
+
+// Drop every per-type template override (paper sizes are kept) so a new
+// global choice applies to all document types at once.
+export function clearTemplateOverrides() {
+  try {
+    const stored = localStorage.getItem("print_settings");
+    if (!stored) return;
+    const parsed = JSON.parse(stored);
+    let changed = false;
+    Object.keys(DEFAULT_PRINT_SETTINGS).forEach((key) => {
+      const val = parsed[key];
+      if (val && typeof val === "object" && val.template !== undefined) {
+        delete val.template;
+        changed = true;
+      }
+      if (parsed[key + "_template"] !== undefined) {
+        delete parsed[key + "_template"];
+        changed = true;
+      }
+    });
+    if (changed) localStorage.setItem("print_settings", JSON.stringify(parsed));
+  } catch {
+    /* ignore malformed settings */
   }
 }
 

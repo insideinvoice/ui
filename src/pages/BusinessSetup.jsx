@@ -24,6 +24,8 @@ export default function BusinessSetup() {
     country: "India",
     pincode: "",
     invoicePrefix: "",
+    specialistIn: "",
+    specialistInEnabled: false,
     bankName: "",
     accountNo: "",
     branch: "",
@@ -35,11 +37,15 @@ export default function BusinessSetup() {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
+  const handleSpecialistToggle = () => {
+    setFormData({ ...formData, specialistInEnabled: !formData.specialistInEnabled });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!formData.businessName || !formData.invoicePrefix) {
-      toast.error("Business name and invoice prefix are required");
+    if (!formData.businessName) {
+      toast.error("Business name is required");
       return;
     }
 
@@ -83,9 +89,10 @@ export default function BusinessSetup() {
                   className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-slate-400 uppercase" placeholder="29ABCDE1234F1Z5" />
               </div>
               <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1">Invoice Prefix *</label>
+                <label className="block text-xs font-medium text-slate-600 mb-1">Invoice Convention</label>
                 <input type="text" name="invoicePrefix" value={formData.invoicePrefix} onChange={handleChange}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-slate-400 uppercase" placeholder="ACME" />
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-slate-400" placeholder="INV-RSHWE / INV-2026 / INV-00001" />
+                <p className="text-[10px] text-slate-400 mt-0.5">Blank → 1, 2, 3... · INV-RSHWE → INV-RSHWE-1 · INV-2026 → INV-2026-1 · INV-00001 → INV-00001, INV-00002</p>
               </div>
               <div>
                 <label className="block text-xs font-medium text-slate-600 mb-1">Phone</label>
@@ -131,6 +138,23 @@ export default function BusinessSetup() {
                 <label className="block text-xs font-medium text-slate-600 mb-1">Pincode</label>
                 <input type="text" name="pincode" value={formData.pincode} onChange={handleChange}
                   className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-slate-400" placeholder="560034" />
+              </div>
+              <div className="sm:col-span-2">
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-medium text-slate-600">Specialist In</label>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-slate-400 uppercase tracking-wider">Show on invoice</span>
+                    <button type="button" onClick={handleSpecialistToggle} aria-label="Show Specialist In on invoice"
+                      className={`relative w-11 h-6 rounded-full transition-colors ${formData.specialistInEnabled ? "bg-blue-500" : "bg-slate-300"}`}>
+                      <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform ${formData.specialistInEnabled ? "translate-x-5" : ""}`} />
+                    </button>
+                  </div>
+                </div>
+                <input type="text" name="specialistIn" value={formData.specialistIn} onChange={handleChange}
+                  disabled={!formData.specialistInEnabled}
+                  placeholder="ALL KINDS OF ELECTRICAL & HARDWARE MATERIALS"
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-slate-400 disabled:bg-slate-50 disabled:text-slate-400" />
+                <p className="text-[10px] text-slate-400 mt-1">Printed under the address on the invoice when enabled.</p>
               </div>
             </div>
 

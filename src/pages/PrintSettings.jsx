@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import AppNavbar from "../components/AppNavbar";
 import PageHeader from "../components/PageHeader";
-import { getPrintSettings, savePrintSettings, PAPER_SIZE_LIST, ALL_TEMPLATES, DEFAULT_PRINT_SETTINGS } from "../constants/paperSizes";
+import { getPrintSettings, savePrintSettings, PAPER_SIZE_LIST, ALL_TEMPLATES, DEFAULT_PRINT_SETTINGS, getGlobalTemplate } from "../constants/paperSizes";
 import toast from "react-hot-toast";
 import { ArrowLeft, Printer, FileText, FileSpreadsheet, ShoppingCart, Download, Save } from "lucide-react";
 
@@ -104,7 +104,7 @@ export default function PrintSettings({ noWrapper }) {
                   <div>
                     <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Template Theme</label>
                     <select
-                      value={config.template || "template-1"}
+                      value={config.template || getGlobalTemplate()}
                       onChange={(e) => handleTemplateChange(doc.key, e.target.value)}
                       className="w-full px-2.5 py-2 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-400/30 focus:border-indigo-400 bg-white"
                     >

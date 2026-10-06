@@ -13,18 +13,20 @@ import {
   Package, FileSpreadsheet, Share2, Info, X
 } from "lucide-react";
 import InvoiceTemplateRenderer from "../components/InvoiceTemplateRenderer";
+import { renderDeliveryChallanPdf } from "../components/DeliveryChallanDownload";
 import WhatsAppIcon from "../components/WhatsAppIcon";
 import { processQueue } from "../utils/retryQueue";
 import { processPrint } from "../utils/printInvoice";
 import { openWhatsApp, buildInvoiceWhatsAppMessage, createInvoicePdfFile, prefetchInvoicePdf } from "../utils/whatsapp";
-import { getPrintSettings } from "../constants/paperSizes";
+import { getPrintSettings, getInvoiceTemplate } from "../constants/paperSizes";
+import { formatInvoiceNumber } from "../utils/invoiceConvention";
 import { INDIAN_STATES, DELIVERY_TERMS, PAYMENT_TERMS } from "../constants/indianStates";
 
 const emptyItem = { itemName: "", hsn: "", qty: "", rate: "", gstPercentage: "18", taxableValue: 0, taxAmount: 0, total: 0 };
 const inputClass = "w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-400/30 focus:border-slate-400 bg-white transition-all min-h-[44px]";
 const labelClass = "block text-xs font-semibold text-slate-600 mb-1.5 tracking-wide uppercase";
 
-const FOCUS_ORDER = ["phone", "name", "email", "gstIn", "billingAddress", "invoiceType", "invoiceDate", "dueDate", "placeOfSupply", "destination", "paymentTerms", "paymentMode", "deliveryNote", "deliveryNoteDate", "referenceNumber", "buyerOrderNumber", "dispatchDocNumber", "dispatchedThrough", "termsOfDelivery", "otherReferences", "notes"];
+const FOCUS_ORDER = ["phone", "name", "email", "gstIn", "billingAddress", "invoiceType", "invoiceDate", "dueDate", "placeOfSupply", "destination", "paymentTerms", "paymentMode", "deliveryNote", "deliveryNoteDate", "referenceNumber", "dispatchDocNumber", "dispatchedThrough", "termsOfDelivery", "otherReferences", "notes"];
 
 const focusNext = (currentName) => {
   const i = FOCUS_ORDER.indexOf(currentName);
@@ -292,7 +294,7 @@ export default function InvoiceForm() {
     termsOfDelivery: "Standard Shipping",
     paymentTerms: "Due on Receipt",
     paymentMode: "CASH",
-    otherReferences: "N/A",
+    otherReferences: "",
     destination: "Karnataka",
     notes: "",
   });
@@ -310,7 +312,7 @@ export default function InvoiceForm() {
   const hsnLookupRef = useRef({});
 
   const nextInvoiceNumber = business
-    ? `INV-${new Date().getFullYear()}-${String(business.nextInvoiceSequence).padStart(3, "0")}`
+    ? formatInvoiceNumber(business.invoicePrefix, business.nextInvoiceSequence ?? 1)
     : "";
 
   useEffect(() => {
@@ -531,7 +533,7 @@ export default function InvoiceForm() {
     deliveryNote: form.deliveryNote || undefined,
     deliveryNoteDate: form.deliveryNoteDate || undefined,
     referenceNumber: form.referenceNumber || undefined,
-    buyerOrderNumber: form.buyerOrderNumber || undefined,
+    buyerOrderNumber: form.otherReferences || undefined,
     dispatchDocNumber: form.dispatchDocNumber || undefined,
     dispatchedThrough: form.dispatchedThrough || undefined,
     termsOfDelivery: form.termsOfDelivery || undefined,
@@ -578,6 +580,51 @@ export default function InvoiceForm() {
     } catch (err) {
       const msg = err.response?.data?.message || err.response?.data?.details?.[0]?.msg || "Failed to save invoice";
       toast.error(msg);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const generateDeliveryChallanPdf = async () => {
+    const dcItems = (items || [])
+      .filter((i) => (i.itemName || "").trim() && parseFloat(i.qty) > 0)
+      .map((i, idx) => ({
+        sno: idx + 1,
+        description: i.itemName.trim(),
+        quantity: parseFloat(i.qty),
+      }));
+    if (!dcItems.length) {
+      toast.error("Add at least one item with quantity to generate a delivery challan");
+      return;
+    }
+    if (!customer.name?.trim()) {
+      toast.error("Select a customer to generate a delivery challan");
+      return;
+    }
+    setSaving(true);
+    try {
+      const today = new Date().toISOString().split("T")[0];
+      const po = form.otherReferences && form.otherReferences !== "N/A" ? form.otherReferences : "";
+      const dc = {
+        challanNumber: `DC-${(form.invoiceDate || today).replace(/-/g, "")}`,
+        challanDate: form.invoiceDate || today,
+        poNumber: po,
+        poDate: form.invoiceDate || today,
+        customerName: customer.name,
+        customerAddress: [customer.billingAddress, customer.city].filter(Boolean).join(", "),
+        customerPhone: customer.phone,
+        customerGstIn: customer.gstIn,
+        items: dcItems,
+      };
+      const variant = localStorage.getItem("ii_dc_template") || "classic";
+      const sealOn = localStorage.getItem("ii_dc_seal") !== "off";
+      const b = business || (await businessAPI.getProfile()).data.data;
+      const pdf = await renderDeliveryChallanPdf(dc, b, { variant, sealOn });
+      pdf.save(`Delivery_Challan_${dc.challanNumber}.pdf`);
+      toast.success("Delivery challan downloaded");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to generate delivery challan PDF");
     } finally {
       setSaving(false);
     }
@@ -697,10 +744,17 @@ export default function InvoiceForm() {
           className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-all shadow-sm min-h-[44px]">
           <Download className="w-4 h-4" /> Tax Invoice PDF
         </button>
-        <button onClick={() => generatePDF("PROFORMA_INVOICE")} disabled={sealRequired || totals.grandTotal <= 0}
-          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 text-white text-sm font-semibold rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-all shadow-sm min-h-[44px]">
-          <Download className="w-4 h-4" /> Proforma PDF
-        </button>
+        <div className="flex items-stretch gap-3">
+          <button onClick={() => generatePDF("PROFORMA_INVOICE")} disabled={sealRequired || totals.grandTotal <= 0}
+            className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 bg-emerald-600 text-white text-sm font-semibold rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-all shadow-sm min-h-[44px] whitespace-nowrap">
+            <Download className="w-4 h-4" /> Proforma PDF
+          </button>
+          <button onClick={generateDeliveryChallanPdf} disabled={saving || !customer.name?.trim() || !(items || []).some((i) => (i.itemName || "").trim() && parseFloat(i.qty) > 0)}
+            title="Generate a delivery challan from this invoice form"
+            className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 bg-teal-600 text-white text-sm font-semibold rounded-lg hover:bg-teal-700 disabled:opacity-50 transition-all shadow-sm min-h-[44px] whitespace-nowrap">
+            <Download className="w-4 h-4" /> Delivery Pdf
+          </button>
+        </div>
         <div className="flex items-stretch gap-3">
           <button onClick={handlePrint} disabled={sealRequired || totals.grandTotal <= 0}
             className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-white text-slate-700 text-sm font-semibold rounded-lg border border-slate-300 hover:bg-slate-50 disabled:opacity-50 transition-all shadow-sm min-h-[44px] whitespace-nowrap">
@@ -775,7 +829,7 @@ export default function InvoiceForm() {
             type={form.invoiceType}
             invoiceNumber={savedInvoiceNumber || customInvoiceNumber || nextInvoiceNumber || ""}
             paperSize={(getPrintSettings()[form.invoiceType] || {}).paperSize || "A4_PORTRAIT"}
-            template={(getPrintSettings()[form.invoiceType] || {}).template}
+            template={getInvoiceTemplate(form.invoiceType)}
           />
         </div>
       )}
@@ -1004,12 +1058,6 @@ export default function InvoiceForm() {
                     className={inputClass} />
                 </div>
                 <div>
-                  <label className={labelClass}>Buyer Order No</label>
-                  <input type="text" name="buyerOrderNumber" value={form.buyerOrderNumber} onChange={handleFieldChange}
-                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); focusNext("buyerOrderNumber"); } }}
-                    className={inputClass} />
-                </div>
-                <div>
                   <label className={labelClass}>Dispatch Doc No</label>
                   <input type="text" name="dispatchDocNumber" value={form.dispatchDocNumber} onChange={handleFieldChange}
                     onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); focusNext("dispatchDocNumber"); } }}
@@ -1030,7 +1078,7 @@ export default function InvoiceForm() {
                   </select>
                 </div>
                 <div>
-                  <label className={labelClass}>Other References</label>
+                  <label className={labelClass}>Other References / P.O No</label>
                   <input type="text" name="otherReferences" value={form.otherReferences} onChange={handleFieldChange}
                     onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); focusNext("otherReferences"); } }}
                     className={inputClass} />

@@ -1,4 +1,4 @@
-import html2canvas from "html2canvas";
+import html2canvas from "../vendor/html2canvas.esm.js";
 import { jsPDF } from "jspdf";
 import { getPaperDimensions } from "../constants/paperSizes";
 
@@ -13,6 +13,9 @@ export const INVOICE_ROW_SELECTORS = [
   "#section-hsn-words",
   "#section-footer",
   "#section-bottom-note",
+  // Retro renders fixed repeat pages; cut between them and never inside one.
+  '[id^="retro-page-"]',
+  '[id^="retro-item-"]',
 ];
 
 // Measure every page-break anchor and the invoice box in one synchronous
@@ -44,12 +47,21 @@ export async function buildInvoicePdf(element, paperSizeId) {
 
   const { rects } = collectGeometry(element);
 
-  const canvas = await html2canvas(element, {
-    scale: SCALE,
-    useCORS: true,
-    logging: false,
-    backgroundColor: "#ffffff",
-  });
+  // Opt into the line-height-independent font baseline: without it
+  // html2canvas paints every text run ~6px too low on a Tailwind page
+  // (line-height 1.5) and the overflow:hidden boxes clip the glyphs.
+  window.__II_H2C_ASCENT_FIX = true;
+  let canvas;
+  try {
+    canvas = await html2canvas(element, {
+      scale: SCALE,
+      useCORS: true,
+      logging: false,
+      backgroundColor: "#ffffff",
+    });
+  } finally {
+    window.__II_H2C_ASCENT_FIX = false;
+  }
 
   const pdf = new jsPDF(dim.orientation, "mm", dim.format);
   const pxToMm = CONTENT_W / canvas.width;

@@ -5,6 +5,7 @@ import AppNavbar from "../components/AppNavbar";
 import PrintSettings from "./PrintSettings";
 import { authAPI, businessAPI } from "../api/auth";
 import { invalidateBusinessProfile } from "../utils/businessProfile";
+import { formatInvoiceNumber } from "../utils/invoiceConvention";
 import toast from "react-hot-toast";
 import { User, Lock, Upload, Trash2, Pen, Eye, EyeOff, Landmark, Building, MapPin, Globe, Phone, Mail, Hash, FileText } from "lucide-react";
 
@@ -24,7 +25,7 @@ export default function Profile() {
   const [businessData, setBusinessData] = useState(null);
   const [bankForm, setBankForm] = useState({ bankName: "", accountNo: "", branch: "", ifsc: "", bankAddress: "", upiId: "" });
   const [savingBank, setSavingBank] = useState(false);
-  const [bizForm, setBizForm] = useState({ businessName: "", gstIn: "", phone: "", email: "", website: "", addressLine1: "", addressLine2: "", city: "", state: "", country: "", pincode: "", invoicePrefix: "" });
+  const [bizForm, setBizForm] = useState({ businessName: "", gstIn: "", phone: "", email: "", website: "", addressLine1: "", addressLine2: "", city: "", state: "", country: "", pincode: "", invoicePrefix: "", specialistIn: "", specialistInEnabled: false });
   const [savingBiz, setSavingBiz] = useState(false);
   const fileInputRef = useRef(null);
 
@@ -55,6 +56,8 @@ export default function Profile() {
           country: b?.country || "",
           pincode: b?.pincode || "",
           invoicePrefix: b?.invoicePrefix || "",
+          specialistIn: b?.specialistIn || "",
+          specialistInEnabled: !!b?.specialistInEnabled,
         });
       })
       .catch(() => {});
@@ -153,6 +156,10 @@ export default function Profile() {
 
   const handleBizChange = (e) => {
     setBizForm({ ...bizForm, [e.target.name]: e.target.value });
+  };
+
+  const handleSpecialistToggle = () => {
+    setBizForm({ ...bizForm, specialistInEnabled: !bizForm.specialistInEnabled });
   };
 
   const handleBizSave = async (e) => {
@@ -351,9 +358,11 @@ export default function Profile() {
                   className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400/30 focus:border-indigo-400 bg-white transition-all" />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1.5 tracking-wide uppercase">Invoice Prefix</label>
+                <label className="block text-xs font-semibold text-slate-600 mb-1.5 tracking-wide uppercase">Invoice Convention</label>
                 <input type="text" name="invoicePrefix" value={bizForm.invoicePrefix} onChange={handleBizChange}
+                  placeholder="INV-RSHWE / INV-2026 / INV-00001"
                   className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400/30 focus:border-indigo-400 bg-white transition-all" />
+                <p className="text-[10px] text-slate-400 mt-1">Blank → 1, 2, 3... · INV-RSHWE → INV-RSHWE-1 · INV-2026 → INV-2026-1 · INV-00001 → INV-00001, INV-00002 · Next: {formatInvoiceNumber(bizForm.invoicePrefix, businessData?.nextInvoiceSequence ?? 1)}</p>
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1.5 tracking-wide uppercase">Address Line 1</label>
@@ -384,6 +393,23 @@ export default function Profile() {
                 <label className="block text-xs font-semibold text-slate-600 mb-1.5 tracking-wide uppercase">Pincode</label>
                 <input type="text" name="pincode" value={bizForm.pincode} onChange={handleBizChange}
                   className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400/30 focus:border-indigo-400 bg-white transition-all" />
+              </div>
+              <div className="md:col-span-2 lg:col-span-3">
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-semibold text-slate-600 tracking-wide uppercase">Specialist In</label>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-slate-400 uppercase tracking-wider">Show on invoice</span>
+                    <button type="button" onClick={handleSpecialistToggle} aria-label="Show Specialist In on invoice"
+                      className={`relative w-11 h-6 rounded-full transition-colors ${bizForm.specialistInEnabled ? "bg-blue-500" : "bg-slate-300"}`}>
+                      <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform ${bizForm.specialistInEnabled ? "translate-x-5" : ""}`} />
+                    </button>
+                  </div>
+                </div>
+                <input type="text" name="specialistIn" value={bizForm.specialistIn} onChange={handleBizChange}
+                  disabled={!bizForm.specialistInEnabled}
+                  placeholder="ALL KINDS OF ELECTRICAL & HARDWARE MATERIALS"
+                  className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400/30 focus:border-indigo-400 bg-white transition-all disabled:bg-slate-50 disabled:text-slate-400" />
+                <p className="text-[10px] text-slate-400 mt-1">Printed under the address on the invoice when enabled.</p>
               </div>
             </div>
             <button type="submit" disabled={savingBiz}

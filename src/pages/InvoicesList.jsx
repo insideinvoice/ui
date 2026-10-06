@@ -13,7 +13,7 @@ import toast from "react-hot-toast";
 import { ArrowLeft, FileText, Download, Eye, PlusCircle, Share2, Trash2, Search, X } from "lucide-react";
 import { downloadInvoicePDF } from "../components/InvoicePDF";
 import InvoiceTemplateRenderer from "../components/InvoiceTemplateRenderer";
-import { getPrintSettings, sanitizeTemplate } from "../constants/paperSizes";
+import { getPrintSettings, getInvoiceTemplate } from "../constants/paperSizes";
 import { openWhatsApp, buildInvoiceWhatsAppMessage } from "../utils/whatsapp";
 
 const MONTH_NAMES = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -218,7 +218,7 @@ export default function InvoicesList() {
             totals={totals}
             type={invoice.invoiceType}
             invoiceNumber={invoice.invoiceNumber}
-            template={sanitizeTemplate(localStorage.getItem("invoice_template") || "template-1")}
+            template={getInvoiceTemplate(invoice.invoiceType)}
           />
         );
       });
@@ -339,7 +339,7 @@ const printInvoice = useCallback(async (invoice) => {
             totals={totals}
             type={invoice.invoiceType}
             invoiceNumber={invoice.invoiceNumber}
-            template={sanitizeTemplate(localStorage.getItem("invoice_template") || "template-1")}
+            template={getInvoiceTemplate(invoice.invoiceType)}
           />
         );
       });
@@ -434,7 +434,7 @@ const createInvoicePdfFileFromInvoice = async (invoice) => {
           totals={totals}
           type={invoice.invoiceType}
           invoiceNumber={invoice.invoiceNumber}
-          template={sanitizeTemplate(localStorage.getItem("invoice_template") || "template-1")}
+          template={getInvoiceTemplate(invoice.invoiceType)}
         />
       );
     });

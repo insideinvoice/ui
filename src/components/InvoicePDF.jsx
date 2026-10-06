@@ -2,6 +2,7 @@ import React from "react";
 import { QRCodeSVG } from "qrcode.react";
 import CompanySeal from "./CompanySeal";
 import CompanyStamp from "./CompanyStamp";
+import { getSpecialistInLine } from "../utils/specialistIn";
 
 const S = {
   border: "1px solid #000",
@@ -154,6 +155,9 @@ const InvoicePDF = React.memo(React.forwardRef(({ business, customer, form, item
                       <div style={{ fontSize: "10px", lineHeight: "1.45" }}>
                         {[business?.city, business?.state, business?.pincode].filter(Boolean).join(", ")}
                       </div>
+                      {getSpecialistInLine(business) ? (
+                        <div style={{ fontSize: "10px", lineHeight: "1.45" }}>SPECIALIST IN : {getSpecialistInLine(business)}</div>
+                      ) : null}
                       {business?.phone ? <div style={{ fontSize: "10px", lineHeight: "1.45" }}>Ph: {business.phone}</div> : null}
                       {business?.email ? <div style={{ fontSize: "10px", lineHeight: "1.45" }}>{business.email}</div> : null}
                       {business?.gstIn ? <div style={{ fontSize: "10px", lineHeight: "1.45" }}>GSTIN/UIN: {business.gstIn}</div> : null}

@@ -14,7 +14,7 @@ import WhatsAppIcon from "../components/WhatsAppIcon";
 import { processQueue } from "../utils/retryQueue";
 import { processPrint } from "../utils/printInvoice";
 import { openWhatsApp, buildInvoiceWhatsAppMessage, createInvoicePdfFile, prefetchInvoicePdf } from "../utils/whatsapp";
-import { getPrintSettings } from "../constants/paperSizes";
+import { getPrintSettings, getInvoiceTemplate } from "../constants/paperSizes";
 import { INDIAN_STATES, DELIVERY_TERMS, PAYMENT_TERMS } from "../constants/indianStates";
 
 const emptyItem = () => ({ itemName: "", hsn: "", qty: "1", rate: "", gstPercentage: "18", taxableValue: "0", taxAmount: "0", total: "0" });
@@ -105,7 +105,7 @@ const ViewItemRow = memo(({ item, idx, isEditing, onItemChange, onRemove, onAdd 
 
 export default function InvoiceView() {
   const { id } = useParams();
-  const { logout, selectedTemplate } = useAuth();
+  const { logout } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -423,7 +423,7 @@ export default function InvoiceView() {
           type={invoiceType}
           invoiceNumber={form.invoiceNumber}
           paperSize={(getPrintSettings()[invoiceType] || {}).paperSize || "A4_PORTRAIT"}
-          template={selectedTemplate}
+          template={getInvoiceTemplate(invoiceType)}
         />
       </div>
       {/* Hidden Proforma renderer (always rendered for instant capture) */}
@@ -439,7 +439,7 @@ export default function InvoiceView() {
           type="PROFORMA_INVOICE"
           invoiceNumber={form.invoiceNumber}
           paperSize={(getPrintSettings()["PROFORMA_INVOICE"] || {}).paperSize || "A4_PORTRAIT"}
-          template={selectedTemplate}
+          template={getInvoiceTemplate("PROFORMA_INVOICE")}
         />
       </div>
       <div className="max-w-[1900px] mx-auto px-4 sm:px-5 lg:px-6 py-3 sm:py-4 lg:py-5">

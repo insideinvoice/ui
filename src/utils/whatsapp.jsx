@@ -23,7 +23,7 @@ export function prefetchInvoicePdf() {
     warmed = Promise.allSettled([
       import("../components/InvoicePDF"),
       import("jspdf"),
-      import("html2canvas"),
+      import("../vendor/html2canvas.esm.js"),
     ]);
   }
   return warmed;

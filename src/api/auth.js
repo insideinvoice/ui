@@ -50,6 +50,13 @@ export const invoiceAPI = {
   delete: (id) => api.delete(`/invoices/${id}`),
 };
 
+export const deliveryChallanAPI = {
+  create: (data) => api.post("/delivery-challans", data),
+  getAll: (params) => api.get("/delivery-challans", { params }),
+  getById: (id) => api.get(`/delivery-challans/${id}`),
+  delete: (id) => api.delete(`/delivery-challans/${id}`),
+};
+
 export const paymentAPI = {
   create: (data) => api.post("/payments", data),
   getAll: (params) => api.get("/payments", { params }),

@@ -44,6 +44,9 @@ import AdminBusinessesList from "./pages/AdminBusinessesList";
 import AdminCustomersList from "./pages/AdminCustomersList";
 import AdminInvoicesList from "./pages/AdminInvoicesList";
 import CustomersList from "./pages/CustomersList";
+import DeliveryChallanForm from "./pages/DeliveryChallanForm";
+import DeliveryChallansList from "./pages/DeliveryChallansList";
+import DeliveryChallanView from "./pages/DeliveryChallanView";
 import MorePage from "./pages/MorePage";
 
 function ScrollToTop() {
@@ -92,6 +95,9 @@ function AppRoutes() {
       <Route path="/invoice" element={<PrivateRoute><InvoiceForm /></PrivateRoute>} />
       <Route path="/invoice/:id" element={<PrivateRoute><InvoiceView /></PrivateRoute>} />
       <Route path="/invoices" element={<PrivateRoute><InvoicesList /></PrivateRoute>} />
+      <Route path="/delivery-challans/new" element={<PrivateRoute><DeliveryChallanForm /></PrivateRoute>} />
+      <Route path="/delivery-challans" element={<PrivateRoute><DeliveryChallansList /></PrivateRoute>} />
+      <Route path="/delivery-challans/:id" element={<PrivateRoute><DeliveryChallanView /></PrivateRoute>} />
       <Route path="/customers/new" element={<PrivateRoute><AddCustomer /></PrivateRoute>} />
       <Route path="/customers" element={<PrivateRoute><CustomersList /></PrivateRoute>} />
       <Route path="/products/new" element={<PrivateRoute><AddProduct /></PrivateRoute>} />

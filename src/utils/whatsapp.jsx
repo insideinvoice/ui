@@ -1,18 +1,31 @@
 import toast from "react-hot-toast";
 
 export function buildInvoiceWhatsAppMessage({ customerName, invoiceNumber, invoiceType, total, businessName, shareUrl }) {
+  const greeting = customerName?.trim() ? `Hello ${customerName.trim()},` : "Hello,";
   const label = invoiceType === "PROFORMA_INVOICE" ? "Proforma Invoice" : "Tax Invoice";
-  let text = `${label}${invoiceNumber ? ` ${invoiceNumber}` : ""}`;
+  const invPart = invoiceNumber?.trim() ? ` ${invoiceNumber.trim()}` : "";
   const amount = parseFloat(total);
-  if (!isNaN(amount) && amount > 0) {
-    text += ` - Total: Rs. ${amount.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  }
+  const totalPart = !isNaN(amount) && amount >= 0
+    ? ` - Total: Rs. ${amount.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    : "";
+
+  const lines = [
+    greeting,
+    "",
+    `${label}${invPart}${totalPart}`,
+  ];
+
   if (shareUrl) {
-    text += `\n\nView invoice online: ${shareUrl}`;
+    lines.push("", `View invoice online: ${shareUrl}`);
   }
-  if (customerName) text = `Hello ${customerName},\n\n${text}`;
-  if (businessName) text += `\n\n- ${businessName}`;
-  return text;
+
+  if (businessName?.trim()) {
+    lines.push("", "Thank you for your business!", `- ${businessName.trim()}`);
+  } else {
+    lines.push("", "Thank you for your business!");
+  }
+
+  return lines.join("\n");
 }
 
 // navigator.share() only works while the click that triggered it is still a

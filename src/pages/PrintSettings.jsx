@@ -1,9 +1,9 @@
-import { useState, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useCallback } from "react";
 import AppNavbar from "../components/AppNavbar";
 import PageHeader from "../components/PageHeader";
 import { getPrintSettings, savePrintSettings, PAPER_SIZE_LIST, ALL_TEMPLATES, DEFAULT_PRINT_SETTINGS, getGlobalTemplate } from "../constants/paperSizes";
 import toast from "react-hot-toast";
+import { businessAPI } from "../api/auth";
 import { ArrowLeft, Printer, FileText, FileSpreadsheet, ShoppingCart, Download, Save } from "lucide-react";
 
 const DOC_TYPES = [
@@ -14,7 +14,6 @@ const DOC_TYPES = [
 ];
 
 export default function PrintSettings({ noWrapper }) {
-  const navigate = useNavigate();
   const [settings, setSettings] = useState(() => getPrintSettings());
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -39,6 +38,10 @@ export default function PrintSettings({ noWrapper }) {
     setSaving(true);
     try {
       savePrintSettings(settings);
+      businessAPI.updateInvoiceSettings({
+        invoiceTemplate: getGlobalTemplate(),
+        printSettings: JSON.stringify(settings),
+      }).catch(() => {});
       setDirty(false);
       toast.success("Print settings saved");
     } catch {

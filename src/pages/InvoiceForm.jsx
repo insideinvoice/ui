@@ -714,25 +714,45 @@ export default function InvoiceForm() {
     setSharing(true);
     const shareWindow = window.open("", "_blank");
     try {
+      // 1. Save the invoice (if unsaved)
       const saveRes = await saveInvoice();
       const invoiceId = saveRes.data.data.id;
       const invNo = saveRes.data.data.invoiceNumber || savedInvoiceNumber || customInvoiceNumber || nextInvoiceNumber;
+
+      // 2. Generate the PDF
+      const type = form.invoiceType || "TAX_INVOICE";
+      const filename = `${type === "PROFORMA_INVOICE" ? "Proforma_Invoice" : "Tax_Invoice"}_${invNo || form.invoiceDate || new Date().toISOString().split("T")[0]}.pdf`;
+      const ps = (getPrintSettings()[type] || {}).paperSize || "A4_PORTRAIT";
+      try {
+        await mountPdfPreview();
+        await new Promise((r) => setTimeout(r, 100));
+        await processPrint(invoiceRef, type, filename, ps);
+      } catch (pdfErr) {
+        console.error("PDF generation error:", pdfErr);
+      } finally {
+        setShowPdfPreview(false);
+      }
+
+      // 3. Create/ensure a public share link
       const shareRes = await invoiceAPI.createShare(invoiceId);
       const token = shareRes.data?.data?.token;
-      const shareUrl = token ? `${window.location.origin}/i/${token}` : undefined;
+      const origin = typeof window !== "undefined" && window.location.origin ? window.location.origin : "https://insideinvoice.com";
+      const shareUrl = token ? `${origin}/i/${token}` : undefined;
+
+      // 4. Open WhatsApp with contact picker and message
       const text = buildInvoiceWhatsAppMessage({
-        customerName: form.customerName,
+        customerName: customer?.name || form.customerName,
         invoiceNumber: invNo,
-        invoiceType: form.invoiceType,
+        invoiceType: type,
         total: totals.grandTotal,
         businessName: business?.businessName,
         shareUrl,
       });
       const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
-      if (shareWindow) {
+      if (shareWindow && !shareWindow.closed) {
         shareWindow.location.href = url;
       } else {
-        window.open(url, "_blank");
+        window.open(url, "_blank") || (window.location.href = url);
       }
     } catch (err) {
       if (shareWindow) shareWindow.close();

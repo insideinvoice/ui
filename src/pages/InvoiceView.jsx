@@ -478,8 +478,34 @@ export default function InvoiceView() {
     setBusyAction("whatsapp");
     const shareWindow = window.open("", "_blank");
     try {
+      // 1. Save the invoice (if unsaved / editing)
+      if (isEditing) {
+        if (!validate()) {
+          if (shareWindow) shareWindow.close();
+          setBusyAction("");
+          return;
+        }
+        await handleSave();
+      }
+
+      // 2. Generate the PDF
+      try {
+        const filename = `${invoiceType === "PROFORMA_INVOICE" ? "Proforma" : "Tax"}_Invoice_${form.invoiceNumber}.pdf`;
+        const captureRef = await mountCapture(invoiceType);
+        const ps = (getPrintSettings()[invoiceType] || {}).paperSize || "A4_PORTRAIT";
+        await processPrint(captureRef, invoiceType, filename, ps);
+      } catch (pdfErr) {
+        console.error("PDF generation error:", pdfErr);
+      } finally {
+        releaseCapture();
+      }
+
+      // 3. Create/ensure a public share link
       const token = await ensureShareToken();
-      const shareUrl = `${window.location.origin}/i/${token}`;
+      const origin = typeof window !== "undefined" && window.location.origin ? window.location.origin : "https://insideinvoice.com";
+      const shareUrl = `${origin}/i/${token}`;
+
+      // 4. Open WhatsApp with contact picker and message
       const text = buildInvoiceWhatsAppMessage({
         customerName: form.customerName,
         invoiceNumber: form.invoiceNumber,
@@ -489,10 +515,10 @@ export default function InvoiceView() {
         shareUrl,
       });
       const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
-      if (shareWindow) {
+      if (shareWindow && !shareWindow.closed) {
         shareWindow.location.href = url;
       } else {
-        window.open(url, "_blank");
+        window.open(url, "_blank") || (window.location.href = url);
       }
     } catch (err) {
       if (shareWindow) shareWindow.close();
@@ -590,10 +616,6 @@ export default function InvoiceView() {
             }`}>
               {invoiceType === "PROFORMA_INVOICE" ? "Proforma" : "Tax"} Invoice
             </span>
-            <button type="button" onClick={() => setShowShareSheet(true)} disabled={!!busyAction} title="Share" aria-label="Share invoice"
-              className="flex items-center justify-center w-9 h-9 rounded-full bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-60 transition-all shadow-sm">
-              <Share2 className="w-5 h-5" />
-            </button>
             <button type="button" onClick={shareViaWhatsApp} disabled={sealRequired || !!busyAction} title="Share on WhatsApp" aria-label="Share on WhatsApp"
               className="flex items-center justify-center w-9 h-9 rounded-full bg-[#25D366] text-white hover:bg-[#1ebe5b] disabled:opacity-60 transition-all shadow-sm">
               {busyAction === "whatsapp" ? <Spinner size={18} /> : <WhatsAppIcon className="w-5 h-5" />}

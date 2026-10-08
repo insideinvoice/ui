@@ -1,6 +1,6 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { Download, ExternalLink, Printer, RefreshCw, ShieldAlert, Clock } from "lucide-react";
+import { Download, Printer, RefreshCw, ShieldAlert, Clock, ZoomIn, ZoomOut, Maximize2 } from "lucide-react";
 import InvoiceTemplateRenderer from "../components/InvoiceTemplateRenderer";
 import LoadingDots from "../components/LoadingDots";
 import { publicInvoiceAPI } from "../api/public";
@@ -10,9 +10,6 @@ const toNum = (v) => {
   return Number.isNaN(n) ? 0 : n;
 };
 
-// Maps the allowlisted public DTO onto the prop contract every invoice template
-// expects (business/customer/form/items/totals) - deliberately explicit, so a new
-// backend field can never leak into the page by accident.
 function mapToTemplateProps(data) {
   const s = data.seller || {};
   const pay = s.payment || {};
@@ -86,7 +83,6 @@ function mapToTemplateProps(data) {
     total: i.total,
   }));
 
-  // Server-side totals are authoritative - the same numbers the on-demand PDF renders.
   const totals = {
     subtotal: toNum(data.subtotal),
     discountAmount: 0,
@@ -116,12 +112,19 @@ function StatusCard({ icon, title, body, action }) {
   );
 }
 
+const PAPER_WIDTH = { A4_PORTRAIT: 794, A4_LANDSCAPE: 1123, A5: 559, LETTER: 816 };
+const clampZoom = (z) => Math.min(2.5, Math.max(0.25, +z.toFixed(2)));
+const fitZoomFor = (widthPx, padding = 24) =>
+  clampZoom(Math.max(0.25, (window.innerWidth - padding) / widthPx));
+
 export default function PublicInvoicePage() {
   const { shareToken } = useParams();
-  const [status, setStatus] = useState("loading"); // loading | ok | missing | limited | error
+  const [status, setStatus] = useState("loading");
   const [data, setData] = useState(null);
   const [actionError, setActionError] = useState("");
   const [actionBusy, setActionBusy] = useState("");
+  const invoiceRef = useRef(null);
+  const wrapRef = useRef(null);
 
   const load = useCallback(async () => {
     setStatus("loading");
@@ -141,69 +144,88 @@ export default function PublicInvoicePage() {
     load();
   }, [load]);
 
-  const pdfUrl = publicInvoiceAPI.pdfUrl(shareToken);
+  const paperSize = data?.paperSize || "A4_PORTRAIT";
+  const widthPx = PAPER_WIDTH[paperSize] || 794;
+  const [zoom, setZoom] = useState(1);
 
-  // Memoized above the early returns (hooks must run unconditionally): keeps a
-  // stable prop identity so the rendered document isn't rebuilt on every
-  // actionBusy/actionError toggle.
-  const templateProps = useMemo(() => (data ? mapToTemplateProps(data) : null), [data]);
+  useEffect(() => {
+    if (!data) return;
+    setZoom(1);
+  }, [data, widthPx]);
 
-  const openPdf = () => {
-    window.open(pdfUrl, "_blank", "noopener,noreferrer");
+  useEffect(() => {
+    const onWheel = (e) => {
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        setZoom((z) => clampZoom(z + (e.deltaY < 0 ? 0.1 : -0.1)));
+      }
+    };
+    window.addEventListener("wheel", onWheel, { passive: false });
+    return () => window.removeEventListener("wheel", onWheel);
+  }, []);
+
+  const buildPdf = async () => {
+    const el = invoiceRef.current;
+    if (!el) throw new Error("Invoice not rendered yet");
+    const { buildInvoicePdf } = await import("../utils/invoicePdf");
+    return buildInvoicePdf(el, paperSize);
   };
 
-  const withPdfBlob = async (busyKey, handler) => {
-    if (actionBusy) return;
+  const generateExact = async (busyKey) => {
+    if (actionBusy) return null;
     setActionBusy(busyKey);
     setActionError("");
     try {
-      const res = await publicInvoiceAPI.pdfBlob(shareToken);
-      handler(res.data);
+      const prevZoom = zoom;
+      if (prevZoom !== 1) {
+        setZoom(1);
+        await new Promise((r) => setTimeout(r, 120));
+      }
+      const pdf = await buildPdf();
+      setZoom(prevZoom);
+      return pdf;
     } catch {
       setActionError("Could not prepare the PDF. Please try again.");
+      return null;
     } finally {
       setActionBusy("");
     }
   };
 
-  const downloadPdf = () =>
-    withPdfBlob("download", (blob) => {
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `Invoice_${data?.invoiceNumber || "shared"}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 30000);
-    });
+  const downloadPdf = async () => {
+    const pdf = await generateExact("download");
+    if (!pdf) return;
+    pdf.save(`Invoice_${data?.invoiceNumber || "shared"}.pdf`);
+  };
 
-  const printPdf = () =>
-    withPdfBlob("print", (blob) => {
-      // Blob URLs are same-origin, so the iframe's PDF viewer can be printed programmatically.
-      const url = URL.createObjectURL(blob);
-      const iframe = document.createElement("iframe");
-      iframe.style.position = "fixed";
-      iframe.style.right = "0";
-      iframe.style.bottom = "0";
-      iframe.style.width = "0";
-      iframe.style.height = "0";
-      iframe.style.border = "0";
-      iframe.src = url;
-      iframe.onload = () => {
-        try {
-          iframe.contentWindow.focus();
-          iframe.contentWindow.print();
-        } catch {
-          window.open(pdfUrl, "_blank", "noopener,noreferrer");
-        }
-        setTimeout(() => {
-          URL.revokeObjectURL(url);
-          iframe.remove();
-        }, 60000);
-      };
-      document.body.appendChild(iframe);
-    });
+  const printPdf = async () => {
+    const pdf = await generateExact("print");
+    if (!pdf) return;
+    const blobUrl = URL.createObjectURL(pdf.output("blob"));
+    const iframe = document.createElement("iframe");
+    iframe.style.position = "fixed";
+    iframe.style.right = "0";
+    iframe.style.bottom = "0";
+    iframe.style.width = "0";
+    iframe.style.height = "0";
+    iframe.style.border = "0";
+    iframe.src = blobUrl + "#toolbar=0&navpanes=0&scrollbar=0";
+    iframe.onload = () => {
+      try {
+        iframe.contentWindow.focus();
+        iframe.contentWindow.print();
+      } catch {
+        window.open(blobUrl, "_blank", "noopener,noreferrer");
+      }
+      setTimeout(() => {
+        URL.revokeObjectURL(blobUrl);
+        iframe.remove();
+      }, 60000);
+    };
+    document.body.appendChild(iframe);
+  };
+
+  const templateProps = useMemo(() => (data ? mapToTemplateProps(data) : null), [data]);
 
   if (status === "loading") {
     return (
@@ -277,14 +299,6 @@ export default function PublicInvoicePage() {
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             <button
               type="button"
-              onClick={openPdf}
-              className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg border border-slate-300 text-slate-700 text-xs sm:text-sm font-medium hover:bg-slate-50 transition-colors"
-              title="View PDF"
-            >
-              <ExternalLink className="w-4 h-4" /> <span className="hidden sm:inline">View PDF</span>
-            </button>
-            <button
-              type="button"
               onClick={downloadPdf}
               disabled={!!actionBusy}
               className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg border border-slate-300 text-slate-700 text-xs sm:text-sm font-medium hover:bg-slate-50 disabled:opacity-60 transition-colors"
@@ -312,22 +326,64 @@ export default function PublicInvoicePage() {
 
       <main className="max-w-[1100px] mx-auto px-3 sm:px-4 py-4 sm:py-6">
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-x-auto">
-          <InvoiceTemplateRenderer
-            business={templateProps.business}
-            customer={templateProps.customer}
-            form={templateProps.form}
-            items={templateProps.items}
-            totals={templateProps.totals}
-            discountPercent="0"
-            type={data.invoiceType}
-            invoiceNumber={data.invoiceNumber}
-            paperSize="A4_PORTRAIT"
-          />
+          <div ref={wrapRef} style={{ zoom: String(zoom), margin: "0 auto", maxWidth: "100%" }}>
+            <InvoiceTemplateRenderer
+              ref={invoiceRef}
+              business={templateProps.business}
+              customer={templateProps.customer}
+              form={templateProps.form}
+              items={templateProps.items}
+              totals={templateProps.totals}
+              discountPercent="0"
+              type={data.invoiceType}
+              invoiceNumber={data.invoiceNumber}
+              paperSize={paperSize}
+              template={data.template || undefined}
+            />
+          </div>
         </div>
         <p className="text-center text-xs text-slate-400 mt-4">
           Computer-generated copy of a shared invoice &middot; Powered by Inside Invoice
         </p>
       </main>
+
+      <div className="fixed bottom-4 right-4 z-50 flex items-center gap-1 rounded-full bg-white/95 shadow-lg border border-slate-200 px-2 py-1.5 backdrop-blur">
+        <button
+          type="button"
+          aria-label="Zoom out"
+          title="Zoom out"
+          onClick={() => setZoom((z) => clampZoom(z - 0.15))}
+          className="p-1.5 rounded-full text-slate-600 hover:bg-slate-100"
+        >
+          <ZoomOut className="w-4 h-4" />
+        </button>
+        <button
+          type="button"
+          onClick={() => setZoom(1)}
+          className="text-xs font-mono text-slate-600 px-1.5 min-w-[3rem] text-center"
+          title="Reset zoom to 100%"
+        >
+          {Math.round(zoom * 100)}%
+        </button>
+        <button
+          type="button"
+          aria-label="Zoom in"
+          title="Zoom in"
+          onClick={() => setZoom((z) => clampZoom(z + 0.15))}
+          className="p-1.5 rounded-full text-slate-600 hover:bg-slate-100"
+        >
+          <ZoomIn className="w-4 h-4" />
+        </button>
+        <button
+          type="button"
+          aria-label="Fit to width"
+          title="Fit invoice to screen width"
+          onClick={() => setZoom(fitZoomFor(widthPx, 24))}
+          className="p-1.5 rounded-full text-slate-600 hover:bg-slate-100"
+        >
+          <Maximize2 className="w-4 h-4" />
+        </button>
+      </div>
     </div>
   );
 }

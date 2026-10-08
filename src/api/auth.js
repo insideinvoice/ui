@@ -13,6 +13,7 @@ export const businessAPI = {
   setup: (data) => api.post("/business/setup", data),
   getProfile: () => api.get("/business/me"),
   update: (data) => api.put("/business/update", data),
+  updateInvoiceSettings: (data) => api.put("/business/invoice-settings", data),
   uploadSignature: (file) => {
     const formData = new FormData();
     formData.append("file", file);

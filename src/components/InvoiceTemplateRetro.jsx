@@ -197,7 +197,6 @@ const ItemHead = () => {
   const th = {
     boxSizing: "border-box",
     borderBottom: B,
-    borderRight: B,
     background: "#d6d6d6",
     fontSize: "12.5px",
     fontWeight: 700,
@@ -210,9 +209,13 @@ const ItemHead = () => {
   // No./PARTICULARS/QTY./RATE span both header lines so the grey block is
   // continuous — only AMOUNT is split into Rs. / Ps.
   const span = { ...th, height: "39px" };
-  const amount = { ...th, height: "24px", width: COLS.rs + COLS.ps, borderRight: "none", verticalAlign: "bottom" };
+  const amount = { ...th, height: "24px", width: COLS.rs + COLS.ps, verticalAlign: "bottom" };
   const sub = { ...th, height: "15px", fontWeight: 400, fontSize: "11.5px", verticalAlign: "top" };
   return (
+    // Rules come from the same absolute overlay as the item rows/totals —
+    // collapsed-table borders are centred half a device-pixel off and the
+    // header lines no longer touched the column rules below.
+    <div style={{ position: "relative", height: "39px", boxSizing: "border-box" }}>
     <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
       {/* Fixed layout splits a colSpan cell evenly, which put the Rs./Ps.
           divider at 634 while the body rules sit at RULE_X (662). The col
@@ -237,10 +240,14 @@ const ItemHead = () => {
         </tr>
         <tr>
           <td style={{ ...sub, width: COLS.rs }}>Rs.</td>
-          <td style={{ ...sub, width: COLS.ps, borderRight: "none" }}>Ps.</td>
+          <td style={{ ...sub, width: COLS.ps }}>Ps.</td>
         </tr>
       </tbody>
     </table>
+      {RULE_X.map((x) => (
+        <div key={x} style={{ position: "absolute", top: 0, bottom: 0, left: `${x}px`, width: "1px", background: "#000000" }} />
+      ))}
+    </div>
   );
 };
 
@@ -290,7 +297,6 @@ const Totals = ({ subtotal, cgst, sgst, grand, words, pctLabel }) => {
     height: `${ROW_H}px`,
     boxSizing: "border-box",
     borderBottom: B,
-    borderRight: B,
     fontSize: "13.5px",
     fontWeight: 700,
     padding: "0 10px",
@@ -317,6 +323,7 @@ const Totals = ({ subtotal, cgst, sgst, grand, words, pctLabel }) => {
   ];
 
   return (
+    <div style={{ position: "relative" }}>
     <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
       {/* same column pins as the item box so the Rs./Ps. rule runs straight
           from the AMOUNT header through every row and totals line */}
@@ -333,7 +340,6 @@ const Totals = ({ subtotal, cgst, sgst, grand, words, pctLabel }) => {
             rowSpan={4}
             style={{
               width: COLS.no + COLS.particulars,
-              borderRight: B,
               borderBottom: B,
               boxSizing: "border-box",
               height: `${RETRO_PAGE_METRICS.totals}px`,
@@ -357,13 +363,13 @@ const Totals = ({ subtotal, cgst, sgst, grand, words, pctLabel }) => {
           {/* the HSN strip continues the item-box column rule; E.&O.E. lives in its corner */}
           <td
             rowSpan={4}
-            style={{ width: COLS.hsn, borderRight: B, borderBottom: B, boxSizing: "border-box", position: "relative" }}
+            style={{ width: COLS.hsn, borderBottom: B, boxSizing: "border-box", position: "relative" }}
           >
             <div style={{ position: "absolute", right: "5px", bottom: "4px", fontSize: "11.5px", fontWeight: 700 }}>E.&amp;O.E.</div>
           </td>
           <td style={{ ...label, ...rows[0].shade ? shade : {}, width: COLS.qty + COLS.rate }}>{rows[0].text}</td>
-          <td style={{ ...money, borderRight: B, ...rows[0].shade ? shade : {}, width: COLS.rs }}>{rs(rows[0].val).rs}</td>
-          <td style={{ ...money, borderRight: "none", ...rows[0].shade ? shade : {}, width: COLS.ps }}>{rs(rows[0].val).ps}</td>
+          <td style={{ ...money, ...rows[0].shade ? shade : {}, width: COLS.rs }}>{rs(rows[0].val).rs}</td>
+          <td style={{ ...money, ...rows[0].shade ? shade : {}, width: COLS.ps }}>{rs(rows[0].val).ps}</td>
         </tr>
         {rows.slice(1).map((r) => (
           <tr key={r.key}>
@@ -371,20 +377,25 @@ const Totals = ({ subtotal, cgst, sgst, grand, words, pctLabel }) => {
               {r.text}
               {r.pct ? <span style={{ float: "right", paddingRight: "14px", fontWeight: 700 }}>{pctLabel}</span> : null}
             </td>
-            <td style={{ ...money, borderRight: B, ...r.shade ? shade : {} }}>{rs(r.val).rs}</td>
-            <td style={{ ...money, borderRight: "none", ...r.shade ? shade : {} }}>{rs(r.val).ps}</td>
+            <td style={{ ...money, ...r.shade ? shade : {} }}>{rs(r.val).rs}</td>
+            <td style={{ ...money, ...r.shade ? shade : {} }}>{rs(r.val).ps}</td>
           </tr>
         ))}
       </tbody>
     </table>
+      {/* only the rules that have a real column boundary in totals */}
+      {[RULE_X[1], RULE_X[2], RULE_X[4], RULE_X[5]].map((x) => (
+        <div key={x} style={{ position: "absolute", top: 0, bottom: 0, left: `${x}px`, width: "1px", background: "#000000" }} />
+      ))}
+    </div>
   );
 };
 
 /* -------------------------------------------------------------- footer */
 
 const FooterBand = ({ business, terms, sealVisible, sealType, sigSrc }) => (
-  <div style={{ height: RETRO_PAGE_METRICS.footer, display: "flex", boxSizing: "border-box" }}>
-    <div style={{ width: COLS.no + COLS.particulars, boxSizing: "border-box", borderRight: B, padding: "7px 10px", overflow: "hidden" }}>
+  <div style={{ height: RETRO_PAGE_METRICS.footer, display: "flex", boxSizing: "border-box", position: "relative" }}>
+    <div style={{ width: COLS.no + COLS.particulars, boxSizing: "border-box", padding: "7px 10px", overflow: "hidden" }}>
       <div style={{ fontSize: "13px", fontWeight: 700, marginBottom: "4px" }}>Terms &amp; Conditions :</div>
       <div style={{ fontSize: "11.5px", lineHeight: "15px" }}>{terms}</div>
     </div>
@@ -413,6 +424,7 @@ const FooterBand = ({ business, terms, sealVisible, sealType, sigSrc }) => (
       </div>
       <div style={{ position: "absolute", left: 0, right: 0, bottom: "4px", textAlign: "center", fontSize: "12.5px" }}>Signature</div>
     </div>
+    <div style={{ position: "absolute", top: 0, bottom: 0, left: `${COLS.no + COLS.particulars}px`, width: "1px", background: "#000000" }} />
   </div>
 );
 

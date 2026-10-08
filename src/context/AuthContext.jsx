@@ -69,6 +69,28 @@ export function AuthProvider({ children }) {
         localStorage.setItem("invoice_template", tpl);
         setSelectedTemplate(tpl);
       }
+      // Hydrate the account-held invoice settings so a new device renders
+      // the same printable documents the owner configured.
+      businessAPI.getProfile().then((r) => {
+        const b = r.data.data;
+        if (b) {
+          if (b.invoiceTemplate) {
+            const tpl = sanitizeTemplate(b.invoiceTemplate);
+            localStorage.setItem("invoice_template", tpl);
+            setSelectedTemplate(tpl);
+          }
+          if (b.printSettings) localStorage.setItem("print_settings", b.printSettings);
+          // First time after the V20 migration: push the browser-held settings
+          // back to the account so the shared links inherit them.
+          if (!b.invoiceTemplate && !b.printSettings &&
+              (localStorage.getItem("invoice_template") || localStorage.getItem("print_settings"))) {
+            businessAPI.updateInvoiceSettings({
+              invoiceTemplate: localStorage.getItem("invoice_template") || "template-1",
+              printSettings: localStorage.getItem("print_settings") || "",
+            }).catch(() => {});
+          }
+        }
+      }).catch(() => {});
       if (parsed.mustChangePassword) {
         localStorage.setItem("mustChangePassword", "true");
       } else {
@@ -105,13 +127,21 @@ export function AuthProvider({ children }) {
 
   const updateTemplate = useCallback(async (templateId) => {
     const tpl = sanitizeTemplate(templateId);
-    await authAPI.updateProfile({ ...user, selectedTemplate: tpl });
     localStorage.setItem("invoice_template", tpl);
     setSelectedTemplate(tpl);
     const updated = { ...user, selectedTemplate: tpl };
     const rememberMe = localStorage.getItem(REMEMBER_KEY) === "true";
     writeStorage(USER_KEY, JSON.stringify(updated), rememberMe);
     setUser(updated);
+
+    try {
+      await businessAPI.updateInvoiceSettings({
+        invoiceTemplate: tpl,
+        printSettings: localStorage.getItem("print_settings") || "",
+      });
+    } catch (err) {
+      console.warn("Could not sync invoice template settings to server:", err?.response?.data || err?.message);
+    }
   }, [user]);
 
   const setupBusiness = useCallback(async (businessData) => {

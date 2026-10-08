@@ -360,7 +360,8 @@ const shareViaWhatsApp = useCallback(async (invoice) => {
   try {
     const res = await invoiceAPI.createShare(invoice.id);
     const token = res.data?.data?.token;
-    const shareUrl = token ? `${window.location.origin}/i/${token}` : undefined;
+    const origin = typeof window !== "undefined" && window.location.origin ? window.location.origin : "https://insideinvoice.com";
+    const shareUrl = token ? `${origin}/i/${token}` : undefined;
     const business = await resolveBusinessProfile();
     const text = buildInvoiceWhatsAppMessage({
       customerName: invoice.customerName,
@@ -371,10 +372,10 @@ const shareViaWhatsApp = useCallback(async (invoice) => {
       shareUrl,
     });
     const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
-    if (shareWindow) {
+    if (shareWindow && !shareWindow.closed) {
       shareWindow.location.href = url;
     } else {
-      window.open(url, "_blank");
+      window.open(url, "_blank") || (window.location.href = url);
     }
   } catch (err) {
     if (shareWindow) shareWindow.close();

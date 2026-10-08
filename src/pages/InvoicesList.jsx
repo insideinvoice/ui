@@ -10,7 +10,7 @@ import ConfirmModal from "../components/ConfirmModal";
 import { invoiceAPI } from "../api/auth";
 import { resolveBusinessProfile, getBusinessProfile } from "../utils/businessProfile";
 import toast from "react-hot-toast";
-import { ArrowLeft, FileText, Download, Eye, PlusCircle, Share2, Trash2, Search, X, Link2, ChevronDown } from "lucide-react";
+import { ArrowLeft, FileText, Download, Eye, PlusCircle, Share2, Trash2, Search, X, Link2, ChevronDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
 import { downloadInvoicePDF } from "../components/InvoicePDF";
 import InvoiceTemplateRenderer from "../components/InvoiceTemplateRenderer";
 import { getPrintSettings, getInvoiceTemplate } from "../constants/paperSizes";
@@ -87,6 +87,9 @@ export default function InvoicesList() {
   // Warm the business profile cache so the first PDF/share click is instant
   useEffect(() => { getBusinessProfile().catch(() => {}); }, []);
 
+  const [pageSize, setPageSize] = useState(25);
+  const [currentPage, setCurrentPage] = useState(1);
+
   const filtered = useMemo(() => invoices.filter((inv) => {
     if (search.trim()) {
       const q = search.toLowerCase();
@@ -102,6 +105,19 @@ export default function InvoicesList() {
     }
     return true;
   }), [invoices, search, selectedMonth, selectedYear]);
+
+  // Reset to first page when search filters change or page size changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, selectedMonth, selectedYear, pageSize]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = Math.min(startIndex + pageSize, filtered.length);
+  const paginatedInvoices = useMemo(
+    () => filtered.slice(startIndex, startIndex + pageSize),
+    [filtered, startIndex, pageSize]
+  );
 
   const monthNames = MONTH_NAMES;
 
@@ -485,7 +501,7 @@ const shareViaWhatsApp = useCallback(async (invoice) => {
                     </tr>
                   </thead>
                   <tbody>
-                    {filtered.map((inv, i) => (
+                    {paginatedInvoices.map((inv, i) => (
                       <tr key={inv.id} className={`border-b border-slate-100 hover:bg-slate-100 transition-colors ${i % 2 === 1 ? "bg-slate-50/40" : ""}`}>
                         <td className="py-3 px-4">
                           <button onClick={() => navigate(`/invoice/${inv.id}`)} className="inline-flex items-center font-mono text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1 rounded-md border border-indigo-200 hover:border-indigo-300 transition-all">
@@ -535,8 +551,8 @@ const shareViaWhatsApp = useCallback(async (invoice) => {
                   </tbody>
                 </table>
               </div>
-              <div className="md:hidden space-y-3">
-                {filtered.map((inv) => (
+              <div className="md:hidden space-y-3 p-3">
+                {paginatedInvoices.map((inv) => (
                   <div key={inv.id} className="bg-white rounded-xl shadow-sm border border-slate-100 p-4 hover:bg-slate-50 transition-colors" onClick={() => goToInvoice(inv)}>
                     <div className="flex items-center justify-between mb-2">
                       <span className="inline-flex items-center font-mono text-xs font-bold text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded-md border border-indigo-200">
@@ -580,6 +596,73 @@ const shareViaWhatsApp = useCallback(async (invoice) => {
                   </div>
                 ))}
               </div>
+
+              {filtered.length > 0 && (
+                <div className="px-4 py-3 border-t border-slate-200 bg-slate-50/60 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-600">
+                  <div className="flex items-center gap-2">
+                    <span>Rows per page:</span>
+                    <div className="relative">
+                      <select
+                        value={pageSize}
+                        onChange={(e) => setPageSize(Number(e.target.value))}
+                        className="pl-2.5 pr-7 py-1 border border-slate-300 rounded-md bg-white text-xs text-slate-700 font-medium focus:outline-none focus:ring-1 focus:ring-indigo-400 appearance-none cursor-pointer"
+                      >
+                        <option value={10}>10</option>
+                        <option value={25}>25</option>
+                        <option value={50}>50</option>
+                        <option value={100}>100</option>
+                      </select>
+                      <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400 pointer-events-none" />
+                    </div>
+                    <span className="text-slate-300">|</span>
+                    <span>
+                      Showing <span className="font-semibold text-slate-800">{filtered.length === 0 ? 0 : startIndex + 1}</span>–
+                      <span className="font-semibold text-slate-800">{endIndex}</span> of{" "}
+                      <span className="font-semibold text-slate-800">{filtered.length}</span>
+                    </span>
+                  </div>
+
+                  {totalPages > 1 && (
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => setCurrentPage(1)}
+                        disabled={currentPage === 1}
+                        className="p-1.5 rounded-md hover:bg-slate-200 disabled:opacity-40 disabled:hover:bg-transparent text-slate-600 transition-colors"
+                        title="First page"
+                      >
+                        <ChevronsLeft className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                        disabled={currentPage === 1}
+                        className="p-1.5 rounded-md hover:bg-slate-200 disabled:opacity-40 disabled:hover:bg-transparent text-slate-600 transition-colors"
+                        title="Previous page"
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                      </button>
+                      <span className="px-2 font-medium text-slate-700">
+                        Page {currentPage} of {totalPages}
+                      </span>
+                      <button
+                        onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                        disabled={currentPage === totalPages}
+                        className="p-1.5 rounded-md hover:bg-slate-200 disabled:opacity-40 disabled:hover:bg-transparent text-slate-600 transition-colors"
+                        title="Next page"
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => setCurrentPage(totalPages)}
+                        disabled={currentPage === totalPages}
+                        className="p-1.5 rounded-md hover:bg-slate-200 disabled:opacity-40 disabled:hover:bg-transparent text-slate-600 transition-colors"
+                        title="Last page"
+                      >
+                        <ChevronsRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
             </>
           )}
         </div>

@@ -101,15 +101,16 @@ const Letterhead = ({ business, title }) => {
       <div style={{ textAlign: "center", fontSize: "31px", fontWeight: 800, letterSpacing: "1.5px", marginTop: "6px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", lineHeight: 1.1 }}>
         {(business?.businessName || "BUSINESS NAME").toUpperCase()}
       </div>
+      {/* specialist sits directly under the company name, address follows */}
+      {specialist && (
+        <div style={{ fontSize: "12.5px", lineHeight: "17px", marginTop: "3px", textAlign: "center", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          SPECIALIST IN : {specialist}
+        </div>
+      )}
       <div style={{ fontSize: "12.5px", lineHeight: "17px", marginTop: "3px", textAlign: "center" }}>
         <div style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{addr1}</div>
         <div style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{addrLine}</div>
       </div>
-      {specialist && (
-        <div style={{ fontSize: "12.5px", lineHeight: "17px", marginTop: "1px", textAlign: "center", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-          SPECIALIST IN : {specialist}
-        </div>
-      )}
     </div>
   );
 };
@@ -177,14 +178,14 @@ const Details = ({ invoiceNumber, form, customer }) => {
   return (
     <div>
       <DetailRow>
-        <Group grow><Field label="No." value={no} /></Group>
+        <Group grow><Field label="No.:" value={no} /></Group>
         <Group><Field label="Date:" value={date} /></Group>
       </DetailRow>
       <DetailRow>
-        <Group grow><Field label="M/s" value={party} /></Group>
+        <Group grow><Field label="M/s:" value={party} /></Group>
       </DetailRow>
       <DetailRow last>
-        <Group grow><Field label={"Party\u2019s GSTIN"} value={gstin} /></Group>
+        <Group grow><Field label={"Party\u2019s GSTIN:"} value={gstin} /></Group>
       </DetailRow>
     </div>
   );

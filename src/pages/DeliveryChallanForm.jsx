@@ -253,35 +253,42 @@ export default function DeliveryChallanForm() {
             </div>
             <div className="space-y-2">
               {items.map((it, idx) => (
-                <div key={idx} className="flex gap-2 items-center">
-                  <span className="w-7 h-7 shrink-0 rounded-full bg-slate-100 text-slate-600 text-xs font-bold flex items-center justify-center">
-                    {idx + 1}
-                  </span>
-                  <input
-                    type="text"
-                    value={it.description}
-                    onChange={(e) => setItem(idx, "description", e.target.value)}
-                    placeholder="Description of material"
-                    className={inputClass + " flex-1"}
-                  />
-                  <input
-                    type="number"
-                    min="0"
-                    step="any"
-                    value={it.quantity}
-                    onChange={(e) => setItem(idx, "quantity", e.target.value)}
-                    placeholder="Qty"
-                    className={inputClass + " w-28"}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => removeItem(idx)}
-                    disabled={items.length === 1}
-                    className="p-2 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 disabled:opacity-30 transition-colors"
-                    aria-label="Remove item"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                <div
+                  key={idx}
+                  className="flex flex-col sm:flex-row sm:items-center gap-2 p-2.5 sm:p-0 rounded-lg border border-slate-200 sm:border-0 sm:rounded-none bg-slate-50/60 sm:bg-transparent"
+                >
+                  <div className="flex items-center gap-2 min-w-0 sm:flex-1">
+                    <span className="w-7 h-7 shrink-0 rounded-full bg-slate-100 text-slate-600 text-xs font-bold flex items-center justify-center">
+                      {idx + 1}
+                    </span>
+                    <input
+                      type="text"
+                      value={it.description}
+                      onChange={(e) => setItem(idx, "description", e.target.value)}
+                      placeholder="Description of material"
+                      className={inputClass + " min-w-0 sm:flex-1"}
+                    />
+                  </div>
+                  <div className="flex items-center gap-2 pl-9 sm:pl-0">
+                    <input
+                      type="number"
+                      min="0"
+                      step="any"
+                      value={it.quantity}
+                      onChange={(e) => setItem(idx, "quantity", e.target.value)}
+                      placeholder="Qty"
+                      className={inputClass + " w-28"}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeItem(idx)}
+                      disabled={items.length === 1}
+                      className="p-2 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 disabled:opacity-30 transition-colors"
+                      aria-label="Remove item"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>

@@ -477,7 +477,7 @@ export default function InvoiceTemplates() {
       {/* Delivery Challan Preview Modal */}
       {dcPreviewId && dcPreviewTemplate && (
         <div
-          className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-start sm:items-center justify-center overflow-y-auto overflow-x-hidden overscroll-contain py-0 sm:py-10"
+          className="fixed inset-0 z-[1200] bg-black/40 backdrop-blur-sm flex items-start sm:items-center justify-center overflow-y-auto overflow-x-hidden overscroll-contain py-0 sm:py-10"
           style={{ touchAction: "pan-y" }}
           onClick={() => setDcPreviewId(null)}
         >
@@ -488,7 +488,7 @@ export default function InvoiceTemplates() {
                   <button
                     onClick={() => setDcPreviewId(null)}
                     aria-label="Close preview"
-                    className="p-1.5 -ml-1 hover:bg-slate-100 rounded-lg transition-colors text-slate-500"
+                    className="p-2.5 -ml-2 -my-1 min-w-[44px] min-h-[44px] inline-flex items-center justify-center hover:bg-slate-100 rounded-lg transition-colors text-slate-600"
                   >
                     <X className="w-5 h-5" />
                   </button>
@@ -530,7 +530,7 @@ export default function InvoiceTemplates() {
       {/* Full-size Preview Modal */}
       {previewId && previewTemplate && (
         <div
-          className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-start sm:items-center justify-center overflow-y-auto overflow-x-hidden overscroll-contain py-0 sm:py-10"
+          className="fixed inset-0 z-[1200] bg-black/40 backdrop-blur-sm flex items-start sm:items-center justify-center overflow-y-auto overflow-x-hidden overscroll-contain py-0 sm:py-10"
           style={{ touchAction: "pan-y" }}
           onClick={() => setPreviewId(null)}
         >
@@ -539,7 +539,7 @@ export default function InvoiceTemplates() {
               <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-100 gap-2 sticky top-0 bg-white z-10">
                 <div className="flex items-center gap-2 min-w-0">
                   <button onClick={() => setPreviewId(null)} aria-label="Close preview"
-                    className="p-1.5 -ml-1 hover:bg-slate-100 rounded-lg transition-colors text-slate-500">
+                    className="p-2.5 -ml-2 -my-1 min-w-[44px] min-h-[44px] inline-flex items-center justify-center hover:bg-slate-100 rounded-lg transition-colors text-slate-600">
                     <X className="w-5 h-5" />
                   </button>
                   <FileText className="w-5 h-5 text-slate-600 shrink-0" />

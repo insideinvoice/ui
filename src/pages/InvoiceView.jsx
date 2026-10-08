@@ -7,7 +7,7 @@ import AppNavbar from "../components/AppNavbar";
 import PageHeader from "../components/PageHeader";
 import { invoiceAPI, businessAPI, customerAPI } from "../api/auth";
 import toast from "react-hot-toast";
-import { ArrowLeft, Download, Save, Edit3, Plus, Trash2, FileText, AlertCircle, User, Building2, Phone, MapPin, Hash, Package, Mail, Globe, X, Share2, Smartphone, Link2, Copy, RotateCw, Unlink } from "lucide-react";
+import { ArrowLeft, Download, Save, Edit3, Plus, Trash2, FileText, AlertCircle, User, Building2, Phone, MapPin, Hash, Package, Mail, Globe, X, Share2, Smartphone, Link2, Copy, RotateCw, Unlink, ChevronDown } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import InvoiceTemplateRenderer from "../components/InvoiceTemplateRenderer";
 import WhatsAppIcon from "../components/WhatsAppIcon";
@@ -21,6 +21,7 @@ const uid = () => (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.r
 const emptyItem = () => ({ id: uid(), itemName: "", hsn: "", qty: "1", rate: "", gstPercentage: "18", taxableValue: "0", taxAmount: "0", total: "0" });
 const fmt = (v) => parseFloat(v || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 });
 const inputClass = "w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-400/30 focus:border-slate-400";
+const selectClass = "w-full pl-3 pr-9 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-400/30 focus:border-slate-400 bg-white appearance-none cursor-pointer text-slate-800";
 const labelClass = "block text-xs font-semibold text-slate-600 mb-1.5";
 
 // Declared at module scope so React keeps the same component type across renders
@@ -288,6 +289,9 @@ export default function InvoiceView() {
       const inv = invRes.data.data;
       setBusiness(bizRes?.data?.data || null);
       setInvoiceType(inv.invoiceType || "TAX_INVOICE");
+      const dPct = parseFloat(inv.discountPercent);
+      setDiscountEnabled(!Number.isNaN(dPct) && dPct > 0);
+      setDiscountPercent(!Number.isNaN(dPct) && dPct > 0 ? String(inv.discountPercent) : "");
       setForm({
         customerId: inv.customerId || null, customerName: inv.customerName || "", customerEmail: "", customerPhone: "",
         billingAddress: "", customerGstIn: "", invoiceDate: inv.invoiceDate || "",
@@ -437,6 +441,7 @@ export default function InvoiceView() {
         dispatchedThrough: form.dispatchedThrough || undefined,
         otherReferences: form.otherReferences || undefined,
         notes: form.notes || undefined,
+        discountPercent: discountEnabled ? parseFloat(discountPercent) || 0 : 0,
         items: items.filter((i) => i.itemName.trim() && parseFloat(i.qty) > 0 && parseFloat(i.rate) > 0)
           .map((i, idx) => ({
             sno: idx + 1, itemName: i.itemName, hsn: i.hsn || undefined,
@@ -729,29 +734,41 @@ export default function InvoiceView() {
                   </div>
                   <div>
                     <label className={labelClass}>Place of Supply</label>
-                    <select name="placeOfSupply" value={form.placeOfSupply} onChange={handleFieldChange} className={inputClass}>
-                      <option value="">Select state</option>
-                      {INDIAN_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
-                    </select>
+                    <div className="relative">
+                      <select name="placeOfSupply" value={form.placeOfSupply} onChange={handleFieldChange} className={selectClass}>
+                        <option value="">Select state</option>
+                        {INDIAN_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                    </div>
                   </div>
                   <div>
                     <label className={labelClass}>Destination</label>
-                    <select name="destination" value={form.destination} onChange={handleFieldChange} className={inputClass}>
-                      <option value="">Select state</option>
-                      {INDIAN_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
-                    </select>
+                    <div className="relative">
+                      <select name="destination" value={form.destination} onChange={handleFieldChange} className={selectClass}>
+                        <option value="">Select state</option>
+                        {INDIAN_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                    </div>
                   </div>
                   <div>
                     <label className={labelClass}>Terms of Delivery</label>
-                    <select name="termsOfDelivery" value={form.termsOfDelivery} onChange={handleFieldChange} className={inputClass}>
-                      {DELIVERY_TERMS.map((t) => <option key={t} value={t}>{t}</option>)}
-                    </select>
+                    <div className="relative">
+                      <select name="termsOfDelivery" value={form.termsOfDelivery} onChange={handleFieldChange} className={selectClass}>
+                        {DELIVERY_TERMS.map((t) => <option key={t} value={t}>{t}</option>)}
+                      </select>
+                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                    </div>
                   </div>
                   <div>
                     <label className={labelClass}>Payment Terms</label>
-                    <select name="paymentTerms" value={form.paymentTerms} onChange={handleFieldChange} className={inputClass}>
-                      {PAYMENT_TERMS.map((t) => <option key={t} value={t}>{t}</option>)}
-                    </select>
+                    <div className="relative">
+                      <select name="paymentTerms" value={form.paymentTerms} onChange={handleFieldChange} className={selectClass}>
+                        {PAYMENT_TERMS.map((t) => <option key={t} value={t}>{t}</option>)}
+                      </select>
+                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                    </div>
                   </div>
                   <div>
                     <label className={labelClass}>Delivery Note</label>
@@ -763,14 +780,17 @@ export default function InvoiceView() {
                   </div>
                   <div>
                     <label className={labelClass}>Payment Mode</label>
-                    <select name="paymentMode" value={form.paymentMode} onChange={handleFieldChange} className={inputClass}>
-                      <option value="UPI">UPI</option>
-                      <option value="CASH">CASH</option>
-                      <option value="CARD">CARD</option>
-                      <option value="CHEQUE">CHEQUE</option>
-                      <option value="NEFT">NEFT</option>
-                      <option value="IMPS">IMPS</option>
-                    </select>
+                    <div className="relative">
+                      <select name="paymentMode" value={form.paymentMode} onChange={handleFieldChange} className={selectClass}>
+                        <option value="UPI">UPI</option>
+                        <option value="CASH">CASH</option>
+                        <option value="CARD">CARD</option>
+                        <option value="CHEQUE">CHEQUE</option>
+                        <option value="NEFT">NEFT</option>
+                        <option value="IMPS">IMPS</option>
+                      </select>
+                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                    </div>
                   </div>
                 </div>
               ) : (
@@ -1063,28 +1083,35 @@ export default function InvoiceView() {
                       <X className="w-4 h-4" /> Cancel
                     </button>
                   </>
-                ) : (
-                  <button onClick={() => setIsEditing(true)}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-800 text-white text-sm font-semibold rounded-lg hover:bg-slate-700 transition-all shadow-sm">
-                    <Edit3 className="w-4 h-4" /> Update Invoice
-                  </button>
+                ) : null}
+                {!isEditing && (
+                  <div className="grid grid-cols-3 gap-2">
+                    <button onClick={() => setIsEditing(true)} title="Update invoice"
+                      className="flex items-center justify-center gap-1.5 px-2 py-2.5 bg-slate-800 text-white text-sm font-semibold rounded-lg hover:bg-slate-700 transition-all shadow-sm">
+                      <Edit3 className="w-4 h-4" /> Update
+                    </button>
+                    <button onClick={() => viewPDF(invoiceType)} disabled={sealRequired || !!busyAction} title="View PDF"
+                      className="flex items-center justify-center gap-1.5 px-2 py-2.5 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-all shadow-sm">
+                      {busyAction === "view" ? <Spinner size={16} /> : <FileText className="w-4 h-4" />} View
+                    </button>
+                    <button onClick={() => setShowShareSheet(true)} disabled={!!busyAction} title="Share"
+                      className="flex items-center justify-center gap-1.5 px-2 py-2.5 bg-emerald-600 text-white text-sm font-semibold rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-all shadow-sm">
+                      <Share2 className="w-4 h-4" /> Share
+                    </button>
+                  </div>
                 )}
-                <button onClick={() => viewPDF(invoiceType)} disabled={sealRequired || !!busyAction}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-all shadow-sm">
-                  {busyAction === "view" ? <Spinner size={16} /> : <FileText className="w-4 h-4" />} {busyAction === "view" ? "Generating..." : "View PDF"}
-                </button>
-                <button onClick={() => downloadPDF(invoiceType)} disabled={sealRequired || !!busyAction}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 border border-indigo-300 text-indigo-700 text-sm font-semibold rounded-lg hover:bg-indigo-50 disabled:opacity-50 transition-all">
-                  {busyAction === `download:${invoiceType}` ? <Spinner size={16} /> : <Download className="w-4 h-4" />} {busyAction === `download:${invoiceType}` ? "Preparing..." : "Download PDF"}
-                </button>
-                <button onClick={() => setShowShareSheet(true)} disabled={!!busyAction}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 text-white text-sm font-semibold rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-all shadow-sm">
-                  <Share2 className="w-4 h-4" /> Share
-                </button>
-                <button onClick={() => downloadPDF("PROFORMA_INVOICE")} disabled={sealRequired || !!busyAction}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 border border-emerald-300 text-emerald-700 text-sm font-semibold rounded-lg hover:bg-emerald-50 disabled:opacity-50 transition-all">
-                  {busyAction === "download:PROFORMA_INVOICE" ? <Spinner size={16} /> : <Download className="w-4 h-4" />} {busyAction === "download:PROFORMA_INVOICE" ? "Preparing..." : "Proforma PDF"}
-                </button>
+                {!isEditing && (
+                  <>
+                    <button onClick={() => downloadPDF("PROFORMA_INVOICE")} disabled={sealRequired || !!busyAction}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-2.5 border border-emerald-300 text-emerald-700 text-sm font-semibold rounded-lg hover:bg-emerald-50 disabled:opacity-50 transition-all">
+                      {busyAction === "download:PROFORMA_INVOICE" ? <Spinner size={16} /> : <Download className="w-4 h-4" />} {busyAction === "download:PROFORMA_INVOICE" ? "Preparing..." : "Proforma"}
+                    </button>
+                    <button onClick={() => downloadPDF(invoiceType)} disabled={sealRequired || !!busyAction}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-2.5 border border-indigo-300 text-indigo-700 text-sm font-semibold rounded-lg hover:bg-indigo-50 disabled:opacity-50 transition-all">
+                      {busyAction === `download:${invoiceType}` ? <Spinner size={16} /> : <Download className="w-4 h-4" />} {busyAction === `download:${invoiceType}` ? "Preparing..." : "Download PDF"}
+                    </button>
+                  </>
+                )}
               </div>
 
               <div className="mt-6 pt-4 border-t border-slate-100">

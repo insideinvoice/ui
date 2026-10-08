@@ -10,7 +10,7 @@ import toast from "react-hot-toast";
 import {
   ArrowLeft, Plus, Trash2, Save, FileText, Download,
   User, Building2, Phone, MapPin, Hash,
-  Package, FileSpreadsheet, Share2, Info, X
+  Package, FileSpreadsheet, Share2, Info, X, ChevronDown
 } from "lucide-react";
 import InvoiceTemplateRenderer from "../components/InvoiceTemplateRenderer";
 import { renderDeliveryChallanPdf } from "../components/DeliveryChallanDownload";
@@ -25,6 +25,7 @@ import { INDIAN_STATES, DELIVERY_TERMS, PAYMENT_TERMS } from "../constants/india
 const uid = () => (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `i${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`);
 const emptyItem = { itemName: "", hsn: "", qty: "", rate: "", gstPercentage: "18", taxableValue: 0, taxAmount: 0, total: 0 };
 const inputClass = "w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-400/30 focus:border-slate-400 bg-white transition-all min-h-[44px]";
+const selectClass = "w-full pl-3 pr-9 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-400/30 focus:border-slate-400 bg-white transition-all min-h-[44px] appearance-none cursor-pointer text-slate-800 font-normal";
 const labelClass = "block text-xs font-semibold text-slate-600 mb-1.5 tracking-wide uppercase";
 
 const FOCUS_ORDER = ["phone", "name", "email", "gstIn", "billingAddress", "invoiceType", "invoiceDate", "dueDate", "placeOfSupply", "destination", "paymentTerms", "paymentMode", "deliveryNote", "deliveryNoteDate", "referenceNumber", "dispatchDocNumber", "dispatchedThrough", "termsOfDelivery", "otherReferences", "notes"];
@@ -541,6 +542,7 @@ export default function InvoiceForm() {
     otherReferences: form.otherReferences || undefined,
     destination: form.destination || undefined,
     ...(ghostMode && customInvoiceNumber.trim() ? { invoiceNumber: customInvoiceNumber.trim() } : {}),
+    discountPercent: discountEnabled ? parseFloat(discountPercent) || 0 : 0,
     items: items.filter((i) => i.itemName.trim() && parseFloat(i.qty) > 0 && parseFloat(i.rate) > 0).map((i, idx) => ({
       sno: idx + 1, itemName: i.itemName, hsn: i.hsn || undefined,
       qty: parseFloat(i.qty), rate: parseFloat(i.rate), gstPercentage: parseFloat(i.gstPercentage) || 0,
@@ -1012,12 +1014,15 @@ export default function InvoiceForm() {
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div>
                   <label className={labelClass}>Type</label>
-                  <select name="invoiceType" value={form.invoiceType} onChange={handleFieldChange}
-                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); focusNext("invoiceType"); } }}
-                    className={inputClass}>
-                    <option value="TAX_INVOICE">Tax Invoice</option>
-                    <option value="PROFORMA_INVOICE">Proforma Invoice</option>
-                  </select>
+                  <div className="relative">
+                    <select name="invoiceType" value={form.invoiceType} onChange={handleFieldChange}
+                      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); focusNext("invoiceType"); } }}
+                      className={selectClass}>
+                      <option value="TAX_INVOICE">Tax Invoice</option>
+                      <option value="PROFORMA_INVOICE">Proforma Invoice</option>
+                    </select>
+                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                  </div>
                 </div>
                 {savedInvoiceNumber && (
                   <div>
@@ -1053,42 +1058,54 @@ export default function InvoiceForm() {
                 </div>
                 <div>
                   <label className={labelClass}>Place of Supply</label>
-                  <select name="placeOfSupply" value={form.placeOfSupply} onChange={handleFieldChange}
-                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); focusNext("placeOfSupply"); } }}
-                    className={inputClass}>
-                    <option value="">Select state</option>
-                    {INDIAN_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
-                  </select>
+                  <div className="relative">
+                    <select name="placeOfSupply" value={form.placeOfSupply} onChange={handleFieldChange}
+                      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); focusNext("placeOfSupply"); } }}
+                      className={selectClass}>
+                      <option value="">Select state</option>
+                      {INDIAN_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                  </div>
                 </div>
                 <div>
                   <label className={labelClass}>Destination</label>
-                  <select name="destination" value={form.destination} onChange={handleFieldChange}
-                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); focusNext("destination"); } }}
-                    className={inputClass}>
-                    <option value="">Select state</option>
-                    {INDIAN_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
-                  </select>
+                  <div className="relative">
+                    <select name="destination" value={form.destination} onChange={handleFieldChange}
+                      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); focusNext("destination"); } }}
+                      className={selectClass}>
+                      <option value="">Select state</option>
+                      {INDIAN_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                  </div>
                 </div>
                 <div>
                   <label className={labelClass}>Payment Terms</label>
-                  <select name="paymentTerms" value={form.paymentTerms} onChange={handleFieldChange}
-                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); focusNext("paymentTerms"); } }}
-                    className={inputClass}>
-                    {PAYMENT_TERMS.map((t) => <option key={t} value={t}>{t}</option>)}
-                  </select>
+                  <div className="relative">
+                    <select name="paymentTerms" value={form.paymentTerms} onChange={handleFieldChange}
+                      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); focusNext("paymentTerms"); } }}
+                      className={selectClass}>
+                      {PAYMENT_TERMS.map((t) => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                  </div>
                 </div>
                 <div>
                   <label className={labelClass}>Payment Mode</label>
-                  <select name="paymentMode" value={form.paymentMode} onChange={handleFieldChange}
-                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); focusNext("paymentMode"); } }}
-                    className={inputClass}>
-                    <option value="UPI">UPI</option>
-                    <option value="CASH">Cash</option>
-                    <option value="CARD">Card</option>
-                    <option value="CHEQUE">Cheque</option>
-                    <option value="NEFT">NEFT</option>
-                    <option value="IMPS">IMPS</option>
-                  </select>
+                  <div className="relative">
+                    <select name="paymentMode" value={form.paymentMode} onChange={handleFieldChange}
+                      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); focusNext("paymentMode"); } }}
+                      className={selectClass}>
+                      <option value="UPI">UPI</option>
+                      <option value="CASH">Cash</option>
+                      <option value="CARD">Card</option>
+                      <option value="CHEQUE">Cheque</option>
+                      <option value="NEFT">NEFT</option>
+                      <option value="IMPS">IMPS</option>
+                    </select>
+                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                  </div>
                 </div>
               </div>
             </div>
@@ -1134,11 +1151,14 @@ export default function InvoiceForm() {
                 </div>
                 <div>
                   <label className={labelClass}>Terms of Delivery</label>
-                  <select name="termsOfDelivery" value={form.termsOfDelivery} onChange={handleFieldChange}
-                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); focusNext("termsOfDelivery"); } }}
-                    className={inputClass}>
-                    {DELIVERY_TERMS.map((t) => <option key={t} value={t}>{t}</option>)}
-                  </select>
+                  <div className="relative">
+                    <select name="termsOfDelivery" value={form.termsOfDelivery} onChange={handleFieldChange}
+                      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); focusNext("termsOfDelivery"); } }}
+                      className={selectClass}>
+                      {DELIVERY_TERMS.map((t) => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                  </div>
                 </div>
                 <div>
                   <label className={labelClass}>Other References / P.O No</label>

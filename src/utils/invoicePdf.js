@@ -38,11 +38,11 @@ function collectGeometry(element) {
 // Rasterize the invoice and slice it into pages, cutting only on section
 // boundaries so blocks (item rows, totals, the seal/stamp footer) stay whole.
 // A block that does not fit moves entirely to the next page.
-export async function buildInvoicePdf(element, paperSizeId) {
+export async function buildInvoicePdf(element, paperSizeId, fit = 1) {
   const dim = getPaperDimensions(paperSizeId);
   const SCALE = 2;
-  const CONTENT_W = dim.contentW;
-  const LEFT = dim.left;
+  const CONTENT_W = dim.contentW * fit;
+  const LEFT = dim.left + (dim.contentW - CONTENT_W) / 2;
   const PAGE_H = dim.usableH;
 
   const { rects } = collectGeometry(element);

@@ -83,10 +83,13 @@ function mapToTemplateProps(data) {
     total: i.total,
   }));
 
+  const subtotal2 = toNum(data.subtotal);
+  const discountPct = toNum(data.discountPercent);
+  const discountAmount = subtotal2 * Math.min(Math.max(discountPct, 0), 100) / 100;
   const totals = {
-    subtotal: toNum(data.subtotal),
-    discountAmount: 0,
-    taxableAmount: toNum(data.subtotal),
+    subtotal: subtotal2,
+    discountAmount,
+    taxableAmount: subtotal2 - discountAmount,
     taxAmount: toNum(data.taxAmount),
     grandTotal: toNum(data.grandTotal),
   };
@@ -309,7 +312,7 @@ export default function PublicInvoicePage() {
     const el = pdfCaptureRef.current;
     if (!el) throw new Error("Invoice not rendered yet");
     const { buildInvoicePdf } = await import("../utils/invoicePdf");
-    return buildInvoicePdf(el, paperSize);
+    return buildInvoicePdf(el, paperSize, 0.95);
   };
 
   const generateExact = async (busyKey) => {
@@ -436,7 +439,7 @@ export default function PublicInvoicePage() {
           form={templateProps.form}
           items={templateProps.items}
           totals={templateProps.totals}
-          discountPercent="0"
+          discountPercent={data.discountPercent != null ? String(data.discountPercent) : "0"}
           type={data.invoiceType}
           invoiceNumber={data.invoiceNumber}
           paperSize={paperSize}
@@ -522,7 +525,7 @@ export default function PublicInvoicePage() {
                   form={templateProps.form}
                   items={templateProps.items}
                   totals={templateProps.totals}
-                  discountPercent="0"
+          discountPercent={data.discountPercent != null ? String(data.discountPercent) : "0"}
                   type={data.invoiceType}
                   invoiceNumber={data.invoiceNumber}
                   paperSize={paperSize}

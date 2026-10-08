@@ -457,7 +457,7 @@ const RetroPage = ({ pageId, chunks, startIndex, shared }) => (
       sigSrc={shared.sigSrc}
     />
     {/* breathing room between the terms/signature band and the frame edge */}
-    <div style={{ height: "14px", boxSizing: "border-box", borderTop: "1px solid transparent" }} />
+    <div style={{ height: "28px", boxSizing: "border-box" }} />
   </Frame>
 );
 

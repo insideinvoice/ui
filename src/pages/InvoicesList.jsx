@@ -10,7 +10,7 @@ import ConfirmModal from "../components/ConfirmModal";
 import { invoiceAPI } from "../api/auth";
 import { resolveBusinessProfile, getBusinessProfile } from "../utils/businessProfile";
 import toast from "react-hot-toast";
-import { ArrowLeft, FileText, Download, Eye, PlusCircle, Share2, Trash2, Search, X, Link2 } from "lucide-react";
+import { ArrowLeft, FileText, Download, Eye, PlusCircle, Share2, Trash2, Search, X, Link2, ChevronDown } from "lucide-react";
 import { downloadInvoicePDF } from "../components/InvoicePDF";
 import InvoiceTemplateRenderer from "../components/InvoiceTemplateRenderer";
 import { getPrintSettings, getInvoiceTemplate } from "../constants/paperSizes";
@@ -429,24 +429,32 @@ const shareViaWhatsApp = useCallback(async (invoice) => {
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
           <div className="p-4 sm:p-5 border-b border-slate-200">
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2 sm:gap-3">
-              <select value={selectedMonth} onChange={handleMonthChange}
-                className="px-3 py-2 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-400/30 focus:border-indigo-400 bg-white">
-                <option value="">All Months</option>
-                {availableMonths.map((m) => (
-                  <option key={m} value={m}>{monthNames[m]}</option>
-                ))}
-              </select>
-              <select value={selectedYear} onChange={handleYearChange}
-                className="px-3 py-2 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-400/30 focus:border-indigo-400 bg-white">
-                <option value="">All Years</option>
-                {availableYears.map((y) => (
-                  <option key={y} value={y}>{y}</option>
-                ))}
-              </select>
+              <div className="relative w-full sm:w-auto min-w-[110px]">
+                <select value={selectedMonth} onChange={handleMonthChange}
+                  className="w-full pl-3 pr-8 py-2 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-400/30 focus:border-indigo-400 bg-white appearance-none cursor-pointer text-slate-700 font-medium">
+                  <option value="">Month</option>
+                  {availableMonths.map((m) => (
+                    <option key={m} value={m}>{monthNames[m]}</option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+              </div>
+
+              <div className="relative w-full sm:w-auto min-w-[100px]">
+                <select value={selectedYear} onChange={handleYearChange}
+                  className="w-full pl-3 pr-8 py-2 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-400/30 focus:border-indigo-400 bg-white appearance-none cursor-pointer text-slate-700 font-medium">
+                  <option value="">Years</option>
+                  {availableYears.map((y) => (
+                    <option key={y} value={y}>{y}</option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+              </div>
+
               <div className="relative w-full sm:w-56">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by invoice no. or customer..."
-                  className="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-400/30 focus:border-indigo-400 bg-white" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search"
+                  className="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-400/30 focus:border-indigo-400 bg-white text-slate-800 placeholder:text-slate-400" />
               </div>
             </div>
           </div>

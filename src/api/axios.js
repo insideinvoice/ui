@@ -44,7 +44,21 @@ function forceLogout() {
 
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
+    const config = error.config;
+    const transient =
+      !error.response ||
+      error.response.status === 429 ||
+      error.response.status >= 500;
+    // GET requests are idempotent — retry once on cold-start/network
+    // failures (Railway free tier wakes up slowly and intermittently
+    // returns 502). Keeps "Failed to load ..." toasts from flashing
+    // while the retry succeeds moments later.
+    if (config && config.method === "get" && transient && !config._retried) {
+      config._retried = true;
+      await new Promise((r) => setTimeout(r, 800));
+      return api(config);
+    }
     if (error.response?.status === 401) {
       forceLogout();
     }

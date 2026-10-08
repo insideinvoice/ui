@@ -31,7 +31,7 @@ const InvoiceTemplateRenderer = React.forwardRef((props, ref) => {
   const templateId = sanitizeTemplate(template || globalTemplate);
   const width = PAPER_WIDTHS[paperSize] || 794;
 
-  const wrapperStyle = { width: `${width}px`, maxWidth: "100%", overflow: "hidden", margin: "0 auto" };
+  const wrapperStyle = { width: `${width}px`, minWidth: `${width}px`, margin: "0 auto" };
 
   if (templateId === "template-1") {
     return (

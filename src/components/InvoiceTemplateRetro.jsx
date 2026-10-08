@@ -252,12 +252,17 @@ const ItemHead = () => {
 };
 
 const ItemBox = ({ pageItems, startIndex }) => {
+  // Spread rows across the fixed body: tall-enough min heights so a short
+  // item list still covers the box (target >= 80%) instead of leaving a
+  // void before the totals block.
+  const count = Math.max(pageItems.length, 1);
+  const rowH = Math.max(ROW_H, Math.min(96, Math.floor((RETRO_PAGE_METRICS.body - 4) / count)));
   const td = {
     padding: "4px 6px",
     fontSize: "12.5px",
     lineHeight: "16px",
     verticalAlign: "middle",
-    height: `${ROW_H}px`,
+    height: `${rowH}px`,
     boxSizing: "border-box",
     overflow: "hidden",
   };
@@ -451,6 +456,8 @@ const RetroPage = ({ pageId, chunks, startIndex, shared }) => (
       sealType={shared.sealType}
       sigSrc={shared.sigSrc}
     />
+    {/* breathing room between the terms/signature band and the frame edge */}
+    <div style={{ height: "14px", boxSizing: "border-box", borderTop: "1px solid transparent" }} />
   </Frame>
 );
 

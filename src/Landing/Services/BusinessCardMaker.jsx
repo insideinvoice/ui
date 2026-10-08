@@ -16,31 +16,9 @@ import { toPng, toJpeg } from "html-to-image";
 import jsPDF from "jspdf";
 import InvoiceNav from "../Navigation/InvoiceNav";
 
-const BusinessCardMaker = () => {
-  const [formData, setFormData] = useState({
-    businessName: "",
-    phone1: "",
-    phone2: "",
-    email: "",
-    website: "",
-    address: "",
-    logo: null,
-  });
-
-  const [logoPreview, setLogoPreview] = useState(null);
-  const [selectedTemplate, setSelectedTemplate] = useState(null);
-  const [showTemplates, setShowTemplates] = useState(false);
-  const cardRef = useRef(null);
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const year = new Date().getFullYear();
-
-  // Handle broken images
-  const handleImageError = (e) => {
-    e.target.style.display = "none";
-  };
-
-  // Template configurations
-  const templates = [
+// Template configurations — module scope so the 1100-line array is built
+// once instead of on every keystroke/ re-render of the page.
+  const TEMPLATES = [
     {
       id: 1,
       name: "Navy Executive",
@@ -1147,6 +1125,29 @@ const BusinessCardMaker = () => {
     },
   ];
 
+const BusinessCardMaker = () => {
+  const [formData, setFormData] = useState({
+    businessName: "",
+    phone1: "",
+    phone2: "",
+    email: "",
+    website: "",
+    address: "",
+    logo: null,
+  });
+
+  const [logoPreview, setLogoPreview] = useState(null);
+  const [selectedTemplate, setSelectedTemplate] = useState(null);
+  const [showTemplates, setShowTemplates] = useState(false);
+  const cardRef = useRef(null);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const year = new Date().getFullYear();
+
+  // Handle broken images
+  const handleImageError = (e) => {
+    e.target.style.display = "none";
+  };
+
   // Handle form input changes
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -1179,7 +1180,7 @@ const BusinessCardMaker = () => {
     }
     setShowTemplates(true);
     if (!selectedTemplate) {
-      setSelectedTemplate(templates[0]);
+      setSelectedTemplate(TEMPLATES[0]);
     }
   };
 
@@ -1456,10 +1457,10 @@ const BusinessCardMaker = () => {
           {showTemplates && (
             <div className="mt-6 sm:mt-8 bg-white rounded-lg shadow-sm p-4 sm:p-6">
               <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-4">
-                Choose Template ({templates.length} designs)
+                Choose Template ({TEMPLATES.length} designs)
               </h2>
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
-                {templates.map((template) => (
+                {TEMPLATES.map((template) => (
                   <div
                     key={template.id}
                     onClick={() => setSelectedTemplate(template)}

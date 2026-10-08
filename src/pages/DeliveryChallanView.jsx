@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import AppNavbar from "../components/AppNavbar";
 import PageHeader from "../components/PageHeader";
@@ -37,6 +37,17 @@ export default function DeliveryChallanView() {
       .catch(() => toast.error("Failed to load delivery challan"))
       .finally(() => setLoading(false));
   }, [id]);
+
+  // Derived props are computed once per data change (not on every spinner
+  // toggle) and keep referential identity so the memoized document skips
+  // re-renders when nothing it renders actually changed.
+  const chunks = useMemo(() => chunkDcItems(dc?.items || []), [dc]);
+  const previewCustomer = useMemo(() => ({
+    name: dc?.customerName,
+    billingAddress: dc?.customerAddress,
+    phone: dc?.customerPhone,
+    gstIn: dc?.customerGstIn,
+  }), [dc]);
 
   const handleDownload = async () => {
     if (!dc || !business) return;
@@ -80,8 +91,6 @@ export default function DeliveryChallanView() {
       </div>
     );
   }
-
-  const chunks = chunkDcItems(dc.items || []);
 
   return (
     <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-gray-100">
@@ -165,12 +174,7 @@ export default function DeliveryChallanView() {
               <DeliveryChallanDoc
                 variant={template}
                 business={business}
-                customer={{
-                  name: dc.customerName,
-                  billingAddress: dc.customerAddress,
-                  phone: dc.customerPhone,
-                  gstIn: dc.customerGstIn,
-                }}
+                customer={previewCustomer}
                 challanNumber={dc.challanNumber}
                 challanDate={dc.challanDate}
                 poNumber={dc.poNumber}

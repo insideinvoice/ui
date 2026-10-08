@@ -7,7 +7,7 @@ import AppNavbar from "../components/AppNavbar";
 import PageHeader from "../components/PageHeader";
 import { invoiceAPI, businessAPI, customerAPI } from "../api/auth";
 import toast from "react-hot-toast";
-import { ArrowLeft, Download, Save, Edit3, Plus, Trash2, FileText, AlertCircle, User, Building2, Phone, MapPin, Hash, Package, Mail, Globe, X, Share2, Smartphone } from "lucide-react";
+import { ArrowLeft, Download, Save, Edit3, Plus, Trash2, FileText, AlertCircle, User, Building2, Phone, MapPin, Hash, Package, Mail, Globe, X, Share2, Smartphone, Link2, Copy, RotateCw, Unlink } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import InvoiceTemplateRenderer from "../components/InvoiceTemplateRenderer";
 import WhatsAppIcon from "../components/WhatsAppIcon";
@@ -17,10 +17,15 @@ import { openWhatsApp, buildInvoiceWhatsAppMessage, createInvoicePdfFile, prefet
 import { getPrintSettings, getInvoiceTemplate } from "../constants/paperSizes";
 import { INDIAN_STATES, DELIVERY_TERMS, PAYMENT_TERMS } from "../constants/indianStates";
 
-const emptyItem = () => ({ itemName: "", hsn: "", qty: "1", rate: "", gstPercentage: "18", taxableValue: "0", taxAmount: "0", total: "0" });
+const uid = () => (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `i${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`);
+const emptyItem = () => ({ id: uid(), itemName: "", hsn: "", qty: "1", rate: "", gstPercentage: "18", taxableValue: "0", taxAmount: "0", total: "0" });
 const fmt = (v) => parseFloat(v || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 });
 const inputClass = "w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-400/30 focus:border-slate-400";
 const labelClass = "block text-xs font-semibold text-slate-600 mb-1.5";
+
+// Declared at module scope so React keeps the same component type across renders
+// (an inner declaration remounts every row on each parent render).
+const InfoRow = memo(({ label, value }) => value ? <p className="text-sm text-slate-600"><span className="text-slate-400">{label}:</span> {value}</p> : null);
 
 const ViewItemRow = memo(({ item, idx, isEditing, onItemChange, onRemove, onAdd }) => (
   <tr className={`${idx % 2 === 0 ? "bg-white" : "bg-slate-50/40"} ${isEditing ? "hover:bg-blue-50/20" : ""} transition-colors`}>
@@ -115,6 +120,10 @@ export default function InvoiceView() {
   const [invoiceType, setInvoiceType] = useState("TAX_INVOICE");
   const invoiceRef = useRef(null);
   const proformaRef = useRef(null);
+  // The hidden A4 documents are only mounted while a PDF/print/share action is
+  // running — keeping them permanently mounted meant every keystroke and every
+  // busy-flag toggle re-rendered two full invoice documents.
+  const [captureType, setCaptureType] = useState(null);
   const [sealType, setSealType] = useState(localStorage.getItem("seal_type") || "");
   const sealEnabled = localStorage.getItem("show_seal") === "true";
   const sealRequired = sealEnabled && !sealType;
@@ -133,6 +142,141 @@ export default function InvoiceView() {
   const [items, setItems] = useState([{ ...emptyItem() }]);
   const [showPdfPreview, setShowPdfPreview] = useState(false);
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState(null);
+
+  // Public share link: created lazily on the first explicit user action, so invoices
+  // are private by default and never become link-accessible without consent.
+  const [shareToken, setShareToken] = useState(null);
+  const [shareBusy, setShareBusy] = useState("");
+  const shareUrl = shareToken ? `${window.location.origin}/i/${shareToken}` : "";
+
+  const copyShareUrl = async (url) => {
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success("Share link copied to clipboard");
+    } catch {
+      toast.success("Share link ready — copy it from the field");
+    }
+  };
+
+  const handleShareLink = async (action) => {
+    if (shareBusy) return;
+    setShareBusy(action);
+    try {
+      if (action === "create") {
+        const res = await invoiceAPI.createShare(id);
+        const token = res.data?.data?.token;
+        if (!token) throw new Error("no token");
+        setShareToken(token);
+        await copyShareUrl(`${window.location.origin}/i/${token}`);
+      } else if (action === "regenerate") {
+        const res = await invoiceAPI.regenerateShare(id);
+        const token = res.data?.data?.token;
+        if (!token) throw new Error("no token");
+        setShareToken(token);
+        await copyShareUrl(`${window.location.origin}/i/${token}`);
+        toast("Previous link disabled — only the new one works", { icon: "🔑" });
+      } else if (action === "revoke") {
+        await invoiceAPI.revokeShare(id);
+        setShareToken(null);
+        toast.success("Share link revoked — it no longer resolves");
+      }
+    } catch (err) {
+      if (err?.response?.status === 404) toast.error("Invoice not found");
+      else toast.error("Could not update the share link");
+    } finally {
+      setShareBusy("");
+    }
+  };
+
+  // ---------- YouTube-style share sheet ----------
+  const [showShareSheet, setShowShareSheet] = useState(false);
+  const canNativeShare = typeof navigator !== "undefined" && !!navigator.share;
+
+  const ensureShareToken = async () => {
+    if (shareToken) return shareToken;
+    const res = await invoiceAPI.createShare(id);
+    const token = res.data?.data?.token;
+    if (!token) throw new Error("no token");
+    setShareToken(token);
+    return token;
+  };
+
+  const shareLinkFor = async () => `${window.location.origin}/i/${await ensureShareToken()}`;
+
+  const copyLinkFromSheet = async () => {
+    if (shareBusy || busyAction) return;
+    setShareBusy("copy");
+    try {
+      await copyShareUrl(await shareLinkFor());
+      setShowShareSheet(false);
+    } catch (err) {
+      if (err?.response?.status === 404) toast.error("Invoice not found");
+      else toast.error("Could not create the share link");
+    } finally {
+      setShareBusy("");
+    }
+  };
+
+  const nativeShareFromSheet = async () => {
+    if (shareBusy || busyAction) return;
+    setShareBusy("native");
+    try {
+      const url = await shareLinkFor();
+      await navigator.share({
+        title: `Invoice ${form.invoiceNumber || ""}`.trim(),
+        text: `Invoice ${form.invoiceNumber || ""}${business?.businessName ? ` — ${business.businessName}` : ""}`,
+        url,
+      });
+      setShowShareSheet(false);
+    } catch (err) {
+      if (err?.name !== "AbortError") {
+        // Menu unavailable (blocked/unsupported): fall back to copying the link.
+        try {
+          await navigator.clipboard.writeText(await shareLinkFor());
+          toast.success("Link copied to clipboard");
+        } catch {
+          toast.error("Could not open the share menu");
+        }
+      }
+      // AbortError = the user closed the menu. Nothing downloads, ever.
+    } finally {
+      setShareBusy("");
+    }
+  };
+
+  const shareFromSheet = async () => {
+    if (shareBusy || busyAction) return;
+    setShareBusy("sheet-wa");
+    try {
+      await ensureShareToken();
+    } catch {
+      // Share anyway — the message still works without the link.
+    }
+    setShareBusy("");
+    setShowShareSheet(false);
+    shareViaWhatsApp();
+  };
+
+  // ---------- Send email (re-trigger) ----------
+  const [emailBusy, setEmailBusy] = useState(false);
+
+  const sendInvoiceEmailToCustomer = async () => {
+    if (emailBusy || busyAction) return;
+    setEmailBusy(true);
+    try {
+      // Make sure the panel shows the same link the email will carry.
+      if (!shareToken) {
+        const res = await invoiceAPI.createShare(id);
+        setShareToken(res.data?.data?.token);
+      }
+      const res = await invoiceAPI.sendInvoiceEmail(id, window.location.origin);
+      toast.success(res.data?.message || "Invoice emailed to the customer");
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Could not send the invoice email");
+    } finally {
+      setEmailBusy(false);
+    }
+  };
 
   // Pull the html2canvas/jsPDF chunk in before it is needed so the WhatsApp
   // click-to-share window stays inside the browser's transient-activation limit.
@@ -163,6 +307,7 @@ export default function InvoiceView() {
         invoiceType: inv.invoiceType || "TAX_INVOICE", status: inv.status || "DRAFT",
       });
       setItems((inv.items || []).length > 0 ? inv.items.map((i) => ({
+        id: uid(),
         itemName: i.itemName, hsn: i.hsn || "", qty: String(i.qty), rate: String(i.rate),
         gstPercentage: String(i.gstPercentage), taxableValue: String(i.taxableValue || 0),
         taxAmount: String(i.taxAmount || 0), total: String(i.total || 0),
@@ -237,6 +382,34 @@ export default function InvoiceView() {
     [items]
   );
 
+  // Stable identities for the hidden document props: without these, every
+  // busy-flag/state change handed React.memo'd templates a brand new object.
+  const previewCustomer = useMemo(() => ({
+    name: form.customerName,
+    billingAddress: form.billingAddress,
+    gstIn: form.customerGstIn,
+    phone: form.customerPhone,
+    email: form.customerEmail,
+    state: form.placeOfSupply,
+  }), [form.customerName, form.billingAddress, form.customerGstIn, form.customerPhone, form.customerEmail, form.placeOfSupply]);
+
+  const previewPaperSize = useMemo(() => (getPrintSettings()[invoiceType] || {}).paperSize || "A4_PORTRAIT", [invoiceType]);
+  const previewTemplate = useMemo(() => getInvoiceTemplate(invoiceType), [invoiceType]);
+  const proformaPaperSize = useMemo(() => (getPrintSettings()["PROFORMA_INVOICE"] || {}).paperSize || "A4_PORTRAIT", []);
+  const proformaTemplate = useMemo(() => getInvoiceTemplate("PROFORMA_INVOICE"), []);
+
+  // Mounts the hidden document for `type` and resolves once its DOM is committed
+  // so the capture ref is usable, mirroring InvoiceForm's mountPdfPreview().
+  const mountCapture = useCallback(async (type) => {
+    setCaptureType(type);
+    const ref = type === "PROFORMA_INVOICE" ? proformaRef : invoiceRef;
+    for (let i = 0; i < 5 && !ref.current; i++) {
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    }
+    return ref;
+  }, []);
+  const releaseCapture = useCallback(() => setCaptureType(null), []);
+
   const validate = () => {
     if (!form.customerName.trim()) { toast.error("Customer name is required"); return false; }
     if (!form.invoiceDate) { toast.error("Invoice date is required"); return false; }
@@ -294,12 +467,13 @@ export default function InvoiceView() {
     setBusyAction(`download:${type}`);
     try {
       const filename = `${type === "PROFORMA_INVOICE" ? "Proforma" : "Tax"}_Invoice_${form.invoiceNumber}.pdf`;
-      const captureRef = type === "PROFORMA_INVOICE" ? proformaRef : invoiceRef;
+      const captureRef = await mountCapture(type);
       const ps = (getPrintSettings()[type] || {}).paperSize || "A4_PORTRAIT";
       await processPrint(captureRef, type, filename, ps);
     } catch (err) {
       toast.error("Failed to generate");
     } finally {
+      releaseCapture();
       setBusyAction("");
     }
   };
@@ -310,7 +484,7 @@ export default function InvoiceView() {
     try {
       const ps = (getPrintSettings()[invoiceType] || {}).paperSize || "A4_PORTRAIT";
       const filename = `${invoiceType === "PROFORMA_INVOICE" ? "Proforma" : "Tax"}_Invoice_${form.invoiceNumber}.pdf`;
-      const captureRef = invoiceType === "PROFORMA_INVOICE" ? proformaRef : invoiceRef;
+      const captureRef = await mountCapture(invoiceType);
       await openWhatsApp({
         text: buildInvoiceWhatsAppMessage({
           customerName: form.customerName,
@@ -318,10 +492,12 @@ export default function InvoiceView() {
           invoiceType,
           total: totals.grandTotal,
           businessName: business?.businessName,
+          shareUrl: shareToken || undefined,
         }),
         getPdfFile: () => createInvoicePdfFile(captureRef.current, ps, filename),
       });
     } finally {
+      releaseCapture();
       setBusyAction("");
     }
   };
@@ -331,7 +507,8 @@ export default function InvoiceView() {
     try {
       const { buildInvoicePdf } = await import("../utils/invoicePdf");
       const ps = (getPrintSettings()[invoiceType] || {}).paperSize || "A4_PORTRAIT";
-      const pdf = await buildInvoicePdf(invoiceRef.current, ps);
+      const captureRef = await mountCapture(invoiceType);
+      const pdf = await buildInvoicePdf(captureRef.current, ps);
       const blob = pdf.output("blob");
       const blobUrl = URL.createObjectURL(blob) + "#toolbar=0";
       setPdfPreviewUrl(blobUrl);
@@ -339,52 +516,10 @@ export default function InvoiceView() {
     } catch (err) {
       toast.error("Failed to generate PDF preview");
     } finally {
+      releaseCapture();
       setBusyAction("");
     }
   };
-
-  const printPDF = async () => {
-    setBusyAction("share");
-    try {
-      const { buildInvoicePdf } = await import("../utils/invoicePdf");
-      const ps = (getPrintSettings()[invoiceType] || {}).paperSize || "A4_PORTRAIT";
-      const pdf = await buildInvoicePdf(invoiceRef.current, ps);
-      const blob = pdf.output("blob");
-      const filename = `Invoice_${form.invoiceNumber || "draft"}.pdf`;
-      let shared = false;
-      try {
-        if (navigator.share) {
-          const file = new File([blob], filename, { type: "application/pdf" });
-          if (navigator.canShare && navigator.canShare({ files: [file] })) {
-            await navigator.share({ files: [file], title: filename });
-            shared = true;
-          }
-        }
-      } catch (_) {}
-      if (shared) {
-        // The user shared the document and came back — close the preview so the
-        // PDF does not reappear over the invoice.
-        setShowPdfPreview(false);
-        if (pdfPreviewUrl) {
-          URL.revokeObjectURL(pdfPreviewUrl.split("#")[0]);
-          setPdfPreviewUrl(null);
-        }
-      } else {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url; a.download = filename; a.click();
-        setTimeout(() => URL.revokeObjectURL(url), 5000);
-        toast.success("PDF downloaded");
-      }
-    } catch (err) {
-      console.error("Print error:", err);
-      toast.error("Failed to generate PDF");
-    } finally {
-      setBusyAction("");
-    }
-  };
-
-  const InfoRow = ({ label, value }) => value ? <p className="text-sm text-slate-600"><span className="text-slate-400">{label}:</span> {value}</p> : null;
 
   if (loading) {
     return (
@@ -410,38 +545,42 @@ export default function InvoiceView() {
   return (
     <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-gray-100">
       <AppNavbar />
-      {/* Hidden Invoice PDF for capture */}
-      <div style={{ position: "absolute", left: "-9999px", top: 0, pointerEvents: "none" }}>
-        <InvoiceTemplateRenderer
-          ref={invoiceRef}
-          business={business}
-          customer={{ name: form.customerName, billingAddress: form.billingAddress, gstIn: form.customerGstIn, phone: form.customerPhone, email: form.customerEmail, state: form.placeOfSupply }}
-          form={form}
-          items={items}
-          totals={totals}
-          discountPercent={discountEnabled ? discountPercent : "0"}
-          type={invoiceType}
-          invoiceNumber={form.invoiceNumber}
-          paperSize={(getPrintSettings()[invoiceType] || {}).paperSize || "A4_PORTRAIT"}
-          template={getInvoiceTemplate(invoiceType)}
-        />
-      </div>
-      {/* Hidden Proforma renderer (always rendered for instant capture) */}
-      <div style={{ position: "absolute", left: "-9999px", top: 0, pointerEvents: "none" }}>
-        <InvoiceTemplateRenderer
-          ref={proformaRef}
-          business={business}
-          customer={{ name: form.customerName, billingAddress: form.billingAddress, gstIn: form.customerGstIn, phone: form.customerPhone, email: form.customerEmail, state: form.placeOfSupply }}
-          form={form}
-          items={items}
-          totals={totals}
-          discountPercent={discountEnabled ? discountPercent : "0"}
-          type="PROFORMA_INVOICE"
-          invoiceNumber={form.invoiceNumber}
-          paperSize={(getPrintSettings()["PROFORMA_INVOICE"] || {}).paperSize || "A4_PORTRAIT"}
-          template={getInvoiceTemplate("PROFORMA_INVOICE")}
-        />
-      </div>
+      {/* Hidden Invoice PDF for capture — mounted only while a PDF action runs */}
+      {captureType && captureType !== "PROFORMA_INVOICE" && (
+        <div style={{ position: "absolute", left: "-9999px", top: 0, pointerEvents: "none" }}>
+          <InvoiceTemplateRenderer
+            ref={invoiceRef}
+            business={business}
+            customer={previewCustomer}
+            form={form}
+            items={items}
+            totals={totals}
+            discountPercent={discountEnabled ? discountPercent : "0"}
+            type={invoiceType}
+            invoiceNumber={form.invoiceNumber}
+            paperSize={previewPaperSize}
+            template={previewTemplate}
+          />
+        </div>
+      )}
+      {/* Hidden Proforma renderer — mounted only while a PDF action runs */}
+      {captureType === "PROFORMA_INVOICE" && (
+        <div style={{ position: "absolute", left: "-9999px", top: 0, pointerEvents: "none" }}>
+          <InvoiceTemplateRenderer
+            ref={proformaRef}
+            business={business}
+            customer={previewCustomer}
+            form={form}
+            items={items}
+            totals={totals}
+            discountPercent={discountEnabled ? discountPercent : "0"}
+            type="PROFORMA_INVOICE"
+            invoiceNumber={form.invoiceNumber}
+            paperSize={proformaPaperSize}
+            template={proformaTemplate}
+          />
+        </div>
+      )}
       <div className="max-w-[1900px] mx-auto px-4 sm:px-5 lg:px-6 py-3 sm:py-4 lg:py-5">
         <div className="flex items-center justify-between mb-6">
           <PageHeader title="View Invoice" backTo="/invoices" />
@@ -451,6 +590,10 @@ export default function InvoiceView() {
             }`}>
               {invoiceType === "PROFORMA_INVOICE" ? "Proforma" : "Tax"} Invoice
             </span>
+            <button type="button" onClick={() => setShowShareSheet(true)} disabled={!!busyAction} title="Share" aria-label="Share invoice"
+              className="flex items-center justify-center w-9 h-9 rounded-full bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-60 transition-all shadow-sm">
+              <Share2 className="w-5 h-5" />
+            </button>
             <button type="button" onClick={shareViaWhatsApp} onPointerEnter={prefetchInvoicePdf} onFocus={prefetchInvoicePdf} disabled={sealRequired || !!busyAction} title="Share on WhatsApp" aria-label="Share on WhatsApp"
               className="flex items-center justify-center w-9 h-9 rounded-full bg-[#25D366] text-white hover:bg-[#1ebe5b] disabled:opacity-60 transition-all shadow-sm">
               {busyAction === "whatsapp" ? <Spinner size={18} /> : <WhatsAppIcon className="w-5 h-5" />}
@@ -700,7 +843,7 @@ export default function InvoiceView() {
                   </thead>
                   <tbody>
                     {items.map((item, idx) => (
-                      <ViewItemRow key={idx} item={item} idx={idx} isEditing={isEditing} onItemChange={handleItemChange} onRemove={removeItem} onAdd={addItem} />
+                      <ViewItemRow key={item.id ?? idx} item={item} idx={idx} isEditing={isEditing} onItemChange={handleItemChange} onRemove={removeItem} onAdd={addItem} />
                     ))}
                   </tbody>
                 </table>
@@ -709,7 +852,7 @@ export default function InvoiceView() {
               {/* Mobile cards */}
               <div className="md:hidden space-y-3">
                 {items.map((item, idx) => (
-                  <div key={idx} className="bg-slate-50 rounded-lg border border-slate-200 p-3 space-y-2">
+                  <div key={item.id ?? idx} className="bg-slate-50 rounded-lg border border-slate-200 p-3 space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-bold text-slate-400">Item #{idx + 1}</span>
                       {isEditing && (
@@ -912,14 +1055,78 @@ export default function InvoiceView() {
                   className="w-full flex items-center justify-center gap-2 px-4 py-2.5 border border-indigo-300 text-indigo-700 text-sm font-semibold rounded-lg hover:bg-indigo-50 disabled:opacity-50 transition-all">
                   {busyAction === `download:${invoiceType}` ? <Spinner size={16} /> : <Download className="w-4 h-4" />} {busyAction === `download:${invoiceType}` ? "Preparing..." : "Download PDF"}
                 </button>
-                <button onClick={printPDF} disabled={!!busyAction}
+                <button onClick={() => setShowShareSheet(true)} disabled={!!busyAction}
                   className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 text-white text-sm font-semibold rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-all shadow-sm">
-                  {busyAction === "share" ? <Spinner size={16} /> : <Share2 className="w-4 h-4" />} {busyAction === "share" ? "Preparing..." : "Share PDF"}
+                  <Share2 className="w-4 h-4" /> Share
                 </button>
                 <button onClick={() => downloadPDF("PROFORMA_INVOICE")} disabled={sealRequired || !!busyAction}
                   className="w-full flex items-center justify-center gap-2 px-4 py-2.5 border border-emerald-300 text-emerald-700 text-sm font-semibold rounded-lg hover:bg-emerald-50 disabled:opacity-50 transition-all">
                   {busyAction === "download:PROFORMA_INVOICE" ? <Spinner size={16} /> : <Download className="w-4 h-4" />} {busyAction === "download:PROFORMA_INVOICE" ? "Preparing..." : "Proforma PDF"}
                 </button>
+              </div>
+
+              <div className="mt-6 pt-4 border-t border-slate-100">
+                <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                  <Link2 className="w-3.5 h-3.5" /> Share Link
+                </h3>
+                {shareToken ? (
+                  <div className="space-y-2">
+                    <input
+                      type="text"
+                      readOnly
+                      value={shareUrl}
+                      onFocus={(e) => e.target.select()}
+                      className="w-full px-2.5 py-2 border border-slate-200 bg-slate-50 rounded-lg text-xs font-mono text-slate-600 focus:outline-none"
+                      aria-label="Public share link"
+                    />
+                    <div className="flex gap-2">
+                      <button type="button" onClick={() => copyShareUrl(shareUrl)} disabled={!!shareBusy}
+                        className="flex-1 flex items-center justify-center gap-1.5 px-2 py-2 border border-slate-300 text-slate-700 text-xs font-semibold rounded-lg hover:bg-slate-50 disabled:opacity-60 transition-all">
+                        <Copy className="w-3.5 h-3.5" /> Copy link
+                      </button>
+                      <button type="button" onClick={sendInvoiceEmailToCustomer} disabled={emailBusy || !!busyAction}
+                        title="Email this invoice and its link to the customer"
+                        className="flex-1 flex items-center justify-center gap-1.5 px-2 py-2 bg-indigo-600 text-white text-xs font-semibold rounded-lg hover:bg-indigo-700 disabled:opacity-60 transition-all shadow-sm">
+                        {emailBusy ? <Spinner size={14} /> : <Mail className="w-3.5 h-3.5" />} {emailBusy ? "Sending..." : "Send Email"}
+                      </button>
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-[11px] text-slate-400 leading-relaxed flex-1">
+                        Anyone with this link can view the invoice without logging in.
+                      </p>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button type="button" onClick={() => handleShareLink("regenerate")} disabled={!!shareBusy}
+                          className="flex items-center gap-1 px-1.5 py-1 text-[11px] text-slate-500 hover:text-indigo-600 rounded disabled:opacity-60 transition-colors"
+                          title="Create a new link and disable the current one">
+                          {shareBusy === "regenerate" ? <Spinner size={12} /> : <RotateCw className="w-3 h-3" />} New
+                        </button>
+                        <button type="button" onClick={() => handleShareLink("revoke")} disabled={!!shareBusy}
+                          className="flex items-center gap-1 px-1.5 py-1 text-[11px] text-slate-500 hover:text-red-600 rounded disabled:opacity-60 transition-colors"
+                          title="Revoke the link — recipients can no longer open it">
+                          {shareBusy === "revoke" ? <Spinner size={12} /> : <Unlink className="w-3 h-3" />} Revoke
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="flex gap-2">
+                      <button type="button" onClick={() => handleShareLink("create")} disabled={!!shareBusy}
+                        className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 border border-sky-300 text-sky-700 text-xs font-semibold rounded-lg hover:bg-sky-50 disabled:opacity-60 transition-all">
+                        {shareBusy === "create" ? <Spinner size={14} /> : <Link2 className="w-3.5 h-3.5" />}
+                        {shareBusy === "create" ? "Creating..." : "Create link"}
+                      </button>
+                      <button type="button" onClick={sendInvoiceEmailToCustomer} disabled={emailBusy || !!busyAction}
+                        title="Email this invoice and its link to the customer"
+                        className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 bg-indigo-600 text-white text-xs font-semibold rounded-lg hover:bg-indigo-700 disabled:opacity-60 transition-all shadow-sm">
+                        {emailBusy ? <Spinner size={14} /> : <Mail className="w-3.5 h-3.5" />} {emailBusy ? "Sending..." : "Send Email"}
+                      </button>
+                    </div>
+                    <p className="text-[11px] text-slate-400 leading-relaxed">
+                      Send Email creates the link automatically. Anyone with it can view the invoice without logging in.
+                    </p>
+                  </div>
+                )}
               </div>
 
               <div className="mt-6 pt-4 border-t border-slate-100">
@@ -967,9 +1174,9 @@ export default function InvoiceView() {
                 <h2 className="text-sm font-bold text-slate-800 truncate">Invoice PDF</h2>
               </div>
               <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-                <button onClick={() => printPDF()} disabled={!!busyAction}
+                <button onClick={() => setShowShareSheet(true)} disabled={!!busyAction}
                   className="flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-indigo-600 text-white text-xs sm:text-sm font-semibold rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-all shadow-sm">
-                  {busyAction === "share" ? <Spinner size={14} /> : <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4" />} <span className="hidden sm:inline">{busyAction === "share" ? "Preparing..." : "Share"}</span>
+                  <Share2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span className="hidden sm:inline">Share</span>
                 </button>
                 <button onClick={() => downloadPDF(invoiceType)} disabled={!!busyAction}
                   className="flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-slate-800 text-white text-xs sm:text-sm font-semibold rounded-lg hover:bg-slate-700 disabled:opacity-50 transition-all shadow-sm">
@@ -983,6 +1190,83 @@ export default function InvoiceView() {
             </div>
             <div className="flex-1 p-2 sm:p-4 bg-slate-100/50">
               <embed src={pdfPreviewUrl} className="w-full h-full rounded-lg border border-slate-200" type="application/pdf" />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showShareSheet && (
+        <div className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-[2px] flex items-end sm:items-center justify-center" onClick={() => !shareBusy && setShowShareSheet(false)}>
+          <div
+            className="w-full sm:max-w-md bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl border border-slate-200 pb-[max(env(safe-area-inset-bottom),16px)] sm:pb-4"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Share invoice"
+          >
+            <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-slate-100">
+              <div className="min-w-0">
+                <h2 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                  <Share2 className="w-4 h-4 text-indigo-600" /> Share invoice
+                </h2>
+                <p className="text-xs text-slate-400 mt-0.5 font-mono truncate">{form.invoiceNumber || "Draft"}</p>
+              </div>
+              <button type="button" onClick={() => setShowShareSheet(false)} disabled={!!shareBusy}
+                aria-label="Close share sheet"
+                className="p-2 -mr-2 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 disabled:opacity-50 transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-3 space-y-1">
+              <button type="button" onClick={copyLinkFromSheet} disabled={!!shareBusy}
+                className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-slate-50 disabled:opacity-60 transition-colors text-left">
+                <span className="w-10 h-10 shrink-0 rounded-full bg-sky-50 text-sky-600 flex items-center justify-center">
+                  {shareBusy === "copy" ? <Spinner size={18} /> : <Link2 className="w-5 h-5" />}
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-sm font-semibold text-slate-800">Copy link</span>
+                  <span className="block text-xs text-slate-400 truncate">
+                    {shareUrl ? "Link ready — anyone with it can view (no login)" : "Creates a view-only link (no login)"}
+                  </span>
+                </span>
+              </button>
+
+              <button type="button" onClick={shareFromSheet} disabled={!!shareBusy}
+                className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-slate-50 disabled:opacity-60 transition-colors text-left">
+                <span className="w-10 h-10 shrink-0 rounded-full bg-[#25D366]/10 text-[#25D366] flex items-center justify-center">
+                  {shareBusy === "sheet-wa" ? <Spinner size={18} /> : <WhatsAppIcon className="w-5 h-5" />}
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-sm font-semibold text-slate-800">WhatsApp</span>
+                  <span className="block text-xs text-slate-400">Send the invoice link in a chat</span>
+                </span>
+              </button>
+
+              {canNativeShare && (
+                <button type="button" onClick={nativeShareFromSheet} disabled={!!shareBusy}
+                  className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-slate-50 disabled:opacity-60 transition-colors text-left">
+                  <span className="w-10 h-10 shrink-0 rounded-full bg-violet-50 text-violet-600 flex items-center justify-center">
+                    {shareBusy === "native" ? <Spinner size={18} /> : <Share2 className="w-5 h-5" />}
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-sm font-semibold text-slate-800">More apps</span>
+                    <span className="block text-xs text-slate-400">Open your device's share menu</span>
+                  </span>
+                </button>
+              )}
+
+              <button type="button" onClick={() => { setShowShareSheet(false); downloadPDF(invoiceType); }}
+                disabled={!!shareBusy || sealRequired || !!busyAction}
+                className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-slate-50 disabled:opacity-60 transition-colors text-left">
+                <span className="w-10 h-10 shrink-0 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center">
+                  <Download className="w-5 h-5" />
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-sm font-semibold text-slate-800">Download PDF</span>
+                  <span className="block text-xs text-slate-400">Save the invoice to this device</span>
+                </span>
+              </button>
             </div>
           </div>
         </div>

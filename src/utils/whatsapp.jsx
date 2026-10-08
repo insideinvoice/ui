@@ -1,11 +1,14 @@
 import toast from "react-hot-toast";
 
-export function buildInvoiceWhatsAppMessage({ customerName, invoiceNumber, invoiceType, total, businessName }) {
+export function buildInvoiceWhatsAppMessage({ customerName, invoiceNumber, invoiceType, total, businessName, shareUrl }) {
   const label = invoiceType === "PROFORMA_INVOICE" ? "Proforma Invoice" : "Tax Invoice";
   let text = `${label}${invoiceNumber ? ` ${invoiceNumber}` : ""}`;
   const amount = parseFloat(total);
   if (!isNaN(amount) && amount > 0) {
     text += ` - Total: Rs. ${amount.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  }
+  if (shareUrl) {
+    text += `\n\nView invoice online: ${shareUrl}`;
   }
   if (customerName) text = `Hello ${customerName},\n\n${text}`;
   if (businessName) text += `\n\n- ${businessName}`;
@@ -43,63 +46,59 @@ export async function createInvoicePdfFile(element, paperSizeId, filename) {
   }
 }
 
-function saveFile(file) {
-  const url = URL.createObjectURL(file);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = file.name || "invoice.pdf";
-  link.click();
-  window.setTimeout(() => URL.revokeObjectURL(url), 5000);
-}
-
-function canShareFiles(files) {
+// Cheap pre-check with a throwaway file: browsers that cannot hand files to the
+// OS share sheet fail here, so we never generate a PDF that cannot be attached.
+function probeFileShare() {
   try {
-    return !!(navigator.canShare && navigator.canShare({ files }));
+    if (!navigator.share || !navigator.canShare) return false;
+    const probe = new File([new Blob([" "], { type: "application/pdf" })], "probe.pdf", { type: "application/pdf" });
+    return navigator.canShare({ files: [probe] });
   } catch {
     return false;
   }
 }
 
 export async function openWhatsApp({ text, getPdfFile } = {}) {
-  // 1. Generate the invoice PDF first — it must be in hand before we can hand
-  //    it over to WhatsApp (the icon spinner covers this ~1-2s).
+  // 1. Generate the invoice PDF only when this browser can actually attach it.
+  const fileShareLikely = probeFileShare();
   let file = null;
-  try {
-    file = getPdfFile ? await getPdfFile() : null;
-  } catch {
-    file = null;
-  }
-  if (getPdfFile && !file) {
-    toast.error("Could not generate the invoice PDF");
-    return false;
+  if (fileShareLikely && getPdfFile) {
+    try {
+      file = await getPdfFile();
+    } catch {
+      file = null;
+    }
+    if (!file) {
+      toast.error("Could not generate the invoice PDF");
+      return false;
+    }
   }
 
   // 2. Preferred: the OS share sheet carrying the PDF + the message. Choosing
   //    WhatsApp there opens its contact picker with the document already
   //    attached and the message as the caption — a deep link can carry text but
   //    never a file, so this is the only way to attach it.
-  if (file && navigator.share && canShareFiles([file])) {
+  //    Cancelling the sheet must do nothing: NO automatic download, ever.
+  if (file) {
     try {
       await navigator.share({ files: [file], text: text || "", title: file.name });
       return true;
     } catch (err) {
-      if (err && err.name === "AbortError") return true;
+      if (err && err.name === "AbortError") return true; // user cancelled
       // Activation ran out, or sharing is blocked here → try the next tier.
     }
   }
 
-  // 3. No file sharing on this browser (older Safari, Firefox, an insecure
-  //    origin such as http://<lan-ip>:5173). Still open the share sheet so the
-  //    user can pick WhatsApp and get the message, rather than silently saving
-  //    a file and leaving them to wonder what happened.
+  // 3. No file attachment possible here: still open the share sheet so the user
+  //    can pick an app and send the message (with the share link when present).
+  //    The PDF is deliberately NOT saved/downloaded behind their back — the
+  //    Share sheet's explicit "Download PDF" button is the only way to save it.
   if (navigator.share) {
     try {
-      await navigator.share({ text: text || "", title: file ? file.name : "Invoice" });
-      if (file) saveFile(file);
-      toast.success("Message ready — tap 📎 in the chat to attach the PDF", { duration: 7000 });
+      await navigator.share({ text: text || "", title: "Invoice" });
       return true;
     } catch (err) {
-      if (err && err.name === "AbortError") return true;
+      if (err && err.name === "AbortError") return true; // user cancelled
     }
   }
 
@@ -111,9 +110,10 @@ export async function openWhatsApp({ text, getPdfFile } = {}) {
   } catch {
     /* the browser handles the navigation */
   }
-  if (file) {
-    saveFile(file);
-    toast.success("Invoice PDF saved — tap 📎 in the chat to attach it", { duration: 8000 });
+  if (!(text || "").includes("/i/")) {
+    // No share link in the message and no file attached — point the user at the
+    // right buttons instead of silently producing a file.
+    toast("Tip: use Share → Copy link to send a link they can open online", { icon: "🔗", duration: 6000 });
   }
   return true;
 }

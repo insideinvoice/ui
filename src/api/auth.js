@@ -48,6 +48,12 @@ export const invoiceAPI = {
   getById: (id) => api.get(`/invoices/${id}`),
   update: (id, data) => api.put(`/invoices/${id}`, data),
   delete: (id) => api.delete(`/invoices/${id}`),
+  // Public share link (idempotent: returns the existing active token or creates one)
+  createShare: (id) => api.post(`/invoices/${id}/share`),
+  revokeShare: (id) => api.delete(`/invoices/${id}/share`),
+  regenerateShare: (id) => api.post(`/invoices/${id}/share/regenerate`),
+  // Email the invoice + share link to the customer (backend creates the link on demand)
+  sendInvoiceEmail: (id, origin) => api.post(`/invoices/${id}/email`, { frontendOrigin: origin }),
 };
 
 export const deliveryChallanAPI = {

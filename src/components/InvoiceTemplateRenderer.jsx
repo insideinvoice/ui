@@ -53,4 +53,6 @@ const InvoiceTemplateRenderer = React.forwardRef((props, ref) => {
 });
 
 InvoiceTemplateRenderer.displayName = "InvoiceTemplateRenderer";
-export default InvoiceTemplateRenderer;
+// Memoized: the wrapped templates are thousands of DOM nodes, so skipping the
+// wrapper when every prop is shallow-equal avoids re-diffing the whole document.
+export default React.memo(InvoiceTemplateRenderer);

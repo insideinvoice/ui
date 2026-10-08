@@ -1,4 +1,4 @@
-import { useState, useEffect, useLayoutEffect, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useRef, memo, useCallback } from "react";
 import { useAuth } from "../context/AuthContext";
 import AppNavbar from "../components/AppNavbar";
 import PageHeader from "../components/PageHeader";
@@ -255,7 +255,7 @@ function DcScaledPreview({ variant }) {
   );
 }
 
-function DcTemplateCard({ template, isSelected, onSelect, onPreview }) {
+const DcTemplateCard = memo(function DcTemplateCard({ template, isSelected, onSelect, onPreview }) {
   const [scale, setScale] = useState(1);
   const containerRef = useRef(null);
 
@@ -326,9 +326,9 @@ function DcTemplateCard({ template, isSelected, onSelect, onPreview }) {
       </div>
     </div>
   );
-}
+});
 
-function TemplateCard({ template, isSelected, onSelect, onPreview }) {
+const TemplateCard = memo(function TemplateCard({ template, isSelected, onSelect, onPreview }) {
   const [scale, setScale] = useState(1);
   const containerRef = useRef(null);
 
@@ -398,7 +398,7 @@ function TemplateCard({ template, isSelected, onSelect, onPreview }) {
       </div>
     </div>
   );
-}
+});
 
 export default function InvoiceTemplates() {
   const { selectedTemplate, updateTemplate } = useAuth();
@@ -409,7 +409,7 @@ export default function InvoiceTemplates() {
   );
   const [dcPreviewId, setDcPreviewId] = useState(null);
 
-  const handleSelect = async (id) => {
+  const handleSelect = useCallback(async (id) => {
     setSelected(id);
     try {
       await updateTemplate(id);
@@ -421,13 +421,13 @@ export default function InvoiceTemplates() {
       toast.error("Failed to save template preference");
       setSelected(selectedTemplate);
     }
-  };
+  }, [updateTemplate, selectedTemplate]);
 
-  const handleSelectDc = (id) => {
+  const handleSelectDc = useCallback((id) => {
     setDcTemplate(id);
     localStorage.setItem("ii_dc_template", id);
     toast.success(`"${DC_TEMPLATES.find((t) => t.id === id)?.label}" template selected for delivery challans`);
-  };
+  }, []);
 
   const previewTemplate = ALL_TEMPLATES.find((t) => t.id === previewId);
   const dcPreviewTemplate = DC_TEMPLATES.find((t) => t.id === dcPreviewId);

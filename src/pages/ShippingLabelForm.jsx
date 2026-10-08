@@ -109,7 +109,9 @@ export default function ShippingLabelForm() {
     shipFrom: form.shipFrom, shipTo: form.shipTo,
   }), [form]);
 
-  const { pdfUrl, error } = usePdfPreview(previewPayload, labelAPI.shipping.preview);
+  // 800ms debounce: a shorter one fired a server preview POST (and a full PDF
+  // iframe re-parse) on every typing pause.
+  const { pdfUrl, error } = usePdfPreview(previewPayload, labelAPI.shipping.preview, false, 800);
 
   const submit = async (e) => {
     e.preventDefault();

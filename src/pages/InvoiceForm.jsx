@@ -22,6 +22,7 @@ import { getPrintSettings, getInvoiceTemplate } from "../constants/paperSizes";
 import { formatInvoiceNumber } from "../utils/invoiceConvention";
 import { INDIAN_STATES, DELIVERY_TERMS, PAYMENT_TERMS } from "../constants/indianStates";
 
+const uid = () => (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `i${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`);
 const emptyItem = { itemName: "", hsn: "", qty: "", rate: "", gstPercentage: "18", taxableValue: 0, taxAmount: 0, total: 0 };
 const inputClass = "w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-400/30 focus:border-slate-400 bg-white transition-all min-h-[44px]";
 const labelClass = "block text-xs font-semibold text-slate-600 mb-1.5 tracking-wide uppercase";
@@ -246,6 +247,7 @@ export default function InvoiceForm() {
   const sealRequired = sealEnabled && !sealType;
   const [discountPercent, setDiscountPercent] = useState("");
   const [discountEnabled, setDiscountEnabled] = useState(false);
+  const [emailOnSave, setEmailOnSave] = useState(false);
   const [showPrefillBanner, setShowPrefillBanner] = useState(!!prefilledData);
   const discountVal = parseFloat(discountPercent) || 0;
   const invoiceRef = useRef(null);
@@ -301,8 +303,8 @@ export default function InvoiceForm() {
 
   const [items, setItems] = useState(
     prefilledData?.items?.length
-      ? prefilledData.items.map((item) => ({ ...emptyItem, ...item }))
-      : [{ ...emptyItem }]
+      ? prefilledData.items.map((item) => ({ ...emptyItem, ...item, id: uid() }))
+      : [{ ...emptyItem, id: uid() }]
   );
 
   // Latest HSN typed per row — lets async lookups detect stale/rapid (scanner) input
@@ -484,13 +486,13 @@ export default function InvoiceForm() {
   }, []);
 
   const addItem = useCallback(() => {
-    setItems((prev) => [...prev, { ...emptyItem }]);
+    setItems((prev) => [...prev, { ...emptyItem, id: uid() }]);
   }, []);
 
   const removeItem = useCallback((idx) => {
     setItems((prev) => {
       const filtered = prev.filter((_, i) => i !== idx);
-      return filtered.length === 0 ? [{ ...emptyItem }] : filtered;
+      return filtered.length === 0 ? [{ ...emptyItem, id: uid() }] : filtered;
     });
   }, []);
 
@@ -511,6 +513,11 @@ export default function InvoiceForm() {
     () => items.filter((i) => i.itemName.trim() && parseFloat(i.qty) > 0).length,
     [items]
   );
+
+  // localStorage read + JSON.parse + structuredClone — done once per invoice
+  // type instead of on every render of the hidden capture document.
+  const previewPaperSize = useMemo(() => (getPrintSettings()[form.invoiceType] || {}).paperSize || "A4_PORTRAIT", [form.invoiceType]);
+  const previewTemplate = useMemo(() => getInvoiceTemplate(form.invoiceType), [form.invoiceType]);
 
   const validate = () => {
     if (!customer.name.trim()) { toast.error("Customer name is required"); return false; }
@@ -568,6 +575,15 @@ export default function InvoiceForm() {
     }
     setSavedInvoiceId(res.data.data.id);
     setSavedInvoiceNumber(res.data.data.invoiceNumber);
+    if (emailOnSave) {
+      try {
+        await invoiceAPI.sendInvoiceEmail(res.data.data.id, window.location.origin);
+        toast.success(`Invoice emailed to ${customer.email}`);
+        setEmailOnSave(false);
+      } catch (err) {
+        toast.error(err.response?.data?.message || "Could not send the invoice email");
+      }
+    }
     businessAPI.getProfile().then((bRes) => setBusiness(bRes.data.data)).catch(() => {});
     return res;
   };
@@ -828,8 +844,8 @@ export default function InvoiceForm() {
             discountPercent={discountEnabled ? discountPercent : "0"}
             type={form.invoiceType}
             invoiceNumber={savedInvoiceNumber || customInvoiceNumber || nextInvoiceNumber || ""}
-            paperSize={(getPrintSettings()[form.invoiceType] || {}).paperSize || "A4_PORTRAIT"}
-            template={getInvoiceTemplate(form.invoiceType)}
+            paperSize={previewPaperSize}
+            template={previewTemplate}
           />
         </div>
       )}
@@ -1120,6 +1136,29 @@ export default function InvoiceForm() {
                 </div>
               )}
             </div>
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Email</h3>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={emailOnSave}
+                  aria-label="Email the invoice to the customer on save"
+                  onClick={() => setEmailOnSave((v) => !v)}
+                  className={`relative w-12 h-6 rounded-full transition-colors ${emailOnSave ? "bg-blue-500" : "bg-slate-300"}`}>
+                  <span className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${emailOnSave ? "translate-x-6" : ""}`} />
+                </button>
+              </div>
+              {emailOnSave && (
+                <p className={`text-xs leading-relaxed ${customer.email ? "text-slate-500" : "text-amber-600"}`}>
+                  {customer.email ? (
+                    <>The customer will receive this invoice with a view-only link at <span className="font-medium text-slate-700">{customer.email}</span>.</>
+                  ) : (
+                    <>This customer has no email address yet — add one to send the invoice.</>
+                  )}
+                </p>
+              )}
+            </div>
             {sealEnabled && (
               <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
                 <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Company Stamp</h3>
@@ -1207,7 +1246,7 @@ export default function InvoiceForm() {
               </thead>
               <tbody>
                 {items.map((item, idx) => (
-                  <ItemRow key={idx} item={item} idx={idx} onItemChange={handleItemChange} onRemove={removeItem} onAdd={addItem} onHsnLookup={handleHsnLookup} />
+                  <ItemRow key={item.id ?? idx} item={item} idx={idx} onItemChange={handleItemChange} onRemove={removeItem} onAdd={addItem} onHsnLookup={handleHsnLookup} />
                 ))}
               </tbody>
             </table>
@@ -1216,7 +1255,7 @@ export default function InvoiceForm() {
           {/* Mobile cards */}
           <div className="md:hidden space-y-3">
             {items.map((item, idx) => (
-              <ItemCard key={idx} item={item} idx={idx} onItemChange={handleItemChange} onRemove={removeItem} onAdd={addItem} onHsnLookup={handleHsnLookup} />
+              <ItemCard key={item.id ?? idx} item={item} idx={idx} onItemChange={handleItemChange} onRemove={removeItem} onAdd={addItem} onHsnLookup={handleHsnLookup} />
             ))}
             <button onClick={addItem}
               className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-slate-800 text-white text-sm font-semibold rounded-lg hover:bg-slate-700 transition-all shadow-lg min-h-[48px]">

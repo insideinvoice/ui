@@ -758,7 +758,7 @@ function RoyalPage({ business, customer, challan, items }) {
 
 /* --------------------------------- WRAPPER --------------------------------- */
 
-export default function DeliveryChallanDoc({
+function DeliveryChallanDoc({
   variant = "classic",
   business,
   customer,
@@ -795,3 +795,5 @@ export default function DeliveryChallanDoc({
     </div>
   );
 }
+
+export default React.memo(DeliveryChallanDoc);

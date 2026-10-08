@@ -10,7 +10,7 @@ import ConfirmModal from "../components/ConfirmModal";
 import { invoiceAPI } from "../api/auth";
 import { resolveBusinessProfile, getBusinessProfile } from "../utils/businessProfile";
 import toast from "react-hot-toast";
-import { ArrowLeft, FileText, Download, Eye, PlusCircle, Share2, Trash2, Search, X } from "lucide-react";
+import { ArrowLeft, FileText, Download, Eye, PlusCircle, Share2, Trash2, Search, X, Link2 } from "lucide-react";
 import { downloadInvoicePDF } from "../components/InvoicePDF";
 import InvoiceTemplateRenderer from "../components/InvoiceTemplateRenderer";
 import { getPrintSettings, getInvoiceTemplate } from "../constants/paperSizes";
@@ -290,6 +290,7 @@ const printInvoice = useCallback(async (invoice) => {
                     const pdf = await buildInvoicePdf(el, paperSizeId);
                     const blob = pdf.output("blob");
                     let shared = false;
+                    let cancelled = false;
                     try {
                       if (navigator.share) {
                         const file = new File([blob], filename, { type: "application/pdf" });
@@ -298,13 +299,13 @@ const printInvoice = useCallback(async (invoice) => {
                           shared = true;
                         }
                       }
-                    } catch (_) {}
-                    if (!shared) {
-                      const url = URL.createObjectURL(blob);
-                      const a = document.createElement("a");
-                      a.href = url; a.download = filename; a.click();
-                      setTimeout(() => URL.revokeObjectURL(url), 5000);
-                      toast.success("PDF downloaded");
+                    } catch (err) {
+                      cancelled = err?.name === "AbortError";
+                    }
+                    if (!shared && !cancelled) {
+                      // Never auto-download on cancel or unsupported browsers —
+                      // downloading is an explicit action (the Download button).
+                      toast("Sharing files isn't supported here — use Download or the link button", { icon: "📎", duration: 6000 });
                     }
                     resolve();
                   } catch (e) { reject(e); }
@@ -367,6 +368,29 @@ const shareViaWhatsApp = useCallback(async (invoice) => {
       });
     } catch (err) {
       toast.error("Failed to share on WhatsApp");
+    } finally {
+      setBusy("");
+    }
+  }, [busy]);
+
+  // Idempotent: returns the existing active link or creates one, then copies it.
+  const copyShareLink = useCallback(async (invoice) => {
+    if (busy) return;
+    setBusy(`${invoice.id}:link`);
+    try {
+      const res = await invoiceAPI.createShare(invoice.id);
+      const token = res.data?.data?.token;
+      if (!token) throw new Error("missing token");
+      const url = `${window.location.origin}/i/${token}`;
+      try {
+        await navigator.clipboard.writeText(url);
+        toast.success("Share link copied to clipboard");
+      } catch {
+        toast.success(`Share link: ${url}`);
+      }
+    } catch (err) {
+      if (err?.response?.status === 404) toast.error("Invoice not found");
+      else toast.error("Could not create share link");
     } finally {
       setBusy("");
     }
@@ -546,6 +570,10 @@ const createInvoicePdfFileFromInvoice = async (invoice) => {
                               className="p-2 hover:bg-indigo-50 rounded-lg transition-colors text-slate-400 hover:text-indigo-600 disabled:opacity-60" title="Download PDF">
                               {isBusy(inv.id, "pdf") ? <Spinner size={16} /> : <Download className="w-4 h-4" />}
                             </button>
+                            <button onClick={() => copyShareLink(inv)} disabled={rowBusy(inv.id)}
+                              className="p-2 hover:bg-sky-50 rounded-lg transition-colors text-slate-400 hover:text-sky-600 disabled:opacity-60" title="Copy public share link">
+                              {isBusy(inv.id, "link") ? <Spinner size={16} /> : <Link2 className="w-4 h-4" />}
+                            </button>
                             <button onClick={() => printInvoice(inv)} disabled={rowBusy(inv.id)}
                               className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors disabled:opacity-60">
                               {isBusy(inv.id, "share") ? <Spinner size={14} /> : <Share2 className="w-3.5 h-3.5" />} {isBusy(inv.id, "share") ? "Loading..." : "Share"}
@@ -595,6 +623,10 @@ const createInvoicePdfFileFromInvoice = async (invoice) => {
                       <button onClick={(e) => { e.stopPropagation(); downloadPDF(inv); }} disabled={rowBusy(inv.id)}
                         className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors min-h-[44px] disabled:opacity-60">
                         {isBusy(inv.id, "pdf") ? <Spinner size={14} /> : <Download className="w-3.5 h-3.5" />} {isBusy(inv.id, "pdf") ? "Loading..." : "PDF"}
+                      </button>
+                      <button onClick={(e) => { e.stopPropagation(); copyShareLink(inv); }} disabled={rowBusy(inv.id)}
+                        className="flex items-center justify-center px-3 py-2 text-xs font-medium text-sky-600 bg-sky-50 hover:bg-sky-100 rounded-lg transition-colors min-h-[44px] disabled:opacity-60" title="Copy public share link">
+                        {isBusy(inv.id, "link") ? <Spinner size={14} /> : <Link2 className="w-3.5 h-3.5" />}
                       </button>
                       <button onClick={(e) => { e.stopPropagation(); printInvoice(inv); }} disabled={rowBusy(inv.id)}
                         className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors min-h-[44px] disabled:opacity-60">

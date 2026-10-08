@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, memo } from "react";
 import {
   CheckCircle,
   FileText,
@@ -27,13 +27,8 @@ import {
 import { Link } from "react-router-dom";
 import InvoiceNav from "./Navigation/InvoiceNav";
 
-export default function GSTBillingLanding() {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [scrolled, setScrolled] = useState(false);
-  const [currentTestimonial, setCurrentTestimonial] = useState(0);
-  const [openFaq, setOpenFaq] = useState(null);
-  const year = new Date().getFullYear();
-
+// Testimonials carousel lives in its own component so its 5s rotation only
+// re-renders the carousel instead of the entire 1200-line landing page.
   const testimonials = [
     {
       name: "Fahad Pasha",
@@ -82,7 +77,7 @@ export default function GSTBillingLanding() {
     },
   ];
 
-  const faqs = [
+const faqs = [
     {
       question: "Is Inside Invoice ready for my business?",
       answer:
@@ -120,32 +115,134 @@ export default function GSTBillingLanding() {
     },
   ];
 
+const TestimonialsSection = memo(function TestimonialsSection() {
+  const [current, setCurrent] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrent((prev) => (prev + 1) % testimonials.length);
+    }, 5000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const next = () => setCurrent((prev) => (prev + 1) % testimonials.length);
+  const prev = () => setCurrent((prev) => (prev - 1 + testimonials.length) % testimonials.length);
+
+  return (
+      <section id="testimonials" className="py-12 sm:py-16 lg:py-20 px-3 sm:px-4 lg:px-6 bg-white">
+        <div className="max-w-full mx-auto">
+          <div className="text-center mb-8 sm:mb-12 lg:mb-16 px-2">
+            <div className="inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 bg-white/80 backdrop-blur-sm rounded-full text-xs sm:text-sm font-medium text-slate-700 mb-4 sm:mb-6 border border-slate-200">
+              <Star className="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-slate-600" />
+              Customer Reviews
+            </div>
+            <h2 className="text-2xl sm:text-3xl lg:text-5xl font-bold text-slate-900 mb-2 sm:mb-3">
+              Loved by <span className="gradient-text">Business Owners</span>
+            </h2>
+            <p className="text-sm sm:text-lg text-slate-600 font-normal">
+              See what our customers have to say
+            </p>
+          </div>
+
+          <div className="relative max-w-4xl mx-auto px-2 sm:px-4">
+            <div className="relative overflow-hidden">
+              {testimonials.map((testimonial, index) => (
+                <div
+                  key={index}
+                  className={`carousel-slide ${
+                    index === current ? "active" : "inactive"
+                  }`}
+                  style={{
+                    display: index === current ? "block" : "none",
+                  }}
+                >
+                  <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-5 sm:p-8 lg:p-10 border border-slate-100 shadow-xl">
+                    <div className="flex items-center gap-1 mb-3 sm:mb-5 justify-center">
+                      {[...Array(testimonial.rating)].map((_, i) => (
+                        <Star key={i} className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 fill-yellow-400 text-yellow-400" />
+                      ))}
+                    </div>
+                    <Quote className="w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 text-slate-200 mb-3 sm:mb-5 mx-auto" />
+                    <p className="text-base sm:text-lg lg:text-xl text-slate-700 leading-relaxed mb-4 sm:mb-6 font-normal text-center">
+                      "{testimonial.text}"
+                    </p>
+                    <div className="flex items-center justify-center gap-2 sm:gap-3">
+                      <div className={`w-10 h-10 sm:w-12 sm:h-12 lg:w-16 lg:h-16 bg-gradient-to-br ${testimonial.gradient} rounded-xl flex items-center justify-center text-white font-bold text-sm lg:text-lg shadow-md`}>
+                        {testimonial.initials}
+                      </div>
+                      <div className="text-left">
+                        <div className="font-bold text-slate-900 text-sm sm:text-base lg:text-lg">
+                          {testimonial.name}
+                        </div>
+                        <div className="text-slate-600 font-medium text-xs sm:text-sm">
+                          {testimonial.business}
+                        </div>
+                        <div className="text-[10px] sm:text-xs text-slate-500">
+                          {testimonial.location}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <button
+              onClick={prev}
+              className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-2 sm:-translate-x-4 w-10 h-10 sm:w-12 sm:h-12 bg-white rounded-full shadow-lg flex items-center justify-center hover:bg-slate-50 transition-colors border border-slate-200"
+            >
+              <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6 text-slate-700" />
+            </button>
+            <button
+              onClick={next}
+              className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-2 sm:translate-x-4 w-10 h-10 sm:w-12 sm:h-12 bg-white rounded-full shadow-lg flex items-center justify-center hover:bg-slate-50 transition-colors border border-slate-200"
+            >
+              <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6 text-slate-700" />
+            </button>
+
+            <div className="flex justify-center gap-2 mt-4 sm:mt-6">
+              {testimonials.map((_, index) => (
+                <button
+                  key={index}
+                  onClick={() => setCurrent(index)}
+                  className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                    index === current
+                      ? "bg-slate-700 w-5 sm:w-6"
+                      : "bg-slate-300 hover:bg-slate-400"
+                  }`}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+  );
+});
+
+export default function GSTBillingLanding() {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+  const scrolledRef = React.useRef(false);
+  const [openFaq, setOpenFaq] = useState(null);
+  const year = new Date().getFullYear();
+
+
+
   const toggleFaq = (index) => {
     setOpenFaq(openFaq === index ? null : index);
   };
 
   useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > 50);
+    const handleScroll = () => {
+      const next = window.scrollY > 50;
+      if (next !== scrolledRef.current) {
+        scrolledRef.current = next;
+        setScrolled(next);
+      }
+    };
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTestimonial((prev) => (prev + 1) % testimonials.length);
-    }, 5000);
-    return () => clearInterval(timer);
-  }, []);
-
-  const nextTestimonial = () => {
-    setCurrentTestimonial((prev) => (prev + 1) % testimonials.length);
-  };
-
-  const prevTestimonial = () => {
-    setCurrentTestimonial(
-      (prev) => (prev - 1 + testimonials.length) % testimonials.length
-    );
-  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-slate-50 to-gray-100">
@@ -885,94 +982,7 @@ export default function GSTBillingLanding() {
         </div>
       </section>
 
-      {/* Testimonials Carousel Section */}
-      <section id="testimonials" className="py-12 sm:py-16 lg:py-20 px-3 sm:px-4 lg:px-6 bg-white">
-        <div className="max-w-full mx-auto">
-          <div className="text-center mb-8 sm:mb-12 lg:mb-16 px-2">
-            <div className="inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 bg-white/80 backdrop-blur-sm rounded-full text-xs sm:text-sm font-medium text-slate-700 mb-4 sm:mb-6 border border-slate-200">
-              <Star className="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-slate-600" />
-              Customer Reviews
-            </div>
-            <h2 className="text-2xl sm:text-3xl lg:text-5xl font-bold text-slate-900 mb-2 sm:mb-3">
-              Loved by <span className="gradient-text">Business Owners</span>
-            </h2>
-            <p className="text-sm sm:text-lg text-slate-600 font-normal">
-              See what our customers have to say
-            </p>
-          </div>
-
-          <div className="relative max-w-4xl mx-auto px-2 sm:px-4">
-            <div className="relative overflow-hidden">
-              {testimonials.map((testimonial, index) => (
-                <div
-                  key={index}
-                  className={`carousel-slide ${
-                    index === currentTestimonial ? "active" : "inactive"
-                  }`}
-                  style={{
-                    display: index === currentTestimonial ? "block" : "none",
-                  }}
-                >
-                  <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-5 sm:p-8 lg:p-10 border border-slate-100 shadow-xl">
-                    <div className="flex items-center gap-1 mb-3 sm:mb-5 justify-center">
-                      {[...Array(testimonial.rating)].map((_, i) => (
-                        <Star key={i} className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 fill-yellow-400 text-yellow-400" />
-                      ))}
-                    </div>
-                    <Quote className="w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 text-slate-200 mb-3 sm:mb-5 mx-auto" />
-                    <p className="text-base sm:text-lg lg:text-xl text-slate-700 leading-relaxed mb-4 sm:mb-6 font-normal text-center">
-                      "{testimonial.text}"
-                    </p>
-                    <div className="flex items-center justify-center gap-2 sm:gap-3">
-                      <div className={`w-10 h-10 sm:w-12 sm:h-12 lg:w-16 lg:h-16 bg-gradient-to-br ${testimonial.gradient} rounded-xl flex items-center justify-center text-white font-bold text-sm lg:text-lg shadow-md`}>
-                        {testimonial.initials}
-                      </div>
-                      <div className="text-left">
-                        <div className="font-bold text-slate-900 text-sm sm:text-base lg:text-lg">
-                          {testimonial.name}
-                        </div>
-                        <div className="text-slate-600 font-medium text-xs sm:text-sm">
-                          {testimonial.business}
-                        </div>
-                        <div className="text-[10px] sm:text-xs text-slate-500">
-                          {testimonial.location}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <button
-              onClick={prevTestimonial}
-              className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-2 sm:-translate-x-4 w-10 h-10 sm:w-12 sm:h-12 bg-white rounded-full shadow-lg flex items-center justify-center hover:bg-slate-50 transition-colors border border-slate-200"
-            >
-              <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6 text-slate-700" />
-            </button>
-            <button
-              onClick={nextTestimonial}
-              className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-2 sm:translate-x-4 w-10 h-10 sm:w-12 sm:h-12 bg-white rounded-full shadow-lg flex items-center justify-center hover:bg-slate-50 transition-colors border border-slate-200"
-            >
-              <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6 text-slate-700" />
-            </button>
-
-            <div className="flex justify-center gap-2 mt-4 sm:mt-6">
-              {testimonials.map((_, index) => (
-                <button
-                  key={index}
-                  onClick={() => setCurrentTestimonial(index)}
-                  className={`w-2 h-2 rounded-full transition-all duration-300 ${
-                    index === currentTestimonial
-                      ? "bg-slate-700 w-5 sm:w-6"
-                      : "bg-slate-300 hover:bg-slate-400"
-                  }`}
-                />
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
+      <TestimonialsSection />
 
       {/* FAQ Section */}
       <section

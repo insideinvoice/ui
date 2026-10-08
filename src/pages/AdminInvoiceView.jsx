@@ -24,6 +24,9 @@ export default function AdminInvoiceView() {
   const [items, setItems] = useState([]);
   const [business, setBusiness] = useState(null);
   const invoiceRef = useRef(null);
+  // The hidden document is only mounted while a PDF is being generated, so
+  // editing keystrokes don't re-render a full A4 invoice.
+  const [capturing, setCapturing] = useState(false);
 
   useEffect(() => {
     adminAPI.getInvoice(id)
@@ -103,15 +106,32 @@ export default function AdminInvoiceView() {
     { subtotal: 0, taxAmount: 0, grandTotal: 0 }
   ), [items]);
 
+  // Stable object identity keeps React.memo'd templates from re-rendering on
+  // unrelated state changes (saving/editing spinners etc).
+  const previewCustomer = useMemo(() => ({
+    name: invoice?.customerName,
+    billingAddress: undefined,
+    gstIn: undefined,
+    phone: undefined,
+    email: undefined,
+    state: form.placeOfSupply,
+  }), [invoice?.customerName, form.placeOfSupply]);
+
   const downloadPDF = async () => {
     try {
       const filename = `Invoice_${form.invoiceNumber || invoice?.invoiceNumber || "DRAFT"}.pdf`;
       const docType = form.invoiceType || invoice?.invoiceType || "TAX_INVOICE";
       const ps = (getPrintSettings()[docType] || {}).paperSize || "A4_PORTRAIT";
-      await new Promise((r) => setTimeout(r, 100));
+      setCapturing(true);
+      // Wait for React to commit + paint so invoiceRef points at real DOM
+      for (let i = 0; i < 5 && !invoiceRef.current; i++) {
+        await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+      }
       await processPrint(invoiceRef, docType, filename, ps);
     } catch (err) {
       toast.error("Failed to generate");
+    } finally {
+      setCapturing(false);
     }
   };
 
@@ -188,20 +208,22 @@ export default function AdminInvoiceView() {
       <div className="max-w-[1900px] mx-auto px-4 sm:px-5 lg:px-6 py-3 sm:py-4 lg:py-5">
         <PageHeader title="Invoice Details" backTo={-1} />
 
-        {/* Hidden Invoice PDF for capture */}
-        <div style={{ position: "absolute", left: "-9999px", top: 0, pointerEvents: "none" }}>
-          <InvoiceTemplateRenderer
-            ref={invoiceRef}
-            business={business}
-            customer={{ name: invoice.customerName, billingAddress: undefined, gstIn: undefined, phone: undefined, email: undefined, state: form.placeOfSupply }}
-            form={form}
-            items={items}
-            totals={totals}
-            discountPercent="0"
-            type={form.invoiceType}
-            invoiceNumber={form.invoiceNumber}
-          />
-        </div>
+        {/* Hidden Invoice PDF for capture — mounted only while generating */}
+        {capturing && (
+          <div style={{ position: "absolute", left: "-9999px", top: 0, pointerEvents: "none" }}>
+            <InvoiceTemplateRenderer
+              ref={invoiceRef}
+              business={business}
+              customer={previewCustomer}
+              form={form}
+              items={items}
+              totals={totals}
+              discountPercent="0"
+              type={form.invoiceType}
+              invoiceNumber={form.invoiceNumber}
+            />
+          </div>
+        )}
 
         <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-4 sm:p-6">
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-4 pb-4 border-b border-slate-100">
@@ -304,7 +326,7 @@ export default function AdminInvoiceView() {
               </thead>
               <tbody>
                 {(editing ? items : invoice.items)?.map((item, idx) => (
-                  <tr key={idx} className="border-b border-slate-100">
+                  <tr key={item.id ?? idx} className="border-b border-slate-100">
                     <td className="py-2 px-2 text-xs text-slate-600">{idx + 1}</td>
                     {editing ? (
                       <>

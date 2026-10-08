@@ -113,12 +113,19 @@ export default function Dashboard() {
     fetchInvoices();
   }, [isAdmin, cached, fetchAdminData, fetchCustomerCount, fetchInvoices]);
 
-  // Persist to storage whenever data changes
+  // Persist to storage whenever data changes — debounced so a burst of state
+  // updates doesn't JSON.stringify up to 1000 invoices on the main thread while
+  // the charts are painting, and skipped on a fresh-cache mount where the load
+  // effect fetches nothing (nothing has actually changed to persist).
+  const hadFreshCache = Boolean(cached?.fresh);
   useEffect(() => {
-    if (!loadingStats && !loadingInvoices && (stats || invoices.length > 0)) {
+    if (hadFreshCache || loadingStats || loadingInvoices) return undefined;
+    if (!stats && invoices.length === 0) return undefined;
+    const timer = setTimeout(() => {
       setCache(cacheKey, { stats, users, businesses, analytics, invoices, customerCount });
-    }
-  }, [stats, users, businesses, analytics, invoices, customerCount, loadingStats, loadingInvoices, cacheKey]);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [stats, users, businesses, analytics, invoices, customerCount, loadingStats, loadingInvoices, cacheKey, hadFreshCache]);
 
   const chartData = useMemo(() => {
     return stats ? [

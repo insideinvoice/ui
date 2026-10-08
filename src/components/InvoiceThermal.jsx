@@ -178,4 +178,4 @@ const InvoiceThermal = React.forwardRef((props, ref) => {
 });
 
 InvoiceThermal.displayName = "InvoiceThermal";
-export default InvoiceThermal;
+export default React.memo(InvoiceThermal);

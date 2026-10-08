@@ -13,14 +13,9 @@ export default defineConfig({
   },
   appType: 'spa',
   build: {
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          vendor: ['react', 'react-dom', 'react-router-dom'],
-          charts: ['recharts'],
-          pdf: ['jspdf', 'html2canvas', 'qrcode.react'],
-        }
-      }
-    }
-  }
+    // Route-level splitting is done with React.lazy; Vite's default chunking
+    // keeps shared deps out of the entry graph (no eager modulepreload of heavy
+    // vendor chunks), so the first paint only downloads index + CSS.
+    chunkSizeWarningLimit: 900,
+  },
 })

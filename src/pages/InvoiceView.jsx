@@ -13,7 +13,7 @@ import InvoiceTemplateRenderer from "../components/InvoiceTemplateRenderer";
 import WhatsAppIcon from "../components/WhatsAppIcon";
 import { processQueue } from "../utils/retryQueue";
 import { processPrint } from "../utils/printInvoice";
-import { openWhatsApp, buildInvoiceWhatsAppMessage, createInvoicePdfFile, prefetchInvoicePdf } from "../utils/whatsapp";
+import { buildInvoiceWhatsAppMessage } from "../utils/whatsapp";
 import { getPrintSettings, getInvoiceTemplate } from "../constants/paperSizes";
 import { INDIAN_STATES, DELIVERY_TERMS, PAYMENT_TERMS } from "../constants/indianStates";
 
@@ -278,12 +278,7 @@ export default function InvoiceView() {
     }
   };
 
-  // Pull the html2canvas/jsPDF chunk in before it is needed so the WhatsApp
-  // click-to-share window stays inside the browser's transient-activation limit.
-  useEffect(() => {
-    const id = window.setTimeout(prefetchInvoicePdf, 800);
-    return () => window.clearTimeout(id);
-  }, []);
+
 
   useEffect(() => {
     Promise.all([
@@ -481,23 +476,28 @@ export default function InvoiceView() {
   const shareViaWhatsApp = async () => {
     if (busyAction) return;
     setBusyAction("whatsapp");
+    const shareWindow = window.open("", "_blank");
     try {
-      const ps = (getPrintSettings()[invoiceType] || {}).paperSize || "A4_PORTRAIT";
-      const filename = `${invoiceType === "PROFORMA_INVOICE" ? "Proforma" : "Tax"}_Invoice_${form.invoiceNumber}.pdf`;
-      const captureRef = await mountCapture(invoiceType);
-      await openWhatsApp({
-        text: buildInvoiceWhatsAppMessage({
-          customerName: form.customerName,
-          invoiceNumber: form.invoiceNumber,
-          invoiceType,
-          total: totals.grandTotal,
-          businessName: business?.businessName,
-          shareUrl: shareToken || undefined,
-        }),
-        getPdfFile: () => createInvoicePdfFile(captureRef.current, ps, filename),
+      const token = await ensureShareToken();
+      const shareUrl = `${window.location.origin}/i/${token}`;
+      const text = buildInvoiceWhatsAppMessage({
+        customerName: form.customerName,
+        invoiceNumber: form.invoiceNumber,
+        invoiceType,
+        total: totals.grandTotal,
+        businessName: business?.businessName,
+        shareUrl,
       });
+      const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
+      if (shareWindow) {
+        shareWindow.location.href = url;
+      } else {
+        window.open(url, "_blank");
+      }
+    } catch (err) {
+      if (shareWindow) shareWindow.close();
+      toast.error(err.response?.data?.message || "Could not share via WhatsApp");
     } finally {
-      releaseCapture();
       setBusyAction("");
     }
   };
@@ -594,7 +594,7 @@ export default function InvoiceView() {
               className="flex items-center justify-center w-9 h-9 rounded-full bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-60 transition-all shadow-sm">
               <Share2 className="w-5 h-5" />
             </button>
-            <button type="button" onClick={shareViaWhatsApp} onPointerEnter={prefetchInvoicePdf} onFocus={prefetchInvoicePdf} disabled={sealRequired || !!busyAction} title="Share on WhatsApp" aria-label="Share on WhatsApp"
+            <button type="button" onClick={shareViaWhatsApp} disabled={sealRequired || !!busyAction} title="Share on WhatsApp" aria-label="Share on WhatsApp"
               className="flex items-center justify-center w-9 h-9 rounded-full bg-[#25D366] text-white hover:bg-[#1ebe5b] disabled:opacity-60 transition-all shadow-sm">
               {busyAction === "whatsapp" ? <Spinner size={18} /> : <WhatsAppIcon className="w-5 h-5" />}
             </button>

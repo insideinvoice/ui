@@ -14,7 +14,7 @@ import { ArrowLeft, FileText, Download, Eye, PlusCircle, Share2, Trash2, Search,
 import { downloadInvoicePDF } from "../components/InvoicePDF";
 import InvoiceTemplateRenderer from "../components/InvoiceTemplateRenderer";
 import { getPrintSettings, getInvoiceTemplate } from "../constants/paperSizes";
-import { openWhatsApp, buildInvoiceWhatsAppMessage } from "../utils/whatsapp";
+import { buildInvoiceWhatsAppMessage } from "../utils/whatsapp";
 
 const MONTH_NAMES = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -354,24 +354,35 @@ const printInvoice = useCallback(async (invoice) => {
   }, []);
 
 const shareViaWhatsApp = useCallback(async (invoice) => {
-    if (busy) return;
-    setBusy(`${invoice.id}:whatsapp`);
-    try {
-      const business = await resolveBusinessProfile();
-      const total = invoice.grandTotal || 0;
-      const label = invoice.invoiceType === "PROFORMA_INVOICE" ? "Proforma Invoice" : "Tax Invoice";
-      const text = `Hello,\n\n${label} ${invoice.invoiceNumber || ""} - Total: Rs. ${total.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-      
-      await openWhatsApp({
-        text: `Hello ${invoice.customerName || ""},\n\n${label} ${invoice.invoiceNumber || ""} - Total: Rs. ${total.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n\n- ${business?.businessName || ""}`,
-        getPdfFile: () => createInvoicePdfFileFromInvoice(invoice),
-      });
-    } catch (err) {
-      toast.error("Failed to share on WhatsApp");
-    } finally {
-      setBusy("");
+  if (busy) return;
+  setBusy(`${invoice.id}:whatsapp`);
+  const shareWindow = window.open("", "_blank");
+  try {
+    const res = await invoiceAPI.createShare(invoice.id);
+    const token = res.data?.data?.token;
+    const shareUrl = token ? `${window.location.origin}/i/${token}` : undefined;
+    const business = await resolveBusinessProfile();
+    const text = buildInvoiceWhatsAppMessage({
+      customerName: invoice.customerName,
+      invoiceNumber: invoice.invoiceNumber,
+      invoiceType: invoice.invoiceType,
+      total: invoice.grandTotal || 0,
+      businessName: business?.businessName,
+      shareUrl,
+    });
+    const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
+    if (shareWindow) {
+      shareWindow.location.href = url;
+    } else {
+      window.open(url, "_blank");
     }
-  }, [busy]);
+  } catch (err) {
+    if (shareWindow) shareWindow.close();
+    toast.error(err.response?.data?.message || "Could not share via WhatsApp");
+  } finally {
+    setBusy("");
+  }
+}, [busy]);
 
   // Idempotent: returns the existing active link or creates one, then copies it.
   const copyShareLink = useCallback(async (invoice) => {
@@ -396,83 +407,7 @@ const shareViaWhatsApp = useCallback(async (invoice) => {
     }
   }, [busy]);
 
-const createInvoicePdfFileFromInvoice = async (invoice) => {
-  const container = document.createElement("div");
-  container.style.cssText = "position:absolute;left:-9999px;top:0;pointer-events:none;";
-  document.body.appendChild(container);
-  const root = createRoot(container);
-  try {
-    const business = await resolveBusinessProfile();
-    const items = (invoice.items || []).map((i) => ({
-      itemName: i.itemName, hsn: i.hsn || "", qty: String(i.qty), rate: String(i.rate),
-      gstPercentage: String(i.gstPercentage), taxableValue: i.taxableValue, taxAmount: i.taxAmount, total: i.total,
-    }));
-    const totals = {
-      subtotal: invoice.subtotal || 0,
-      taxAmount: invoice.taxAmount || 0,
-      grandTotal: invoice.grandTotal || 0,
-    };
-    const filename = `${invoice.invoiceType === "PROFORMA_INVOICE" ? "Proforma" : "Tax"}_Invoice_${invoice.invoiceNumber}.pdf`;
-    const paperSizeId = (getPrintSettings()[invoice.invoiceType] || {}).paperSize || "A4_PORTRAIT";
 
-    const pdf = await new Promise((resolve, reject) => {
-      let done = false;
-      root.render(
-        <InvoiceTemplateRenderer
-          ref={(el) => {
-            if (el && !done) {
-              done = true;
-              waitForPaint(el)
-                .then(async () => {
-                  const { buildInvoicePdf } = await import("../utils/invoicePdf");
-                  resolve(await buildInvoicePdf(el, paperSizeId));
-                })
-                .catch(reject);
-            }
-          }}
-          business={business}
-          customer={{
-            name: invoice.customerName || "",
-            billingAddress: invoice.billingAddress || "",
-            gstIn: invoice.customerGstIn || "",
-            phone: invoice.customerPhone || "",
-            email: invoice.customerEmail || "",
-          }}
-          form={{
-            invoiceDate: invoice.invoiceDate || "",
-            dueDate: invoice.dueDate || "",
-            placeOfSupply: invoice.placeOfSupply || "",
-            destination: invoice.destination || "",
-            termsOfDelivery: invoice.termsOfDelivery || "",
-            paymentTerms: invoice.paymentTerms || "",
-            deliveryNote: invoice.deliveryNote || "",
-            otherReferences: invoice.otherReferences || "",
-            notes: invoice.notes || "",
-            deliveryNoteDate: invoice.deliveryNoteDate || "",
-            referenceNumber: invoice.referenceNumber || "",
-            buyerOrderNumber: invoice.buyerOrderNumber || "",
-            dispatchDocNumber: invoice.dispatchDocNumber || "",
-            dispatchedThrough: invoice.dispatchedThrough || "",
-          }}
-          items={items}
-          totals={totals}
-          type={invoice.invoiceType}
-          invoiceNumber={invoice.invoiceNumber}
-          template={getInvoiceTemplate(invoice.invoiceType)}
-        />
-      );
-    });
-
-    const blob = pdf.output("blob");
-    return new File([blob], filename, { type: "application/pdf" });
-  } catch (err) {
-    toast.error("Failed to generate PDF for WhatsApp");
-    return null;
-  } finally {
-    root.unmount();
-    document.body.removeChild(container);
-  }
-};
 
   if (loading) {
     return (

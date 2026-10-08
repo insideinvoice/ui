@@ -17,7 +17,7 @@ import { renderDeliveryChallanPdf } from "../components/DeliveryChallanDownload"
 import WhatsAppIcon from "../components/WhatsAppIcon";
 import { processQueue } from "../utils/retryQueue";
 import { processPrint } from "../utils/printInvoice";
-import { openWhatsApp, buildInvoiceWhatsAppMessage, createInvoicePdfFile, prefetchInvoicePdf } from "../utils/whatsapp";
+import { buildInvoiceWhatsAppMessage } from "../utils/whatsapp";
 import { getPrintSettings, getInvoiceTemplate } from "../constants/paperSizes";
 import { formatInvoiceNumber } from "../utils/invoiceConvention";
 import { INDIAN_STATES, DELIVERY_TERMS, PAYMENT_TERMS } from "../constants/indianStates";
@@ -257,10 +257,6 @@ export default function InvoiceForm() {
 
   // Pull the html2canvas/jsPDF chunk in before it is needed so the WhatsApp
   // click-to-share window stays inside the browser's transient-activation limit.
-  useEffect(() => {
-    const id = window.setTimeout(prefetchInvoicePdf, 800);
-    return () => window.clearTimeout(id);
-  }, []);
   const mountPdfPreview = async () => {
     setShowPdfPreview(true);
     // Wait for React to commit + paint so invoiceRef points at real DOM
@@ -433,7 +429,6 @@ export default function InvoiceForm() {
       const p = res.data.data;
       if (!p) {
         hsnLookupRef.current[idx] = { code, status: "notfound" };
-        toast(`No product found for HSN/SAC ${code} — add it in Products first`);
         return;
       }
       hsnLookupRef.current[idx] = { code, status: "done" };
@@ -466,7 +461,6 @@ export default function InvoiceForm() {
     } catch (err) {
       if (err?.response?.status === 404) {
         hsnLookupRef.current[idx] = { code, status: "notfound" };
-        toast(`No product found for HSN/SAC ${code} — add it in Products first`);
       } else {
         hsnLookupRef.current[idx] = { code, status: "error" };
         toast.error("HSN lookup failed — check your connection and try again");
@@ -715,26 +709,35 @@ export default function InvoiceForm() {
 
   const shareViaWhatsApp = async () => {
     if (sharing) return;
+    if (!validate()) return;
+    recalcAll();
     setSharing(true);
+    const shareWindow = window.open("", "_blank");
     try {
-      const ps = (getPrintSettings()[form.invoiceType] || {}).paperSize || "A4_PORTRAIT";
-      const invNo = savedInvoiceNumber || customInvoiceNumber || nextInvoiceNumber;
-      const filename = `${form.invoiceType === "PROFORMA_INVOICE" ? "Proforma" : "Tax"}_Invoice_${invNo || "Draft"}.pdf`;
-      await openWhatsApp({
-        text: buildInvoiceWhatsAppMessage({
-          customerName: form.customerName,
-          invoiceNumber: invNo,
-          invoiceType: form.invoiceType,
-          total: totals.grandTotal,
-          businessName: business?.businessName,
-        }),
-        getPdfFile: async () => {
-          await mountPdfPreview();
-          return createInvoicePdfFile(invoiceRef.current, ps, filename);
-        },
+      const saveRes = await saveInvoice();
+      const invoiceId = saveRes.data.data.id;
+      const invNo = saveRes.data.data.invoiceNumber || savedInvoiceNumber || customInvoiceNumber || nextInvoiceNumber;
+      const shareRes = await invoiceAPI.createShare(invoiceId);
+      const token = shareRes.data?.data?.token;
+      const shareUrl = token ? `${window.location.origin}/i/${token}` : undefined;
+      const text = buildInvoiceWhatsAppMessage({
+        customerName: form.customerName,
+        invoiceNumber: invNo,
+        invoiceType: form.invoiceType,
+        total: totals.grandTotal,
+        businessName: business?.businessName,
+        shareUrl,
       });
+      const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
+      if (shareWindow) {
+        shareWindow.location.href = url;
+      } else {
+        window.open(url, "_blank");
+      }
+    } catch (err) {
+      if (shareWindow) shareWindow.close();
+      toast.error(err.response?.data?.message || "Could not share via WhatsApp");
     } finally {
-      setShowPdfPreview(false);
       setSharing(false);
     }
   };
@@ -751,36 +754,60 @@ export default function InvoiceForm() {
     <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 sticky top-6">
       <h2 className="text-sm font-bold text-slate-800 mb-4 pb-3 border-b border-slate-100">Actions</h2>
       <div className="space-y-3">
-        <button onClick={handleSave} disabled={saving}
-          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-800 text-white text-sm font-semibold rounded-lg hover:bg-slate-700 disabled:opacity-50 transition-all shadow-sm min-h-[44px]">
-          {saving ? <LoadingDots className="text-white" /> : <Save className="w-4 h-4" />}
-          {saving ? "Saving..." : "Save Invoice"}
+        {/* Row 1: Save + icon-only quick actions (label shows on hover) */}
+        <div className="flex items-stretch gap-2">
+          <button onClick={handleSave} disabled={saving}
+            className="flex-1 min-w-0 flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-800 text-white text-sm font-semibold rounded-lg hover:bg-slate-700 disabled:opacity-50 transition-all shadow-sm min-h-[44px] whitespace-nowrap">
+            {saving ? <Spinner size={16} className="text-white shrink-0" /> : <Save className="w-4 h-4 shrink-0" />}
+            {saving ? "Saving..." : "Save Invoice"}
+          </button>
+
+          <span className="relative group flex">
+            <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-20 whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-[11px] font-medium text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100">
+              Delivery Pdf
+            </span>
+            <button onClick={generateDeliveryChallanPdf} aria-label="Delivery Pdf"
+              disabled={saving || !customer.name?.trim() || !(items || []).some((i) => (i.itemName || "").trim() && parseFloat(i.qty) > 0)}
+              className="flex h-full items-center justify-center px-3 py-2.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 disabled:opacity-50 transition-all shadow-sm min-h-[44px]">
+              <Download className="w-4 h-4" />
+            </button>
+          </span>
+
+          <span className="relative group flex">
+            <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-20 whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-[11px] font-medium text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100">
+              Share PDF
+            </span>
+            <button onClick={handlePrint} aria-label="Share PDF"
+              disabled={sealRequired || totals.grandTotal <= 0}
+              className="flex h-full items-center justify-center px-3 py-2.5 bg-white text-slate-700 rounded-lg border border-slate-300 hover:bg-slate-50 disabled:opacity-50 transition-all shadow-sm min-h-[44px]">
+              <Share2 className="w-4 h-4" />
+            </button>
+          </span>
+
+          <span className="relative group flex">
+            <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-20 whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-[11px] font-medium text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100">
+              Share on WhatsApp
+            </span>
+            <button type="button" onClick={shareViaWhatsApp}
+              aria-label="Share on WhatsApp"
+              disabled={sharing || sealRequired || totals.grandTotal <= 0}
+              className="flex h-full items-center justify-center px-3 py-2.5 bg-[#25D366] text-white rounded-lg hover:bg-[#1ebe5b] disabled:opacity-50 transition-all shadow-sm min-h-[44px]">
+              {sharing ? <Spinner size={18} /> : <WhatsAppIcon className="w-5 h-5" />}
+            </button>
+          </span>
+        </div>
+
+        {/* Row 2: Proforma */}
+        <button onClick={() => generatePDF("PROFORMA_INVOICE")} disabled={sealRequired || totals.grandTotal <= 0}
+          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 text-white text-sm font-semibold rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-all shadow-sm min-h-[44px]">
+          <Download className="w-4 h-4" /> Proforma PDF
         </button>
+
+        {/* Row 3: Tax Invoice */}
         <button onClick={() => generatePDF("TAX_INVOICE")} disabled={sealRequired || totals.grandTotal <= 0}
           className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-all shadow-sm min-h-[44px]">
           <Download className="w-4 h-4" /> Tax Invoice PDF
         </button>
-        <div className="flex items-stretch gap-3">
-          <button onClick={() => generatePDF("PROFORMA_INVOICE")} disabled={sealRequired || totals.grandTotal <= 0}
-            className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 bg-emerald-600 text-white text-sm font-semibold rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-all shadow-sm min-h-[44px] whitespace-nowrap">
-            <Download className="w-4 h-4" /> Proforma PDF
-          </button>
-          <button onClick={generateDeliveryChallanPdf} disabled={saving || !customer.name?.trim() || !(items || []).some((i) => (i.itemName || "").trim() && parseFloat(i.qty) > 0)}
-            title="Generate a delivery challan from this invoice form"
-            className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 bg-teal-600 text-white text-sm font-semibold rounded-lg hover:bg-teal-700 disabled:opacity-50 transition-all shadow-sm min-h-[44px] whitespace-nowrap">
-            <Download className="w-4 h-4" /> Delivery Pdf
-          </button>
-        </div>
-        <div className="flex items-stretch gap-3">
-          <button onClick={handlePrint} disabled={sealRequired || totals.grandTotal <= 0}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-white text-slate-700 text-sm font-semibold rounded-lg border border-slate-300 hover:bg-slate-50 disabled:opacity-50 transition-all shadow-sm min-h-[44px] whitespace-nowrap">
-            <Share2 className="w-4 h-4" /> Share PDF
-          </button>
-          <button type="button" onClick={shareViaWhatsApp} onPointerEnter={prefetchInvoicePdf} onFocus={prefetchInvoicePdf} disabled={sharing || sealRequired || totals.grandTotal <= 0} title="Share on WhatsApp" aria-label="Share on WhatsApp"
-            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-[#25D366] text-white text-sm font-semibold rounded-lg hover:bg-[#1ebe5b] disabled:opacity-50 transition-all shadow-sm min-h-[44px] whitespace-nowrap flex-shrink-0">
-            {sharing ? <Spinner size={18} /> : <WhatsAppIcon className="w-5 h-5" />} WhatsApp
-          </button>
-        </div>
       </div>
 
       <div className="mt-6 pt-4 border-t border-slate-100">

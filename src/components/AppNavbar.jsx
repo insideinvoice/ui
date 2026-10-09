@@ -66,7 +66,7 @@ const sections = (isAdmin) => [
     header: "Delivery Challan",
     items: [
       { label: "New Delivery Challan", icon: ClipboardList, path: "/delivery-challans/new" },
-      { label: "View Delivery Challans", icon: List, path: "/delivery-challans" },
+      { label: "Delivery Challans", icon: List, path: "/delivery-challans" },
     ],
   },
   {

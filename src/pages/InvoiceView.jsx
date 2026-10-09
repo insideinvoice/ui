@@ -884,7 +884,7 @@ export default function InvoiceView() {
                     <input name="deliveryNote" value={form.deliveryNote} onChange={handleFieldChange} className={inputClass} />
                   </div>
                   <div>
-                    <label className={labelClass}>Other References</label>
+                    <label className={labelClass}>Others</label>
                     <input name="otherReferences" value={form.otherReferences} onChange={handleFieldChange} className={inputClass} />
                   </div>
                   <div>
@@ -937,7 +937,7 @@ export default function InvoiceView() {
                     <p className="text-sm text-slate-800">{form.deliveryNote}</p>
                   </div>}
                   {form.otherReferences && <div>
-                    <label className={labelClass}>Other References</label>
+                    <label className={labelClass}>Others</label>
                     <p className="text-sm text-slate-800">{form.otherReferences}</p>
                   </div>}
                   {form.paymentMode && <div>

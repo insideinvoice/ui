@@ -780,8 +780,8 @@ export default function InvoiceForm() {
             </span>
             <button onClick={handleShare} aria-label="Share invoice link"
               disabled={linkSharing || sealRequired || totals.grandTotal <= 0}
-              className="w-full flex items-center justify-center px-2 py-2.5 bg-white text-slate-700 rounded-lg border border-slate-300 hover:bg-slate-50 disabled:opacity-50 transition-all shadow-sm min-h-[44px]">
-              {linkSharing ? <Spinner size={16} /> : <Share2 className="w-4 h-4" />}
+              className="w-full flex items-center justify-center px-2 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-all shadow-sm min-h-[44px]">
+              {linkSharing ? <Spinner size={16} className="text-white shrink-0" /> : <Share2 className="w-4 h-4 shrink-0" />}
             </button>
           </span>
 
@@ -798,22 +798,22 @@ export default function InvoiceForm() {
           </span>
         </div>
 
-        {/* Row 2: Delivery Challan + Proforma */}
-        <div className="flex items-stretch gap-2">
+        {/* Delivery + Proforma — one per line */}
+        <div className="space-y-2">
           <button onClick={generateDeliveryChallanPdf}
             disabled={saving || !customer.name?.trim() || !(items || []).some((i) => (i.itemName || "").trim() && parseFloat(i.qty) > 0)}
-            className="flex-1 min-w-0 flex items-center justify-center gap-1.5 px-2 py-2.5 bg-teal-600 text-white text-sm font-semibold rounded-lg hover:bg-teal-700 disabled:opacity-50 transition-all shadow-sm min-h-[44px] whitespace-nowrap">
-            <Truck className="w-4 h-4 shrink-0" /> Delivery
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 border border-teal-300 text-teal-700 text-sm font-semibold rounded-lg hover:bg-teal-50 disabled:opacity-50 transition-all min-h-[44px] whitespace-nowrap">
+            <Truck className="w-4 h-4 shrink-0" /> Delivery Challan
           </button>
           <button onClick={() => generatePDF("PROFORMA_INVOICE")} disabled={saving || sealRequired || totals.grandTotal <= 0}
-            className="flex-1 min-w-0 flex items-center justify-center gap-1.5 px-2 py-2.5 bg-emerald-600 text-white text-sm font-semibold rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-all shadow-sm min-h-[44px] whitespace-nowrap">
-            <Download className="w-4 h-4 shrink-0" /> Proforma
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 border border-emerald-300 text-emerald-700 text-sm font-semibold rounded-lg hover:bg-emerald-50 disabled:opacity-50 transition-all min-h-[44px] whitespace-nowrap">
+            <Download className="w-4 h-4 shrink-0" /> Proforma Invoice
           </button>
         </div>
 
-        {/* Row 3: Tax Invoice — full row */}
+        {/* Tax Invoice PDF — full row */}
         <button onClick={() => generatePDF("TAX_INVOICE")} disabled={saving || sealRequired || totals.grandTotal <= 0}
-          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-all shadow-sm min-h-[44px]">
+          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 border border-indigo-300 text-indigo-700 text-sm font-semibold rounded-lg hover:bg-indigo-50 disabled:opacity-50 transition-all min-h-[44px]">
           <Download className="w-4 h-4" /> Tax Invoice PDF
         </button>
       </div>
@@ -1147,7 +1147,7 @@ export default function InvoiceForm() {
                   </div>
                 </div>
                 <div>
-                  <label className={labelClass}>Other References / P.O No</label>
+                  <label className={labelClass}>Others / P.O No</label>
                   <input type="text" name="otherReferences" value={form.otherReferences} onChange={handleFieldChange}
                     onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); focusNext("otherReferences"); } }}
                     className={inputClass} />

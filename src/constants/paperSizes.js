@@ -97,15 +97,15 @@ export function getPrintSettings() {
       if (!val) {
         result[key] = structuredClone(DEFAULT_PRINT_SETTINGS[key]);
       } else if (typeof val === "string") {
-        const tpl = parsed[key + "_template"];
-        result[key] = { paperSize: val, ...(tpl ? { template: sanitizeTemplate(tpl) } : {}) };
+        // Legacy shape: the value itself was the paper size and an optional
+        // `<key>_template` sibling held a per-type template. Templates are a
+        // single global choice now, so that sibling is deliberately ignored.
+        result[key] = { paperSize: val };
       } else {
         result[key] = { ...DEFAULT_PRINT_SETTINGS[key], ...val };
-        if (result[key].template) {
-          result[key].template = sanitizeTemplate(result[key].template);
-        } else {
-          delete result[key].template;
-        }
+        // Per-type template overrides are gone — one template serves every
+        // document type (stale keys in stored settings are dropped here).
+        delete result[key].template;
       }
     }
     return result;
@@ -114,11 +114,12 @@ export function getPrintSettings() {
   }
 }
 
-// Per-type template override from Print Settings; null when the type follows
-// the global choice from the Templates page.
-export function getInvoiceTemplate(type) {
-  const t = (getPrintSettings()[type] || {}).template;
-  return t ? sanitizeTemplate(t) : null;
+// A single template is used for every document type — Tax Invoice, Proforma,
+// Quotation and Purchase Order all render with the choice made on the
+// Templates page. The `type` argument is kept for call-site compatibility but
+// no longer selects a per-type override.
+export function getInvoiceTemplate() {
+  return getGlobalTemplate();
 }
 
 // Global template chosen on the Templates page (kept in sync by AuthContext).

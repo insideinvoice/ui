@@ -199,11 +199,8 @@ function ClassicPage({ business, customer, challan, items }) {
           flexShrink: 0,
         }}
       >
-        <div style={{ flex: 1, whiteSpace: "nowrap", overflow: "hidden" }}>
+        <div style={{ whiteSpace: "nowrap", overflow: "hidden" }}>
           Your P.O No.: {challan.poNumber || ""}
-        </div>
-        <div style={{ whiteSpace: "nowrap" }}>
-          Date : {challan.poDate ? fmtDate(challan.poDate) : ""}
         </div>
       </div>
 

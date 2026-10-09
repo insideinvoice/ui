@@ -1,7 +1,8 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import AppNavbar from "../components/AppNavbar";
 import PageHeader from "../components/PageHeader";
 import { getPrintSettings, savePrintSettings, PAPER_SIZE_LIST, ALL_TEMPLATES, DEFAULT_PRINT_SETTINGS, getGlobalTemplate } from "../constants/paperSizes";
+import { useAuth } from "../context/AuthContext";
 import toast from "react-hot-toast";
 import { businessAPI } from "../api/auth";
 import { ArrowLeft, Printer, FileText, FileSpreadsheet, ShoppingCart, Download, Save } from "lucide-react";
@@ -14,9 +15,15 @@ const DOC_TYPES = [
 ];
 
 export default function PrintSettings({ noWrapper }) {
+  const { selectedTemplate, updateTemplate } = useAuth();
   const [settings, setSettings] = useState(() => getPrintSettings());
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [template, setTemplate] = useState(selectedTemplate || getGlobalTemplate());
+
+  useEffect(() => {
+    setTemplate(selectedTemplate);
+  }, [selectedTemplate]);
 
   const handlePaperSizeChange = (docType, sizeId) => {
     setSettings((prev) => ({
@@ -26,12 +33,18 @@ export default function PrintSettings({ noWrapper }) {
     setDirty(true);
   };
 
-  const handleTemplateChange = (docType, templateId) => {
-    setSettings((prev) => ({
-      ...prev,
-      [docType]: { ...prev[docType], template: templateId },
-    }));
-    setDirty(true);
+  // One template for every document type — saved through the same
+  // updateTemplate used by the Templates page so local, server and share
+  // links all switch together.
+  const handleTemplateChange = async (templateId) => {
+    setTemplate(templateId);
+    try {
+      await updateTemplate(templateId);
+      toast.success(`Template set to "${ALL_TEMPLATES.find((t) => t.id === templateId)?.label}" for all documents`);
+    } catch {
+      setTemplate(selectedTemplate);
+      toast.error("Failed to save template preference");
+    }
   };
 
   const handleSave = useCallback(() => {
@@ -64,12 +77,34 @@ export default function PrintSettings({ noWrapper }) {
       <div className="flex items-center justify-between mb-4">
         <div>
           <h2 className="text-sm font-semibold text-slate-900">Document Settings</h2>
-          <p className="text-xs text-slate-500 mt-0.5">Paper size and template per document type</p>
+          <p className="text-xs text-slate-500 mt-0.5">Paper size per document type · one template for every document</p>
         </div>
         <button onClick={resetDefaults}
           className="text-xs text-slate-500 hover:text-slate-700 underline whitespace-nowrap">
           Reset defaults
         </button>
+      </div>
+
+      {/* Single template shared by Tax Invoice, Proforma, Quotation and PO */}
+      <div className="mb-3 p-3 rounded-lg border border-slate-100 hover:border-slate-200 transition-colors">
+        <div className="flex items-center gap-2 mb-3">
+          <div className="w-7 h-7 rounded-lg bg-indigo-50 flex items-center justify-center flex-shrink-0">
+            <FileText className="w-3.5 h-3.5 text-indigo-600" />
+          </div>
+          <div>
+            <div className="text-xs font-semibold text-slate-800">Template Theme</div>
+            <div className="text-[10px] text-slate-500">Applies to Tax Invoice, Proforma, Quotation &amp; Purchase Order</div>
+          </div>
+        </div>
+        <select
+          value={template}
+          onChange={(e) => handleTemplateChange(e.target.value)}
+          className="w-full px-2.5 py-2 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-400/30 focus:border-indigo-400 bg-white"
+        >
+          {ALL_TEMPLATES.map((t) => (
+            <option key={t.id} value={t.id}>{t.label}</option>
+          ))}
+        </select>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -103,20 +138,6 @@ export default function PrintSettings({ noWrapper }) {
                     </optgroup>
                   </select>
                 </div>
-                {!config.paperSize?.startsWith("THERMAL") && (
-                  <div>
-                    <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Template Theme</label>
-                    <select
-                      value={config.template || getGlobalTemplate()}
-                      onChange={(e) => handleTemplateChange(doc.key, e.target.value)}
-                      className="w-full px-2.5 py-2 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-400/30 focus:border-indigo-400 bg-white"
-                    >
-                      {ALL_TEMPLATES.map((t) => (
-                        <option key={t.id} value={t.id}>{t.label}</option>
-                      ))}
-                    </select>
-                  </div>
-                )}
               </div>
             </div>
           );

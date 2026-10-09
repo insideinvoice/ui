@@ -109,7 +109,17 @@ export default memo(function AppNavbar() {
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  // Medium screens (1024–1279px) start with the sidebar collapsed to an icon
+  // rail so page content (e.g. wide tables) keeps the full width. The CSS in
+  // index.css scopes this state to that breakpoint only.
+  const [railCollapsed, setRailCollapsed] = useState(true);
   useNavbarHeightVar();
+
+  useEffect(() => {
+    const root = document.documentElement;
+    root.classList.toggle("rail-collapsed", railCollapsed);
+    return () => root.classList.remove("rail-collapsed");
+  }, [railCollapsed]);
 
   const handleLogout = useCallback(() => {
     logout();
@@ -151,31 +161,42 @@ export default memo(function AppNavbar() {
 
   const sidebarContent = (
     <div className="flex flex-col h-full">
-      {/* Logo */}
-      <div className="px-4 py-4 border-b border-slate-100">
-        <button
-          onClick={() => handleNav("/dashboard")}
-          className="flex items-center gap-2.5 hover:opacity-80 transition-opacity"
-        >
-          <img
-            src={insideInvoiceLogo}
-            alt="Inside Invoice"
-            className="w-8 h-8"
-          />
-          <div className="flex flex-col">
-            <span
-              className="font-bold text-slate-800 text-sm leading-tight"
-              style={{ fontFamily: "'Space Grotesk', sans-serif" }}
-            >
-              Inside Invoice
-            </span>
-            <span className="text-[8px] text-slate-500 font-medium tracking-widest text-left">
-              BY 2X+1
-            </span>
-          </div>
-        </button>
+      {/* Logo + rail toggle */}
+      <div className="rail-head px-4 py-4 border-b border-slate-100">
+        <div className="flex items-center justify-between gap-2">
+          <button
+            onClick={() => handleNav("/dashboard")}
+            className="flex items-center gap-2.5 hover:opacity-80 transition-opacity min-w-0"
+          >
+            <img
+              src={insideInvoiceLogo}
+              alt="Inside Invoice"
+              className="w-8 h-8 shrink-0"
+            />
+            <div className="flex flex-col rail-hide">
+              <span
+                className="font-bold text-slate-800 text-sm leading-tight"
+                style={{ fontFamily: "'Space Grotesk', sans-serif" }}
+              >
+                Inside Invoice
+              </span>
+              <span className="text-[8px] text-slate-500 font-medium tracking-widest text-left">
+                BY 2X+1
+              </span>
+            </div>
+          </button>
+          <button
+            type="button"
+            onClick={() => setRailCollapsed((v) => !v)}
+            title={railCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            aria-label={railCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            className="rail-toggle items-center justify-center p-2 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors shrink-0"
+          >
+            {railCollapsed ? <Menu className="w-5 h-5" /> : <X className="w-5 h-5" />}
+          </button>
+        </div>
         {isAdmin && (
-          <div className="mt-2">
+          <div className="mt-2 rail-hide">
             <span className="flex items-center gap-1 text-[10px] bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full font-medium w-fit">
               <Shield className="w-2.5 h-2.5" /> Admin
             </span>
@@ -187,14 +208,15 @@ export default memo(function AppNavbar() {
       <nav className="flex-1 overflow-y-auto px-3 py-3 space-y-1">
         {dropdownSections.map((section) => (
           <div key={section.header} className="mb-2">
-            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-3 py-1.5">
+            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-3 py-1.5 rail-hide">
               {section.header}
             </div>
             {section.items.map((item) => (
               <button
                 key={item.label}
                 onClick={() => handleNav(item.path)}
-                className={`flex items-center gap-3 w-full px-3 py-2.5 text-sm rounded-lg transition-colors text-left min-h-[40px] ${
+                title={item.label}
+                className={`rail-item flex items-center gap-3 w-full px-3 py-2.5 text-sm rounded-lg transition-colors text-left min-h-[40px] ${
                   isActive(item.path)
                     ? "bg-indigo-50 text-indigo-700 font-medium"
                     : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
@@ -203,7 +225,7 @@ export default memo(function AppNavbar() {
                 <item.icon
                   className={`w-4 h-4 shrink-0 ${isActive(item.path) ? "text-indigo-600" : "text-slate-400"}`}
                 />
-                {item.label}
+                <span className="rail-hide">{item.label}</span>
               </button>
             ))}
           </div>
@@ -214,7 +236,8 @@ export default memo(function AppNavbar() {
       <div className="px-3 py-3 border-t border-slate-100 space-y-1">
         <button
           onClick={() => handleNav("/settings")}
-          className={`flex items-center gap-3 w-full px-3 py-2.5 text-sm rounded-lg transition-colors text-left min-h-[40px] ${
+          title="Settings"
+          className={`rail-item flex items-center gap-3 w-full px-3 py-2.5 text-sm rounded-lg transition-colors text-left min-h-[40px] ${
             isActive("/settings")
               ? "bg-indigo-50 text-indigo-700 font-medium"
               : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
@@ -222,14 +245,16 @@ export default memo(function AppNavbar() {
         >
           <Settings
             className={`w-4 h-4 shrink-0 ${isActive("/settings") ? "text-indigo-600" : "text-slate-400"}`}
-          />{" "}
-          Settings
+          />
+          <span className="rail-hide">Settings</span>
         </button>
         <button
           onClick={handleLogout}
-          className="flex items-center gap-3 w-full px-3 py-2.5 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors text-left min-h-[40px]"
+          title="Logout"
+          className="rail-item flex items-center gap-3 w-full px-3 py-2.5 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors text-left min-h-[40px]"
         >
-          <LogOut className="w-4 h-4 shrink-0" /> Logout
+          <LogOut className="w-4 h-4 shrink-0" />
+          <span className="rail-hide">Logout</span>
         </button>
       </div>
     </div>
@@ -238,7 +263,7 @@ export default memo(function AppNavbar() {
   return (
     <>
       {/* ===== DESKTOP SIDEBAR (lg+) ===== */}
-      <aside className="hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 lg:left-0 lg:z-50 lg:w-60 lg:bg-white lg:border-r lg:border-slate-200">
+      <aside className="app-side-nav hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 lg:left-0 lg:z-50 lg:w-60 lg:bg-white lg:border-r lg:border-slate-200">
         {sidebarContent}
       </aside>
 

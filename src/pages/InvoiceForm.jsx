@@ -771,7 +771,7 @@ export default function InvoiceForm() {
           <button onClick={handleSave} disabled={saving}
             className="flex-1 min-w-0 flex items-center justify-center gap-1.5 px-2 py-2.5 bg-slate-800 text-white text-sm font-semibold rounded-lg hover:bg-slate-700 disabled:opacity-50 transition-all shadow-sm min-h-[44px]">
             {saving ? <Spinner size={16} className="text-white shrink-0" /> : <Save className="w-4 h-4 shrink-0" />}
-            <span className="truncate">{saving ? "Saving..." : "Save Invoice"}</span>
+            <span className="truncate">{saving ? "Saving..." : "Save"}</span>
           </button>
 
           <span className="relative group flex-1 flex">
@@ -803,11 +803,11 @@ export default function InvoiceForm() {
           <button onClick={generateDeliveryChallanPdf}
             disabled={saving || !customer.name?.trim() || !(items || []).some((i) => (i.itemName || "").trim() && parseFloat(i.qty) > 0)}
             className="flex-1 min-w-0 flex items-center justify-center gap-1.5 px-2 py-2.5 bg-teal-600 text-white text-sm font-semibold rounded-lg hover:bg-teal-700 disabled:opacity-50 transition-all shadow-sm min-h-[44px] whitespace-nowrap">
-            <Truck className="w-4 h-4 shrink-0" /> Delivery Challan
+            <Truck className="w-4 h-4 shrink-0" /> Delivery
           </button>
           <button onClick={() => generatePDF("PROFORMA_INVOICE")} disabled={saving || sealRequired || totals.grandTotal <= 0}
             className="flex-1 min-w-0 flex items-center justify-center gap-1.5 px-2 py-2.5 bg-emerald-600 text-white text-sm font-semibold rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-all shadow-sm min-h-[44px] whitespace-nowrap">
-            <Download className="w-4 h-4 shrink-0" /> Proforma PDF
+            <Download className="w-4 h-4 shrink-0" /> Proforma
           </button>
         </div>
 

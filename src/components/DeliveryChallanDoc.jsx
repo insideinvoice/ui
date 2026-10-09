@@ -109,11 +109,6 @@ function ClassicPage({ business, customer, challan, items }) {
         <div style={{ fontSize: 19, fontWeight: 800, letterSpacing: 0.4 }}>
           {business?.businessName}
         </div>
-        {b.line1 && <div style={{ fontSize: 10.5, lineHeight: "14px" }}>{b.line1}</div>}
-        {b.line2 && <div style={{ fontSize: 10.5, lineHeight: "14px" }}>{b.line2}</div>}
-        {b.contact && (
-          <div style={{ fontSize: 10.5, lineHeight: "14px" }}>{b.contact}</div>
-        )}
         {specialist && (
           <div
             style={{
@@ -127,6 +122,11 @@ function ClassicPage({ business, customer, challan, items }) {
           >
             SPECIALIST IN : {specialist}
           </div>
+        )}
+        {b.line1 && <div style={{ fontSize: 10.5, lineHeight: "14px" }}>{b.line1}</div>}
+        {b.line2 && <div style={{ fontSize: 10.5, lineHeight: "14px" }}>{b.line2}</div>}
+        {b.contact && (
+          <div style={{ fontSize: 10.5, lineHeight: "14px" }}>{b.contact}</div>
         )}
       </div>
 

@@ -86,19 +86,19 @@ const ViewItemRow = memo(({ item, calc, idx, isEditing, onItemChange, onRemove, 
     ) : (
       <>
         <td className="py-3 px-3 text-slate-800 border-b border-slate-100 truncate">{item.itemName}</td>
-        <td className="py-3 px-3 text-center font-mono text-xs text-slate-500 border-b border-slate-100">{item.hsn || "-"}</td>
-        <td className="py-3 px-3 text-right font-mono text-sm text-slate-700 border-b border-slate-100">{item.qty}</td>
-        <td className="py-3 px-3 text-right font-mono text-sm text-slate-700 border-b border-slate-100">{fmt(item.rate)}</td>
-        <td className="py-3 px-3 text-right font-mono text-sm text-slate-600 border-b border-slate-100">{item.gstPercentage}%</td>
+        <td className="py-3 px-3 text-center font-mono text-xs text-slate-500 border-b border-slate-100 whitespace-nowrap">{item.hsn || "-"}</td>
+        <td className="py-3 px-3 text-right font-mono text-sm text-slate-700 border-b border-slate-100 whitespace-nowrap">{item.qty}</td>
+        <td className="py-3 px-3 text-right font-mono text-sm text-slate-700 border-b border-slate-100 whitespace-nowrap">{fmt(item.rate)}</td>
+        <td className="py-3 px-3 text-right font-mono text-sm text-slate-600 border-b border-slate-100 whitespace-nowrap">{item.gstPercentage}%</td>
       </>
     )}
-    <td className={`py-3 px-3 text-right font-mono text-sm border-b border-slate-100 truncate ${isEditing ? "text-slate-700" : "text-slate-700"}`}>
+    <td className={`py-3 px-3 text-right font-mono text-sm border-b border-slate-100 whitespace-nowrap ${isEditing ? "text-slate-700" : "text-slate-700"}`}>
       {fmt(calc?.taxable ?? item.taxableValue)}
     </td>
-    <td className={`py-3 px-3 text-right font-mono text-sm border-b border-slate-100 truncate ${isEditing ? "text-slate-600" : "text-slate-600"}`}>
+    <td className={`py-3 px-3 text-right font-mono text-sm border-b border-slate-100 whitespace-nowrap ${isEditing ? "text-slate-600" : "text-slate-600"}`}>
       {fmt(calc?.tax ?? item.taxAmount)}
     </td>
-    <td className={`py-3 px-3 text-right font-mono text-sm font-semibold border-b border-slate-100 truncate ${isEditing ? "text-slate-900" : "text-slate-900"}`}>
+    <td className={`py-3 px-3 text-right font-mono text-sm font-semibold border-b border-slate-100 whitespace-nowrap ${isEditing ? "text-slate-900" : "text-slate-900"}`}>
       {fmt(calc?.total ?? item.total)}
     </td>
     {isEditing && (
@@ -737,8 +737,8 @@ export default function InvoiceView() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
-          <div className="xl:col-span-4 space-y-6">
+        <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.34fr)] gap-6">
+          <div className="space-y-6">
             {/* Seller & Buyer Info */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 sm:p-6">
@@ -964,31 +964,19 @@ export default function InvoiceView() {
               </div>
 
               {/* Desktop table */}
-              <div className="hidden md:block border border-slate-200 rounded-lg">
-                <table className="w-full text-sm border-collapse" style={{ tableLayout: "fixed" }}>
-                  <colgroup>
-                    <col style={{ width: "4%" }} />
-                    <col style={{ width: "26%" }} />
-                    <col style={{ width: "12%" }} />
-                    <col style={{ width: "8%" }} />
-                    <col style={{ width: "10%" }} />
-                    <col style={{ width: "10%" }} />
-                    <col style={{ width: "10%" }} />
-                    <col style={{ width: "8%" }} />
-                    <col style={{ width: "10%" }} />
-                    {isEditing && <col style={{ width: "2%" }} />}
-                  </colgroup>
+              <div className="hidden md:block border border-slate-200 rounded-lg overflow-x-auto">
+                <table className="w-full text-sm border-collapse">
                   <thead>
                     <tr className="bg-slate-800">
-                      <th className="text-white text-xs font-semibold py-3.5 px-3 text-center">#</th>
-                      <th className="text-white text-xs font-semibold py-3.5 px-3 text-left">Description</th>
-                      <th className="text-white text-xs font-semibold py-3.5 px-3 text-center">HSN/SAC</th>
-                      <th className="text-white text-xs font-semibold py-3.5 px-3 text-center">Qty</th>
-                      <th className="text-white text-xs font-semibold py-3.5 px-3 text-center">Rate</th>
-                      <th className="text-white text-xs font-semibold py-3.5 px-3 text-center">GST %</th>
-                      <th className="text-white text-xs font-semibold py-3.5 px-3 text-right">Taxable</th>
-                      <th className="text-white text-xs font-semibold py-3.5 px-3 text-right">Tax</th>
-                      <th className="text-white text-xs font-semibold py-3.5 px-3 text-right">Total</th>
+                      <th className="text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">#</th>
+                      <th className="text-white text-xs font-semibold py-3.5 px-3 text-left whitespace-nowrap">Description</th>
+                      <th className="text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">HSN/SAC</th>
+                      <th className="text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">Qty</th>
+                      <th className="text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">Rate</th>
+                      <th className="text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">GST %</th>
+                      <th className="text-white text-xs font-semibold py-3.5 px-3 text-right whitespace-nowrap">Taxable</th>
+                      <th className="text-white text-xs font-semibold py-3.5 px-3 text-right whitespace-nowrap">Tax</th>
+                      <th className="text-white text-xs font-semibold py-3.5 px-3 text-right whitespace-nowrap">Total</th>
                       {isEditing && <th className="text-white"></th>}
                     </tr>
                   </thead>
@@ -1108,7 +1096,7 @@ export default function InvoiceView() {
           </div>
 
           {/* Right Sidebar */}
-          <div className="xl:col-span-1 space-y-4">
+          <div className="space-y-4 md:max-w-lg xl:max-w-none">
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Discount</h3>
@@ -1189,7 +1177,7 @@ export default function InvoiceView() {
                     <button onClick={handleSave} disabled={saving}
                       className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-800 text-white text-sm font-semibold rounded-lg hover:bg-slate-700 disabled:opacity-50 transition-all shadow-sm">
                       {saving ? <LoadingDots className="text-white" /> : <Save className="w-4 h-4" />}
-                      {saving ? "Saving..." : "Save Invoice"}
+                      {saving ? "Saving..." : "Save"}
                     </button>
                     <button onClick={() => setIsEditing(false)}
                       className="w-full flex items-center justify-center gap-2 px-4 py-2.5 border border-slate-300 text-slate-700 text-sm font-semibold rounded-lg hover:bg-slate-50 transition-all">
@@ -1198,18 +1186,21 @@ export default function InvoiceView() {
                   </>
                 ) : null}
                 {!isEditing && (
-                  <div className="grid grid-cols-3 gap-2">
-                    <button onClick={() => setIsEditing(true)} title="Update invoice"
-                      className="flex items-center justify-center gap-1.5 px-2 py-2.5 bg-slate-800 text-white text-sm font-semibold rounded-lg hover:bg-slate-700 transition-all shadow-sm">
-                      <Edit3 className="w-4 h-4" /> Update
+                  <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
+                    <button onClick={() => setIsEditing(true)} title="Edit invoice"
+                      className="min-w-0 flex items-center justify-center gap-1 sm:gap-1.5 px-1.5 sm:px-3 py-2.5 bg-slate-800 text-white rounded-lg hover:bg-slate-700 transition-all shadow-sm">
+                      <Edit3 className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+                      <span className="text-xs sm:text-sm font-semibold whitespace-nowrap">Edit</span>
                     </button>
                     <button onClick={() => viewPDF(invoiceType)} disabled={sealRequired || !!busyAction} title="View PDF"
-                      className="flex items-center justify-center gap-1.5 px-2 py-2.5 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-all shadow-sm">
-                      {busyAction === "view" ? <Spinner size={16} /> : <FileText className="w-4 h-4" />} View
+                      className="min-w-0 flex items-center justify-center gap-1 sm:gap-1.5 px-1.5 sm:px-3 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-all shadow-sm">
+                      {busyAction === "view" ? <Spinner size={14} className="shrink-0" /> : <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />}
+                      <span className="text-xs sm:text-sm font-semibold whitespace-nowrap">View</span>
                     </button>
                     <button onClick={() => setShowShareSheet(true)} disabled={!!busyAction} title="Share"
-                      className="flex items-center justify-center gap-1.5 px-2 py-2.5 bg-emerald-600 text-white text-sm font-semibold rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-all shadow-sm">
-                      <Share2 className="w-4 h-4" /> Share
+                      className="min-w-0 flex items-center justify-center gap-1 sm:gap-1.5 px-1.5 sm:px-3 py-2.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-all shadow-sm">
+                      <Share2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+                      <span className="text-xs sm:text-sm font-semibold whitespace-nowrap">Share</span>
                     </button>
                   </div>
                 )}
@@ -1243,13 +1234,17 @@ export default function InvoiceView() {
                     />
                     <div className="flex gap-2">
                       <button type="button" onClick={() => copyShareUrl(shareUrl)} disabled={!!shareBusy}
-                        className="flex-1 flex items-center justify-center gap-1.5 px-2 py-2 border border-slate-300 text-slate-700 text-xs font-semibold rounded-lg hover:bg-slate-50 disabled:opacity-60 transition-all">
-                        <Copy className="w-3.5 h-3.5" /> Copy link
+                        className="min-w-0 flex-1 flex items-center justify-center gap-1.5 px-2 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 disabled:opacity-60 transition-all">
+                        <Copy className="w-3.5 h-3.5 shrink-0" />
+                        <span className="text-[11px] sm:text-xs font-semibold whitespace-nowrap">Copy link</span>
                       </button>
                       <button type="button" onClick={sendInvoiceEmailToCustomer} disabled={emailBusy || !!busyAction}
                         title="Email this invoice and its link to the customer"
-                        className="flex-1 flex items-center justify-center gap-1.5 px-2 py-2 bg-indigo-600 text-white text-xs font-semibold rounded-lg hover:bg-indigo-700 disabled:opacity-60 transition-all shadow-sm">
-                        {emailBusy ? <Spinner size={14} /> : <Mail className="w-3.5 h-3.5" />} {emailBusy ? "Sending..." : "Send Email"}
+                        className="min-w-0 flex-1 flex items-center justify-center gap-1.5 px-2 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-60 transition-all shadow-sm">
+                        {emailBusy ? <Spinner size={14} className="shrink-0" /> : <Mail className="w-3.5 h-3.5 shrink-0" />}
+                        <span className="text-[11px] sm:text-xs font-semibold whitespace-nowrap">
+                          {emailBusy ? "Sending..." : "Send Email"}
+                        </span>
                       </button>
                     </div>
                     <div className="flex items-center justify-between gap-2">
@@ -1274,14 +1269,19 @@ export default function InvoiceView() {
                   <div className="space-y-2">
                     <div className="flex gap-2">
                       <button type="button" onClick={() => handleShareLink("create")} disabled={!!shareBusy}
-                        className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 border border-sky-300 text-sky-700 text-xs font-semibold rounded-lg hover:bg-sky-50 disabled:opacity-60 transition-all">
-                        {shareBusy === "create" ? <Spinner size={14} /> : <Link2 className="w-3.5 h-3.5" />}
-                        {shareBusy === "create" ? "Creating..." : "Create link"}
+                        className="min-w-0 flex-1 flex items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-2.5 border border-sky-300 text-sky-700 rounded-lg hover:bg-sky-50 disabled:opacity-60 transition-all">
+                        {shareBusy === "create" ? <Spinner size={14} className="shrink-0" /> : <Link2 className="w-3.5 h-3.5 shrink-0" />}
+                        <span className="text-[11px] sm:text-xs font-semibold whitespace-nowrap">
+                          {shareBusy === "create" ? "Creating..." : "Create link"}
+                        </span>
                       </button>
                       <button type="button" onClick={sendInvoiceEmailToCustomer} disabled={emailBusy || !!busyAction}
                         title="Email this invoice and its link to the customer"
-                        className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 bg-indigo-600 text-white text-xs font-semibold rounded-lg hover:bg-indigo-700 disabled:opacity-60 transition-all shadow-sm">
-                        {emailBusy ? <Spinner size={14} /> : <Mail className="w-3.5 h-3.5" />} {emailBusy ? "Sending..." : "Send Email"}
+                        className="min-w-0 flex-1 flex items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-60 transition-all shadow-sm">
+                        {emailBusy ? <Spinner size={14} className="shrink-0" /> : <Mail className="w-3.5 h-3.5 shrink-0" />}
+                        <span className="text-[11px] sm:text-xs font-semibold whitespace-nowrap">
+                          {emailBusy ? "Sending..." : "Send Email"}
+                        </span>
                       </button>
                     </div>
                     <p className="text-[11px] text-slate-400 leading-relaxed">

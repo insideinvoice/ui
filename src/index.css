@@ -89,3 +89,52 @@ div:has(> label + input[type="date"]) {
     transition: opacity 150ms ease, filter 150ms ease;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Medium screens (1024–1279px) only: the fixed left nav collapses into a
+   64px icon rail (labels hidden, icons centred, native hover tooltips) so
+   wide content such as the invoice items table gets the whole width.
+   A hamburger in the rail toggles it back to the full 240px sidebar.
+   Desktop (xl+) and mobile (< lg) keep their existing layout untouched.
+--------------------------------------------------------------------------- */
+.rail-toggle {
+  display: none;
+}
+
+@media (min-width: 1024px) and (max-width: 1279.98px) {
+  .rail-toggle {
+    display: flex;
+  }
+
+  html.rail-collapsed aside.app-side-nav {
+    width: 4rem;
+  }
+
+  html.rail-collapsed .app-shell {
+    margin-left: 4rem;
+  }
+
+  html.rail-collapsed .rail-hide {
+    display: none;
+  }
+
+  html.rail-collapsed .rail-item {
+    justify-content: center;
+    gap: 0;
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  html.rail-collapsed .rail-toggle {
+    margin-left: auto;
+    margin-right: auto;
+  }
+}
+
+/* Collapsed rail header: tighter padding so the toggle button fits in 64px */
+@media (min-width: 1024px) and (max-width: 1279.98px) {
+  html.rail-collapsed .rail-head {
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+  }
+}

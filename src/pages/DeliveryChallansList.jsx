@@ -13,6 +13,8 @@ import {
   Eye,
   Download,
   Plus,
+  Search,
+  X,
 } from "lucide-react";
 
 export default function DeliveryChallansList() {
@@ -22,6 +24,16 @@ export default function DeliveryChallansList() {
   const [loading, setLoading] = useState(true);
   const [downloadingId, setDownloadingId] = useState(null);
   const [challanToDelete, setChallanToDelete] = useState(null);
+  const [search, setSearch] = useState("");
+
+  const query = search.trim().toLowerCase();
+  const filtered = !query
+    ? challans
+    : challans.filter((dc) =>
+        (dc.challanNumber || "").toLowerCase().includes(query) ||
+        (dc.customerName || "").toLowerCase().includes(query) ||
+        (dc.poNumber || "").toLowerCase().includes(query)
+      );
 
   const fetchChallans = async () => {
     try {
@@ -109,7 +121,9 @@ export default function DeliveryChallansList() {
               <h1 className="text-base sm:text-lg font-semibold text-slate-900 whitespace-nowrap">
                 All Delivery Challans
               </h1>
-              <p className="text-xs text-slate-500">{challans.length} total</p>
+              <p className="text-xs text-slate-500">
+                {query ? `${filtered.length} of ${challans.length} shown` : `${challans.length} total`}
+              </p>
             </div>
             <button
               onClick={() => navigate("/delivery-challans/new")}
@@ -120,6 +134,30 @@ export default function DeliveryChallansList() {
               <Plus className="w-5 h-5" />
             </button>
           </div>
+
+          {challans.length > 0 && (
+            <div className="px-4 sm:px-6 pb-4 border-b border-slate-200">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                <input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search by challan no, customer or P.O no"
+                  aria-label="Search delivery challans"
+                  className="w-full pl-9 pr-9 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-400/30 focus:border-teal-400 bg-white text-slate-800 placeholder:text-slate-400 min-h-[44px]"
+                />
+                {search && (
+                  <button
+                    onClick={() => setSearch("")}
+                    aria-label="Clear search"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
 
           {challans.length === 0 ? (
             <div className="p-16 text-center">
@@ -137,6 +175,22 @@ export default function DeliveryChallansList() {
                 className="mt-4 px-4 py-2 bg-teal-600 text-white text-sm font-semibold rounded-lg hover:bg-teal-700 transition-all"
               >
                 New Delivery Challan
+              </button>
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="p-12 text-center">
+              <div className="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-4">
+                <Search className="w-8 h-8 text-slate-400" />
+              </div>
+              <p className="text-sm font-semibold text-slate-700">No challans found</p>
+              <p className="text-xs text-slate-500 mt-1">
+                No delivery challan matches “{search.trim()}”
+              </p>
+              <button
+                onClick={() => setSearch("")}
+                className="mt-4 px-4 py-2 bg-white border border-slate-300 text-slate-700 text-sm font-semibold rounded-lg hover:bg-slate-50 transition-all"
+              >
+                Clear search
               </button>
             </div>
           ) : (
@@ -166,7 +220,7 @@ export default function DeliveryChallansList() {
                     </tr>
                   </thead>
                   <tbody>
-                    {challans.map((dc, i) => (
+                    {filtered.map((dc, i) => (
                       <tr
                         key={dc.id}
                         className={`border-b border-slate-100 hover:bg-slate-100 transition-colors ${
@@ -229,7 +283,7 @@ export default function DeliveryChallansList() {
 
               {/* Mobile cards */}
               <div className="md:hidden divide-y divide-slate-100">
-                {challans.map((dc) => (
+                {filtered.map((dc) => (
                   <div key={dc.id} className="p-4">
                     <div className="flex items-center justify-between mb-2">
                       <button

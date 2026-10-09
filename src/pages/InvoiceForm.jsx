@@ -10,7 +10,7 @@ import toast from "react-hot-toast";
 import {
   ArrowLeft, Plus, Trash2, Save, FileText, Download,
   User, Building2, Phone, MapPin, Hash,
-  Package, FileSpreadsheet, Share2, Info, X, ChevronDown
+  Package, FileSpreadsheet, Share2, Info, X, ChevronDown, Truck
 } from "lucide-react";
 import InvoiceTemplateRenderer from "../components/InvoiceTemplateRenderer";
 import { renderDeliveryChallanPdf } from "../components/DeliveryChallanDownload";
@@ -256,6 +256,10 @@ export default function InvoiceForm() {
   // The hidden A4 invoice preview is only mounted while a PDF is being generated.
   // Re-rendering it on every keystroke was the main source of typing lag.
   const [showPdfPreview, setShowPdfPreview] = useState(false);
+  // Document type requested by the PDF button being pressed ("PROFORMA_INVOICE"
+  // vs "TAX_INVOICE") — the hidden capture must render THIS, not the form's
+  // invoiceType select, otherwise "Proforma PDF" downloads a Tax Invoice.
+  const [captureType, setCaptureType] = useState(null);
 
   // Pull the html2canvas/jsPDF chunk in before it is needed so the WhatsApp
   // click-to-share window stays inside the browser's transient-activation limit.
@@ -501,8 +505,9 @@ export default function InvoiceForm() {
 
   // localStorage read + JSON.parse + structuredClone — done once per invoice
   // type instead of on every render of the hidden capture document.
-  const previewPaperSize = useMemo(() => (getPrintSettings()[form.invoiceType] || {}).paperSize || "A4_PORTRAIT", [form.invoiceType]);
-  const previewTemplate = useMemo(() => getInvoiceTemplate(form.invoiceType), [form.invoiceType]);
+  const effectiveType = captureType || form.invoiceType;
+  const previewPaperSize = useMemo(() => (getPrintSettings()[effectiveType] || {}).paperSize || "A4_PORTRAIT", [effectiveType]);
+  const previewTemplate = useMemo(() => getInvoiceTemplate(effectiveType), [effectiveType]);
 
   const validate = () => {
     if (!customer.name.trim()) { toast.error("Customer name is required"); return false; }
@@ -637,6 +642,7 @@ export default function InvoiceForm() {
     recalcAll();
 
     setSaving(true);
+    setCaptureType(type);
     await mountPdfPreview();
     try {
       const filename = `${type === "PROFORMA_INVOICE" ? "Proforma_Invoice" : "Tax_Invoice"}_${form.invoiceDate || new Date().toISOString().split("T")[0]}.pdf`;
@@ -646,6 +652,7 @@ export default function InvoiceForm() {
     } catch {
       toast.error("Failed to generate PDF");
       setShowPdfPreview(false);
+      setCaptureType(null);
       setSaving(false);
       return;
     }
@@ -659,6 +666,7 @@ export default function InvoiceForm() {
       }
     }
     setShowPdfPreview(false);
+    setCaptureType(null);
     setSaving(false);
   };
 
@@ -746,24 +754,13 @@ export default function InvoiceForm() {
     <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 sticky top-6">
       <h2 className="text-sm font-bold text-slate-800 mb-4 pb-3 border-b border-slate-100">Actions</h2>
       <div className="space-y-3">
-        {/* Row 1: Save + icon-only quick actions (label shows on hover) */}
+        {/* Row 1: Save + icon-only share actions (label shows on hover) */}
         <div className="flex items-stretch gap-2">
           <button onClick={handleSave} disabled={saving}
             className="flex-1 min-w-0 flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-800 text-white text-sm font-semibold rounded-lg hover:bg-slate-700 disabled:opacity-50 transition-all shadow-sm min-h-[44px] whitespace-nowrap">
             {saving ? <Spinner size={16} className="text-white shrink-0" /> : <Save className="w-4 h-4 shrink-0" />}
             {saving ? "Saving..." : "Save Invoice"}
           </button>
-
-          <span className="relative group flex">
-            <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-20 whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-[11px] font-medium text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100">
-              Delivery Pdf
-            </span>
-            <button onClick={generateDeliveryChallanPdf} aria-label="Delivery Pdf"
-              disabled={saving || !customer.name?.trim() || !(items || []).some((i) => (i.itemName || "").trim() && parseFloat(i.qty) > 0)}
-              className="flex h-full items-center justify-center px-3 py-2.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 disabled:opacity-50 transition-all shadow-sm min-h-[44px]">
-              <Download className="w-4 h-4" />
-            </button>
-          </span>
 
           <span className="relative group flex">
             <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-20 whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-[11px] font-medium text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100">
@@ -789,14 +786,21 @@ export default function InvoiceForm() {
           </span>
         </div>
 
-        {/* Row 2: Proforma */}
-        <button onClick={() => generatePDF("PROFORMA_INVOICE")} disabled={sealRequired || totals.grandTotal <= 0}
+        {/* Row 2: Delivery Challan */}
+        <button onClick={generateDeliveryChallanPdf}
+          disabled={saving || !customer.name?.trim() || !(items || []).some((i) => (i.itemName || "").trim() && parseFloat(i.qty) > 0)}
+          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-teal-600 text-white text-sm font-semibold rounded-lg hover:bg-teal-700 disabled:opacity-50 transition-all shadow-sm min-h-[44px]">
+          <Truck className="w-4 h-4" /> Delivery Challan PDF
+        </button>
+
+        {/* Row 3: Proforma */}
+        <button onClick={() => generatePDF("PROFORMA_INVOICE")} disabled={saving || sealRequired || totals.grandTotal <= 0}
           className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 text-white text-sm font-semibold rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-all shadow-sm min-h-[44px]">
           <Download className="w-4 h-4" /> Proforma PDF
         </button>
 
-        {/* Row 3: Tax Invoice */}
-        <button onClick={() => generatePDF("TAX_INVOICE")} disabled={sealRequired || totals.grandTotal <= 0}
+        {/* Row 4: Tax Invoice */}
+        <button onClick={() => generatePDF("TAX_INVOICE")} disabled={saving || sealRequired || totals.grandTotal <= 0}
           className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-all shadow-sm min-h-[44px]">
           <Download className="w-4 h-4" /> Tax Invoice PDF
         </button>
@@ -861,7 +865,7 @@ export default function InvoiceForm() {
             items={items}
             totals={totals}
             discountPercent={discountEnabled ? discountPercent : "0"}
-            type={form.invoiceType}
+            type={effectiveType}
             invoiceNumber={savedInvoiceNumber || customInvoiceNumber || nextInvoiceNumber || ""}
             paperSize={previewPaperSize}
             template={previewTemplate}

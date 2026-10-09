@@ -715,12 +715,13 @@ export default function InvoiceView() {
         </div>
       )}
       <div className="max-w-[1900px] mx-auto px-4 sm:px-5 lg:px-6 py-3 sm:py-4 lg:py-5">
-        {/* Fixed header — pinned to the very top (below the AppNavbar, whose real
-            height is injected as --app-nav-height). position:fixed stays put on
-            iOS Safari where position:sticky drifts when the address bar collapses.
-            Static on desktop (sidebar layout, no top bar). */}
-        <div className="fixed top-[var(--app-nav-height,61px)] left-0 right-0 lg:static z-[90] bg-slate-50 border-b border-slate-200/60 lg:border-0 mb-6 py-2 lg:py-0 flex items-center justify-between px-4 sm:px-5 lg:px-0">
-          <div className="max-w-[1900px] mx-auto w-full flex items-center justify-between">
+        {/* In-flow header (same pattern as the View Invoices list page) — it
+            scrolls away with the content instead of staying pinned; the user
+            simply scrolls up to reach Back / WhatsApp. Previously it was
+            position:fixed below the navbar, which slid under the navbar on
+            mobile scroll-up (iOS Safari) and needed a compensating spacer. */}
+        <div className="mb-6 border-b border-slate-200/60 lg:border-0 py-2 lg:py-0 flex items-center justify-between">
+          <div className="w-full flex items-center justify-between">
           <PageHeader title="View Invoice" backTo="/invoices" className="" />
           <div className="flex items-center gap-2">
             <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
@@ -735,14 +736,6 @@ export default function InvoiceView() {
           </div>
           </div>
         </div>
-
-        {/* Spacer keeps page content from hiding behind the fixed header. The
-            header is fixed at --app-nav-height and is ~56px tall + mb-6 (24px)
-            gap — and the navbar itself is already in-flow (sticky), so its
-            height must NOT be added here again (that over-counted the safe-area
-            inset and pushed content down by ~50px extra in standalone PWA).
-            Hidden on desktop where the header is static and in-flow. */}
-        <div className="lg:hidden" style={{ height: "80px" }} aria-hidden="true" />
 
         <div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
           <div className="xl:col-span-4 space-y-6">

@@ -2,22 +2,34 @@ import { createRoot } from "react-dom/client";
 import { flushSync } from "react-dom";
 import { renderToStaticMarkup } from "react-dom/server";
 import CompanySeal from "./CompanySeal";
+import CompanyStamp from "./CompanyStamp";
 import DeliveryChallanDoc from "./DeliveryChallanDoc";
-import { chunkDcItems, buildDeliveryChallanPdf } from "../utils/deliveryChallanPdf";
+import { chunkDcItems, buildDeliveryChallanPdf, DC_SEAL_MM, DC_STAMP_MM } from "../utils/deliveryChallanPdf";
 
-function buildSealSvg(companyName) {
-  return renderToStaticMarkup(
-    <CompanySeal companyName={companyName || "COMPANY"} size={256} />
-  );
+function buildStampSvg(business, sealType) {
+  const name = business?.businessName || business?.name || "COMPANY";
+  if (sealType === "stamp") {
+    return renderToStaticMarkup(
+      <CompanyStamp
+        companyName={name}
+        addressLine1={business?.addressLine1 || ""}
+        addressLine2={[business?.addressLine2, business?.city, business?.state].filter(Boolean).join(", ")}
+        phone={business?.phone ? `Ph: ${business.phone}` : ""}
+        email={business?.email || ""}
+        width={512}
+      />
+    );
+  }
+  return renderToStaticMarkup(<CompanySeal companyName={name} size={256} />);
 }
 
 // Renders every page of a saved (or form-built) delivery challan offscreen,
-// captures them, and returns a jsPDF with the fixed bottom-right seal stamped
-// on every page when sealOn is set.
+// captures them, and returns a jsPDF with the chosen seal/stamp placed at the
+// fixed bottom-right corner on every page when sealOn is set.
 export async function renderDeliveryChallanPdf(
   dc,
   business,
-  { variant = "classic", sealOn = true } = {}
+  { variant = "classic", sealOn = true, sealType = "round" } = {}
 ) {
   const chunks = chunkDcItems(dc.items || []);
   const container = document.createElement("div");
@@ -53,10 +65,13 @@ export async function renderDeliveryChallanPdf(
     });
 
     const pages = Array.from(container.querySelectorAll("[data-dc-page]"));
-    const stampSvg = sealOn
-      ? buildSealSvg(business?.businessName || business?.name || "COMPANY")
-      : null;
-    return await buildDeliveryChallanPdf(pages, { stampSvg });
+    const stampSvg = sealOn ? buildStampSvg(business, sealType) : null;
+    const seal = sealType === "stamp" ? DC_STAMP_MM : DC_SEAL_MM;
+    return await buildDeliveryChallanPdf(pages, {
+      stampSvg,
+      stampWMm: seal.w,
+      stampHMm: seal.h,
+    });
   } finally {
     root.unmount();
     container.remove();

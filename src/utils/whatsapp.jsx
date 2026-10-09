@@ -32,24 +32,53 @@ export function buildInvoiceWhatsAppMessage({ customerName, invoiceNumber, invoi
   return lines.join("\n");
 }
 
-// Opens WhatsApp (app on mobile, WhatsApp Web on desktop) with a prefilled
-// message. Avoids window.open("", "_blank") which popup blockers kill after
-// any async work — wa.me / web.whatsapp.com universal-links handle routing.
-export function openWhatsAppChat(text) {
-  const encoded = encodeURIComponent(text || "");
+// Opens WhatsApp with a prefilled message and opens the contact-picker ("send
+// to…") screen. Callers reach this only AFTER async work (save + share-token
+// fetch), so the browser's "transient activation" for navigator.share() has often
+// already expired — share() then rejects and the old wa.me fallback landed on
+// WhatsApp's chat list with the text dropped. To make that impossible:
+//   1. the message is always copied to the clipboard first (paste as a fallback),
+//   2. navigator.share({ text }) is tried so picking WhatsApp opens its contact
+//      picker with the message filled in,
+//   3. otherwise we deep-link to api.whatsapp.com/send?text= via a fresh
+//      navigation (anchor click), which carries the prefilled text reliably on
+//      both iOS and Android.
+export async function openWhatsAppChat(text) {
+  const message = text || "";
+  const encoded = encodeURIComponent(message);
   const isMobile = /Android|iPhone|iPad|iPod|Mobile|Silk/i.test(navigator.userAgent);
 
-  if (isMobile) {
-    // Mobile browsers: wa.me is a universal link that opens the WhatsApp app
-    // directly with the message prefilled in the contact picker.
-    window.location.href = `https://wa.me/?text=${encoded}`;
-  } else {
-    // Desktop: WhatsApp Web opens with the message ready to send.
-    const win = window.open(`https://web.whatsapp.com/send?text=${encoded}`, "_blank");
-    if (!win) {
-      // Popup blocked — navigate the current tab as a fallback.
-      window.location.href = `https://wa.me/?text=${encoded}`;
+  // 1. Always copy the message so it survives even if every opener below is
+  //    blocked or WhatsApp drops it.
+  if (message && navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(message);
+    } catch {
+      /* clipboard unavailable (insecure context / permission) — ignore */
     }
+  }
+
+  // 2. Prefer the OS share sheet: choosing WhatsApp there opens its
+  //    contact-picker with the message already filled in.
+  if (isMobile && navigator.share) {
+    try {
+      await navigator.share({ text: message, title: "Invoice" });
+      return;
+    } catch (err) {
+      if (err && err.name === "AbortError") return; // user closed the sheet — do nothing
+      // Share blocked / activation expired → fall through to the deep link.
+    }
+  }
+
+  // 3. Reliable deep link: api.whatsapp.com/send?text= opens the app with the
+  //    message prefilled (contact picker on mobile, direct chat on desktop).
+  const url = message
+    ? `https://api.whatsapp.com/send?text=${encoded}`
+    : "https://api.whatsapp.com/";
+  const opened = window.open(url, "_blank");
+  if (!opened) {
+    // Popup blocked — navigate this tab instead.
+    window.location.href = url;
   }
 }
 
@@ -86,7 +115,7 @@ export async function createInvoicePdfFile(element, paperSizeId, filename) {
 
 // Cheap pre-check with a throwaway file: browsers that cannot hand files to the
 // OS share sheet fail here, so we never generate a PDF that cannot be attached.
-function probeFileShare() {
+export function probeFileShare() {
   try {
     if (!navigator.share || !navigator.canShare) return false;
     const probe = new File([new Blob([" "], { type: "application/pdf" })], "probe.pdf", { type: "application/pdf" });

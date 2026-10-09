@@ -16,7 +16,7 @@ import { downloadInvoicePDF } from "../components/InvoicePDF";
 import InvoiceTemplateRenderer from "../components/InvoiceTemplateRenderer";
 import { getInvoiceTemplate } from "../constants/paperSizes";
 import { buildInvoiceWhatsAppMessage, openWhatsAppChat } from "../utils/whatsapp";
-import { shareLinkToUser, proformaShareUrl } from "../utils/shareLink";
+import { shareLinkToUser, proformaShareUrl, readCachedShareToken, writeCachedShareToken } from "../utils/shareLink";
 
 const MONTH_NAMES = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -285,7 +285,9 @@ export default function InvoicesList() {
 
   const openShareSheet = useCallback((invoice) => {
     setShareSheetInvoice(invoice);
-    setSheetShareToken(null);
+    // Restore a token the user already consented to on this device, so the
+    // WhatsApp/copy tap below needs no network round-trip.
+    setSheetShareToken(readCachedShareToken(invoice.id));
     setShareBusy("");
   }, []);
 
@@ -297,10 +299,16 @@ export default function InvoicesList() {
 
   const ensureSheetShareToken = async () => {
     if (sheetShareToken) return sheetShareToken;
+    const cached = readCachedShareToken(shareSheetInvoice.id);
+    if (cached) {
+      setSheetShareToken(cached);
+      return cached;
+    }
     const res = await invoiceAPI.createShare(shareSheetInvoice.id);
     const token = res.data?.data?.token;
     if (!token) throw new Error("no token");
     setSheetShareToken(token);
+    writeCachedShareToken(shareSheetInvoice.id, token);
     return token;
   };
 
@@ -332,10 +340,21 @@ export default function InvoicesList() {
     try {
       const url = await sheetShareLink();
       const num = shareSheetInvoice?.invoiceNumber || "";
+      const business = await resolveBusinessProfile();
+      // Full friendly message with the link inline. A separate `url` field is
+      // deliberately NOT passed: several Android targets drop the text and
+      // share only the bare link when both are present.
+      const text = buildInvoiceWhatsAppMessage({
+        customerName: shareSheetInvoice?.customerName,
+        invoiceNumber: num,
+        invoiceType: shareSheetInvoice?.invoiceType,
+        total: shareSheetInvoice?.grandTotal || 0,
+        businessName: business?.businessName,
+        shareUrl: url,
+      });
       await navigator.share({
         title: `Invoice ${num}`.trim(),
-        text: `Invoice ${num}`,
-        url,
+        text,
       });
       closeShareSheet();
     } catch (err) {
@@ -354,16 +373,42 @@ export default function InvoicesList() {
 
   const shareFromSheetWhatsApp = async () => {
     if (shareBusy || !shareSheetInvoice) return;
-    setShareBusy("sheet-wa");
     const invoice = shareSheetInvoice;
+    const origin = typeof window !== "undefined" && window.location.origin ? window.location.origin : "https://insideinvoice.com";
+
+    // Fast path: token already known (cache or earlier share in this session)
+    // → build the message and share with no network round-trip, so
+    // navigator.share / wa.me stay inside the tap's user-gesture window.
+    // resolveBusinessProfile is a localStorage peek (microtask), which does
+    // not cost the gesture.
+    const cachedToken = sheetShareToken || readCachedShareToken(invoice.id);
+    if (cachedToken) {
+      const business = await resolveBusinessProfile();
+      const text = buildInvoiceWhatsAppMessage({
+        customerName: invoice.customerName,
+        invoiceNumber: invoice.invoiceNumber,
+        invoiceType: invoice.invoiceType,
+        total: invoice.grandTotal || 0,
+        businessName: business?.businessName,
+        shareUrl: `${origin}/i/${cachedToken}`,
+      });
+      setSheetShareToken(null);
+      setShareSheetInvoice(null);
+      openWhatsAppChat(text);
+      return;
+    }
+
+    setShareBusy("sheet-wa");
     try {
       let token = sheetShareToken;
       if (!token) {
         const res = await invoiceAPI.createShare(invoice.id);
         token = res.data?.data?.token;
-        if (token) setSheetShareToken(token);
+        if (token) {
+          setSheetShareToken(token);
+          writeCachedShareToken(invoice.id, token);
+        }
       }
-      const origin = typeof window !== "undefined" && window.location.origin ? window.location.origin : "https://insideinvoice.com";
       const shareUrl = token ? `${origin}/i/${token}` : undefined;
       const business = await resolveBusinessProfile();
       const text = buildInvoiceWhatsAppMessage({
@@ -693,7 +738,7 @@ export default function InvoicesList() {
                   {shareBusy === "copy" ? <Spinner size={18} /> : <Link2 className="w-5 h-5" />}
                 </span>
                 <span className="min-w-0">
-                  <span className="block text-sm font-semibold text-slate-800">Copy link</span>
+                  <span className="block text-sm font-semibold text-slate-800">Invoice Link</span>
                   <span className="block text-xs text-slate-400 truncate">
                     {sheetShareUrl ? "Link ready — anyone with it can view" : "Creates a view-only link"}
                   </span>

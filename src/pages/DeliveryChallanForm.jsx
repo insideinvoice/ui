@@ -32,6 +32,11 @@ export default function DeliveryChallanForm() {
   const [sealOn, setSealOn] = useState(
     () => localStorage.getItem("ii_dc_seal") !== "off"
   );
+  // Round seal vs rectangular rubber stamp — same global preference the
+  // invoice flow uses (localStorage.seal_type), defaulting to the round seal.
+  const [sealType, setSealType] = useState(
+    () => localStorage.getItem("seal_type") || "round"
+  );
   const [form, setForm] = useState({
     challanNumber: "",
     challanDate: todayIso(),
@@ -102,6 +107,7 @@ export default function DeliveryChallanForm() {
       const pdf = await renderDeliveryChallanPdf(dc, business, {
         variant: template,
         sealOn,
+        sealType,
       });
       pdf.save(`Delivery_Challan_${dc.challanNumber}.pdf`);
       toast.success("Delivery challan created & downloaded");
@@ -181,6 +187,33 @@ export default function DeliveryChallanForm() {
               />
               Seal / Rubber stamp on PDF
             </label>
+            {sealOn && (
+              <div className="pb-1.5">
+                <span className={labelClass}>Stamp type</span>
+                <div className="flex gap-2">
+                  {[
+                    { id: "round", label: "Round Seal" },
+                    { id: "stamp", label: "Rubber Stamp" },
+                  ].map((s) => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => {
+                        setSealType(s.id);
+                        localStorage.setItem("seal_type", s.id);
+                      }}
+                      className={`px-4 py-2 rounded-lg text-sm font-semibold border transition-all min-h-[40px] ${
+                        sealType === s.id
+                          ? "bg-teal-600 text-white border-teal-600 shadow-sm"
+                          : "bg-white text-slate-600 border-slate-300 hover:bg-slate-50"
+                      }`}
+                    >
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-5">

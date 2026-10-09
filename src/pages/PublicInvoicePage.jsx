@@ -347,6 +347,22 @@ export default function PublicInvoicePage() {
     const pdf = await generateExact("print");
     if (!pdf) return;
     const blobUrl = URL.createObjectURL(pdf.output("blob"));
+
+    // iOS/Safari cannot script-print a hidden-iframe PDF — doing so prints the
+    // whole surrounding page instead. Hand the PDF to the native iOS viewer in a
+    // fresh tab so ONLY the document is shown (and printable from there).
+    const isIOS =
+      /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+      (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    if (isIOS) {
+      const win = window.open(blobUrl, "_blank");
+      if (!win) {
+        // Pop-up blocked: drop straight into this tab's native PDF viewer.
+        window.location.href = blobUrl;
+      }
+      return;
+    }
+
     const iframe = document.createElement("iframe");
     iframe.style.position = "fixed";
     iframe.style.right = "0";

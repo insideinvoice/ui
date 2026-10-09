@@ -24,6 +24,11 @@ export default function DeliveryChallanView() {
   const [sealOn, setSealOn] = useState(
     () => localStorage.getItem("ii_dc_seal") !== "off"
   );
+  // Round seal vs rectangular rubber stamp — same global preference the
+  // invoice flow uses (localStorage.seal_type), defaulting to the round seal.
+  const [sealType, setSealType] = useState(
+    () => localStorage.getItem("seal_type") || "round"
+  );
 
   useEffect(() => {
     Promise.all([
@@ -56,6 +61,7 @@ export default function DeliveryChallanView() {
       const pdf = await renderDeliveryChallanPdf(dc, business, {
         variant: template,
         sealOn,
+        sealType,
       });
       pdf.save(`Delivery_Challan_${dc.challanNumber}.pdf`);
       toast.success("Downloaded");
@@ -142,6 +148,20 @@ export default function DeliveryChallanView() {
                 />
                 Seal
               </label>
+              {sealOn && (
+                <select
+                  value={sealType}
+                  onChange={(e) => {
+                    setSealType(e.target.value);
+                    localStorage.setItem("seal_type", e.target.value);
+                  }}
+                  className="px-3 py-2 border border-slate-300 rounded-lg text-xs font-semibold text-slate-600 bg-white min-h-[38px]"
+                  aria-label="Stamp type"
+                >
+                  <option value="round">Round seal</option>
+                  <option value="stamp">Rubber stamp</option>
+                </select>
+              )}
               <button
                 onClick={handleDownload}
                 disabled={downloading}
@@ -181,6 +201,7 @@ export default function DeliveryChallanView() {
                 poDate={dc.poDate}
                 items={chunk}
                 showSeal={sealOn}
+                sealType={sealType}
               />
             </div>
           ))}

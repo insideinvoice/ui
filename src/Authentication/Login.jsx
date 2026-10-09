@@ -29,7 +29,9 @@ export default function AuthPage() {
   const [successMessage, setSuccessMessage] = useState("");
   const [emailFocused, setEmailFocused] = useState(false);
   const [passwordFocused, setPasswordFocused] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
+  // Default ON: keeps the user signed in across tab/browser closes (7-day JWT in
+  // localStorage). Users on a shared computer can still untick it.
+  const [rememberMe, setRememberMe] = useState(true);
 
   const [formData, setFormData] = useState({
     email: "",

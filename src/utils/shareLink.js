@@ -1,5 +1,36 @@
 import toast from "react-hot-toast";
 
+/* Share-token cache — tokens the user already consented to create.
+   Restoring them on the next visit makes the WhatsApp/share tap fully
+   synchronous: navigator.share / wa.me only work reliably while the call
+   still sits inside the tap's user-gesture window, and any awaited
+   network round-trip (createShare) can blow that window on iOS/Android. */
+const tokenKey = (invoiceId) => `ii_share_token_${invoiceId}`;
+
+export function readCachedShareToken(invoiceId) {
+  try {
+    return localStorage.getItem(tokenKey(invoiceId)) || null;
+  } catch {
+    return null;
+  }
+}
+
+export function writeCachedShareToken(invoiceId, token) {
+  try {
+    if (token) localStorage.setItem(tokenKey(invoiceId), token);
+  } catch {
+    /* private mode / quota — the in-memory token still works */
+  }
+}
+
+export function clearCachedShareToken(invoiceId) {
+  try {
+    localStorage.removeItem(tokenKey(invoiceId));
+  } catch {
+    /* ignore */
+  }
+}
+
 /**
  * Hands a share URL to the user: the OS share sheet where the browser has one (mobile →
  * pick WhatsApp, mail, notes, …) and the clipboard everywhere else.

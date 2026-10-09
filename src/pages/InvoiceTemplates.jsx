@@ -433,6 +433,18 @@ export default function InvoiceTemplates() {
   const previewTemplate = ALL_TEMPLATES.find((t) => t.id === previewId);
   const dcPreviewTemplate = DC_TEMPLATES.find((t) => t.id === dcPreviewId);
 
+  // Lock background scroll while either preview modal is open (both desktop and
+  // mobile) so only the modal body scrolls — a professional modal behaviour.
+  const modalOpen = Boolean(previewId || dcPreviewId);
+  useEffect(() => {
+    if (!modalOpen) return undefined;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [modalOpen]);
+
   return (
     <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-gray-100">
       <AppNavbar />
@@ -478,13 +490,13 @@ export default function InvoiceTemplates() {
       {/* Delivery Challan Preview Modal */}
       {dcPreviewId && dcPreviewTemplate && (
         <div
-          className="fixed inset-0 z-[1200] bg-black/40 backdrop-blur-sm flex items-start sm:items-center justify-center overflow-y-auto overflow-x-hidden overscroll-contain py-0 sm:py-10"
+          className="fixed inset-0 z-[1200] bg-black/40 backdrop-blur-sm flex justify-center overflow-y-auto overflow-x-hidden overscroll-contain p-3 sm:p-10"
           style={{ touchAction: "pan-y" }}
           onClick={() => setDcPreviewId(null)}
         >
-          <div className="relative w-full sm:w-auto mx-0 sm:mx-4" onClick={(e) => e.stopPropagation()}>
-            <div className="bg-white shadow-2xl overflow-hidden rounded-none sm:rounded-xl" style={{ maxWidth: "900px" }}>
-              <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-100 gap-2 sticky top-0 bg-white z-10">
+          <div className="relative w-full sm:w-auto m-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-white shadow-2xl overflow-hidden rounded-xl flex flex-col max-h-[calc(100dvh-1.5rem)] sm:max-h-[85vh]" style={{ maxWidth: "900px", width: "100%" }}>
+              <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-100 gap-2 shrink-0 bg-white">
                 <div className="flex items-center gap-2 min-w-0">
                   <button
                     onClick={() => setDcPreviewId(null)}
@@ -518,7 +530,7 @@ export default function InvoiceTemplates() {
                 </div>
               </div>
               <div
-                className="p-4 sm:p-6 overflow-y-auto overflow-x-hidden overscroll-contain max-h-[calc(100dvh-4rem)] sm:max-h-[80vh]"
+                className="p-4 sm:p-6 overflow-y-auto overflow-x-hidden overscroll-contain flex-1 min-h-0"
                 style={{ touchAction: "pan-y" }}
               >
                 <DcScaledPreview variant={dcPreviewId} />
@@ -531,13 +543,13 @@ export default function InvoiceTemplates() {
       {/* Full-size Preview Modal */}
       {previewId && previewTemplate && (
         <div
-          className="fixed inset-0 z-[1200] bg-black/40 backdrop-blur-sm flex items-start sm:items-center justify-center overflow-y-auto overflow-x-hidden overscroll-contain py-0 sm:py-10"
+          className="fixed inset-0 z-[1200] bg-black/40 backdrop-blur-sm flex justify-center overflow-y-auto overflow-x-hidden overscroll-contain p-3 sm:p-10"
           style={{ touchAction: "pan-y" }}
           onClick={() => setPreviewId(null)}
         >
-          <div className="relative w-full sm:w-auto mx-0 sm:mx-4" onClick={(e) => e.stopPropagation()}>
-            <div className="bg-white shadow-2xl overflow-hidden rounded-none sm:rounded-xl" style={{ maxWidth: "900px" }}>
-              <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-100 gap-2 sticky top-0 bg-white z-10">
+          <div className="relative w-full sm:w-auto m-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-white shadow-2xl overflow-hidden rounded-xl flex flex-col max-h-[calc(100dvh-1.5rem)] sm:max-h-[85vh]" style={{ maxWidth: "900px", width: "100%" }}>
+              <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-100 gap-2 shrink-0 bg-white">
                 <div className="flex items-center gap-2 min-w-0">
                   <button onClick={() => setPreviewId(null)} aria-label="Close preview"
                     className="p-2.5 -ml-2 -my-1 min-w-[44px] min-h-[44px] inline-flex items-center justify-center hover:bg-slate-100 rounded-lg transition-colors text-slate-600">
@@ -563,7 +575,7 @@ export default function InvoiceTemplates() {
                 </div>
               </div>
               <div
-                className="p-4 sm:p-6 overflow-y-auto overflow-x-hidden overscroll-contain max-h-[calc(100dvh-4rem)] sm:max-h-[80vh]"
+                className="p-4 sm:p-6 overflow-y-auto overflow-x-hidden overscroll-contain flex-1 min-h-0"
                 style={{ touchAction: "pan-y" }}
               >
                 <ScaledPreview templateId={previewId} />

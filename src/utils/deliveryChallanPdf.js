@@ -10,6 +10,12 @@ export const DC_ITEMS_PER_PAGE = 20;
 export const DC_PAGE_W = 714;
 export const DC_PAGE_H = 1040;
 
+// Bottom-right seal/stamp footprint in mm (page coordinates). The round seal
+// is a 26×26 square; the rubber stamp is rectangular (2.5:1, CompanyStamp's
+// viewBox aspect) and sits in the same corner.
+export const DC_SEAL_MM = { w: 26, h: 26 };
+export const DC_STAMP_MM = { w: 40, h: 16 };
+
 export function fmtDate(iso) {
   if (!iso) return "";
   const [y, m, d] = String(iso).split("-");
@@ -156,7 +162,7 @@ export async function buildDeliveryChallanPdf(pageElements, options = {}) {
       );
 
       if (stampPng) {
-        pdf.addImage(stampPng, "PNG", stampX, stampY, stampSizeMm, stampSizeMm);
+        pdf.addImage(stampPng, "PNG", stampX, stampY, stampWMm, stampHMm);
       }
 
       firstPage = false;

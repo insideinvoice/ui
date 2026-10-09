@@ -13,8 +13,8 @@ import InvoiceTemplateRenderer from "../components/InvoiceTemplateRenderer";
 import WhatsAppIcon from "../components/WhatsAppIcon";
 import { processQueue } from "../utils/retryQueue";
 import { processPrint } from "../utils/printInvoice";
-import { buildInvoiceWhatsAppMessage, openWhatsAppChat } from "../utils/whatsapp";
-import { shareLinkToUser, proformaShareUrl } from "../utils/shareLink";
+import { buildInvoiceWhatsAppMessage, openWhatsAppChat, createInvoicePdfFile, probeFileShare, prefetchInvoicePdf } from "../utils/whatsapp";
+import { shareLinkToUser, proformaShareUrl, readCachedShareToken, writeCachedShareToken, clearCachedShareToken } from "../utils/shareLink";
 import { getPrintSettings, getInvoiceTemplate } from "../constants/paperSizes";
 import { computeInvoiceTotals, round2 } from "../utils/invoiceTotals";
 import { INDIAN_STATES, DELIVERY_TERMS, PAYMENT_TERMS } from "../constants/indianStates";
@@ -133,6 +133,7 @@ export default function InvoiceView() {
   const ghostMode = localStorage.getItem("ghost_mode") === "true";
   const [discountPercent, setDiscountPercent] = useState("");
   const [discountEnabled, setDiscountEnabled] = useState(false);
+  const [discountDirty, setDiscountDirty] = useState(false);
   const discountVal = parseFloat(discountPercent) || 0;
   const [business, setBusiness] = useState(null);
   const [form, setForm] = useState({
@@ -176,11 +177,13 @@ export default function InvoiceView() {
         const token = res.data?.data?.token;
         if (!token) throw new Error("no token");
         setShareToken(token);
+        writeCachedShareToken(id, token);
         await copyShareUrl(`${window.location.origin}/i/${token}`);
         toast("Previous link disabled — only the new one works", { icon: "🔑" });
       } else if (action === "revoke") {
         await invoiceAPI.revokeShare(id);
         setShareToken(null);
+        clearCachedShareToken(id);
         toast.success("Share link revoked — it no longer resolves");
       }
     } catch (err) {
@@ -197,10 +200,18 @@ export default function InvoiceView() {
 
   const ensureShareToken = async () => {
     if (shareToken) return shareToken;
+    // A token from an earlier explicit share on this device: reuse it so the
+    // NEXT share tap needs no network round-trip (and stays in the gesture).
+    const cached = readCachedShareToken(id);
+    if (cached) {
+      setShareToken(cached);
+      return cached;
+    }
     const res = await invoiceAPI.createShare(id);
     const token = res.data?.data?.token;
     if (!token) throw new Error("no token");
     setShareToken(token);
+    writeCachedShareToken(id, token);
     return token;
   };
 
@@ -210,6 +221,7 @@ export default function InvoiceView() {
     if (shareBusy || busyAction) return;
     setShareBusy("copy");
     try {
+      if (!(await persistDiscount())) return;
       await copyShareUrl(await shareLinkFor());
       setShowShareSheet(false);
     } catch {
@@ -223,12 +235,40 @@ export default function InvoiceView() {
     if (shareBusy || busyAction) return;
     setShareBusy("native");
     try {
+      if (!(await persistDiscount())) return;
       const url = await shareLinkFor();
-      await navigator.share({
-        title: `Invoice ${form.invoiceNumber || ""}`.trim(),
-        text: `Invoice ${form.invoiceNumber || ""}${business?.businessName ? ` — ${business.businessName}` : ""}`,
-        url,
+      // Full friendly message with the link inline. A separate `url` field is
+      // deliberately NOT passed: several Android targets drop the text and
+      // share only the bare link when both are present.
+      const text = buildInvoiceWhatsAppMessage({
+        customerName: form.customerName,
+        invoiceNumber: form.invoiceNumber,
+        invoiceType,
+        total: totals.grandTotal,
+        businessName: business?.businessName,
+        shareUrl: url,
       });
+      // Prefer attaching the invoice PDF itself — More apps → pick any app
+      // (WhatsApp, mail, Notes, …) shares the document with the message as its
+      // caption. Falls back to the text+link share when this browser cannot
+      // hand files to the share sheet.
+      let file = null;
+      if (probeFileShare()) {
+        try {
+          const captureRef = await mountCapture(invoiceType);
+          const ps = (getPrintSettings()[invoiceType] || {}).paperSize || "A4_PORTRAIT";
+          const filename = `${invoiceType === "PROFORMA_INVOICE" ? "Proforma" : "Tax"}_Invoice_${form.invoiceNumber}.pdf`;
+          file = await createInvoicePdfFile(captureRef.current, ps, filename);
+          if (file && !navigator.canShare({ files: [file] })) file = null;
+        } finally {
+          releaseCapture();
+        }
+      }
+      if (file) {
+        await navigator.share({ files: [file], text, title: file.name });
+      } else {
+        await navigator.share({ title: `Invoice ${form.invoiceNumber || ""}`.trim(), text });
+      }
       setShowShareSheet(false);
     } catch (err) {
       if (err?.name !== "AbortError") {
@@ -265,6 +305,7 @@ export default function InvoiceView() {
     if (shareBusy || busyAction) return;
     setShareBusy("proforma");
     try {
+      if (!(await persistDiscount())) return;
       const url = proformaShareUrl(await shareLinkFor());
       setShowShareSheet(false);
       await shareLinkToUser({
@@ -286,6 +327,7 @@ export default function InvoiceView() {
     if (emailBusy || busyAction) return;
     setEmailBusy(true);
     try {
+      if (!(await persistDiscount())) return;
       // Make sure the panel shows the same link the email will carry.
       if (!shareToken) {
         const res = await invoiceAPI.createShare(id);
@@ -309,10 +351,15 @@ export default function InvoiceView() {
     ]).then(([invRes, bizRes]) => {
       const inv = invRes.data.data;
       setBusiness(bizRes?.data?.data || null);
+      // Restore a share token the user already consented to on this device, so
+      // the first WhatsApp/share tap needs no network and stays in-gesture.
+      const cachedToken = readCachedShareToken(id);
+      if (cachedToken) setShareToken(cachedToken);
       setInvoiceType(inv.invoiceType || "TAX_INVOICE");
       const dPct = parseFloat(inv.discountPercent);
       setDiscountEnabled(!Number.isNaN(dPct) && dPct > 0);
       setDiscountPercent(!Number.isNaN(dPct) && dPct > 0 ? String(inv.discountPercent) : "");
+      setDiscountDirty(false);
       setForm({
         customerId: inv.customerId || null, customerName: inv.customerName || "", customerEmail: "", customerPhone: "",
         billingAddress: "", customerGstIn: "", invoiceDate: inv.invoiceDate || "",
@@ -347,6 +394,12 @@ export default function InvoiceView() {
     .catch(() => setError("Failed to load invoice"))
     .finally(() => setLoading(false));
   }, [id]);
+
+  // Warm the PDF generator chunks as soon as the share sheet opens, so the
+  // More-apps PDF share finishes inside the browser's user-gesture window.
+  useEffect(() => {
+    if (showShareSheet) prefetchInvoicePdf();
+  }, [showShareSheet]);
 
   useEffect(() => {
     processQueue(
@@ -428,7 +481,7 @@ export default function InvoiceView() {
   };
 
   const handleSave = async () => {
-    if (!validate()) return;
+    if (!validate()) return false;
     setSaving(true);
     try {
       await invoiceAPI.update(id, {
@@ -460,20 +513,29 @@ export default function InvoiceView() {
       });
       toast.success("Invoice updated successfully");
       setIsEditing(false);
+      setDiscountDirty(false);
+      return true;
     } catch (err) {
       const msg = err.response?.data?.message || err.response?.data?.error || "Failed to update invoice";
       toast.error(msg);
       console.error("Update invoice error:", err.response?.data);
+      return false;
     } finally {
       setSaving(false);
     }
   };
 
+  // Persists pending discount edits before any action (share / PDF / email / link)
+  // so the generated document always matches what the user typed. Returns false
+  // when the invoice could not be saved, so callers can abort.
+  const persistDiscount = async () => {
+    if (!discountDirty) return true;
+    if (!validate()) return false;
+    return handleSave();
+  };
+
   const downloadPDF = async (type) => {
-    if (isEditing) {
-      if (!validate()) return;
-      handleSave().catch(() => {});
-    }
+    if (!(await persistDiscount())) return;
     setBusyAction(`download:${type}`);
     try {
       const filename = `${type === "PROFORMA_INVOICE" ? "Proforma" : "Tax"}_Invoice_${form.invoiceNumber}.pdf`;
@@ -490,15 +552,29 @@ export default function InvoiceView() {
 
   const shareViaWhatsApp = async () => {
     if (busyAction) return;
+    // Fast path: the share token is already known (restored from cache or a
+    // previous share) and there is nothing to save → build the message and
+    // share with ZERO awaits, so navigator.share / wa.me still sit inside the
+    // tap's user-gesture window. iOS and Android drop the message when these
+    // fire after a network round-trip ("just opens WhatsApp").
+    if (shareToken && !discountDirty && !isEditing) {
+      const text = buildInvoiceWhatsAppMessage({
+        customerName: form.customerName,
+        invoiceNumber: form.invoiceNumber,
+        invoiceType,
+        total: totals.grandTotal,
+        businessName: business?.businessName,
+        shareUrl: `${window.location.origin}/i/${shareToken}`,
+      });
+      openWhatsAppChat(text);
+      return;
+    }
     setBusyAction("whatsapp");
     try {
-      // 1. Save the invoice (if unsaved / editing)
-      if (isEditing) {
-        if (!validate()) {
-          setBusyAction("");
-          return;
-        }
-        await handleSave();
+      // 1. Save the invoice (if unsaved / editing, or pending discount edits)
+      if (!(await persistDiscount())) {
+        setBusyAction("");
+        return;
       }
 
       // 2. Create/ensure a public share link
@@ -524,6 +600,7 @@ export default function InvoiceView() {
   };
 
   const viewPDF = async () => {
+    if (!(await persistDiscount())) return;
     setBusyAction("view");
     try {
       const { buildInvoicePdf } = await import("../utils/invoicePdf");
@@ -548,6 +625,15 @@ export default function InvoiceView() {
   const printPreviewPdf = () => {
     if (!pdfPreviewUrl) return;
     const url = pdfPreviewUrl.split("#")[0];
+    // iOS/Safari can't script-print a hidden-iframe PDF (it prints the whole
+    // page). Open it in the native viewer instead so only the PDF is shown.
+    const isIOS =
+      /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+      (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    if (isIOS) {
+      if (!window.open(url, "_blank")) window.location.href = url;
+      return;
+    }
     const iframe = document.createElement("iframe");
     iframe.setAttribute("title", "Print invoice PDF");
     iframe.style.cssText =
@@ -628,7 +714,9 @@ export default function InvoiceView() {
         </div>
       )}
       <div className="max-w-[1900px] mx-auto px-4 sm:px-5 lg:px-6 py-3 sm:py-4 lg:py-5">
-        <div className="flex items-center justify-between mb-6">
+        {/* Sticky on mobile so the back button stays reachable while scrolling a long
+            invoice; static on desktop (sidebar nav, no top bar to clear). */}
+        <div className="sticky lg:static top-[calc(env(safe-area-inset-top,0px)+44px)] z-[90] bg-slate-50/95 backdrop-blur mb-6 flex items-center justify-between">
           <PageHeader title="View Invoice" backTo="/invoices" />
           <div className="flex items-center gap-2">
             <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
@@ -1022,6 +1110,7 @@ export default function InvoiceView() {
                   const next = !discountEnabled;
                   setDiscountEnabled(next);
                   if (!next) setDiscountPercent("");
+                  setDiscountDirty(true);
                 }}
                   className={`relative w-12 h-6 rounded-full transition-colors ${discountEnabled ? "bg-blue-500" : "bg-slate-300"}`}>
                   <span className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${discountEnabled ? "translate-x-6" : ""}`} />
@@ -1034,7 +1123,10 @@ export default function InvoiceView() {
                     min="0"
                     max="100"
                     value={discountPercent}
-                    onChange={(e) => setDiscountPercent(e.target.value)}
+                    onChange={(e) => {
+                      setDiscountPercent(e.target.value);
+                      setDiscountDirty(true);
+                    }}
                     inputMode="numeric"
                     placeholder="0"
                     className="w-20 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-400/30 focus:border-slate-400"
@@ -1289,7 +1381,7 @@ export default function InvoiceView() {
                   {shareBusy === "copy" ? <Spinner size={18} /> : <Link2 className="w-5 h-5" />}
                 </span>
                 <span className="min-w-0">
-                  <span className="block text-sm font-semibold text-slate-800">Copy link</span>
+                  <span className="block text-sm font-semibold text-slate-800">Invoice Link</span>
                   <span className="block text-xs text-slate-400 truncate">
                     {shareUrl ? "Link ready — anyone with it can view" : "Creates a view-only link"}
                   </span>

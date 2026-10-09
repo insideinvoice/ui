@@ -240,7 +240,7 @@ export default function AdminUsersList() {
         title={modal.type === "delete" ? "Delete User" : "Change Role"}
         message={
           modal.type === "delete"
-            ? `Delete "${modal.user?.name}" (${modal.user?.email})? This will also delete all their invoices, customers, and products.`
+            ? `Delete "${modal.user?.name}" (${modal.user?.email})? This permanently deletes ALL their data — invoices, customers, products, payments, delivery challans, and labels. This cannot be undone.`
             : `Change ${modal.user?.name}'s role from ${modal.user?.role} to ${modal.user?.role === "ADMIN" ? "USER" : "ADMIN"}?`
         }
         confirmLabel={modal.type === "delete" ? "Delete" : "Confirm"}

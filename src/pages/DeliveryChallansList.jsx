@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import AppNavbar from "../components/AppNavbar";
 import PageHeader from "../components/PageHeader";
+import ConfirmModal from "../components/ConfirmModal";
 import LoadingDots from "../components/LoadingDots";
 import { deliveryChallanAPI, businessAPI } from "../api/auth";
 import { renderDeliveryChallanPdf } from "../components/DeliveryChallanDownload";
@@ -20,6 +21,7 @@ export default function DeliveryChallansList() {
   const [business, setBusiness] = useState(null);
   const [loading, setLoading] = useState(true);
   const [downloadingId, setDownloadingId] = useState(null);
+  const [challanToDelete, setChallanToDelete] = useState(null);
 
   const fetchChallans = async () => {
     try {
@@ -44,11 +46,12 @@ export default function DeliveryChallansList() {
       .catch(() => {});
   }, []);
 
-  const handleDelete = async (id) => {
-    if (!confirm("Delete this delivery challan?")) return;
+  const handleDelete = async () => {
+    if (!challanToDelete) return;
     try {
-      await deliveryChallanAPI.delete(id);
+      await deliveryChallanAPI.delete(challanToDelete.id);
       toast.success("Delivery challan deleted");
+      setChallanToDelete(null);
       fetchChallans();
     } catch (err) {
       toast.error(err.response?.data?.message || "Failed to delete");
@@ -102,17 +105,19 @@ export default function DeliveryChallansList() {
             <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-teal-500 to-teal-600 flex items-center justify-center shadow-sm shrink-0">
               <ClipboardList className="w-5 h-5 text-white" />
             </div>
-            <div className="flex-1">
-              <h1 className="text-base sm:text-lg font-semibold text-slate-900">
+            <div className="flex-1 min-w-0">
+              <h1 className="text-base sm:text-lg font-semibold text-slate-900 whitespace-nowrap">
                 All Delivery Challans
               </h1>
               <p className="text-xs text-slate-500">{challans.length} total</p>
             </div>
             <button
               onClick={() => navigate("/delivery-challans/new")}
-              className="flex items-center gap-1.5 px-4 py-2 bg-teal-600 text-white text-sm font-semibold rounded-lg hover:bg-teal-700 transition-all shadow-sm"
+              title="New Challan"
+              aria-label="New Challan"
+              className="flex items-center justify-center w-10 h-10 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-all shadow-sm shrink-0"
             >
-              <Plus className="w-4 h-4" /> New Challan
+              <Plus className="w-5 h-5" />
             </button>
           </div>
 
@@ -208,7 +213,7 @@ export default function DeliveryChallansList() {
                               <Download className="w-4 h-4" />
                             </button>
                             <button
-                              onClick={() => handleDelete(dc.id)}
+                              onClick={() => setChallanToDelete(dc)}
                               className="p-2 rounded-lg text-slate-500 hover:text-red-600 hover:bg-red-50 transition-colors"
                               title="Delete"
                             >
@@ -257,7 +262,7 @@ export default function DeliveryChallansList() {
                         <Download className="w-3.5 h-3.5" /> PDF
                       </button>
                       <button
-                        onClick={() => handleDelete(dc.id)}
+                        onClick={() => setChallanToDelete(dc)}
                         className="flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold text-red-600 bg-red-50 rounded-lg"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -269,6 +274,16 @@ export default function DeliveryChallansList() {
             </>
           )}
         </div>
+
+        <ConfirmModal
+          open={!!challanToDelete}
+          title="Delete Delivery Challan"
+          message={`Are you sure you want to delete "${challanToDelete?.challanNumber}"? This cannot be undone.`}
+          confirmLabel="Delete"
+          confirmVariant="danger"
+          onConfirm={handleDelete}
+          onCancel={() => setChallanToDelete(null)}
+        />
       </div>
     </div>
   );

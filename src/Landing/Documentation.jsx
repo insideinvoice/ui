@@ -112,7 +112,7 @@ export default function Documentation() {
           <ul className="list-disc pl-6 space-y-2">
             <li>Sales reports</li>
             <li>GST summaries</li>
-            <li>Monthly & yearly revenue</li>
+            <li>Monthly & yearly sales</li>
             <li>Export reports as PDF / Excel</li>
           </ul>
         </section>

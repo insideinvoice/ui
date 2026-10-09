@@ -10,6 +10,7 @@ import InvoiceTemplateRenderer from "../components/InvoiceTemplateRenderer";
 import { processPrint } from "../utils/printInvoice";
 import { getPrintSettings } from "../constants/paperSizes";
 import { computeInvoiceTotals, round2 } from "../utils/invoiceTotals";
+import { goBack } from "../utils/navigation";
 
 const emptyItem = { itemName: "", hsn: "", qty: "", rate: "", gstPercentage: "18", taxableValue: 0, taxAmount: 0, total: 0 };
 
@@ -187,7 +188,7 @@ export default function AdminInvoiceView() {
       <div className="min-h-[100dvh] bg-gradient-to-br from-gray-50 via-slate-50 to-gray-100">
         <AppNavbar />
         <div className="max-w-3xl mx-auto px-6 py-8">
-          <button onClick={() => navigate("/admin/invoices")}
+          <button onClick={() => goBack(navigate, "/admin/invoices")}
             className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 mb-4 transition-colors">
             <ArrowLeft className="w-4 h-4" /> Back to Invoices
           </button>

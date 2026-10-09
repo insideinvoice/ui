@@ -3,10 +3,9 @@ import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { adminAPI, invoiceAPI, customerAPI } from "../api/auth";
 import { FileText, Users, Package, Building2, PlusCircle, List, BarChart3, DollarSign, TrendingUp, Calendar } from "lucide-react";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LineChart, Line, PieChart, Pie, Legend } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LineChart, Line } from "recharts";
 
 import AppNavbar from "../components/AppNavbar";
-import Spinner from "../components/Spinner";
 import { getCache, setCache } from "../utils/cache";
 
 const PAYMENT_COLORS = { UPI: "#6366f1", CASH: "#10b981", CARD: "#f59e0b", CHEQUE: "#8b5cf6", NEFT: "#3b82f6", IMPS: "#ec4899", OTHER: "#94a3b8" };
@@ -15,6 +14,32 @@ const STATUS_COLORS = { PAID: "#10b981", PENDING: "#f59e0b", SENT: "#3b82f6", OV
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 const round2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
 const money = (v) => `₹ ${Number(v || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+// Placeholder chart shaped like a bar chart so the layout doesn't jump when data lands
+function ChartSkeleton({ small = false }) {
+  return (
+    <div className={`w-full ${small ? "h-40 sm:h-48" : "h-44 sm:h-56"} animate-pulse`} aria-hidden="true">
+      <div className="h-full flex items-end gap-2 sm:gap-3 px-2 pb-5">
+        {[38, 62, 45, 78, 55, 90, 68].map((h, i) => (
+          <div key={i} className="flex-1 bg-slate-200 rounded-t-md" style={{ height: `${h}%` }} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Placeholder stat card matching the real card's layout
+function StatSkeleton() {
+  return (
+    <div className="bg-white rounded-xl border border-slate-200 p-3 sm:p-4 shadow-sm">
+      <div className="flex items-center gap-2 mb-1.5">
+        <div className="w-7 h-7 rounded-lg bg-slate-200 animate-pulse" />
+        <div className="h-3 w-16 bg-slate-200 rounded animate-pulse" />
+      </div>
+      <div className="h-5 w-24 bg-slate-200 rounded animate-pulse" />
+    </div>
+  );
+}
 
 export default function Dashboard() {
   const { user, isBusinessSetupComplete, isAdmin } = useAuth();
@@ -32,6 +57,7 @@ export default function Dashboard() {
   const [customerCount, setCustomerCount] = useState(cached?.data?.customerCount ?? 0);
   const [loadingStats, setLoadingStats] = useState(!cached);
   const [loadingInvoices, setLoadingInvoices] = useState(!cached);
+  const [loadingCustomers, setLoadingCustomers] = useState(!cached && !isAdmin);
 
   // Redirect if business setup not complete
   useEffect(() => {
@@ -69,6 +95,7 @@ export default function Dashboard() {
 
   // Fetch customer count for non-admin
   const fetchCustomerCount = useCallback(async () => {
+    setLoadingCustomers(true);
     try {
       const res = await customerAPI.getAll({ size: 1000 });
       const raw = res.data?.data;
@@ -76,6 +103,8 @@ export default function Dashboard() {
       setCustomerCount(list.length);
     } catch {
       // silent
+    } finally {
+      setLoadingCustomers(false);
     }
   }, []);
 
@@ -101,6 +130,7 @@ export default function Dashboard() {
       // Fresh cache hit: charts already rendered from storage, no fetch needed
       setLoadingStats(false);
       setLoadingInvoices(false);
+      setLoadingCustomers(false);
       return;
     }
 
@@ -142,7 +172,6 @@ export default function Dashboard() {
     const totalGrand = round2(valid.reduce((s, inv) => s + (parseFloat(inv.grandTotal) || 0), 0));
 
     const salesByMonth = {};
-    const revenueByMonth = {};
     const salesByPayment = {};
     const last7 = {};
     const today = new Date();
@@ -156,9 +185,6 @@ export default function Dashboard() {
       const amt = parseFloat(inv.grandTotal) || 0;
 
       salesByMonth[monthKey] = round2((salesByMonth[monthKey] || 0) + amt);
-      if (inv.status === "PAID") {
-        revenueByMonth[monthKey] = round2((revenueByMonth[monthKey] || 0) + amt);
-      }
 
       const pm = inv.paymentMode || "OTHER";
       salesByPayment[pm] = round2((salesByPayment[pm] || 0) + amt);
@@ -176,8 +202,8 @@ export default function Dashboard() {
     });
 
     return {
-      totalRevenue: totalGrand,
-      salesByMonth: months.map((m) => ({ month: m, sales: salesByMonth[m], revenue: revenueByMonth[m] || 0 })),
+      totalSales: totalGrand,
+      salesByMonth: months.map((m) => ({ month: m, sales: salesByMonth[m] })),
       last7Days: Object.entries(last7).sort((a, b) => {
         const parseDay = (s) => { const [d, m] = s.split(" "); return new Date(`${m} ${d}, ${today.getFullYear()}`); };
         return parseDay(a[0]) - parseDay(b[0]);
@@ -186,6 +212,11 @@ export default function Dashboard() {
       invoiceCount: valid.length,
     };
   }, [invoices]);
+
+  const statsLoading =
+    (loadingInvoices && invoices.length === 0) ||
+    (!isAdmin && loadingCustomers && !customerCount) ||
+    (isAdmin && loadingStats && !stats);
 
   const handleMonthClick = (monthKey) => {
     // monthKey format: "Jul 2026" -> navigate to invoices with filter
@@ -232,8 +263,11 @@ export default function Dashboard() {
 
           {/* Stats Row - 2-col grid on mobile, 4-col on desktop */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-4 sm:mb-6">
-            {[
-              { label: "Revenue", value: `₹ ${invoiceAnalytics.totalRevenue.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`, icon: DollarSign, gradient: "from-emerald-500 to-emerald-600", path: "/invoices" },
+            {statsLoading ? (
+              [0, 1, 2, 3].map((i) => <StatSkeleton key={i} />)
+            ) : (
+            [
+              { label: "Sales", value: `₹ ${invoiceAnalytics.totalSales.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`, icon: DollarSign, gradient: "from-emerald-500 to-emerald-600", path: "/invoices" },
               { label: "Invoices", value: invoiceAnalytics.invoiceCount, icon: FileText, gradient: "from-blue-500 to-blue-600", path: "/invoices" },
               { label: "Customers", value: isAdmin ? (stats?.totalCustomers || 0) : customerCount, icon: Users, gradient: "from-indigo-500 to-indigo-600", path: "/customers" },
               { label: "This Month", value: `₹ ${(invoiceAnalytics.salesByMonth.length > 0 ? invoiceAnalytics.salesByMonth[invoiceAnalytics.salesByMonth.length - 1].sales : 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`, icon: Calendar, gradient: "from-amber-500 to-amber-600", path: "/invoices" },
@@ -247,7 +281,8 @@ export default function Dashboard() {
                 </div>
                 <div className="text-base sm:text-lg font-bold text-slate-900 truncate">{stat.value}</div>
               </div>
-            ))}
+            ))
+            )}
           </div>
 
           {/* Charts */}
@@ -259,9 +294,7 @@ export default function Dashboard() {
                 <h2 className="text-sm font-semibold text-slate-900">Sales Trend</h2>
               </div>
               {loadingInvoices && invoices.length === 0 ? (
-                <div className="h-44 sm:h-56 flex items-center justify-center">
-                  <Spinner size={32} />
-                </div>
+                <ChartSkeleton />
               ) : invoiceAnalytics.salesByMonth.length > 0 ? (
                 <div className="h-44 sm:h-56">
                   <ResponsiveContainer width="100%" height="100%">
@@ -286,9 +319,7 @@ export default function Dashboard() {
                 <h2 className="text-sm font-semibold text-slate-900">Last 7 Days</h2>
               </div>
               {loadingInvoices && invoices.length === 0 ? (
-                <div className="h-44 sm:h-56 flex items-center justify-center">
-                  <Spinner size={32} />
-                </div>
+                <ChartSkeleton />
               ) : invoiceAnalytics.last7Days.length > 0 ? (
                 <div className="h-44 sm:h-56">
                   <ResponsiveContainer width="100%" height="100%">
@@ -306,17 +337,15 @@ export default function Dashboard() {
               )}
             </div>
 
-            {/* Monthly Revenue */}
+            {/* Monthly Sales */}
             <div className="bg-white rounded-xl border border-slate-200 p-3 sm:p-4 shadow-sm">
               <div className="flex items-center gap-2 mb-3">
                 <DollarSign className="w-4 h-4 text-emerald-600" />
-                <h2 className="text-sm font-semibold text-slate-900">Monthly Sales & Revenue</h2>
+                <h2 className="text-sm font-semibold text-slate-900">Monthly Sales</h2>
                 <span className="text-[10px] text-slate-400 ml-auto">Click month to view invoices</span>
               </div>
               {loadingInvoices && invoices.length === 0 ? (
-                <div className="h-44 sm:h-56 flex items-center justify-center">
-                  <Spinner size={32} />
-                </div>
+                <ChartSkeleton />
               ) : invoiceAnalytics.salesByMonth.length > 0 ? (
                 <div className="h-44 sm:h-56">
                   <ResponsiveContainer width="100%" height="100%">
@@ -325,14 +354,12 @@ export default function Dashboard() {
                       <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#64748b' }} />
                       <YAxis tick={{ fontSize: 10, fill: '#64748b' }} />
                       <Tooltip formatter={(v) => money(v)} contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '11px' }} cursor={{ fill: '#f8fafc' }} />
-                      <Legend wrapperStyle={{ fontSize: '11px' }} />
                       <Bar dataKey="sales" fill="#6366f1" radius={[4, 4, 0, 0]} maxBarSize={40} name="Sales (₹)" cursor="pointer" onClick={(data, index, event) => { const m = data?.month || data?.activePayload?.[0]?.payload?.month; if (m) handleMonthClick(m); }} />
-                      <Bar dataKey="revenue" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={40} name="Revenue (₹)" cursor="pointer" onClick={(data, index, event) => { const m = data?.month || data?.activePayload?.[0]?.payload?.month; if (m) handleMonthClick(m); }} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
               ) : (
-                <p className="text-xs text-slate-400 text-center py-10">No revenue data yet</p>
+                <p className="text-xs text-slate-400 text-center py-10">No sales data yet</p>
               )}
               {invoiceAnalytics.salesByMonth.length > 0 && (
                 <div className="mt-3 border-t border-slate-100 pt-3 overflow-x-auto -mx-1 px-1">
@@ -341,7 +368,6 @@ export default function Dashboard() {
                       <tr className="border-b border-slate-100">
                         <th className="text-left py-1.5 text-[10px] font-semibold text-slate-500 uppercase">Month</th>
                         <th className="text-right py-1.5 text-[10px] font-semibold text-slate-500 uppercase">Sales</th>
-                        <th className="text-right py-1.5 text-[10px] font-semibold text-slate-500 uppercase">Revenue</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -350,7 +376,6 @@ export default function Dashboard() {
                           className={`border-b border-slate-50 cursor-pointer transition-colors hover:bg-indigo-50/50 ${i % 2 === 1 ? "bg-slate-50/50" : ""}`}>
                           <td className="py-1.5 font-medium text-slate-700">{row.month}</td>
                           <td className="py-1.5 text-right text-slate-600 font-mono">₹ {row.sales.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                          <td className="py-1.5 text-right text-emerald-600 font-semibold font-mono">₹ {row.revenue.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -393,9 +418,7 @@ export default function Dashboard() {
                     <h2 className="text-sm font-semibold text-slate-900">Platform Overview</h2>
                   </div>
                   {loadingStats && !stats ? (
-                    <div className="h-44 sm:h-56 flex items-center justify-center">
-                      <Spinner size={32} />
-                    </div>
+                    <ChartSkeleton />
                   ) : chartData.length > 0 ? (
                     <div className="h-44 sm:h-56">
                       <ResponsiveContainer width="100%" height="100%">
@@ -426,9 +449,7 @@ export default function Dashboard() {
                       <h2 className="text-sm font-semibold text-slate-900">User Signups</h2>
                     </div>
                     {loadingStats && !analytics ? (
-                      <div className="h-40 sm:h-48 flex items-center justify-center">
-                        <Spinner size={32} />
-                      </div>
+                      <ChartSkeleton small />
                     ) : analytics?.usersByMonth?.length > 0 ? (
                       <div className="h-40 sm:h-48">
                         <ResponsiveContainer width="100%" height="100%">
@@ -451,9 +472,7 @@ export default function Dashboard() {
                       <h2 className="text-sm font-semibold text-slate-900">Invoices</h2>
                     </div>
                     {loadingStats && !analytics ? (
-                      <div className="h-40 sm:h-48 flex items-center justify-center">
-                        <Spinner size={32} />
-                      </div>
+                      <ChartSkeleton small />
                     ) : analytics?.invoicesByMonth?.length > 0 ? (
                       <div className="h-40 sm:h-48">
                         <ResponsiveContainer width="100%" height="100%">

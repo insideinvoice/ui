@@ -23,25 +23,40 @@ if ("caches" in window) {
   });
 }
 
-/* iOS Safari: when a form field is focused the soft keyboard covers the lower
-   viewport. Hide/blur the fixed app navbars so their content is not visible
-   behind the focused field. Uses class toggling only (no body padding), so the
-   layout never shifts and floating controls (e.g. Add Item) stay put. */
+/* iOS Safari: when a text field is focused the soft keyboard covers the lower
+   viewport. Dim the bottom tab bar (the only bar that overlaps the keyboard)
+   via the kb-open class — never the top navbar. Class toggling only (no body
+   padding), so the layout never shifts and floating controls (e.g. Add Item)
+   stay put. */
 (function () {
   var root = document.documentElement;
   var vv = window.visualViewport;
 
   var sync = function () {
-    var fieldFocused = !!document.activeElement && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName);
-    // The soft keyboard shrinks the visual viewport well below the layout
-    // viewport. This is the reliable cross-browser signal that it is open —
-    // focus events alone miss it on Android, where opening the IME also fires
-    // a window blur that used to strip the class straight back off again.
+    // kb-open is set ONLY when a text-entry field is focused AND the soft
+    // keyboard has actually shrunk the visual viewport. Tapping a select or
+    // checkbox (e.g. the Delivery Challan toolbar) must never set it — browser
+    // chrome animation around those taps can transiently skew the viewport
+    // math, and an earlier version of this rule blurred the whole top navbar,
+    // which users reported as the navbar "disappearing".
+    var el = document.activeElement;
+    var tag = el && el.tagName;
+    var isTextEntry =
+      tag === "TEXTAREA" ||
+      (tag === "INPUT" &&
+        el.type !== "checkbox" &&
+        el.type !== "radio" &&
+        el.type !== "button" &&
+        el.type !== "submit" &&
+        el.type !== "reset" &&
+        el.type !== "file" &&
+        el.type !== "range" &&
+        el.type !== "color");
     var keyboardOpen = false;
     if (vv && window.innerHeight > 0) {
       keyboardOpen = vv.height < window.innerHeight - 150;
     }
-    if (fieldFocused || keyboardOpen) {
+    if (isTextEntry && keyboardOpen) {
       root.classList.add("kb-open");
     } else {
       root.classList.remove("kb-open");

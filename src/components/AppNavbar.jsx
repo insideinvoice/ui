@@ -8,6 +8,34 @@ import {
 } from "lucide-react";
 import insideInvoiceLogo from "../assets/inside-invoice-logo.svg";
 
+// Publishes the mobile top-nav's real height (incl. safe-area inset + border) as
+// a CSS var so sibling headers can pin themselves directly beneath it with
+// position: fixed. Without this, fixed headers slide under the navbar because
+// the safe-area inset isn't knowable at build time.
+function useNavbarHeightVar() {
+  useEffect(() => {
+    const root = document.documentElement;
+    const measure = () => {
+      const el = document.querySelector("nav.app-nav-fixed");
+      if (!el) return;
+      const h = Math.round(el.getBoundingClientRect().height);
+      if (h > 0) root.style.setProperty("--app-nav-height", `${h}px`);
+    };
+    measure();
+    const t1 = setTimeout(measure, 0);
+    const t2 = setTimeout(measure, 300);
+    window.addEventListener("resize", measure);
+    window.addEventListener("orientationchange", measure);
+    return () => {
+      window.removeEventListener("resize", measure);
+      window.removeEventListener("orientationchange", measure);
+      clearTimeout(t1);
+      clearTimeout(t2);
+      root.style.removeProperty("--app-nav-height");
+    };
+  }, []);
+}
+
 const sections = (isAdmin) => [
   {
     header: "Dashboard",
@@ -72,6 +100,7 @@ export default memo(function AppNavbar() {
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  useNavbarHeightVar();
 
   const handleLogout = useCallback(() => {
     logout();
@@ -283,7 +312,7 @@ export default memo(function AppNavbar() {
       </div>
 
       {/* ===== MOBILE BOTTOM TAB BAR ===== */}
-      <div className="app-nav-fixed fixed bottom-0 left-0 right-0 z-[1000] lg:hidden" style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)", backgroundColor: "#ffffff" }}>
+      <div className="app-nav-bottom fixed bottom-0 left-0 right-0 z-[1000] lg:hidden" style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)", backgroundColor: "#ffffff" }}>
         <div className="bg-white border-t border-slate-200">
           <div className="flex items-center justify-around px-2">
             {bottomTabs.map((tab) => (

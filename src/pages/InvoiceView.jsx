@@ -17,6 +17,7 @@ import { buildInvoiceWhatsAppMessage, openWhatsAppChat, createInvoicePdfFile, pr
 import { shareLinkToUser, proformaShareUrl, readCachedShareToken, writeCachedShareToken, clearCachedShareToken } from "../utils/shareLink";
 import { getPrintSettings, getInvoiceTemplate } from "../constants/paperSizes";
 import { computeInvoiceTotals, round2 } from "../utils/invoiceTotals";
+import { goBack } from "../utils/navigation";
 import { INDIAN_STATES, DELIVERY_TERMS, PAYMENT_TERMS } from "../constants/indianStates";
 
 const uid = () => (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `i${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`);
@@ -668,7 +669,7 @@ export default function InvoiceView() {
         <div className="px-6 py-12 text-center">
           <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-3" />
           <p className="text-slate-600">{error}</p>
-          <button onClick={() => navigate("/invoices")} className="mt-4 text-sm text-indigo-600 hover:text-indigo-700 font-medium">Back to Invoices</button>
+          <button onClick={() => goBack(navigate, "/invoices")} className="mt-4 text-sm text-indigo-600 hover:text-indigo-700 font-medium">Back to Invoices</button>
         </div>
       </div>
     );
@@ -714,10 +715,13 @@ export default function InvoiceView() {
         </div>
       )}
       <div className="max-w-[1900px] mx-auto px-4 sm:px-5 lg:px-6 py-3 sm:py-4 lg:py-5">
-        {/* Sticky on mobile so the back button stays reachable while scrolling a long
-            invoice; static on desktop (sidebar nav, no top bar to clear). */}
-        <div className="sticky lg:static top-[calc(env(safe-area-inset-top,0px)+44px)] z-[90] bg-slate-50/95 backdrop-blur mb-6 flex items-center justify-between">
-          <PageHeader title="View Invoice" backTo="/invoices" />
+        {/* Fixed header — pinned to the very top (below the AppNavbar, whose real
+            height is injected as --app-nav-height). position:fixed stays put on
+            iOS Safari where position:sticky drifts when the address bar collapses.
+            Static on desktop (sidebar layout, no top bar). */}
+        <div className="fixed top-[var(--app-nav-height,61px)] left-0 right-0 lg:static z-[90] bg-slate-50 border-b border-slate-200/60 lg:border-0 mb-6 py-2 lg:py-0 flex items-center justify-between px-4 sm:px-5 lg:px-0">
+          <div className="max-w-[1900px] mx-auto w-full flex items-center justify-between">
+          <PageHeader title="View Invoice" backTo="/invoices" className="" />
           <div className="flex items-center gap-2">
             <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
               invoiceType === "PROFORMA_INVOICE" ? "bg-emerald-100 text-emerald-700" : "bg-blue-100 text-blue-700"
@@ -729,7 +733,15 @@ export default function InvoiceView() {
               {busyAction === "whatsapp" ? <Spinner size={18} /> : <WhatsAppIcon className="w-5 h-5" />}
             </button>
           </div>
+          </div>
         </div>
+
+        {/* Spacer keeps page content from hiding behind the fixed header. On
+            mobile the header is position:fixed so it needs its own reserved
+            space (~56px tall) plus breathing room below it; the leftover term
+            covers a taller-than-default navbar. Hidden on desktop where the
+            header is static and in-flow. */}
+        <div className="lg:hidden" style={{ height: "calc(var(--app-nav-height, 61px) - 61px + 80px)" }} aria-hidden="true" />
 
         <div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
           <div className="xl:col-span-4 space-y-6">

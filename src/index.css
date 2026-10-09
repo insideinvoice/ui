@@ -15,6 +15,12 @@ html, body, #root {
   min-height: 100dvh;
 }
 
+:root {
+  /* Real mobile top-nav height, injected by AppNavbar at runtime (varies with
+     the device safe-area inset). Fallback covers pre-hydration paint. */
+  --app-nav-height: calc(env(safe-area-inset-top, 0px) + 61px);
+}
+
 html {
   background-color: #f8fafc;
   /* Clip horizontal overflow at the viewport level (iOS Safari ignores body-level clip) */
@@ -71,12 +77,12 @@ div:has(> label + input[type="date"]) {
   min-width: 0;
 }
 
-/* Soft keyboard open (MOBILE ONLY): hide the mobile app navbars so their
-   content (Dashboard / Invoice / Customers / More) is not visible behind the
-   focused form field. Scoped to < lg so the desktop sidebar is never hidden —
-   a desktop has no soft keyboard, so focusing a field must not move the nav. */
+/* Soft keyboard open (MOBILE ONLY): dim only the bottom tab bar (which sits
+   under the keyboard) — the top navbar must NEVER be dimmed or hidden, as it
+   is the page's only persistent header. Scoped to < lg so the desktop sidebar
+   is untouched; a desktop has no soft keyboard. */
 @media (max-width: 1023px) {
-  .kb-open .app-nav-fixed {
+  .kb-open .app-nav-bottom {
     opacity: 0.3 !important;
     filter: blur(12px);
     pointer-events: none !important;

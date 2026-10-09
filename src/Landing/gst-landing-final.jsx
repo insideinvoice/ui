@@ -654,12 +654,12 @@ export default function GSTBillingLanding() {
               </div>
             </div>
 
-            {/* Column 2 — Monthly Revenue */}
+            {/* Column 2 — Monthly Sales */}
             <div className="bg-slate-50 rounded-2xl p-6 sm:p-8 border border-slate-200">
               <div className="flex items-center justify-between mb-8">
                 <div>
                   <h3 className="text-lg font-bold text-slate-900">
-                    Monthly Revenue
+                    Monthly Sales
                   </h3>
                   <p className="text-xs text-slate-500 mt-1">
                     Year-to-date performance
@@ -845,7 +845,7 @@ export default function GSTBillingLanding() {
                     Sales Trend
                   </h3>
                   <p className="text-xs text-slate-500">
-                    Live invoice revenue
+                    Live invoice sales
                   </p>
                 </div>
               </div>

@@ -5,6 +5,7 @@ import PageHeader from "../components/PageHeader";
 import LoadingDots from "../components/LoadingDots";
 import { deliveryChallanAPI, customerAPI, businessAPI } from "../api/auth";
 import { renderDeliveryChallanPdf } from "../components/DeliveryChallanDownload";
+import { goBack } from "../utils/navigation";
 import toast from "react-hot-toast";
 import { ArrowLeft, Plus, Trash2, Download, ClipboardList } from "lucide-react";
 
@@ -337,7 +338,7 @@ export default function DeliveryChallanForm() {
               {saving ? "Creating…" : "Create & Download PDF"}
             </button>
             <button
-              onClick={() => navigate("/delivery-challans")}
+              onClick={() => goBack(navigate, "/delivery-challans")}
               className="flex items-center justify-center gap-2 px-5 py-2.5 bg-white text-slate-700 text-sm font-semibold rounded-lg border border-slate-300 hover:bg-slate-50 transition-all min-h-[44px]"
             >
               <ArrowLeft className="w-4 h-4" /> Back to list

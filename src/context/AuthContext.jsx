@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, useMemo, useCallback } from "react";
 import { authAPI, businessAPI } from "../api/auth";
 import { setAuthToken } from "../api/axios";
-import { sanitizeTemplate } from "../constants/paperSizes";
+import { sanitizeTemplate, clearTemplateOverrides } from "../constants/paperSizes";
 
 const AuthContext = createContext(null);
 
@@ -40,6 +40,25 @@ function isTokenExpired(token) {
     return payload.exp * 1000 < Date.now();
   } catch {
     return true;
+  }
+}
+
+function applyInvoiceSettings(b, setSelectedTemplate) {
+  if (!b) return;
+  if (b.invoiceTemplate) {
+    const tpl = sanitizeTemplate(b.invoiceTemplate);
+    localStorage.setItem("invoice_template", tpl);
+    setSelectedTemplate(tpl);
+  }
+  if (b.printSettings) localStorage.setItem("print_settings", b.printSettings);
+  // First time after the V20 migration: push the browser-held settings
+  // back to the account so the shared links inherit them.
+  if (!b.invoiceTemplate && !b.printSettings &&
+      (localStorage.getItem("invoice_template") || localStorage.getItem("print_settings"))) {
+    businessAPI.updateInvoiceSettings({
+      invoiceTemplate: localStorage.getItem("invoice_template") || "template-1",
+      printSettings: localStorage.getItem("print_settings") || "",
+    }).catch(() => {});
   }
 }
 
@@ -122,11 +141,33 @@ export function AuthProvider({ children }) {
     } else {
       localStorage.removeItem("mustChangePassword");
     }
+    // JwtResponse carries no template field, and the mount hydration effect
+    // already ran (SPA login) — fetch the account copy now, before navigation,
+    // so downloads match what share links serve from the server.
+    try {
+      const profile = await businessAPI.getProfile();
+      const b = profile.data.data;
+      if (b) {
+        if (b.invoiceTemplate) {
+          const tpl = sanitizeTemplate(b.invoiceTemplate);
+          localStorage.setItem("invoice_template", tpl);
+          setSelectedTemplate(tpl);
+        }
+        if (b.printSettings) localStorage.setItem("print_settings", b.printSettings);
+      }
+    } catch {
+      // Best effort: local/template fallbacks still apply.
+    }
     return data;
   }, []);
 
   const updateTemplate = useCallback(async (templateId) => {
     const tpl = sanitizeTemplate(templateId);
+    // Drop stale per-type overrides locally BEFORE reading print_settings so
+    // the payload pushed to the server is clean too — otherwise share links
+    // keep resolving the old template from business.print_settings.
+    clearTemplateOverrides();
+    const prevLocal = localStorage.getItem("invoice_template");
     localStorage.setItem("invoice_template", tpl);
     setSelectedTemplate(tpl);
     const updated = { ...user, selectedTemplate: tpl };
@@ -141,6 +182,14 @@ export function AuthProvider({ children }) {
       });
     } catch (err) {
       console.warn("Could not sync invoice template settings to server:", err?.response?.data || err?.message);
+      // Roll back the optimistic local update so local always mirrors the
+      // server — and rethrow so the caller can surface the failure.
+      if (prevLocal) localStorage.setItem("invoice_template", prevLocal);
+      else localStorage.removeItem("invoice_template");
+      setSelectedTemplate(sanitizeTemplate(prevLocal || "template-1"));
+      writeStorage(USER_KEY, JSON.stringify(user), rememberMe);
+      setUser(user);
+      throw err;
     }
   }, [user]);
 

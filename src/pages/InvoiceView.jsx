@@ -736,12 +736,13 @@ export default function InvoiceView() {
           </div>
         </div>
 
-        {/* Spacer keeps page content from hiding behind the fixed header. On
-            mobile the header is position:fixed so it needs its own reserved
-            space (~56px tall) plus breathing room below it; the leftover term
-            covers a taller-than-default navbar. Hidden on desktop where the
-            header is static and in-flow. */}
-        <div className="lg:hidden" style={{ height: "calc(var(--app-nav-height, 61px) - 61px + 80px)" }} aria-hidden="true" />
+        {/* Spacer keeps page content from hiding behind the fixed header. The
+            header is fixed at --app-nav-height and is ~56px tall + mb-6 (24px)
+            gap — and the navbar itself is already in-flow (sticky), so its
+            height must NOT be added here again (that over-counted the safe-area
+            inset and pushed content down by ~50px extra in standalone PWA).
+            Hidden on desktop where the header is static and in-flow. */}
+        <div className="lg:hidden" style={{ height: "80px" }} aria-hidden="true" />
 
         <div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
           <div className="xl:col-span-4 space-y-6">

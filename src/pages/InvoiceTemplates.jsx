@@ -6,7 +6,6 @@ import InvoicePDF from "../components/InvoicePDF";
 import InvoiceTemplateVariants, { TEMPLATE_THEMES } from "../components/InvoiceTemplateVariants";
 import DeliveryChallanDoc from "../components/DeliveryChallanDoc";
 import { DC_PAGE_W } from "../utils/deliveryChallanPdf";
-import { clearTemplateOverrides } from "../constants/paperSizes";
 import { businessAPI } from "../api/auth";
 import { ArrowLeft, Check, X, Eye, FileText, ClipboardList } from "lucide-react";
 import toast from "react-hot-toast";
@@ -413,10 +412,9 @@ export default function InvoiceTemplates() {
   const handleSelect = useCallback(async (id) => {
     setSelected(id);
     try {
+      // updateTemplate clears stale per-type overrides before pushing
+      // print_settings, so the server and downloads both switch to this template.
       await updateTemplate(id);
-      // Per-type overrides from Print Settings would keep shadowing this
-      // choice, so the global selection wins for every document type.
-      clearTemplateOverrides();
       toast.success(`"${ALL_TEMPLATES.find((t) => t.id === id)?.label}" template selected`);
     } catch {
       toast.error("Failed to save template preference");

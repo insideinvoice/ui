@@ -11,7 +11,7 @@ export default function TermsandConditions() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-slate-50 to-gray-100">
       <InvoiceNav scrolled={true} isMenuOpen={isMenuOpen} setIsMenuOpen={setIsMenuOpen} />
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-10 text-slate-700 leading-relaxed" style={{ paddingTop: "calc(5rem + env(safe-area-inset-top, 0px))" }}>
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-10 text-slate-700 leading-relaxed" style={{ paddingTop: "5rem" }}>
         <Link to="/" className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 font-medium mb-6 transition-colors">
           <span aria-hidden="true">←</span> Back to Home
         </Link>

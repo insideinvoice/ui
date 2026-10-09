@@ -26,9 +26,18 @@ function useNavbarHeightVar() {
     const t2 = setTimeout(measure, 300);
     window.addEventListener("resize", measure);
     window.addEventListener("orientationchange", measure);
+    // Keep the var in sync when the navbar resizes for any other reason
+    // (safe-area inset changing after load, font settle, zoom) — a stale var
+    // pins fixed headers under the navbar in standalone PWA mode.
+    const navEl = document.querySelector("nav.app-nav-fixed");
+    const ro = navEl && typeof ResizeObserver !== "undefined" ? new ResizeObserver(measure) : null;
+    if (ro && navEl) ro.observe(navEl);
+    window.visualViewport?.addEventListener("resize", measure);
     return () => {
       window.removeEventListener("resize", measure);
       window.removeEventListener("orientationchange", measure);
+      window.visualViewport?.removeEventListener("resize", measure);
+      ro?.disconnect();
       clearTimeout(t1);
       clearTimeout(t2);
       root.style.removeProperty("--app-nav-height");
@@ -236,7 +245,15 @@ export default memo(function AppNavbar() {
       {/* ===== MOBILE TOP NAV ===== */}
       <nav
         className="app-nav-fixed lg:hidden bg-white border-b border-slate-200 px-3 sm:px-4 py-2 sm:py-3 sticky top-0 z-[99]"
-        style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)" }}
+        style={{
+          paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)",
+          // #root already pads the whole app down by the safe-area inset
+          // (protection for navbar-less pages like Login). Cancel it here so
+          // the inset is counted ONCE for navbar pages — otherwise the nav and
+          // every fixed header below it are pushed down by 2x the status-bar
+          // height in standalone PWA mode.
+          marginTop: "calc(-1 * env(safe-area-inset-top, 0px))",
+        }}
       >
         <div className="flex items-center justify-between max-w-full">
           <div className="flex items-center gap-2 min-w-0 flex-1">

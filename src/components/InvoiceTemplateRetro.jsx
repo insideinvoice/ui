@@ -83,7 +83,7 @@ const Frame = ({ children, pageId }) => (
 
 /* --------------------------------------------------------------- header */
 
-const Letterhead = ({ business, title }) => {
+const Letterhead = ({ business, title, subNote }) => {
   const addr1 = [business?.addressLine1, business?.addressLine2].filter(Boolean).join(", ");
   const addr2 = [business?.city, business?.state, business?.pincode ? "-" + business.pincode : null]
     .filter(Boolean).join(" ");
@@ -92,6 +92,10 @@ const Letterhead = ({ business, title }) => {
   // line, so every other page keeps its exact height and PDF cut points.
   const specialist = getSpecialistInLine(business);
   const headerH = RETRO_PAGE_METRICS.header + (specialist ? SPECIALIST_IN_EXTRA_H : 0);
+  // Proforma adds a second heading line; the header is a fixed, clipped box
+  // (PDF cut points), so the company name tightens (27px / lineHeight 1) to
+  // keep the untouched 112px (+18px specialist) budget.
+  const twoLine = Boolean(subNote);
 
   return (
     <div style={{ height: headerH, boxSizing: "border-box", borderBottom: B, padding: "7px 10px 8px", position: "relative", overflow: "hidden" }}>
@@ -99,10 +103,15 @@ const Letterhead = ({ business, title }) => {
         <span>GSTIN: {business?.gstIn || "-"}</span>
         <span style={{ textAlign: "right" }}>{business?.phone || ""}</span>
       </div>
-      <div style={{ position: "absolute", left: 0, right: 0, top: "7px", textAlign: "center", fontSize: "14.5px", fontWeight: 700, textDecoration: "underline", letterSpacing: "0.6px" }}>
-        {title}
+      <div style={{ position: "absolute", left: 0, right: 0, top: twoLine ? "3px" : "7px", textAlign: "center", fontSize: "14.5px", fontWeight: 700, letterSpacing: "0.6px", lineHeight: 1.3 }}>
+        <span style={{ textDecoration: "underline" }}>{title}</span>
+        {subNote && (
+          <div style={{ fontSize: "9.5px", letterSpacing: "1px", lineHeight: 1.2, fontWeight: 700 }}>
+            {subNote}
+          </div>
+        )}
       </div>
-      <div style={{ textAlign: "center", fontSize: "31px", fontWeight: 800, letterSpacing: "1.5px", marginTop: "6px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", lineHeight: 1.1 }}>
+      <div style={{ textAlign: "center", fontSize: twoLine ? "27px" : "31px", fontWeight: 800, letterSpacing: "1.5px", marginTop: twoLine ? "12px" : "6px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", lineHeight: twoLine ? 1 : 1.1 }}>
         {(business?.businessName || "BUSINESS NAME").toUpperCase()}
       </div>
       {/* specialist sits directly under the company name, address follows */}
@@ -304,9 +313,29 @@ const ItemBox = ({ pageItems, startIndex, height = RETRO_PAGE_METRICS.body }) =>
 
 /* -------------------------------------------------------------- totals */
 
-const Totals = ({ gross, discAmt, discPct, cgst, sgst, grand, words, pctLabel }) => {
+const Totals = ({ gross, discAmt, discPct, cgst, sgst, grand, words, pctLabel, showTax = true }) => {
+  const shade = { background: "#d6d6d6" };
+  const rs = splitAmount;
+  const showDiscount = parseFloat(discAmt) > 0;
+  const rows = [
+    { key: "total", text: "TOTAL", val: gross, shade: true },
+    ...(showDiscount
+      ? [{ key: "discount", text: `Discount (${discPct}%)`, val: -Math.abs(parseFloat(discAmt) || 0), shade: false, discount: true }]
+      : []),
+    ...(showTax
+      ? [
+          { key: "cgst", text: "CGST", pct: true, val: cgst, shade: false },
+          { key: "sgst", text: "SGST", pct: true, val: sgst, shade: false },
+        ]
+      : []),
+    { key: "grand", text: "G. TOTAL", val: grand, shade: true },
+  ];
+  // The block always owns the same fixed pixel budget (104px + one discount
+  // line), spread across whichever rows exist — dropping the proforma's
+  // CGST/SGST lines shrinks no frame height, so the A4 cut never moves.
+  const rowH = (RETRO_PAGE_METRICS.totals + (showDiscount ? ROW_H : 0)) / rows.length;
   const label = {
-    height: `${ROW_H}px`,
+    height: `${rowH}px`,
     boxSizing: "border-box",
     borderBottom: B,
     fontSize: "13.5px",
@@ -316,7 +345,7 @@ const Totals = ({ gross, discAmt, discPct, cgst, sgst, grand, words, pctLabel })
     verticalAlign: "middle",
   };
   const money = {
-    height: `${ROW_H}px`,
+    height: `${rowH}px`,
     boxSizing: "border-box",
     borderBottom: B,
     fontSize: "13px",
@@ -325,21 +354,9 @@ const Totals = ({ gross, discAmt, discPct, cgst, sgst, grand, words, pctLabel })
     textAlign: "right",
     verticalAlign: "middle",
   };
-  const shade = { background: "#d6d6d6" };
-  const rs = splitAmount;
-  const showDiscount = parseFloat(discAmt) > 0;
-  const rows = [
-    { key: "total", text: "TOTAL", val: gross, shade: true },
-    ...(showDiscount
-      ? [{ key: "discount", text: `Discount (${discPct}%)`, val: -Math.abs(parseFloat(discAmt) || 0), shade: false, discount: true }]
-      : []),
-    { key: "cgst", text: "CGST", pct: true, val: cgst, shade: false },
-    { key: "sgst", text: "SGST", pct: true, val: sgst, shade: false },
-    { key: "grand", text: "G. TOTAL", val: grand, shade: true },
-  ];
   // Left "Rupees in words" cell spans every totals row; its height must equal
   // the right-side rows so the block stays a fixed pixel budget on the page.
-  const totalsH = rows.length * ROW_H;
+  const totalsH = rows.length * rowH;
 
   return (
     <div style={{ position: "relative" }}>
@@ -470,7 +487,7 @@ const FooterBand = ({ business, terms, sealVisible, sealType, sigSrc }) => (
 
 const RetroPage = ({ pageId, chunks, startIndex, shared }) => (
   <Frame pageId={pageId}>
-    <Letterhead business={shared.business} title={shared.title} />
+    <Letterhead business={shared.business} title={shared.title} subNote={shared.subNote} />
     <Details invoiceNumber={shared.displayInvNo} form={shared.form} customer={shared.customer} />
     <ItemHead />
     <ItemBox pageItems={chunks} startIndex={startIndex} height={shared.bodyH} />
@@ -483,6 +500,7 @@ const RetroPage = ({ pageId, chunks, startIndex, shared }) => (
       grand={shared.grand}
       words={shared.words}
       pctLabel={shared.pctLabel}
+      showTax={shared.showTax}
     />
     <FooterBand
       business={shared.business}
@@ -510,6 +528,7 @@ const InvoiceTemplateRetro = React.forwardRef(
     const chunks = chunkRetroItems(all, bodyH);
 
     const calc = computeInvoiceTotals(items, discountPercent);
+    const isProforma = type === "PROFORMA_INVOICE";
     // A Discount row takes one extra totals line (ROW_H). Shrink the open item
     // box by the same amount so the fixed A4 frame budget is unchanged and the
     // PDF slicer still cuts exactly on the page boundary.
@@ -521,7 +540,7 @@ const InvoiceTemplateRetro = React.forwardRef(
       rates.add(parseFloat(item.gstPercentage) || 0);
     });
 
-    const grand = calc.grandTotal;
+    const grand = isProforma ? calc.taxableAmount : calc.grandTotal;
     const singleRate = rates.size === 1 ? [...rates][0] : null;
     const pctLabel = singleRate ? `${singleRate / 2} %` : "";
 
@@ -538,6 +557,8 @@ const InvoiceTemplateRetro = React.forwardRef(
       customer,
       form,
       title: TITLE_BY_TYPE[type] || (type === "PROFORMA_INVOICE" ? "PROFORMA INVOICE" : "TAX INVOICE"),
+      subNote: isProforma ? "— NOT A TAX INVOICE —" : null,
+      showTax: !isProforma,
       displayInvNo: invoiceNumber || "",
       bodyH: bodyH - discountRowH,
       gross: calc.subtotal,

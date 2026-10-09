@@ -177,7 +177,7 @@ export default function AdminInvoiceView() {
 
   if (loading) {
     return (
-      <div className="min-h-[100dvh] bg-gradient-to-br from-gray-50 via-slate-50 to-gray-100 flex items-center justify-center">
+      <div className="fixed inset-0 z-[9999] bg-gradient-to-br from-gray-50 via-slate-50 to-gray-100 flex items-center justify-center">
         <LoadingDots className="text-slate-400" />
       </div>
     );

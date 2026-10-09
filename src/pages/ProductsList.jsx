@@ -76,7 +76,7 @@ export default function ProductsList() {
             <h1 className="text-base sm:text-lg font-semibold text-slate-900">Product Items</h1>
             <div className="relative w-full sm:w-auto">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by name or HSN/SAC..."
+              <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search"
                 className="w-full md:w-56 pl-9 pr-3 py-2 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-400/30 focus:border-indigo-400 bg-white" />
             </div>
           </div>

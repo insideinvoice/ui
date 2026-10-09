@@ -816,7 +816,7 @@ export default function InvoiceForm() {
 
   if (loading) {
     return (
-      <div className="min-h-[100dvh] flex items-center justify-center bg-gradient-to-br from-gray-50 via-slate-50 to-gray-100">
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-gradient-to-br from-gray-50 via-slate-50 to-gray-100">
         <Spinner size={32} />
       </div>
     );
@@ -1184,7 +1184,7 @@ export default function InvoiceForm() {
                     <select name="placeOfSupply" value={form.placeOfSupply} onChange={handleFieldChange}
                       onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); focusNext("placeOfSupply"); } }}
                       className={selectClass}>
-                      <option value="">Select state</option>
+                      <option value="">State</option>
                       {INDIAN_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
                     </select>
                     <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
@@ -1196,7 +1196,7 @@ export default function InvoiceForm() {
                     <select name="destination" value={form.destination} onChange={handleFieldChange}
                       onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); focusNext("destination"); } }}
                       className={selectClass}>
-                      <option value="">Select state</option>
+                      <option value="">State</option>
                       {INDIAN_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
                     </select>
                     <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />

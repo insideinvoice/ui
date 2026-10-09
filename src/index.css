@@ -118,6 +118,13 @@ div:has(> label + input[type="date"]) {
     display: none;
   }
 
+  /* Collapsed rail: the logo button flexes to ~6px and preflight's
+     `img { max-width: 100% }` squeezes it into a dot — drop it entirely so
+     only the centred hamburger remains, inline with the nav icons. */
+  html.rail-collapsed .rail-logo {
+    display: none;
+  }
+
   html.rail-collapsed .rail-item {
     justify-content: center;
     gap: 0;
@@ -153,4 +160,16 @@ div:has(> label + input[type="date"]) {
   .side-fixed-grid {
     grid-template-columns: minmax(0, 1fr) 340px;
   }
+}
+
+/* Sidebar still scrolls, but the scrollbar itself is fully hidden. */
+.app-side-nav nav {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.app-side-nav nav::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
 }

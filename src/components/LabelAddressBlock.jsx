@@ -16,7 +16,7 @@ export default function LabelAddressBlock({ title, value, onChange }) {
           className="border border-slate-300 rounded-lg px-3 py-2 text-xs" />
         <select value={value.state || ""} onChange={(e) => onChange({ ...value, state: e.target.value })}
           className="border border-slate-300 rounded-lg px-3 py-2 text-xs bg-white">
-          <option value="">Select state…</option>
+          <option value="">State</option>
           {value.state && !INDIAN_STATES.includes(value.state) && <option value={value.state}>{value.state}</option>}
           {INDIAN_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
         </select>

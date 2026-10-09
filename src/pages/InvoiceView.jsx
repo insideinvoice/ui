@@ -656,7 +656,7 @@ export default function InvoiceView() {
 
   if (loading) {
     return (
-      <div className="min-h-[100dvh] flex items-center justify-center bg-gradient-to-br from-gray-50 via-slate-50 to-gray-100">
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-gradient-to-br from-gray-50 via-slate-50 to-gray-100">
         <LoadingDots className="text-slate-400" />
       </div>
     );
@@ -845,7 +845,7 @@ export default function InvoiceView() {
                     <label className={labelClass}>Place of Supply</label>
                     <div className="relative">
                       <select name="placeOfSupply" value={form.placeOfSupply} onChange={handleFieldChange} className={selectClass}>
-                        <option value="">Select state</option>
+                        <option value="">State</option>
                         {INDIAN_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
                       </select>
                       <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
@@ -855,7 +855,7 @@ export default function InvoiceView() {
                     <label className={labelClass}>Destination</label>
                     <div className="relative">
                       <select name="destination" value={form.destination} onChange={handleFieldChange} className={selectClass}>
-                        <option value="">Select state</option>
+                        <option value="">State</option>
                         {INDIAN_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
                       </select>
                       <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />

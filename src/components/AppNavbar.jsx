@@ -197,7 +197,7 @@ export default memo(function AppNavbar() {
         <div className="flex items-center justify-between gap-2">
           <button
             onClick={() => handleNav("/dashboard")}
-            className="flex items-center gap-2.5 hover:opacity-80 transition-opacity min-w-0"
+            className="rail-logo flex items-center gap-2.5 hover:opacity-80 transition-opacity min-w-0"
           >
             <img
               src={insideInvoiceLogo}

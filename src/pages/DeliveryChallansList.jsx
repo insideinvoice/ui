@@ -142,7 +142,7 @@ export default function DeliveryChallansList() {
                 <input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search by challan no, customer or P.O no"
+                  placeholder="Search"
                   aria-label="Search delivery challans"
                   className="w-full pl-9 pr-9 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-400/30 focus:border-teal-400 bg-white text-slate-800 placeholder:text-slate-400 min-h-[44px]"
                 />

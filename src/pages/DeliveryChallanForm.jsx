@@ -244,7 +244,7 @@ export default function DeliveryChallanForm() {
                 onChange={(e) => setField("customerId", e.target.value)}
                 className={inputClass}
               >
-                <option value="">Select customer…</option>
+                <option value="">Customer</option>
                 {customers.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name}

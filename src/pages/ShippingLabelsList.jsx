@@ -45,12 +45,12 @@ export default function ShippingLabelsList() {
             <div className="flex w-full sm:w-auto items-center gap-2">
               <div className="relative flex-1 sm:flex-none">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search label # or tracking..."
+                <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search"
                   className="w-full md:w-56 pl-9 pr-3 py-2 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-400/30 bg-white" />
               </div>
               <select value={status} onChange={(e) => setStatus(e.target.value)}
                 className="border border-slate-300 rounded-lg text-xs px-2 py-2 bg-white">
-                {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s || "All statuses"}</option>)}
+                {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s || "Status"}</option>)}
               </select>
               <button onClick={() => navigate("/labels/shipping/new")}
                 className="inline-flex items-center gap-2 px-4 py-2.5 min-h-[44px] bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 transition-all shadow-sm whitespace-nowrap">

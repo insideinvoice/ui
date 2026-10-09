@@ -23,7 +23,7 @@ export default function AdminAddUsers() {
 
   if (!isAdmin) {
     return (
-      <div className="min-h-[100dvh] flex items-center justify-center">
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center">
         <div className="text-center">
           <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-3" />
           <h2 className="text-lg font-semibold text-slate-900">Access Denied</h2>

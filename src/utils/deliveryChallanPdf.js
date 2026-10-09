@@ -43,15 +43,17 @@ function loadImage(src) {
   });
 }
 
-export async function svgToPngDataUrl(svg, px = 512) {
+// `h` defaults to `w` (the round seal is square); the rectangular rubber
+// stamp passes its own height so the raster keeps the 2.5:1 aspect.
+export async function svgToPngDataUrl(svg, w = 512, h = w) {
   const img = await loadImage(
     `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
   );
   const canvas = document.createElement("canvas");
-  canvas.width = px;
-  canvas.height = px;
+  canvas.width = w;
+  canvas.height = h;
   const ctx = canvas.getContext("2d");
-  ctx.drawImage(img, 0, 0, px, px);
+  ctx.drawImage(img, 0, 0, w, h);
   return canvas.toDataURL("image/png");
 }
 
@@ -59,6 +61,9 @@ export async function buildDeliveryChallanPdf(pageElements, options = {}) {
   const {
     stampSvg = null,
     stampSizeMm = 26,
+    // rectangular rubber stamp: width/height in mm (default = square seal)
+    stampWMm = stampSizeMm,
+    stampHMm = stampSizeMm,
     stampRightMm = 10,
     stampBottomMm = 6,
   } = options;
@@ -73,13 +78,16 @@ export async function buildDeliveryChallanPdf(pageElements, options = {}) {
 
   let stampPng = null;
   if (stampSvg) {
-    stampPng = await svgToPngDataUrl(stampSvg, 512);
+    // rasterize at the stamp's own aspect so the rubber stamp isn't squashed
+    const pxW = 512;
+    const pxH = Math.max(1, Math.round((pxW * stampHMm) / stampWMm));
+    stampPng = await svgToPngDataUrl(stampSvg, pxW, pxH);
   }
 
   // Fixed stamp position in page coordinates: bottom-right of the content
   // area, identical on every page (page 1, overflow pages, single pages).
-  const stampX = LEFT + CONTENT_W - stampRightMm - stampSizeMm;
-  const stampY = 10 + PAGE_H - stampBottomMm - stampSizeMm;
+  const stampX = LEFT + CONTENT_W - stampRightMm - stampWMm;
+  const stampY = 10 + PAGE_H - stampBottomMm - stampHMm;
 
   let firstPage = true;
 

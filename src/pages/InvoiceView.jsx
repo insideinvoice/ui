@@ -7,7 +7,7 @@ import AppNavbar from "../components/AppNavbar";
 import PageHeader from "../components/PageHeader";
 import { invoiceAPI, businessAPI, customerAPI } from "../api/auth";
 import toast from "react-hot-toast";
-import { ArrowLeft, Download, Save, Edit3, Plus, Trash2, FileText, AlertCircle, User, Building2, Phone, MapPin, Hash, Package, Mail, Globe, X, Share2, Smartphone, Link2, Copy, RotateCw, Unlink, ChevronDown } from "lucide-react";
+import { ArrowLeft, Download, Save, Edit3, Plus, Trash2, FileText, AlertCircle, User, Building2, Phone, MapPin, Hash, Package, Mail, Globe, X, Share2, Smartphone, Link2, Copy, RotateCw, Unlink, ChevronDown, Printer } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import InvoiceTemplateRenderer from "../components/InvoiceTemplateRenderer";
 import WhatsAppIcon from "../components/WhatsAppIcon";
@@ -540,6 +540,31 @@ export default function InvoiceView() {
       releaseCapture();
       setBusyAction("");
     }
+  };
+
+  // Sends the already-generated PDF (the one shown in the preview modal) to
+  // the printer via a hidden iframe — this prints the PDF document itself,
+  // never the surrounding HTML page.
+  const printPreviewPdf = () => {
+    if (!pdfPreviewUrl) return;
+    const url = pdfPreviewUrl.split("#")[0];
+    const iframe = document.createElement("iframe");
+    iframe.setAttribute("title", "Print invoice PDF");
+    iframe.style.cssText =
+      "position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden;";
+    iframe.src = url;
+    iframe.onload = () => {
+      try {
+        iframe.contentWindow.focus();
+        iframe.contentWindow.print();
+      } catch {
+        // cross-viewers that block scripted print: hand the PDF to the user
+        window.open(url, "_blank");
+      }
+      // keep the frame alive while the print dialog is open, then clean up
+      setTimeout(() => iframe.remove(), 60 * 1000);
+    };
+    document.body.appendChild(iframe);
   };
 
   if (loading) {
@@ -1217,9 +1242,9 @@ export default function InvoiceView() {
                   className="flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-indigo-600 text-white text-xs sm:text-sm font-semibold rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-all shadow-sm">
                   <Share2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span className="hidden sm:inline">Share</span>
                 </button>
-                <button onClick={() => downloadPDF(invoiceType)} disabled={!!busyAction}
+                <button onClick={printPreviewPdf} disabled={!!busyAction} title="Print PDF"
                   className="flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-slate-800 text-white text-xs sm:text-sm font-semibold rounded-lg hover:bg-slate-700 disabled:opacity-50 transition-all shadow-sm">
-                  {busyAction === `download:${invoiceType}` ? <Spinner size={14} /> : <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4" />} <span className="hidden sm:inline">{busyAction === `download:${invoiceType}` ? "Preparing..." : "Download"}</span>
+                  <Printer className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span className="hidden sm:inline">Print</span>
                 </button>
                 <button onClick={() => { setShowPdfPreview(false); setPdfPreviewUrl(null); }}
                   className="p-2 hover:bg-slate-100 rounded-lg transition-colors text-slate-400 hover:text-slate-600">

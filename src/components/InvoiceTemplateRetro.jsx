@@ -75,7 +75,6 @@ const Frame = ({ children, pageId }) => (
       color: "#000000",
       fontFamily: "Arial, Helvetica, sans-serif",
       position: "relative",
-      overflow: "hidden",
     }}
   >
     {children}
@@ -305,7 +304,7 @@ const ItemBox = ({ pageItems, startIndex, height = RETRO_PAGE_METRICS.body }) =>
 
 /* -------------------------------------------------------------- totals */
 
-const Totals = ({ subtotal, cgst, sgst, grand, words, pctLabel }) => {
+const Totals = ({ gross, discAmt, discPct, cgst, sgst, grand, words, pctLabel }) => {
   const label = {
     height: `${ROW_H}px`,
     boxSizing: "border-box",
@@ -328,12 +327,19 @@ const Totals = ({ subtotal, cgst, sgst, grand, words, pctLabel }) => {
   };
   const shade = { background: "#d6d6d6" };
   const rs = splitAmount;
+  const showDiscount = parseFloat(discAmt) > 0;
   const rows = [
-    { key: "total", text: "TOTAL", val: subtotal, shade: true },
+    { key: "total", text: "TOTAL", val: gross, shade: true },
+    ...(showDiscount
+      ? [{ key: "discount", text: `Discount (${discPct}%)`, val: -Math.abs(parseFloat(discAmt) || 0), shade: false, discount: true }]
+      : []),
     { key: "cgst", text: "CGST", pct: true, val: cgst, shade: false },
     { key: "sgst", text: "SGST", pct: true, val: sgst, shade: false },
     { key: "grand", text: "G. TOTAL", val: grand, shade: true },
   ];
+  // Left "Rupees in words" cell spans every totals row; its height must equal
+  // the right-side rows so the block stays a fixed pixel budget on the page.
+  const totalsH = rows.length * ROW_H;
 
   return (
     <div style={{ position: "relative" }}>
@@ -350,12 +356,12 @@ const Totals = ({ subtotal, cgst, sgst, grand, words, pctLabel }) => {
       <tbody>
         <tr>
           <td
-            rowSpan={4}
+            rowSpan={rows.length}
             style={{
               width: COLS.no + COLS.particulars,
               borderBottom: B,
               boxSizing: "border-box",
-              height: `${RETRO_PAGE_METRICS.totals}px`,
+              height: `${totalsH}px`,
               padding: "7px 10px",
               verticalAlign: "top",
             }}
@@ -375,7 +381,7 @@ const Totals = ({ subtotal, cgst, sgst, grand, words, pctLabel }) => {
           </td>
           {/* the HSN strip continues the item-box column rule; E.&O.E. lives in its corner */}
           <td
-            rowSpan={4}
+            rowSpan={rows.length}
             style={{ width: COLS.hsn, borderBottom: B, boxSizing: "border-box", position: "relative" }}
           >
             <div style={{ position: "absolute", right: "5px", bottom: "4px", fontSize: "11.5px", fontWeight: 700 }}>E.&amp;O.E.</div>
@@ -390,8 +396,8 @@ const Totals = ({ subtotal, cgst, sgst, grand, words, pctLabel }) => {
               {r.text}
               {r.pct ? <span style={{ float: "right", paddingRight: "14px", fontWeight: 700 }}>{pctLabel}</span> : null}
             </td>
-            <td style={{ ...money, ...r.shade ? shade : {} }}>{rs(r.val).rs}</td>
-            <td style={{ ...money, ...r.shade ? shade : {} }}>{rs(r.val).ps}</td>
+            <td style={{ ...money, ...(r.shade ? shade : {}), ...(r.discount ? { color: "#0a7d24" } : {}) }}>{rs(r.val).rs}</td>
+            <td style={{ ...money, ...(r.shade ? shade : {}), ...(r.discount ? { color: "#0a7d24" } : {}) }}>{rs(r.val).ps}</td>
           </tr>
         ))}
       </tbody>
@@ -412,12 +418,33 @@ const FooterBand = ({ business, terms, sealVisible, sealType, sigSrc }) => (
       <div style={{ fontSize: "13px", fontWeight: 700, marginBottom: "4px" }}>Terms &amp; Conditions :</div>
       <div style={{ fontSize: "11.5px", lineHeight: "15px" }}>{terms}</div>
     </div>
-    <div style={{ flex: 1, position: "relative", padding: "7px 10px", overflow: "hidden" }}>
+    <div style={{ flex: 1, position: "relative", padding: "7px 10px" }}>
       <div style={{ fontSize: "13px", fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
         For {(business?.businessName || "BUSINESS NAME").toUpperCase()}
       </div>
-      <div style={{ position: "absolute", right: "26px", top: "22px" }}>
-        {sealVisible && sealType === "stamp" && (
+      {/* The signature stays dead-centre in the column (image over its label) and the
+          seal is aligned with that signature row — painted after it, so the seal is
+          never the thing that gets covered up. */}
+      {sigSrc && (
+        <img
+          src={sigSrc}
+          alt="signature"
+          style={{
+            position: "absolute",
+            left: 0,
+            right: 0,
+            bottom: "14px",
+            margin: "0 auto",
+            height: "68px",
+            maxWidth: "100%",
+            objectFit: "contain",
+            display: "block",
+          }}
+        />
+      )}
+      <div style={{ position: "absolute", left: 0, right: 0, bottom: "1px", textAlign: "center", fontSize: "12.5px" }}>Signature</div>
+      {sealVisible && sealType === "stamp" && (
+        <div style={{ position: "absolute", right: "10px", top: "36px", zIndex: 2 }}>
           <CompanyStamp
             companyName={business?.businessName || "COMPANY NAME"}
             addressLine1={business?.addressLine1 || ""}
@@ -427,31 +454,13 @@ const FooterBand = ({ business, terms, sealVisible, sealType, sigSrc }) => (
             width={150}
             color="#0A4BFF"
           />
-        )}
-        {sealVisible && sealType !== "stamp" && (
-          <CompanySeal companyName={business?.businessName || "COMPANY NAME"} year={new Date().getFullYear()} size={74} color="#0A4BFF" />
-        )}
-      </div>
-      {/* uploaded signature sits centred directly above the word "Signature",
-          slightly zoomed so it reads well against the 12.5px label; shown even
-          when the seal/stamp is on — the stamp is pinned right, they don't clash */}
-      {sigSrc && (
-        <img
-          src={sigSrc}
-          alt="signature"
-          style={{
-            position: "absolute",
-            left: 0,
-            right: 0,
-            bottom: "24px",
-            margin: "0 auto",
-            height: "56px",
-            objectFit: "contain",
-            display: "block",
-          }}
-        />
+        </div>
       )}
-      <div style={{ position: "absolute", left: 0, right: 0, bottom: "4px", textAlign: "center", fontSize: "12.5px" }}>Signature</div>
+      {sealVisible && sealType !== "stamp" && (
+        <div style={{ position: "absolute", right: "16px", top: "33px", zIndex: 2 }}>
+          <CompanySeal companyName={business?.businessName || "COMPANY NAME"} year={new Date().getFullYear()} size={74} color="#0A4BFF" />
+        </div>
+      )}
     </div>
     <div style={{ position: "absolute", top: 0, bottom: -BOTTOM_SPACER, left: `${COLS.no + COLS.particulars}px`, width: "1px", background: "#000000" }} />
   </div>
@@ -466,7 +475,9 @@ const RetroPage = ({ pageId, chunks, startIndex, shared }) => (
     <ItemHead />
     <ItemBox pageItems={chunks} startIndex={startIndex} height={shared.bodyH} />
     <Totals
-      subtotal={shared.taxableTotal}
+      gross={shared.gross}
+      discAmt={shared.discAmt}
+      discPct={shared.discPct}
       cgst={shared.cgst}
       sgst={shared.sgst}
       grand={shared.grand}
@@ -499,6 +510,11 @@ const InvoiceTemplateRetro = React.forwardRef(
     const chunks = chunkRetroItems(all, bodyH);
 
     const calc = computeInvoiceTotals(items, discountPercent);
+    // A Discount row takes one extra totals line (ROW_H). Shrink the open item
+    // box by the same amount so the fixed A4 frame budget is unchanged and the
+    // PDF slicer still cuts exactly on the page boundary.
+    const hasDiscount = calc.discountAmount > 0;
+    const discountRowH = hasDiscount ? ROW_H : 0;
 
     const rates = new Set();
     all.forEach((item) => {
@@ -523,8 +539,10 @@ const InvoiceTemplateRetro = React.forwardRef(
       form,
       title: TITLE_BY_TYPE[type] || (type === "PROFORMA_INVOICE" ? "PROFORMA INVOICE" : "TAX INVOICE"),
       displayInvNo: invoiceNumber || "",
-      bodyH,
-      taxableTotal: calc.taxableAmount,
+      bodyH: bodyH - discountRowH,
+      gross: calc.subtotal,
+      discAmt: calc.discountAmount,
+      discPct: calc.discountPercent,
       cgst: calc.cgst,
       sgst: calc.sgst,
       grand,

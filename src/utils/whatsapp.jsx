@@ -1,31 +1,56 @@
 import toast from "react-hot-toast";
 
 export function buildInvoiceWhatsAppMessage({ customerName, invoiceNumber, invoiceType, total, businessName, shareUrl }) {
-  const greeting = customerName?.trim() ? `Hello ${customerName.trim()},` : "Hello,";
+  const name = customerName?.trim() || "";
   const label = invoiceType === "PROFORMA_INVOICE" ? "Proforma Invoice" : "Tax Invoice";
-  const invPart = invoiceNumber?.trim() ? ` ${invoiceNumber.trim()}` : "";
+  const invNo = invoiceNumber?.trim() || "";
   const amount = parseFloat(total);
-  const totalPart = !isNaN(amount) && amount >= 0
-    ? ` - Total: Rs. ${amount.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  const totalStr = !isNaN(amount) && amount >= 0
+    ? `Rs. ${amount.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
     : "";
+  const biz = businessName?.trim() || "";
 
-  const lines = [
-    greeting,
-    "",
-    `${label}${invPart}${totalPart}`,
-  ];
-
-  if (shareUrl) {
-    lines.push("", `View invoice online: ${shareUrl}`);
-  }
-
-  if (businessName?.trim()) {
-    lines.push("", "Thank you for your business!", `- ${businessName.trim()}`);
+  const lines = [];
+  if (name) {
+    lines.push(`Hi ${name},`, "");
   } else {
-    lines.push("", "Thank you for your business!");
+    lines.push("Hello,", "");
   }
-
+  if (biz) {
+    lines.push(`Thank you for shopping with ${biz}!`, "");
+  } else {
+    lines.push("Thank you for shopping with us!", "");
+  }
+  const invLine = invNo ? `${label} ${invNo}` : label;
+  lines.push(invLine);
+  if (totalStr) {
+    lines.push(`Total Bill: ${totalStr}`);
+  }
+  if (shareUrl) {
+    lines.push("", `View invoice online:`, shareUrl);
+  }
   return lines.join("\n");
+}
+
+// Opens WhatsApp (app on mobile, WhatsApp Web on desktop) with a prefilled
+// message. Avoids window.open("", "_blank") which popup blockers kill after
+// any async work — wa.me / web.whatsapp.com universal-links handle routing.
+export function openWhatsAppChat(text) {
+  const encoded = encodeURIComponent(text || "");
+  const isMobile = /Android|iPhone|iPad|iPod|Mobile|Silk/i.test(navigator.userAgent);
+
+  if (isMobile) {
+    // Mobile browsers: wa.me is a universal link that opens the WhatsApp app
+    // directly with the message prefilled in the contact picker.
+    window.location.href = `https://wa.me/?text=${encoded}`;
+  } else {
+    // Desktop: WhatsApp Web opens with the message ready to send.
+    const win = window.open(`https://web.whatsapp.com/send?text=${encoded}`, "_blank");
+    if (!win) {
+      // Popup blocked — navigate the current tab as a fallback.
+      window.location.href = `https://wa.me/?text=${encoded}`;
+    }
+  }
 }
 
 // navigator.share() only works while the click that triggered it is still a

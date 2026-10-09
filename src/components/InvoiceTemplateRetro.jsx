@@ -2,6 +2,7 @@ import React from "react";
 import CompanySeal from "./CompanySeal";
 import CompanyStamp from "./CompanyStamp";
 import { numberToWords, formatINR } from "../utils/invoiceFormat";
+import { computeInvoiceTotals } from "../utils/invoiceTotals";
 import { getSpecialistInLine, SPECIALIST_IN_EXTRA_H } from "../utils/specialistIn";
 import {
   RETRO_PAGE_METRICS,
@@ -37,6 +38,10 @@ const TITLE_BY_TYPE = {
 };
 
 const B = "1px solid #000000";
+
+/* white space below the terms/signature band; the band's column rule runs
+   through it too so the particulars-right line meets the frame's bottom edge */
+const BOTTOM_SPACER = 28;
 
 const DOTS = ".".repeat(200);
 
@@ -244,19 +249,22 @@ const ItemHead = () => {
         </tr>
       </tbody>
     </table>
-      {RULE_X.map((x) => (
+      {/* vertical column rules, same overlay as the item rows/totals — but
+          NOT the Rs./Ps. rule: on the printed form that rule starts at the
+          item box, so the AMOUNT cell stays whole and its label reads centred */}
+      {RULE_X.slice(0, -1).map((x) => (
         <div key={x} style={{ position: "absolute", top: 0, bottom: 0, left: `${x}px`, width: "1px", background: "#000000" }} />
       ))}
     </div>
   );
 };
 
-const ItemBox = ({ pageItems, startIndex }) => {
+const ItemBox = ({ pageItems, startIndex, height = RETRO_PAGE_METRICS.body }) => {
   // Spread rows across the fixed body: tall-enough min heights so a short
   // item list still covers the box (target >= 80%) instead of leaving a
   // void before the totals block.
   const count = Math.max(pageItems.length, 1);
-  const rowH = Math.max(ROW_H, Math.min(96, Math.floor((RETRO_PAGE_METRICS.body - 4) / count)));
+  const rowH = Math.max(ROW_H, Math.min(96, Math.floor((height - 4) / count)));
   const td = {
     padding: "4px 6px",
     fontSize: "12.5px",
@@ -267,7 +275,7 @@ const ItemBox = ({ pageItems, startIndex }) => {
     overflow: "hidden",
   };
   return (
-    <div style={{ height: RETRO_PAGE_METRICS.body, boxSizing: "border-box", borderBottom: B, position: "relative", overflow: "hidden" }}>
+    <div style={{ height, boxSizing: "border-box", borderBottom: B, position: "relative", overflow: "hidden" }}>
       <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
         <tbody>
           {pageItems.map((item, i) => (
@@ -423,13 +431,29 @@ const FooterBand = ({ business, terms, sealVisible, sealType, sigSrc }) => (
         {sealVisible && sealType !== "stamp" && (
           <CompanySeal companyName={business?.businessName || "COMPANY NAME"} year={new Date().getFullYear()} size={74} color="#0A4BFF" />
         )}
-        {!sealVisible && sigSrc && (
-          <img src={sigSrc} alt="signature" style={{ height: "44px", objectFit: "contain", display: "block" }} />
-        )}
       </div>
+      {/* uploaded signature sits centred directly above the word "Signature",
+          slightly zoomed so it reads well against the 12.5px label; shown even
+          when the seal/stamp is on — the stamp is pinned right, they don't clash */}
+      {sigSrc && (
+        <img
+          src={sigSrc}
+          alt="signature"
+          style={{
+            position: "absolute",
+            left: 0,
+            right: 0,
+            bottom: "24px",
+            margin: "0 auto",
+            height: "56px",
+            objectFit: "contain",
+            display: "block",
+          }}
+        />
+      )}
       <div style={{ position: "absolute", left: 0, right: 0, bottom: "4px", textAlign: "center", fontSize: "12.5px" }}>Signature</div>
     </div>
-    <div style={{ position: "absolute", top: 0, bottom: 0, left: `${COLS.no + COLS.particulars}px`, width: "1px", background: "#000000" }} />
+    <div style={{ position: "absolute", top: 0, bottom: -BOTTOM_SPACER, left: `${COLS.no + COLS.particulars}px`, width: "1px", background: "#000000" }} />
   </div>
 );
 
@@ -440,7 +464,7 @@ const RetroPage = ({ pageId, chunks, startIndex, shared }) => (
     <Letterhead business={shared.business} title={shared.title} />
     <Details invoiceNumber={shared.displayInvNo} form={shared.form} customer={shared.customer} />
     <ItemHead />
-    <ItemBox pageItems={chunks} startIndex={startIndex} />
+    <ItemBox pageItems={chunks} startIndex={startIndex} height={shared.bodyH} />
     <Totals
       subtotal={shared.taxableTotal}
       cgst={shared.cgst}
@@ -457,35 +481,31 @@ const RetroPage = ({ pageId, chunks, startIndex, shared }) => (
       sigSrc={shared.sigSrc}
     />
     {/* breathing room between the terms/signature band and the frame edge */}
-    <div style={{ height: "28px", boxSizing: "border-box" }} />
+    <div style={{ height: `${BOTTOM_SPACER}px`, boxSizing: "border-box" }} />
   </Frame>
 );
 
 /* ----------------------------------------------------------- component */
 
 const InvoiceTemplateRetro = React.forwardRef(
-  ({ business, customer, form, items, totals, discountPercent, type, invoiceNumber }, ref) => {
+  ({ business, customer, form, items, discountPercent, type, invoiceNumber }, ref) => {
     const all = (items || []).filter((i) => i?.itemName?.trim() && parseFloat(i?.qty) > 0);
-    const chunks = chunkRetroItems(all);
+    // The Specialist In line grows the letterhead; take the same height out of
+    // the open item box so the outer frame always equals one A4 page — the PDF
+    // slicer cuts on frame boundaries and anything taller spills onto page 2.
+    const bodyH =
+      RETRO_PAGE_METRICS.body -
+      (getSpecialistInLine(business) ? SPECIALIST_IN_EXTRA_H : 0);
+    const chunks = chunkRetroItems(all, bodyH);
 
-    const subtotal = parseFloat(totals?.subtotal) || 0;
-    const discPct = parseFloat(discountPercent) || 0;
-    const discAmt = (subtotal * Math.min(discPct, 100)) / 100;
-    const taxableTotal = subtotal - discAmt;
-    const ratio = subtotal > 0 ? taxableTotal / subtotal : 0;
+    const calc = computeInvoiceTotals(items, discountPercent);
 
-    let cgst = 0;
-    let sgst = 0;
     const rates = new Set();
     all.forEach((item) => {
-      const gst = parseFloat(item.gstPercentage) || 0;
-      rates.add(gst);
-      const itemTaxable = (parseFloat(item.taxableValue) || (parseFloat(item.qty) || 0) * (parseFloat(item.rate) || 0)) * ratio;
-      cgst += (itemTaxable * (gst / 2)) / 100;
-      sgst += (itemTaxable * (gst / 2)) / 100;
+      rates.add(parseFloat(item.gstPercentage) || 0);
     });
 
-    const grand = parseFloat(totals?.grandTotal) || taxableTotal + cgst + sgst;
+    const grand = calc.grandTotal;
     const singleRate = rates.size === 1 ? [...rates][0] : null;
     const pctLabel = singleRate ? `${singleRate / 2} %` : "";
 
@@ -503,9 +523,10 @@ const InvoiceTemplateRetro = React.forwardRef(
       form,
       title: TITLE_BY_TYPE[type] || (type === "PROFORMA_INVOICE" ? "PROFORMA INVOICE" : "TAX INVOICE"),
       displayInvNo: invoiceNumber || "",
-      taxableTotal,
-      cgst,
-      sgst,
+      bodyH,
+      taxableTotal: calc.taxableAmount,
+      cgst: calc.cgst,
+      sgst: calc.sgst,
       grand,
       words: grand > 0 ? numberToWords(grand) : "",
       pctLabel,

@@ -9,6 +9,7 @@ import PageHeader from "../components/PageHeader";
 import InvoiceTemplateRenderer from "../components/InvoiceTemplateRenderer";
 import { processPrint } from "../utils/printInvoice";
 import { getPrintSettings } from "../constants/paperSizes";
+import { computeInvoiceTotals, round2 } from "../utils/invoiceTotals";
 
 const emptyItem = { itemName: "", hsn: "", qty: "", rate: "", gstPercentage: "18", taxableValue: 0, taxAmount: 0, total: 0 };
 
@@ -51,6 +52,7 @@ export default function AdminInvoiceView() {
           otherReferences: inv.otherReferences || "",
           destination: inv.destination || "",
           status: inv.status,
+          discountPercent: inv.discountPercent != null ? String(inv.discountPercent) : "",
         });
         setItems(inv.items?.map((item) => ({
           itemName: item.itemName,
@@ -78,9 +80,9 @@ export default function AdminInvoiceView() {
     const gst = parseFloat(item.gstPercentage) || 0;
     const taxableValue = qty * rate;
     const taxAmount = (taxableValue * gst) / 100;
-    item.taxableValue = Math.round(taxableValue * 100) / 100;
-    item.taxAmount = Math.round(taxAmount * 100) / 100;
-    item.total = Math.round((taxableValue + taxAmount) * 100) / 100;
+    item.taxableValue = round2(taxableValue);
+    item.taxAmount = round2(taxAmount);
+    item.total = round2(taxableValue + taxAmount);
   };
 
   const handleItemChange = (idx, field, value) => {
@@ -96,15 +98,13 @@ export default function AdminInvoiceView() {
   const addItem = () => setItems([...items, { ...emptyItem }]);
   const removeItem = (idx) => { if (items.length > 1) setItems(items.filter((_, i) => i !== idx)); };
 
-  const totals = useMemo(() => items.reduce(
-    (acc, item) => {
-      const tv = parseFloat(item.taxableValue) || 0;
-      const ta = parseFloat(item.taxAmount) || 0;
-      const t = parseFloat(item.total) || 0;
-      return { subtotal: acc.subtotal + tv, taxAmount: acc.taxAmount + ta, grandTotal: acc.grandTotal + t };
-    },
-    { subtotal: 0, taxAmount: 0, grandTotal: 0 }
-  ), [items]);
+  const activeDiscount = editing
+    ? (form.discountPercent || "0")
+    : (invoice?.discountPercent != null ? String(invoice.discountPercent) : "0");
+  const totals = useMemo(
+    () => computeInvoiceTotals(items, activeDiscount),
+    [items, activeDiscount]
+  );
 
   // Stable object identity keeps React.memo'd templates from re-rendering on
   // unrelated state changes (saving/editing spinners etc).
@@ -128,7 +128,7 @@ export default function AdminInvoiceView() {
         await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
       }
       await processPrint(invoiceRef, docType, filename, ps);
-    } catch (err) {
+    } catch {
       toast.error("Failed to generate");
     } finally {
       setCapturing(false);
@@ -156,6 +156,7 @@ export default function AdminInvoiceView() {
         otherReferences: form.otherReferences || undefined,
         destination: form.destination || undefined,
         status: form.status,
+        discountPercent: parseFloat(form.discountPercent) || 0,
         items: items.filter((i) => i.itemName.trim() && parseFloat(i.qty) > 0 && parseFloat(i.rate) > 0).map((i, idx) => ({
           sno: idx + 1, itemName: i.itemName, hsn: i.hsn || undefined,
           qty: parseFloat(i.qty), rate: parseFloat(i.rate), gstPercentage: parseFloat(i.gstPercentage) || 0,
@@ -218,7 +219,7 @@ export default function AdminInvoiceView() {
               form={form}
               items={items}
               totals={totals}
-              discountPercent="0"
+              discountPercent={activeDiscount}
               type={form.invoiceType}
               invoiceNumber={form.invoiceNumber}
             />
@@ -262,15 +263,23 @@ export default function AdminInvoiceView() {
           </div>
 
           {editing && (
-            <div className="mb-4">
-              <label className={labelClass}>Status</label>
-              <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}
-                className={inputClass}>
-                <option value="DRAFT">DRAFT</option>
-                <option value="PENDING">PENDING</option>
-                <option value="PAID">PAID</option>
-                <option value="CANCELLED">CANCELLED</option>
-              </select>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+              <div>
+                <label className={labelClass}>Status</label>
+                <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}
+                  className={inputClass}>
+                  <option value="DRAFT">DRAFT</option>
+                  <option value="PENDING">PENDING</option>
+                  <option value="PAID">PAID</option>
+                  <option value="CANCELLED">CANCELLED</option>
+                </select>
+              </div>
+              <div>
+                <label className={labelClass}>Discount %</label>
+                <input type="number" step="0.01" min="0" max="100" value={form.discountPercent}
+                  onChange={(e) => setForm({ ...form, discountPercent: e.target.value })}
+                  inputMode="decimal" className={inputClass} placeholder="0" />
+              </div>
             </div>
           )}
 
@@ -350,9 +359,9 @@ export default function AdminInvoiceView() {
                           <input type="number" step="any" value={item.gstPercentage} onChange={(e) => handleItemChange(idx, "gstPercentage", e.target.value)}
                             inputMode="decimal" className="w-16 px-2 py-1 border border-slate-200 rounded text-xs text-right focus:outline-none focus:border-slate-400" />
                         </td>
-                        <td className="py-2 px-2 text-xs text-slate-600 text-right">₹{Number(item.taxableValue).toLocaleString()}</td>
-                        <td className="py-2 px-2 text-xs text-slate-600 text-right">₹{Number(item.taxAmount).toLocaleString()}</td>
-                        <td className="py-2 px-2 text-xs text-slate-800 font-medium text-right">₹{Number(item.total).toLocaleString()}</td>
+                        <td className="py-2 px-2 text-xs text-slate-600 text-right">₹{(totals.perItem[idx]?.taxable ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                        <td className="py-2 px-2 text-xs text-slate-600 text-right">₹{(totals.perItem[idx]?.tax ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                        <td className="py-2 px-2 text-xs text-slate-800 font-medium text-right">₹{(totals.perItem[idx]?.total ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
                         <td className="py-2 px-2">
                           <button onClick={() => removeItem(idx)}
                             className="text-red-400 hover:text-red-600 text-xs">✕</button>
@@ -365,9 +374,9 @@ export default function AdminInvoiceView() {
                         <td className="py-2 px-2 text-xs text-slate-600 text-right">{item.qty}</td>
                         <td className="py-2 px-2 text-xs text-slate-600 text-right">₹{Number(item.rate).toLocaleString()}</td>
                         <td className="py-2 px-2 text-xs text-slate-600 text-right">{item.gstPercentage}%</td>
-                        <td className="py-2 px-2 text-xs text-slate-600 text-right">₹{Number(item.taxableValue).toLocaleString()}</td>
-                        <td className="py-2 px-2 text-xs text-slate-600 text-right">₹{Number(item.taxAmount).toLocaleString()}</td>
-                        <td className="py-2 px-2 text-xs text-slate-800 font-medium text-right">₹{Number(item.total).toLocaleString()}</td>
+                        <td className="py-2 px-2 text-xs text-slate-600 text-right">₹{(totals.perItem[idx]?.taxable ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                        <td className="py-2 px-2 text-xs text-slate-600 text-right">₹{(totals.perItem[idx]?.tax ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                        <td className="py-2 px-2 text-xs text-slate-800 font-medium text-right">₹{(totals.perItem[idx]?.total ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
                       </>
                     )}
                   </tr>
@@ -386,15 +395,25 @@ export default function AdminInvoiceView() {
           <div className="border-t border-slate-100 pt-4 flex flex-col items-end">
             <div className="text-sm text-slate-600 flex justify-between w-full sm:w-64 mb-1">
               <span>Subtotal:</span>
-              <span>₹{Number(editing ? totals.subtotal : invoice.subtotal).toLocaleString()}</span>
+              <span>₹{totals.subtotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+            </div>
+            {totals.discountAmount > 0 && (
+              <div className="text-sm text-slate-600 flex justify-between w-full sm:w-64 mb-1">
+                <span>Discount ({totals.discountPercent}%):</span>
+                <span>-₹{totals.discountAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+              </div>
+            )}
+            <div className="text-sm text-slate-600 flex justify-between w-full sm:w-64 mb-1">
+              <span>Taxable Amount:</span>
+              <span>₹{totals.taxableAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
             </div>
             <div className="text-sm text-slate-600 flex justify-between w-full sm:w-64 mb-1">
               <span>Tax Amount:</span>
-              <span>₹{Number(editing ? totals.taxAmount : invoice.taxAmount).toLocaleString()}</span>
+              <span>₹{totals.taxAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
             </div>
             <div className="text-base font-semibold text-slate-900 flex justify-between w-full sm:w-64 pt-2 border-t border-slate-200">
               <span>Grand Total:</span>
-              <span>₹{Number(editing ? totals.grandTotal : invoice.grandTotal).toLocaleString()}</span>
+              <span>₹{totals.grandTotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
             </div>
           </div>
         </div>

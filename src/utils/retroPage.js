@@ -12,7 +12,9 @@ export const RETRO_PAGE_METRICS = {
   footer: 108,
   borders: 10,     // 4 outer + 6 inner rules
   rowFudge: 4,     // collapsed-table row rounding allowance (measured real = 1012px)
-  gap: 10,         // white space between stacked pages in the preview/PDF
+  gap: 0,          // stacked frames touch (double 2px rule between them); a gap
+                   // here becomes its own 1px-black PDF page — the slicer cuts
+                   // on retro-page boundaries and would emit the gap alone
 };
 
 // Everything except the item box, rounded up so the cut point always
@@ -59,16 +61,19 @@ export const estimateRow = (name) => EST_ROW + EST_WRAP * (linesFor(name) - 1);
 
 /**
  * Pack items into fixed pages. A page takes as many rows as fit inside
- * BODY_BUDGET, so a 15+ item bill flows onto repeat pages instead of
- * stretching the frame.
+ * the body budget, so a 15+ item bill flows onto repeat pages instead of
+ * stretching the frame. `bodyH` lets the caller shrink the box when the
+ * header grows (e.g. the Specialist In line) so the outer frame height
+ * never exceeds one A4 page.
  */
-export function chunkRetroItems(items) {
+export function chunkRetroItems(items, bodyH = RETRO_PAGE_METRICS.body) {
+  const budget = bodyH - 4; // safety lip above the frame
   const pages = [];
   let current = [];
   let used = 0;
   (items || []).forEach((item) => {
     const h = estimateRow(item?.itemName);
-    if (current.length > 0 && used + h > BODY_BUDGET) {
+    if (current.length > 0 && used + h > budget) {
       pages.push(current);
       current = [];
       used = 0;

@@ -3,6 +3,7 @@ import { QRCodeSVG } from "qrcode.react";
 import CompanySeal from "./CompanySeal";
 import CompanyStamp from "./CompanyStamp";
 import { getSpecialistInLine } from "../utils/specialistIn";
+import { computeInvoiceTotals } from "../utils/invoiceTotals";
 
 const S = {
   border: "1px solid #000",
@@ -65,25 +66,20 @@ const tStyleSep = {
   boxSizing: "border-box",
 };
 
-const InvoicePDF = React.memo(React.forwardRef(({ business, customer, form, items, totals, discountPercent, type, invoiceNumber }, ref) => {
+const InvoicePDF = React.memo(React.forwardRef(({ business, customer, form, items, discountPercent, type, invoiceNumber }, ref) => {
   const displayInvNo = invoiceNumber || "DRAFT";
   const isProforma = type === "PROFORMA_INVOICE";
-  const pl = (label) => isProforma ? ({ "Invoice No.": "Proforma Ref", "Invoice#": "Proforma Ref", "Due Date": "Valid Until", "Due": "Valid Until" }[label] || label) : label;
   const validItems = (items || []).filter((i) => i.itemName?.trim() && parseFloat(i.qty) > 0);
   const sigSrc = business?.signature ? `data:image/png;base64,${business.signature}` : null;
-  const discPct = parseFloat(discountPercent) || 0;
-  const discAmt = totals.subtotal * Math.min(discPct, 100) / 100;
-  const taxableAmount = totals.subtotal - discAmt;
-  const discRatio = totals.subtotal > 0 ? (taxableAmount / totals.subtotal) : 0;
-
-  let cgstTotal = 0, sgstTotal = 0;
-  validItems.forEach((item) => {
-    const gst = parseFloat(item.gstPercentage) || 0;
-    const taxable = (parseFloat(item.taxableValue) || parseFloat(item.qty || 0) * parseFloat(item.rate || 0)) * discRatio;
-    const halfGst = gst / 2;
-    cgstTotal += (taxable * halfGst) / 100;
-    sgstTotal += (taxable * halfGst) / 100;
-  });
+  const calc = computeInvoiceTotals(items, discountPercent);
+  const discPct = calc.discountPercent;
+  const discAmt = calc.discountAmount;
+  const taxableAmount = calc.taxableAmount;
+  const discRatio = calc.ratio;
+  const cgstTotal = calc.cgst;
+  const sgstTotal = calc.sgst;
+  const calcTaxAmount = calc.taxAmount;
+  const finalTotal = calc.grandTotal;
 
   const rightLabels = isProforma
     ? ["Proforma Ref.", "Delivery Note", "Reference No. & Date.", "Buyer's Order No.",
@@ -99,7 +95,6 @@ const InvoicePDF = React.memo(React.forwardRef(({ business, customer, form, item
     form?.termsOfDelivery, form?.dueDate, form?.paymentTerms, form?.otherReferences,
     form?.invoiceDate, form?.deliveryNoteDate, form?.destination,
   ];
-  const totalQty = validItems.reduce((s, i) => s + (parseFloat(i.qty) || 0), 0);
 
   const sealVisible = typeof window !== "undefined" && localStorage.getItem("show_seal") === "true";
   const sealType = typeof window !== "undefined" ? localStorage.getItem("seal_type") || "round" : "round";
@@ -288,7 +283,7 @@ const InvoicePDF = React.memo(React.forwardRef(({ business, customer, form, item
                 <tbody>
                   <tr>
                     <td style={{ textAlign: "right", padding: "4px 10px", border: 0 }}>
-                      {totals.taxAmount > 0 ? (
+                      {calcTaxAmount > 0 ? (
                         <>
                           <div style={{ fontSize: "10px", marginBottom: "1px" }}>
                             <span style={{ marginRight: "16px" }}>CGST (Estimated)</span>
@@ -316,7 +311,7 @@ const InvoicePDF = React.memo(React.forwardRef(({ business, customer, form, item
                     <td style={{ width: "72%", borderRight: S.border, padding: "6px 10px", verticalAlign: "top" }}>
                       <div style={{ fontSize: "10px", fontWeight: "bold", marginBottom: "3px" }}>Estimated Amount (in words)</div>
                       <div style={{ fontSize: "11px", fontWeight: "bold" }}>
-                        {(totals.grandTotal - discAmt) > 0 ? numberToWords(totals.grandTotal - discAmt) : "Zero Rupees Only"}
+                        {(finalTotal) > 0 ? numberToWords(finalTotal) : "Zero Rupees Only"}
                       </div>
                     </td>
                     <td style={{ width: "28%", padding: "6px 10px", verticalAlign: "top" }}>
@@ -329,7 +324,7 @@ const InvoicePDF = React.memo(React.forwardRef(({ business, customer, form, item
                         Estimated Total
                       </div>
                       <div style={{ fontSize: "18px", fontWeight: "bold", margin: "2px 0", textAlign: "left" }}>
-                        Rs: {formatINR(totals.grandTotal - discAmt)}
+                        Rs: {formatINR(finalTotal)}
                       </div>
                       <div style={{ fontSize: "10px", fontStyle: "italic", textAlign: "right" }}>
                         E. & O.E
@@ -350,7 +345,7 @@ const InvoicePDF = React.memo(React.forwardRef(({ business, customer, form, item
                 <tbody>
                   <tr>
                     <td style={{ textAlign: "right", padding: "4px 10px", border: 0 }}>
-                      {totals.taxAmount > 0 ? (
+                      {calcTaxAmount > 0 ? (
                         <>
                           <div style={{ fontSize: "10px", marginBottom: "1px" }}>
                             <span style={{ marginRight: "16px" }}>CGST</span>
@@ -382,7 +377,7 @@ const InvoicePDF = React.memo(React.forwardRef(({ business, customer, form, item
                     <td style={{ width: "72%", borderRight: S.border, padding: "6px 10px", verticalAlign: "top" }}>
                       <div style={{ fontSize: "10px", fontWeight: "bold", marginBottom: "3px" }}>Amount Chargeable (in words)</div>
                       <div style={{ fontSize: "11px", fontWeight: "bold" }}>
-                        {(totals.grandTotal - discAmt) > 0 ? numberToWords(totals.grandTotal - discAmt) : "Zero Rupees Only"}
+                        {(finalTotal) > 0 ? numberToWords(finalTotal) : "Zero Rupees Only"}
                       </div>
                     </td>
                     <td style={{ width: "28%", padding: "6px 10px", verticalAlign: "top" }}>
@@ -395,7 +390,7 @@ const InvoicePDF = React.memo(React.forwardRef(({ business, customer, form, item
                         Total
                       </div>
                       <div style={{ fontSize: "18px", fontWeight: "bold", margin: "2px 0", textAlign: "left" }}>
-                        Rs: {formatINR(totals.grandTotal - discAmt)}
+                        Rs: {formatINR(finalTotal)}
                       </div>
                       <div style={{ fontSize: "10px", fontStyle: "italic", textAlign: "right" }}>
                         E. & O.E
@@ -446,12 +441,12 @@ const InvoicePDF = React.memo(React.forwardRef(({ business, customer, form, item
                      })}
                      <tr id="section-hsn-total" style={{ height: "26px" }}>
                        <td style={{ borderRight: S.border, borderBottom: S.border, textAlign: "center", fontSize: "10px", padding: "5px 6px", lineHeight: "1.5", fontWeight: "bold", background: "linear-gradient(to right, transparent 1px, #f0f0f0 1px)" }}>Total</td>
-                       <td style={{ borderRight: S.border, borderBottom: S.border, textAlign: "right", fontSize: "10px", padding: "5px 6px", lineHeight: "1.5", fontWeight: "bold", background: "#f0f0f0" }}>{formatINR(totals.subtotal)}</td>
+                       <td style={{ borderRight: S.border, borderBottom: S.border, textAlign: "right", fontSize: "10px", padding: "5px 6px", lineHeight: "1.5", fontWeight: "bold", background: "#f0f0f0" }}>{formatINR(taxableAmount)}</td>
                        <td style={{ borderRight: S.border, borderBottom: S.border, textAlign: "center", fontSize: "10px", padding: "5px 6px", lineHeight: "1.5", background: "#f0f0f0" }}></td>
-                       <td style={{ borderRight: S.border, borderBottom: S.border, textAlign: "right", fontSize: "10px", padding: "5px 6px", lineHeight: "1.5", fontWeight: "bold", background: "#f0f0f0" }}>{formatINR(totals.taxAmount / 2)}</td>
+                       <td style={{ borderRight: S.border, borderBottom: S.border, textAlign: "right", fontSize: "10px", padding: "5px 6px", lineHeight: "1.5", fontWeight: "bold", background: "#f0f0f0" }}>{formatINR(cgstTotal)}</td>
                        <td style={{ borderRight: S.border, borderBottom: S.border, textAlign: "center", fontSize: "10px", padding: "5px 6px", lineHeight: "1.5", background: "#f0f0f0" }}></td>
-                       <td style={{ borderRight: S.border, borderBottom: S.border, textAlign: "right", fontSize: "10px", padding: "5px 6px", lineHeight: "1.5", fontWeight: "bold", background: "#f0f0f0" }}>{formatINR(totals.taxAmount / 2)}</td>
-                       <td style={{ borderBottom: S.border, textAlign: "right", fontSize: "10px", padding: "5px 6px", lineHeight: "1.5", fontWeight: "bold", background: "linear-gradient(to left, transparent 1px, #f0f0f0 1px)" }}>{formatINR(totals.taxAmount)}</td>
+                       <td style={{ borderRight: S.border, borderBottom: S.border, textAlign: "right", fontSize: "10px", padding: "5px 6px", lineHeight: "1.5", fontWeight: "bold", background: "#f0f0f0" }}>{formatINR(sgstTotal)}</td>
+                       <td style={{ borderBottom: S.border, textAlign: "right", fontSize: "10px", padding: "5px 6px", lineHeight: "1.5", fontWeight: "bold", background: "linear-gradient(to left, transparent 1px, #f0f0f0 1px)" }}>{formatINR(cgstTotal + sgstTotal)}</td>
                      </tr>
                   </tbody>
                 </table>
@@ -463,7 +458,7 @@ const InvoicePDF = React.memo(React.forwardRef(({ business, customer, form, item
             <td colSpan={2} style={{ borderLeft: S.border, borderRight: S.border, borderBottom: S.border, padding: "5px 10px" }}>
               <span style={{ fontSize: "10px", fontWeight: "bold" }}>Tax Amount (in words): </span>
               <span style={{ fontSize: "10px", fontWeight: "bold" }}>
-                {totals.taxAmount > 0 ? numberToWords(totals.taxAmount) : "Nil"}
+                 {calcTaxAmount > 0 ? numberToWords(calcTaxAmount) : "Nil"}
               </span>
             </td>
           </tr>
@@ -491,7 +486,7 @@ const InvoicePDF = React.memo(React.forwardRef(({ business, customer, form, item
                         </div>
                         {business?.upiId && (
                           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flexShrink: 0, maxWidth: "90px" }}>
-                            <QRCodeSVG value={`upi://pay?pa=${business.upiId}&pn=${encodeURIComponent(business.businessName || "")}&am=${(totals.grandTotal - discAmt).toFixed(2)}&tr=${encodeURIComponent(displayInvNo)}&tn=${encodeURIComponent(displayInvNo)}&cu=INR`} size={74} style={{ width: "100%", height: "auto", maxWidth: "74px" }} />
+                            <QRCodeSVG value={`upi://pay?pa=${business.upiId}&pn=${encodeURIComponent(business.businessName || "")}&am=${finalTotal.toFixed(2)}&tr=${encodeURIComponent(displayInvNo)}&tn=${encodeURIComponent(displayInvNo)}&cu=INR`} size={74} style={{ width: "100%", height: "auto", maxWidth: "74px" }} />
                             <div style={{ fontSize: "9px", marginTop: "2px", color: "#555" }}>Scan to Pay</div>
                           </div>
                         )}

@@ -13,8 +13,10 @@ import InvoiceTemplateRenderer from "../components/InvoiceTemplateRenderer";
 import WhatsAppIcon from "../components/WhatsAppIcon";
 import { processQueue } from "../utils/retryQueue";
 import { processPrint } from "../utils/printInvoice";
-import { buildInvoiceWhatsAppMessage } from "../utils/whatsapp";
+import { buildInvoiceWhatsAppMessage, openWhatsAppChat } from "../utils/whatsapp";
+import { shareLinkToUser, proformaShareUrl } from "../utils/shareLink";
 import { getPrintSettings, getInvoiceTemplate } from "../constants/paperSizes";
+import { computeInvoiceTotals, round2 } from "../utils/invoiceTotals";
 import { INDIAN_STATES, DELIVERY_TERMS, PAYMENT_TERMS } from "../constants/indianStates";
 
 const uid = () => (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `i${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`);
@@ -28,7 +30,7 @@ const labelClass = "block text-xs font-semibold text-slate-600 mb-1.5";
 // (an inner declaration remounts every row on each parent render).
 const InfoRow = memo(({ label, value }) => value ? <p className="text-sm text-slate-600"><span className="text-slate-400">{label}:</span> {value}</p> : null);
 
-const ViewItemRow = memo(({ item, idx, isEditing, onItemChange, onRemove, onAdd }) => (
+const ViewItemRow = memo(({ item, calc, idx, isEditing, onItemChange, onRemove, onAdd }) => (
   <tr className={`${idx % 2 === 0 ? "bg-white" : "bg-slate-50/40"} ${isEditing ? "hover:bg-blue-50/20" : ""} transition-colors`}>
     <td className="py-3 px-3 text-center text-slate-400 font-mono text-xs border-b border-slate-100">{idx + 1}</td>
     {isEditing ? (
@@ -90,13 +92,13 @@ const ViewItemRow = memo(({ item, idx, isEditing, onItemChange, onRemove, onAdd 
       </>
     )}
     <td className={`py-3 px-3 text-right font-mono text-sm border-b border-slate-100 truncate ${isEditing ? "text-slate-700" : "text-slate-700"}`}>
-      {fmt(item.taxableValue)}
+      {fmt(calc?.taxable ?? item.taxableValue)}
     </td>
     <td className={`py-3 px-3 text-right font-mono text-sm border-b border-slate-100 truncate ${isEditing ? "text-slate-600" : "text-slate-600"}`}>
-      {fmt(item.taxAmount)}
+      {fmt(calc?.tax ?? item.taxAmount)}
     </td>
     <td className={`py-3 px-3 text-right font-mono text-sm font-semibold border-b border-slate-100 truncate ${isEditing ? "text-slate-900" : "text-slate-900"}`}>
-      {fmt(item.total)}
+      {fmt(calc?.total ?? item.total)}
     </td>
     {isEditing && (
       <td className="py-3 px-2 text-center border-b border-slate-100">
@@ -210,9 +212,8 @@ export default function InvoiceView() {
     try {
       await copyShareUrl(await shareLinkFor());
       setShowShareSheet(false);
-    } catch (err) {
-      if (err?.response?.status === 404) toast.error("Invoice not found");
-      else toast.error("Could not create the share link");
+    } catch {
+      toast.error("Could not create the share link");
     } finally {
       setShareBusy("");
     }
@@ -256,6 +257,26 @@ export default function InvoiceView() {
     setShareBusy("");
     setShowShareSheet(false);
     shareViaWhatsApp();
+  };
+
+  // Proforma view of THIS invoice: same share token, rendered as a proforma document,
+  // so the customer can be sent a quotation-style copy without a second invoice record.
+  const shareProformaFromSheet = async () => {
+    if (shareBusy || busyAction) return;
+    setShareBusy("proforma");
+    try {
+      const url = proformaShareUrl(await shareLinkFor());
+      setShowShareSheet(false);
+      await shareLinkToUser({
+        url,
+        title: `Proforma Invoice ${form.invoiceNumber || ""}`.trim(),
+        copyMessage: "Proforma invoice link copied to clipboard",
+      });
+    } catch {
+      toast.error("Could not create the proforma link");
+    } finally {
+      setShareBusy("");
+    }
   };
 
   // ---------- Send email (re-trigger) ----------
@@ -347,9 +368,9 @@ export default function InvoiceView() {
       if (["qty", "rate", "gstPercentage"].includes(field)) {
         const taxableValue = qty * rate;
         const taxAmount = taxableValue * gst / 100;
-        updated.taxableValue = taxableValue.toFixed(2);
-        updated.taxAmount = taxAmount.toFixed(2);
-        updated.total = (taxableValue + taxAmount).toFixed(2);
+        updated.taxableValue = round2(taxableValue).toFixed(2);
+        updated.taxAmount = round2(taxAmount).toFixed(2);
+        updated.total = round2(taxableValue + taxAmount).toFixed(2);
       }
       return updated;
     }));
@@ -363,18 +384,7 @@ export default function InvoiceView() {
     setItems((prev) => prev.length > 1 ? prev.filter((_, i) => i !== idx) : prev);
   }, []);
 
-  const totals = useMemo(() => {
-    const subtotal = items.reduce((sum, item) => sum + (parseFloat(item.taxableValue) || 0), 0);
-    const discountAmount = discountEnabled ? subtotal * Math.min(discountVal, 100) / 100 : 0;
-    const taxableAmount = subtotal - discountAmount;
-    const ratio = subtotal > 0 ? (taxableAmount / subtotal) : 0;
-    const taxAmount = items.reduce((sum, item) => {
-      const tv = parseFloat(item.taxableValue) || 0;
-      const gst = parseFloat(item.gstPercentage) || 0;
-      return sum + (tv * ratio * gst / 100);
-    }, 0);
-    return { subtotal, discountAmount, taxableAmount, taxAmount, grandTotal: taxableAmount + taxAmount };
-  }, [items, discountEnabled, discountVal]);
+  const totals = useMemo(() => computeInvoiceTotals(items, discountEnabled ? discountPercent : "0"), [items, discountEnabled, discountPercent]);
 
   const validItemsCount = useMemo(
     () => items.filter((i) => i.itemName.trim() && parseFloat(i.qty) > 0).length,
@@ -481,36 +491,22 @@ export default function InvoiceView() {
   const shareViaWhatsApp = async () => {
     if (busyAction) return;
     setBusyAction("whatsapp");
-    const shareWindow = window.open("", "_blank");
     try {
       // 1. Save the invoice (if unsaved / editing)
       if (isEditing) {
         if (!validate()) {
-          if (shareWindow) shareWindow.close();
           setBusyAction("");
           return;
         }
         await handleSave();
       }
 
-      // 2. Generate the PDF
-      try {
-        const filename = `${invoiceType === "PROFORMA_INVOICE" ? "Proforma" : "Tax"}_Invoice_${form.invoiceNumber}.pdf`;
-        const captureRef = await mountCapture(invoiceType);
-        const ps = (getPrintSettings()[invoiceType] || {}).paperSize || "A4_PORTRAIT";
-        await processPrint(captureRef, invoiceType, filename, ps);
-      } catch (pdfErr) {
-        console.error("PDF generation error:", pdfErr);
-      } finally {
-        releaseCapture();
-      }
-
-      // 3. Create/ensure a public share link
+      // 2. Create/ensure a public share link
       const token = await ensureShareToken();
       const origin = typeof window !== "undefined" && window.location.origin ? window.location.origin : "https://insideinvoice.com";
       const shareUrl = `${origin}/i/${token}`;
 
-      // 4. Open WhatsApp with contact picker and message
+      // 3. Open WhatsApp with the prefilled invoice message + link
       const text = buildInvoiceWhatsAppMessage({
         customerName: form.customerName,
         invoiceNumber: form.invoiceNumber,
@@ -519,14 +515,8 @@ export default function InvoiceView() {
         businessName: business?.businessName,
         shareUrl,
       });
-      const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
-      if (shareWindow && !shareWindow.closed) {
-        shareWindow.location.href = url;
-      } else {
-        window.open(url, "_blank") || (window.location.href = url);
-      }
+      openWhatsAppChat(text);
     } catch (err) {
-      if (shareWindow) shareWindow.close();
       toast.error(err.response?.data?.message || "Could not share via WhatsApp");
     } finally {
       setBusyAction("");
@@ -544,7 +534,7 @@ export default function InvoiceView() {
       const blobUrl = URL.createObjectURL(blob) + "#toolbar=0";
       setPdfPreviewUrl(blobUrl);
       setShowPdfPreview(true);
-    } catch (err) {
+    } catch {
       toast.error("Failed to generate PDF preview");
     } finally {
       releaseCapture();
@@ -885,7 +875,7 @@ export default function InvoiceView() {
                   </thead>
                   <tbody>
                     {items.map((item, idx) => (
-                      <ViewItemRow key={item.id ?? idx} item={item} idx={idx} isEditing={isEditing} onItemChange={handleItemChange} onRemove={removeItem} onAdd={addItem} />
+                      <ViewItemRow key={item.id ?? idx} item={item} calc={totals.perItem[idx]} idx={idx} isEditing={isEditing} onItemChange={handleItemChange} onRemove={removeItem} onAdd={addItem} />
                     ))}
                   </tbody>
                 </table>
@@ -1245,7 +1235,7 @@ export default function InvoiceView() {
       )}
 
       {showShareSheet && (
-        <div className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-[2px] flex items-end sm:items-center justify-center" onClick={() => !shareBusy && setShowShareSheet(false)}>
+        <div className="fixed inset-0 z-[1100] bg-black/40 backdrop-blur-[2px] flex items-end sm:items-center justify-center" onClick={() => !shareBusy && setShowShareSheet(false)}>
           <div
             className="w-full sm:max-w-md bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl border border-slate-200 pb-[max(env(safe-area-inset-bottom),16px)] sm:pb-4"
             onClick={(e) => e.stopPropagation()}
@@ -1276,7 +1266,7 @@ export default function InvoiceView() {
                 <span className="min-w-0">
                   <span className="block text-sm font-semibold text-slate-800">Copy link</span>
                   <span className="block text-xs text-slate-400 truncate">
-                    {shareUrl ? "Link ready — anyone with it can view (no login)" : "Creates a view-only link (no login)"}
+                    {shareUrl ? "Link ready — anyone with it can view" : "Creates a view-only link"}
                   </span>
                 </span>
               </button>
@@ -1292,6 +1282,17 @@ export default function InvoiceView() {
                 </span>
               </button>
 
+              <button type="button" onClick={shareProformaFromSheet} disabled={!!shareBusy}
+                className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-slate-50 disabled:opacity-60 transition-colors text-left">
+                <span className="w-10 h-10 shrink-0 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                  {shareBusy === "proforma" ? <Spinner size={18} /> : <FileText className="w-5 h-5" />}
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-sm font-semibold text-slate-800">Share Proforma Invoice</span>
+                  <span className="block text-xs text-slate-400">Send the proforma invoice link</span>
+                </span>
+              </button>
+
               {canNativeShare && (
                 <button type="button" onClick={nativeShareFromSheet} disabled={!!shareBusy}
                   className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-slate-50 disabled:opacity-60 transition-colors text-left">
@@ -1304,18 +1305,6 @@ export default function InvoiceView() {
                   </span>
                 </button>
               )}
-
-              <button type="button" onClick={() => { setShowShareSheet(false); downloadPDF(invoiceType); }}
-                disabled={!!shareBusy || sealRequired || !!busyAction}
-                className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-slate-50 disabled:opacity-60 transition-colors text-left">
-                <span className="w-10 h-10 shrink-0 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center">
-                  <Download className="w-5 h-5" />
-                </span>
-                <span className="min-w-0">
-                  <span className="block text-sm font-semibold text-slate-800">Download PDF</span>
-                  <span className="block text-xs text-slate-400">Save the invoice to this device</span>
-                </span>
-              </button>
             </div>
           </div>
         </div>

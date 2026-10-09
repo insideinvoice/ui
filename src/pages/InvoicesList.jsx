@@ -11,10 +11,12 @@ import { invoiceAPI } from "../api/auth";
 import { resolveBusinessProfile, getBusinessProfile } from "../utils/businessProfile";
 import toast from "react-hot-toast";
 import { ArrowLeft, FileText, Download, Eye, PlusCircle, Share2, Trash2, Search, X, Link2, ChevronDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
+import WhatsAppIcon from "../components/WhatsAppIcon";
 import { downloadInvoicePDF } from "../components/InvoicePDF";
 import InvoiceTemplateRenderer from "../components/InvoiceTemplateRenderer";
-import { getPrintSettings, getInvoiceTemplate } from "../constants/paperSizes";
-import { buildInvoiceWhatsAppMessage } from "../utils/whatsapp";
+import { getInvoiceTemplate } from "../constants/paperSizes";
+import { buildInvoiceWhatsAppMessage, openWhatsAppChat } from "../utils/whatsapp";
+import { shareLinkToUser, proformaShareUrl } from "../utils/shareLink";
 
 const MONTH_NAMES = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -232,13 +234,14 @@ export default function InvoicesList() {
             }}
             items={items}
             totals={totals}
+            discountPercent={String(invoice.discountPercent || "0")}
             type={invoice.invoiceType}
             invoiceNumber={invoice.invoiceNumber}
             template={getInvoiceTemplate(invoice.invoiceType)}
           />
         );
       });
-    } catch (err) {
+    } catch {
       toast.error("Failed to download PDF");
     } finally {
       root.unmount();
@@ -272,157 +275,139 @@ export default function InvoicesList() {
     setInvoiceToDelete(null);
   }, []);
 
-const printInvoice = useCallback(async (invoice) => {
-    setBusy(`${invoice.id}:share`);
-    const business = await resolveBusinessProfile();
-    const items = (invoice.items || []).map((i) => ({
-      itemName: i.itemName, hsn: i.hsn || "", qty: String(i.qty), rate: String(i.rate),
-      gstPercentage: String(i.gstPercentage), taxableValue: i.taxableValue, taxAmount: i.taxAmount, total: i.total,
-    }));
-    const totals = {
-      subtotal: invoice.subtotal || 0,
-      taxAmount: invoice.taxAmount || 0,
-      grandTotal: invoice.grandTotal || 0,
-    };
+  // ---------- Share sheet (same as InvoiceView) ----------
+  const [shareSheetInvoice, setShareSheetInvoice] = useState(null);
+  const [shareBusy, setShareBusy] = useState("");
+  const [sheetShareToken, setSheetShareToken] = useState(null);
+  const canNativeShare = typeof navigator !== "undefined" && !!navigator.share;
+  const sheetShareUrl = shareSheetInvoice && sheetShareToken
+    ? `${window.location.origin}/i/${sheetShareToken}` : "";
 
-    const container = document.createElement("div");
-    container.style.cssText = "position:absolute;left:-9999px;top:0;pointer-events:none;";
-    document.body.appendChild(container);
-    const root = createRoot(container);
-    const filename = `${invoice.invoiceType === "PROFORMA_INVOICE" ? "Proforma" : "Tax"}_Invoice_${invoice.invoiceNumber}.pdf`;
-    const paperSizeId = (getPrintSettings()[invoice.invoiceType] || {}).paperSize || "A4_PORTRAIT";
-
-    try {
-      await new Promise((resolve, reject) => {
-        let done = false;
-        root.render(
-          <InvoiceTemplateRenderer
-            ref={(el) => {
-              if (el && !done) {
-                done = true;
-                waitForPaint(el).then(async () => {
-                  try {
-                    const { buildInvoicePdf } = await import("../utils/invoicePdf");
-                    const pdf = await buildInvoicePdf(el, paperSizeId);
-                    const blob = pdf.output("blob");
-                    let shared = false;
-                    let cancelled = false;
-                    try {
-                      if (navigator.share) {
-                        const file = new File([blob], filename, { type: "application/pdf" });
-                        if (navigator.canShare && navigator.canShare({ files: [file] })) {
-                          await navigator.share({ files: [file], title: filename });
-                          shared = true;
-                        }
-                      }
-                    } catch (err) {
-                      cancelled = err?.name === "AbortError";
-                    }
-                    if (!shared && !cancelled) {
-                      // Never auto-download on cancel or unsupported browsers —
-                      // downloading is an explicit action (the Download button).
-                      toast("Sharing files isn't supported here — use Download or the link button", { icon: "📎", duration: 6000 });
-                    }
-                    resolve();
-                  } catch (e) { reject(e); }
-                });
-              }
-            }}
-            business={business}
-            customer={{
-              name: invoice.customerName || "",
-              billingAddress: invoice.billingAddress || "",
-              gstIn: invoice.customerGstIn || "",
-              phone: invoice.customerPhone || "",
-              email: invoice.customerEmail || "",
-            }}
-            form={{
-              invoiceDate: invoice.invoiceDate || "",
-              dueDate: invoice.dueDate || "",
-              placeOfSupply: invoice.placeOfSupply || "",
-              destination: invoice.destination || "",
-              termsOfDelivery: invoice.termsOfDelivery || "",
-              paymentTerms: invoice.paymentTerms || "",
-              deliveryNote: invoice.deliveryNote || "",
-              otherReferences: invoice.otherReferences || "",
-              notes: invoice.notes || "",
-              deliveryNoteDate: invoice.deliveryNoteDate || "",
-              referenceNumber: invoice.referenceNumber || "",
-              buyerOrderNumber: invoice.buyerOrderNumber || "",
-              dispatchDocNumber: invoice.dispatchDocNumber || "",
-              dispatchedThrough: invoice.dispatchedThrough || "",
-            }}
-            items={items}
-            totals={totals}
-            type={invoice.invoiceType}
-            invoiceNumber={invoice.invoiceNumber}
-            template={getInvoiceTemplate(invoice.invoiceType)}
-          />
-        );
-      });
-    } catch (err) {
-      toast.error("Failed to print");
-    } finally {
-      root.unmount();
-      document.body.removeChild(container);
-      setBusy("");
-    }
+  const openShareSheet = useCallback((invoice) => {
+    setShareSheetInvoice(invoice);
+    setSheetShareToken(null);
+    setShareBusy("");
   }, []);
 
-const shareViaWhatsApp = useCallback(async (invoice) => {
-  if (busy) return;
-  setBusy(`${invoice.id}:whatsapp`);
-  const shareWindow = window.open("", "_blank");
-  try {
-    const res = await invoiceAPI.createShare(invoice.id);
-    const token = res.data?.data?.token;
-    const origin = typeof window !== "undefined" && window.location.origin ? window.location.origin : "https://insideinvoice.com";
-    const shareUrl = token ? `${origin}/i/${token}` : undefined;
-    const business = await resolveBusinessProfile();
-    const text = buildInvoiceWhatsAppMessage({
-      customerName: invoice.customerName,
-      invoiceNumber: invoice.invoiceNumber,
-      invoiceType: invoice.invoiceType,
-      total: invoice.grandTotal || 0,
-      businessName: business?.businessName,
-      shareUrl,
-    });
-    const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
-    if (shareWindow && !shareWindow.closed) {
-      shareWindow.location.href = url;
-    } else {
-      window.open(url, "_blank") || (window.location.href = url);
-    }
-  } catch (err) {
-    if (shareWindow) shareWindow.close();
-    toast.error(err.response?.data?.message || "Could not share via WhatsApp");
-  } finally {
-    setBusy("");
-  }
-}, [busy]);
+  const closeShareSheet = useCallback(() => {
+    if (shareBusy) return;
+    setShareSheetInvoice(null);
+    setSheetShareToken(null);
+  }, [shareBusy]);
 
-  // Idempotent: returns the existing active link or creates one, then copies it.
-  const copyShareLink = useCallback(async (invoice) => {
-    if (busy) return;
-    setBusy(`${invoice.id}:link`);
+  const ensureSheetShareToken = async () => {
+    if (sheetShareToken) return sheetShareToken;
+    const res = await invoiceAPI.createShare(shareSheetInvoice.id);
+    const token = res.data?.data?.token;
+    if (!token) throw new Error("no token");
+    setSheetShareToken(token);
+    return token;
+  };
+
+  const sheetShareLink = async () => `${window.location.origin}/i/${await ensureSheetShareToken()}`;
+
+  const copyLinkFromSheet = async () => {
+    if (shareBusy) return;
+    setShareBusy("copy");
     try {
-      const res = await invoiceAPI.createShare(invoice.id);
-      const token = res.data?.data?.token;
-      if (!token) throw new Error("missing token");
-      const url = `${window.location.origin}/i/${token}`;
+      const url = await sheetShareLink();
       try {
         await navigator.clipboard.writeText(url);
         toast.success("Share link copied to clipboard");
       } catch {
         toast.success(`Share link: ${url}`);
       }
+      closeShareSheet();
     } catch (err) {
       if (err?.response?.status === 404) toast.error("Invoice not found");
-      else toast.error("Could not create share link");
+      else toast.error("Could not create the share link");
     } finally {
-      setBusy("");
+      setShareBusy("");
     }
-  }, [busy]);
+  };
+
+  const nativeShareFromSheet = async () => {
+    if (shareBusy) return;
+    setShareBusy("native");
+    try {
+      const url = await sheetShareLink();
+      const num = shareSheetInvoice?.invoiceNumber || "";
+      await navigator.share({
+        title: `Invoice ${num}`.trim(),
+        text: `Invoice ${num}`,
+        url,
+      });
+      closeShareSheet();
+    } catch (err) {
+      if (err?.name !== "AbortError") {
+        try {
+          await navigator.clipboard.writeText(await sheetShareLink());
+          toast.success("Link copied to clipboard");
+        } catch {
+          toast.error("Could not open the share menu");
+        }
+      }
+    } finally {
+      setShareBusy("");
+    }
+  };
+
+  const shareFromSheetWhatsApp = async () => {
+    if (shareBusy || !shareSheetInvoice) return;
+    setShareBusy("sheet-wa");
+    const invoice = shareSheetInvoice;
+    try {
+      let token = sheetShareToken;
+      if (!token) {
+        const res = await invoiceAPI.createShare(invoice.id);
+        token = res.data?.data?.token;
+        if (token) setSheetShareToken(token);
+      }
+      const origin = typeof window !== "undefined" && window.location.origin ? window.location.origin : "https://insideinvoice.com";
+      const shareUrl = token ? `${origin}/i/${token}` : undefined;
+      const business = await resolveBusinessProfile();
+      const text = buildInvoiceWhatsAppMessage({
+        customerName: invoice.customerName,
+        invoiceNumber: invoice.invoiceNumber,
+        invoiceType: invoice.invoiceType,
+        total: invoice.grandTotal || 0,
+        businessName: business?.businessName,
+        shareUrl,
+      });
+      setShareBusy("");
+      setShareSheetInvoice(null);
+      setSheetShareToken(null);
+      openWhatsAppChat(text);
+    } catch (err) {
+      setShareBusy("");
+      setShareSheetInvoice(null);
+      setSheetShareToken(null);
+      toast.error(err.response?.data?.message || "Could not share via WhatsApp");
+    }
+  };
+
+  // Proforma view of THIS invoice: same share token, rendered as a proforma document,
+  // so the customer can be sent a quotation-style copy without a second invoice record.
+  const shareProformaFromSheet = async () => {
+    if (shareBusy || !shareSheetInvoice) return;
+    setShareBusy("proforma");
+    const invoice = shareSheetInvoice;
+    try {
+      const url = proformaShareUrl(await sheetShareLink());
+      setShareSheetInvoice(null);
+      setSheetShareToken(null);
+      await shareLinkToUser({
+        url,
+        title: `Proforma Invoice ${invoice.invoiceNumber || ""}`.trim(),
+        copyMessage: "Proforma invoice link copied to clipboard",
+      });
+    } catch (err) {
+      if (err?.response?.status === 404) toast.error("Invoice not found");
+      else toast.error("Could not create the proforma link");
+    } finally {
+      setShareBusy("");
+    }
+  };
 
 
 
@@ -530,11 +515,7 @@ const shareViaWhatsApp = useCallback(async (invoice) => {
                               className="p-2 hover:bg-indigo-50 rounded-lg transition-colors text-slate-400 hover:text-indigo-600 disabled:opacity-60" title="Download PDF">
                               {isBusy(inv.id, "pdf") ? <Spinner size={16} /> : <Download className="w-4 h-4" />}
                             </button>
-                            <button onClick={() => copyShareLink(inv)} disabled={rowBusy(inv.id)}
-                              className="p-2 hover:bg-sky-50 rounded-lg transition-colors text-slate-400 hover:text-sky-600 disabled:opacity-60" title="Copy public share link">
-                              {isBusy(inv.id, "link") ? <Spinner size={16} /> : <Link2 className="w-4 h-4" />}
-                            </button>
-                            <button onClick={() => printInvoice(inv)} disabled={rowBusy(inv.id)}
+                            <button onClick={() => openShareSheet(inv)} disabled={rowBusy(inv.id)}
                               className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors disabled:opacity-60">
                               {isBusy(inv.id, "share") ? <Spinner size={14} /> : <Share2 className="w-3.5 h-3.5" />} {isBusy(inv.id, "share") ? "Loading..." : "Share"}
                             </button>
@@ -584,11 +565,7 @@ const shareViaWhatsApp = useCallback(async (invoice) => {
                         className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors min-h-[44px] disabled:opacity-60">
                         {isBusy(inv.id, "pdf") ? <Spinner size={14} /> : <Download className="w-3.5 h-3.5" />} {isBusy(inv.id, "pdf") ? "Loading..." : "PDF"}
                       </button>
-                      <button onClick={(e) => { e.stopPropagation(); copyShareLink(inv); }} disabled={rowBusy(inv.id)}
-                        className="flex items-center justify-center px-3 py-2 text-xs font-medium text-sky-600 bg-sky-50 hover:bg-sky-100 rounded-lg transition-colors min-h-[44px] disabled:opacity-60" title="Copy public share link">
-                        {isBusy(inv.id, "link") ? <Spinner size={14} /> : <Link2 className="w-3.5 h-3.5" />}
-                      </button>
-                      <button onClick={(e) => { e.stopPropagation(); printInvoice(inv); }} disabled={rowBusy(inv.id)}
+                      <button onClick={(e) => { e.stopPropagation(); openShareSheet(inv); }} disabled={rowBusy(inv.id)}
                         className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors min-h-[44px] disabled:opacity-60">
                         {isBusy(inv.id, "share") ? <Spinner size={14} /> : <Share2 className="w-3.5 h-3.5" />} {isBusy(inv.id, "share") ? "Loading..." : "Share"}
                       </button>
@@ -685,6 +662,82 @@ const shareViaWhatsApp = useCallback(async (invoice) => {
         onConfirm={handleDeleteConfirm}
         onCancel={handleDeleteCancel}
       />
+
+      {shareSheetInvoice && (
+        <div className="fixed inset-0 z-[1100] bg-black/40 backdrop-blur-[2px] flex items-end sm:items-center justify-center" onClick={closeShareSheet}>
+          <div
+            className="w-full sm:max-w-md bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl border border-slate-200 pb-[max(env(safe-area-inset-bottom),16px)] sm:pb-4"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Share invoice"
+          >
+            <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-slate-100">
+              <div className="min-w-0">
+                <h2 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                  <Share2 className="w-4 h-4 text-indigo-600" /> Share invoice
+                </h2>
+                <p className="text-xs text-slate-400 mt-0.5 font-mono truncate">{shareSheetInvoice.invoiceNumber || "Draft"}</p>
+              </div>
+              <button type="button" onClick={closeShareSheet} disabled={!!shareBusy}
+                aria-label="Close share sheet"
+                className="p-2 -mr-2 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 disabled:opacity-50 transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-3 space-y-1">
+              <button type="button" onClick={copyLinkFromSheet} disabled={!!shareBusy}
+                className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-slate-50 disabled:opacity-60 transition-colors text-left">
+                <span className="w-10 h-10 shrink-0 rounded-full bg-sky-50 text-sky-600 flex items-center justify-center">
+                  {shareBusy === "copy" ? <Spinner size={18} /> : <Link2 className="w-5 h-5" />}
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-sm font-semibold text-slate-800">Copy link</span>
+                  <span className="block text-xs text-slate-400 truncate">
+                    {sheetShareUrl ? "Link ready — anyone with it can view" : "Creates a view-only link"}
+                  </span>
+                </span>
+              </button>
+
+              <button type="button" onClick={shareFromSheetWhatsApp} disabled={!!shareBusy}
+                className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-slate-50 disabled:opacity-60 transition-colors text-left">
+                <span className="w-10 h-10 shrink-0 rounded-full bg-[#25D366]/10 text-[#25D366] flex items-center justify-center">
+                  {shareBusy === "sheet-wa" ? <Spinner size={18} /> : <WhatsAppIcon className="w-5 h-5" />}
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-sm font-semibold text-slate-800">WhatsApp</span>
+                  <span className="block text-xs text-slate-400">Send the invoice link in a chat</span>
+                </span>
+              </button>
+
+              <button type="button" onClick={shareProformaFromSheet} disabled={!!shareBusy}
+                className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-slate-50 disabled:opacity-60 transition-colors text-left">
+                <span className="w-10 h-10 shrink-0 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                  {shareBusy === "proforma" ? <Spinner size={18} /> : <FileText className="w-5 h-5" />}
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-sm font-semibold text-slate-800">Share Proforma Invoice</span>
+                  <span className="block text-xs text-slate-400">Send the proforma invoice link</span>
+                </span>
+              </button>
+
+              {canNativeShare && (
+                <button type="button" onClick={nativeShareFromSheet} disabled={!!shareBusy}
+                  className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-slate-50 disabled:opacity-60 transition-colors text-left">
+                  <span className="w-10 h-10 shrink-0 rounded-full bg-violet-50 text-violet-600 flex items-center justify-center">
+                    {shareBusy === "native" ? <Spinner size={18} /> : <Share2 className="w-5 h-5" />}
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-sm font-semibold text-slate-800">More apps</span>
+                    <span className="block text-xs text-slate-400">Open your device's share menu</span>
+                  </span>
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

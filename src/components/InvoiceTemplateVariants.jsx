@@ -3,6 +3,7 @@ import CompanySeal from "./CompanySeal";
 import CompanyStamp from "./CompanyStamp";
 import InvoiceTemplateRetro from "./InvoiceTemplateRetro";
 import { numberToWords, formatINR } from "../utils/invoiceFormat";
+import { computeInvoiceTotals } from "../utils/invoiceTotals";
 
 const cell = (width) => ({
   width: `${width}px`,
@@ -181,7 +182,7 @@ const TEMPLATE_THEMES = {
   },
 };
 
-const InvoiceTemplateVariants = React.memo(React.forwardRef(({ theme, business, customer, form, items, totals, discountPercent, type, invoiceNumber }, ref) => {
+const InvoiceTemplateVariants = React.memo(React.forwardRef(({ theme, business, customer, form, items, discountPercent, type, invoiceNumber }, ref) => {
   const t = TEMPLATE_THEMES[theme] || TEMPLATE_THEMES["template-3"];
   // The retro shop-bill layout is a self-contained fixed page (repeated per
   // overflow page), so it renders outside the shared table skeleton.
@@ -193,7 +194,6 @@ const InvoiceTemplateVariants = React.memo(React.forwardRef(({ theme, business, 
         customer={customer}
         form={form}
         items={items}
-        totals={totals}
         discountPercent={discountPercent}
         type={type}
         invoiceNumber={invoiceNumber}
@@ -206,19 +206,15 @@ const InvoiceTemplateVariants = React.memo(React.forwardRef(({ theme, business, 
   const pl = (label) => isProforma ? ({ "Invoice No.": "Proforma Ref", "Invoice#": "Proforma Ref", "Due Date": "Valid Until", "Due": "Valid Until" }[label] || label) : label;
   const validItems = (items || []).filter((i) => i.itemName?.trim() && parseFloat(i.qty) > 0);
   const sigSrc = business?.signature ? `data:image/png;base64,${business.signature}` : null;
-  const discPct = parseFloat(discountPercent) || 0;
-  const discAmt = totals.subtotal * Math.min(discPct, 100) / 100;
-  const taxableAmount = totals.subtotal - discAmt;
-  const discRatio = totals.subtotal > 0 ? (taxableAmount / totals.subtotal) : 0;
-
-  let cgstTotal = 0, sgstTotal = 0;
-  validItems.forEach((item) => {
-    const gst = parseFloat(item.gstPercentage) || 0;
-    const taxable = (parseFloat(item.taxableValue) || parseFloat(item.qty || 0) * parseFloat(item.rate || 0)) * discRatio;
-    const halfGst = gst / 2;
-    cgstTotal += (taxable * halfGst) / 100;
-    sgstTotal += (taxable * halfGst) / 100;
-  });
+  const calc = computeInvoiceTotals(items, discountPercent);
+  const discPct = calc.discountPercent;
+  const discAmt = calc.discountAmount;
+  const taxableAmount = calc.taxableAmount;
+  const discRatio = calc.ratio;
+  const cgstTotal = calc.cgst;
+  const sgstTotal = calc.sgst;
+  const calcTaxAmount = calc.taxAmount;
+  const finalTotal = calc.grandTotal;
 
   const rightLabels = isProforma
     ? ["Proforma Ref.", "Delivery Note", "Reference No. & Date.", "Buyer's Order No.",
@@ -1142,7 +1138,7 @@ const InvoiceTemplateVariants = React.memo(React.forwardRef(({ theme, business, 
                 <tbody>
                   <tr>
                     <td style={{ textAlign: "right", padding: "4px 10px", border: 0 }}>
-                      {totals.taxAmount > 0 ? (
+                      {calcTaxAmount > 0 ? (
                         <>
                           <div style={{ fontSize: baseFS, marginBottom: "1px" }}>
                             <span style={{ marginRight: "16px", color: t.primary, fontWeight: "bold" }}>CGST (Estimated)</span>
@@ -1172,7 +1168,7 @@ const InvoiceTemplateVariants = React.memo(React.forwardRef(({ theme, business, 
                         Estimated Amount (in words)
                       </div>
                       <div style={{ fontSize: t.compact ? "10px" : "11px", fontWeight: "bold" }}>
-                        {(totals.grandTotal - discAmt) > 0 ? numberToWords(totals.grandTotal - discAmt) : "Zero Rupees Only"}
+                        {(finalTotal) > 0 ? numberToWords(finalTotal) : "Zero Rupees Only"}
                       </div>
                     </td>
                     <td style={{ width: "28%", padding: basePadH, verticalAlign: "top" }}>
@@ -1185,7 +1181,7 @@ const InvoiceTemplateVariants = React.memo(React.forwardRef(({ theme, business, 
                         Estimated Total
                       </div>
                       <div style={{ fontSize: t.compact ? "15px" : "18px", fontWeight: "bold", margin: "2px 0", textAlign: "left", color: t.accentBg !== "#ffffff" ? t.accentBg : "#000" }}>
-                        Rs: {formatINR(totals.grandTotal - discAmt)}
+                        Rs: {formatINR(finalTotal)}
                       </div>
                       <div style={{ fontSize: baseFS, fontStyle: "italic", textAlign: "right" }}>
                         E. & O.E
@@ -1206,7 +1202,7 @@ const InvoiceTemplateVariants = React.memo(React.forwardRef(({ theme, business, 
                 <tbody>
                   <tr>
                     <td style={{ textAlign: "right", padding: "4px 10px", border: 0 }}>
-                      {totals.taxAmount > 0 ? (
+                      {calcTaxAmount > 0 ? (
                         <>
                           <div style={{ fontSize: baseFS, marginBottom: "1px" }}>
                             <span style={{ marginRight: "16px", color: t.primary, fontWeight: "bold" }}>CGST</span>
@@ -1240,7 +1236,7 @@ const InvoiceTemplateVariants = React.memo(React.forwardRef(({ theme, business, 
                         Amount Chargeable (in words)
                       </div>
                       <div style={{ fontSize: t.compact ? "10px" : "11px", fontWeight: "bold" }}>
-                        {(totals.grandTotal - discAmt) > 0 ? numberToWords(totals.grandTotal - discAmt) : "Zero Rupees Only"}
+                        {(finalTotal) > 0 ? numberToWords(finalTotal) : "Zero Rupees Only"}
                       </div>
                     </td>
                     <td style={{ width: "28%", padding: basePadH, verticalAlign: "top" }}>
@@ -1253,7 +1249,7 @@ const InvoiceTemplateVariants = React.memo(React.forwardRef(({ theme, business, 
                         Total
                       </div>
                       <div style={{ fontSize: t.compact ? "15px" : "18px", fontWeight: "bold", margin: "2px 0", textAlign: "left", color: t.accentBg !== "#ffffff" ? t.accentBg : "#000" }}>
-                        Rs: {formatINR(totals.grandTotal - discAmt)}
+                        Rs: {formatINR(finalTotal)}
                       </div>
                       <div style={{ fontSize: baseFS, fontStyle: "italic", textAlign: "right" }}>
                         E. & O.E
@@ -1304,12 +1300,12 @@ const InvoiceTemplateVariants = React.memo(React.forwardRef(({ theme, business, 
                   })}
                   <tr id="section-hsn-total" style={{ height: t.compact ? "22px" : "26px" }}>
                     <td style={{ borderRight: S.border, borderBottom: S.border, textAlign: "center", fontSize: baseFS, padding: basePad, lineHeight: "1.5", fontWeight: "bold", background: t.tableHeaderBg, color: t.tableHeaderText }}>Total</td>
-                    <td style={{ borderRight: S.border, borderBottom: S.border, textAlign: "right", fontSize: baseFS, padding: basePad, lineHeight: "1.5", fontWeight: "bold", background: t.tableHeaderBg, color: t.tableHeaderText }}>{formatINR(totals.subtotal)}</td>
+                    <td style={{ borderRight: S.border, borderBottom: S.border, textAlign: "right", fontSize: baseFS, padding: basePad, lineHeight: "1.5", fontWeight: "bold", background: t.tableHeaderBg, color: t.tableHeaderText }}>{formatINR(taxableAmount)}</td>
                     <td style={{ borderRight: S.border, borderBottom: S.border, textAlign: "center", fontSize: baseFS, padding: basePad, lineHeight: "1.5", background: t.tableHeaderBg, color: t.tableHeaderText }}></td>
-                    <td style={{ borderRight: S.border, borderBottom: S.border, textAlign: "right", fontSize: baseFS, padding: basePad, lineHeight: "1.5", fontWeight: "bold", background: t.tableHeaderBg, color: t.tableHeaderText }}>{formatINR(totals.taxAmount / 2)}</td>
+                    <td style={{ borderRight: S.border, borderBottom: S.border, textAlign: "right", fontSize: baseFS, padding: basePad, lineHeight: "1.5", fontWeight: "bold", background: t.tableHeaderBg, color: t.tableHeaderText }}>{formatINR(cgstTotal)}</td>
                     <td style={{ borderRight: S.border, borderBottom: S.border, textAlign: "center", fontSize: baseFS, padding: basePad, lineHeight: "1.5", background: t.tableHeaderBg, color: t.tableHeaderText }}></td>
-                    <td style={{ borderRight: S.border, borderBottom: S.border, textAlign: "right", fontSize: baseFS, padding: basePad, lineHeight: "1.5", fontWeight: "bold", background: t.tableHeaderBg, color: t.tableHeaderText }}>{formatINR(totals.taxAmount / 2)}</td>
-                    <td style={{ borderBottom: S.border, textAlign: "right", fontSize: baseFS, padding: basePad, lineHeight: "1.5", fontWeight: "bold", background: t.tableHeaderBg, color: t.tableHeaderText }}>{formatINR(totals.taxAmount)}</td>
+                    <td style={{ borderRight: S.border, borderBottom: S.border, textAlign: "right", fontSize: baseFS, padding: basePad, lineHeight: "1.5", fontWeight: "bold", background: t.tableHeaderBg, color: t.tableHeaderText }}>{formatINR(sgstTotal)}</td>
+                    <td style={{ borderBottom: S.border, textAlign: "right", fontSize: baseFS, padding: basePad, lineHeight: "1.5", fontWeight: "bold", background: t.tableHeaderBg, color: t.tableHeaderText }}>{formatINR(cgstTotal + sgstTotal)}</td>
                   </tr>
                 </tbody>
               </table>
@@ -1321,7 +1317,7 @@ const InvoiceTemplateVariants = React.memo(React.forwardRef(({ theme, business, 
             <td colSpan={2} style={{ borderLeft: S.border, borderRight: S.border, borderBottom: S.border, padding: "5px 10px" }}>
               <span style={{ fontSize: baseFS, fontWeight: "bold", color: t.primary }}>Tax Amount (in words): </span>
               <span style={{ fontSize: baseFS, fontWeight: "bold" }}>
-                {totals.taxAmount > 0 ? numberToWords(totals.taxAmount) : "Nil"}
+                 {calcTaxAmount > 0 ? numberToWords(calcTaxAmount) : "Nil"}
               </span>
             </td>
           </tr>

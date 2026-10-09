@@ -1,16 +1,17 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { Download, Printer, RefreshCw, ShieldAlert, Clock, ZoomIn, ZoomOut, Maximize2, RotateCcw } from "lucide-react";
 import InvoiceTemplateRenderer from "../components/InvoiceTemplateRenderer";
 import LoadingDots from "../components/LoadingDots";
 import { publicInvoiceAPI } from "../api/public";
+import { computeInvoiceTotals } from "../utils/invoiceTotals";
 
 const toNum = (v) => {
   const n = parseFloat(v);
   return Number.isNaN(n) ? 0 : n;
 };
 
-function mapToTemplateProps(data) {
+function mapToTemplateProps(data, typeOverride) {
   const s = data.seller || {};
   const pay = s.payment || {};
   const b = data.buyer || {};
@@ -68,7 +69,7 @@ function mapToTemplateProps(data) {
     otherReferences: data.otherReferences,
     notes: data.notes,
     status: data.status,
-    invoiceType: data.invoiceType,
+    invoiceType: typeOverride || data.invoiceType,
   };
 
   const items = (data.items || []).map((i) => ({
@@ -83,15 +84,14 @@ function mapToTemplateProps(data) {
     total: i.total,
   }));
 
-  const subtotal2 = toNum(data.subtotal);
   const discountPct = toNum(data.discountPercent);
-  const discountAmount = subtotal2 * Math.min(Math.max(discountPct, 0), 100) / 100;
+  const calc = computeInvoiceTotals(items, discountPct);
   const totals = {
-    subtotal: subtotal2,
-    discountAmount,
-    taxableAmount: subtotal2 - discountAmount,
-    taxAmount: toNum(data.taxAmount),
-    grandTotal: toNum(data.grandTotal),
+    subtotal: calc.subtotal,
+    discountAmount: calc.discountAmount,
+    taxableAmount: calc.taxableAmount,
+    taxAmount: calc.taxAmount,
+    grandTotal: calc.grandTotal,
   };
 
   return { business, customer, form, items, totals };
@@ -127,6 +127,13 @@ const computeFitZoom = (widthPx) => {
 
 export default function PublicInvoicePage() {
   const { shareToken } = useParams();
+  // ?type=PROFORMA_INVOICE (or TAX_INVOICE) renders the other document from the same
+  // share link. Anything else is ignored so a mangled URL still shows the invoice.
+  const [searchParams] = useSearchParams();
+  const requestedType = (searchParams.get("type") || "").toUpperCase();
+  const typeOverride = requestedType === "PROFORMA_INVOICE" || requestedType === "TAX_INVOICE"
+    ? requestedType
+    : null;
   const [status, setStatus] = useState("loading");
   const [data, setData] = useState(null);
   const [actionError, setActionError] = useState("");
@@ -146,7 +153,7 @@ export default function PublicInvoicePage() {
     setStatus("loading");
     setActionError("");
     try {
-      const res = await publicInvoiceAPI.getByToken(shareToken);
+      const res = await publicInvoiceAPI.getByToken(shareToken, typeOverride);
       setData(res.data.data);
       setStatus("ok");
     } catch (err) {
@@ -154,7 +161,7 @@ export default function PublicInvoicePage() {
       setData(null);
       setStatus(code === 404 ? "missing" : code === 429 ? "limited" : "error");
     }
-  }, [shareToken]);
+  }, [shareToken, typeOverride]);
 
   useEffect(() => {
     load();
@@ -363,7 +370,8 @@ export default function PublicInvoicePage() {
     document.body.appendChild(iframe);
   };
 
-  const templateProps = useMemo(() => (data ? mapToTemplateProps(data) : null), [data]);
+  const templateProps = useMemo(() => (data ? mapToTemplateProps(data, typeOverride) : null), [data, typeOverride]);
+  const renderType = typeOverride || data?.invoiceType;
 
   if (status === "loading") {
     return (
@@ -440,7 +448,7 @@ export default function PublicInvoicePage() {
           items={templateProps.items}
           totals={templateProps.totals}
           discountPercent={data.discountPercent != null ? String(data.discountPercent) : "0"}
-          type={data.invoiceType}
+          type={renderType}
           invoiceNumber={data.invoiceNumber}
           paperSize={paperSize}
           template={data.template || undefined}
@@ -525,8 +533,8 @@ export default function PublicInvoicePage() {
                   form={templateProps.form}
                   items={templateProps.items}
                   totals={templateProps.totals}
-          discountPercent={data.discountPercent != null ? String(data.discountPercent) : "0"}
-                  type={data.invoiceType}
+                  discountPercent={data.discountPercent != null ? String(data.discountPercent) : "0"}
+                  type={renderType}
                   invoiceNumber={data.invoiceNumber}
                   paperSize={paperSize}
                   template={data.template || undefined}

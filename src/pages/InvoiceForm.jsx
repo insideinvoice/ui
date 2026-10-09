@@ -17,8 +17,9 @@ import { renderDeliveryChallanPdf } from "../components/DeliveryChallanDownload"
 import WhatsAppIcon from "../components/WhatsAppIcon";
 import { processQueue } from "../utils/retryQueue";
 import { processPrint } from "../utils/printInvoice";
-import { buildInvoiceWhatsAppMessage } from "../utils/whatsapp";
+import { buildInvoiceWhatsAppMessage, openWhatsAppChat } from "../utils/whatsapp";
 import { getPrintSettings, getInvoiceTemplate } from "../constants/paperSizes";
+import { computeInvoiceTotals, round2 } from "../utils/invoiceTotals";
 import { formatInvoiceNumber } from "../utils/invoiceConvention";
 import { INDIAN_STATES, DELIVERY_TERMS, PAYMENT_TERMS } from "../constants/indianStates";
 
@@ -39,7 +40,7 @@ const focusNext = (currentName) => {
 
 const FOCUS_FIELDS = ["hsn", "desc", "qty", "rate", "gst"];
 
-const ItemRow = memo(({ item, idx, onItemChange, onRemove, onAdd, onHsnLookup }) => {
+const ItemRow = memo(({ item, calc, idx, onItemChange, onRemove, onAdd, onHsnLookup }) => {
   const handleKeyDown = (e, field) => {
     if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
@@ -118,13 +119,13 @@ const ItemRow = memo(({ item, idx, onItemChange, onRemove, onAdd, onHsnLookup })
       </div>
     </td>
     <td className="py-3 px-3 text-right font-mono text-sm text-slate-700 border-b border-slate-100 truncate">
-      {(parseFloat(item.taxableValue) || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+      {((calc?.taxable ?? parseFloat(item.taxableValue)) || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
     </td>
     <td className="py-3 px-3 text-right font-mono text-sm text-slate-600 border-b border-slate-100 truncate">
-      {(parseFloat(item.taxAmount) || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+      {((calc?.tax ?? parseFloat(item.taxAmount)) || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
     </td>
     <td className="py-3 px-3 text-right font-mono text-sm font-semibold text-slate-900 border-b border-slate-100 truncate">
-      {(parseFloat(item.total) || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+      {((calc?.total ?? parseFloat(item.total)) || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
     </td>
     <td className="py-3 px-2 text-center border-b border-slate-100">
       <button onClick={() => onRemove(idx)}
@@ -136,7 +137,7 @@ const ItemRow = memo(({ item, idx, onItemChange, onRemove, onAdd, onHsnLookup })
   );
 });
 
-const ItemCard = memo(({ item, idx, onItemChange, onRemove, onAdd, onHsnLookup }) => {
+const ItemCard = memo(({ item, calc, idx, onItemChange, onRemove, onAdd, onHsnLookup }) => {
   const handleKeyDown = (e, field) => {
     if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
@@ -220,7 +221,7 @@ const ItemCard = memo(({ item, idx, onItemChange, onRemove, onAdd, onHsnLookup }
           <div>
             <label className="block text-[10px] font-semibold text-slate-500 uppercase mb-1">Amount</label>
             <div className="w-full px-3 py-2.5 border border-slate-100 rounded-lg text-sm text-right bg-slate-50 font-mono text-slate-700 min-h-[44px] flex items-center justify-end">
-              Rs. {(parseFloat(item.total) || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+              Rs. {((calc?.total ?? parseFloat(item.total)) || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
             </div>
           </div>
         </div>
@@ -407,9 +408,9 @@ export default function InvoiceForm() {
         const gst = parseFloat(updated.gstPercentage) || 0;
         const taxableValue = qty * rate;
         const taxAmount = (taxableValue * gst) / 100;
-        updated.taxableValue = Math.round(taxableValue * 100) / 100;
-        updated.taxAmount = Math.round(taxAmount * 100) / 100;
-        updated.total = Math.round((taxableValue + taxAmount) * 100) / 100;
+        updated.taxableValue = round2(taxableValue);
+        updated.taxAmount = round2(taxAmount);
+        updated.total = round2(taxableValue + taxAmount);
       }
       return updated;
     }));
@@ -453,9 +454,9 @@ export default function InvoiceForm() {
           rate,
           gstPercentage: gst,
           qty,
-          taxableValue: Math.round(taxableValue * 100) / 100,
-          taxAmount: Math.round(taxAmount * 100) / 100,
-          total: Math.round((taxableValue + taxAmount) * 100) / 100,
+          taxableValue: round2(taxableValue),
+          taxAmount: round2(taxAmount),
+          total: round2(taxableValue + taxAmount),
         };
       }));
       toast.success(`Found: ${p.name}`);
@@ -476,7 +477,7 @@ export default function InvoiceForm() {
       const gst = parseFloat(item.gstPercentage) || 0;
       const taxableValue = qty * rate;
       const taxAmount = (taxableValue * gst) / 100;
-      return { ...item, taxableValue: Math.round(taxableValue * 100) / 100, taxAmount: Math.round(taxAmount * 100) / 100, total: Math.round((taxableValue + taxAmount) * 100) / 100 };
+      return { ...item, taxableValue: round2(taxableValue), taxAmount: round2(taxAmount), total: round2(taxableValue + taxAmount) };
     }));
   }, []);
 
@@ -491,18 +492,7 @@ export default function InvoiceForm() {
     });
   }, []);
 
-  const totals = useMemo(() => {
-    const subtotal = items.reduce((sum, item) => sum + (parseFloat(item.taxableValue) || 0), 0);
-    const discountAmount = discountEnabled ? subtotal * Math.min(discountVal, 100) / 100 : 0;
-    const taxableAmount = subtotal - discountAmount;
-    const ratio = subtotal > 0 ? (taxableAmount / subtotal) : 0;
-    const taxAmount = items.reduce((sum, item) => {
-      const tv = parseFloat(item.taxableValue) || 0;
-      const gst = parseFloat(item.gstPercentage) || 0;
-      return sum + (tv * ratio * gst / 100);
-    }, 0);
-    return { subtotal, discountAmount, taxableAmount, taxAmount, grandTotal: taxableAmount + taxAmount };
-  }, [items, discountEnabled, discountVal]);
+  const totals = useMemo(() => computeInvoiceTotals(items, discountEnabled ? discountPercent : "0"), [items, discountEnabled, discountPercent]);
 
   const validItemsCount = useMemo(
     () => items.filter((i) => i.itemName.trim() && parseFloat(i.qty) > 0).length,
@@ -714,34 +704,20 @@ export default function InvoiceForm() {
     if (!validate()) return;
     recalcAll();
     setSharing(true);
-    const shareWindow = window.open("", "_blank");
     try {
       // 1. Save the invoice (if unsaved)
       const saveRes = await saveInvoice();
       const invoiceId = saveRes.data.data.id;
       const invNo = saveRes.data.data.invoiceNumber || savedInvoiceNumber || customInvoiceNumber || nextInvoiceNumber;
 
-      // 2. Generate the PDF
-      const type = form.invoiceType || "TAX_INVOICE";
-      const filename = `${type === "PROFORMA_INVOICE" ? "Proforma_Invoice" : "Tax_Invoice"}_${invNo || form.invoiceDate || new Date().toISOString().split("T")[0]}.pdf`;
-      const ps = (getPrintSettings()[type] || {}).paperSize || "A4_PORTRAIT";
-      try {
-        await mountPdfPreview();
-        await new Promise((r) => setTimeout(r, 100));
-        await processPrint(invoiceRef, type, filename, ps);
-      } catch (pdfErr) {
-        console.error("PDF generation error:", pdfErr);
-      } finally {
-        setShowPdfPreview(false);
-      }
-
-      // 3. Create/ensure a public share link
+      // 2. Create/ensure a public share link
       const shareRes = await invoiceAPI.createShare(invoiceId);
       const token = shareRes.data?.data?.token;
       const origin = typeof window !== "undefined" && window.location.origin ? window.location.origin : "https://insideinvoice.com";
       const shareUrl = token ? `${origin}/i/${token}` : undefined;
 
-      // 4. Open WhatsApp with contact picker and message
+      // 3. Open WhatsApp with the prefilled invoice message + link
+      const type = form.invoiceType || "TAX_INVOICE";
       const text = buildInvoiceWhatsAppMessage({
         customerName: customer?.name || form.customerName,
         invoiceNumber: invNo,
@@ -750,14 +726,8 @@ export default function InvoiceForm() {
         businessName: business?.businessName,
         shareUrl,
       });
-      const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
-      if (shareWindow && !shareWindow.closed) {
-        shareWindow.location.href = url;
-      } else {
-        window.open(url, "_blank") || (window.location.href = url);
-      }
+      openWhatsAppChat(text);
     } catch (err) {
-      if (shareWindow) shareWindow.close();
       toast.error(err.response?.data?.message || "Could not share via WhatsApp");
     } finally {
       setSharing(false);
@@ -1313,7 +1283,7 @@ export default function InvoiceForm() {
               </thead>
               <tbody>
                 {items.map((item, idx) => (
-                  <ItemRow key={item.id ?? idx} item={item} idx={idx} onItemChange={handleItemChange} onRemove={removeItem} onAdd={addItem} onHsnLookup={handleHsnLookup} />
+                  <ItemRow key={item.id ?? idx} item={item} calc={totals.perItem[idx]} idx={idx} onItemChange={handleItemChange} onRemove={removeItem} onAdd={addItem} onHsnLookup={handleHsnLookup} />
                 ))}
               </tbody>
             </table>
@@ -1322,7 +1292,7 @@ export default function InvoiceForm() {
           {/* Mobile cards */}
           <div className="md:hidden space-y-3">
             {items.map((item, idx) => (
-              <ItemCard key={item.id ?? idx} item={item} idx={idx} onItemChange={handleItemChange} onRemove={removeItem} onAdd={addItem} onHsnLookup={handleHsnLookup} />
+              <ItemCard key={item.id ?? idx} item={item} calc={totals.perItem[idx]} idx={idx} onItemChange={handleItemChange} onRemove={removeItem} onAdd={addItem} onHsnLookup={handleHsnLookup} />
             ))}
             <button onClick={addItem}
               className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-slate-800 text-white text-sm font-semibold rounded-lg hover:bg-slate-700 transition-all shadow-lg min-h-[48px]">

@@ -54,8 +54,8 @@ input, textarea, select {
   font-size: 16px !important;
 }
 
-/* Toasts: sit just below the sticky mobile top navbar (hidden at lg+) */
-@media (max-width: 1023px) {
+/* Toasts: sit just below the sticky mobile top navbar (hidden at md+) */
+@media (max-width: 767px) {
   [data-rht-toaster] {
     top: calc(env(safe-area-inset-top, 0px) + 68px) !important;
   }
@@ -79,9 +79,9 @@ div:has(> label + input[type="date"]) {
 
 /* Soft keyboard open (MOBILE ONLY): dim only the bottom tab bar (which sits
    under the keyboard) — the top navbar must NEVER be dimmed or hidden, as it
-   is the page's only persistent header. Scoped to < lg so the desktop sidebar
+   is the page's only persistent header. Scoped to < md so the desktop sidebar
    is untouched; a desktop has no soft keyboard. */
-@media (max-width: 1023px) {
+@media (max-width: 767px) {
   .kb-open .app-nav-bottom {
     opacity: 0.3 !important;
     filter: blur(12px);
@@ -91,17 +91,17 @@ div:has(> label + input[type="date"]) {
 }
 
 /* ---------------------------------------------------------------------------
-   Medium screens (1024–1279px) only: the fixed left nav collapses into a
-   64px icon rail (labels hidden, icons centred, native hover tooltips) so
-   wide content such as the invoice items table gets the whole width.
+   Medium screens (768–1535px / tablet up to ~15") only: the fixed left nav
+   collapses into a 64px icon rail (labels hidden, icons centred, native hover
+   tooltips) so wide content such as the invoice items table gets the width.
    A hamburger in the rail toggles it back to the full 240px sidebar.
-   Desktop (xl+) and mobile (< lg) keep their existing layout untouched.
+   Above 1536px (16" and larger displays) the default full sidebar is shown.
 --------------------------------------------------------------------------- */
 .rail-toggle {
   display: none;
 }
 
-@media (min-width: 1024px) and (max-width: 1279.98px) {
+@media (min-width: 768px) and (max-width: 1535.98px) {
   .rail-toggle {
     display: flex;
   }
@@ -132,9 +132,25 @@ div:has(> label + input[type="date"]) {
 }
 
 /* Collapsed rail header: tighter padding so the toggle button fits in 64px */
-@media (min-width: 1024px) and (max-width: 1279.98px) {
+@media (min-width: 768px) and (max-width: 1535.98px) {
   html.rail-collapsed .rail-head {
     padding-left: 0.5rem;
     padding-right: 0.5rem;
+  }
+}
+
+/* Right-side panel (View Invoice + New Invoice) stays a FIXED 340px while the
+   icon rail is active, so the middle section — items table / tax invoice —
+   absorbs every pixel the rail gives back when the hamburger opens/closes.
+   Below md and at 1536px+ (default old layout) nothing is constrained. */
+@media (min-width: 768px) and (max-width: 1535.98px) {
+  .side-fixed {
+    max-width: 340px;
+  }
+}
+
+@media (min-width: 1280px) and (max-width: 1535.98px) {
+  .side-fixed-grid {
+    grid-template-columns: minmax(0, 1fr) 340px;
   }
 }

@@ -737,7 +737,7 @@ export default function InvoiceView() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.34fr)] gap-6">
+        <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.34fr)] side-fixed-grid gap-6">
           <div className="space-y-6">
             {/* Seller & Buyer Info */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1096,7 +1096,7 @@ export default function InvoiceView() {
           </div>
 
           {/* Right Sidebar */}
-          <div className="space-y-4 md:max-w-lg xl:max-w-none">
+          <div className="space-y-4 side-fixed">
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Discount</h3>
@@ -1137,7 +1137,7 @@ export default function InvoiceView() {
             {sealEnabled && (
               <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
                 <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Company Stamp</h3>
-                <div className="space-y-2">
+                <div className="space-y-2 md:space-y-0 md:flex md:items-center md:gap-4">
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input
                       type="radio"

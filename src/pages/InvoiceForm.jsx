@@ -10,7 +10,8 @@ import toast from "react-hot-toast";
 import {
   ArrowLeft, Plus, Trash2, Save, FileText, Download,
   User, Building2, Phone, MapPin, Hash,
-  Package, FileSpreadsheet, Share2, Info, X, ChevronDown, Truck
+  Package, FileSpreadsheet, Share2, Info, X, ChevronDown, Truck,
+  Link2, Copy, Mail, RotateCw, Unlink
 } from "lucide-react";
 import InvoiceTemplateRenderer from "../components/InvoiceTemplateRenderer";
 import { renderDeliveryChallanPdf } from "../components/DeliveryChallanDownload";
@@ -243,6 +244,12 @@ export default function InvoiceForm() {
   const [linkSharing, setLinkSharing] = useState(false);
   const [savedInvoiceNumber, setSavedInvoiceNumber] = useState(null);
   const [savedInvoiceId, setSavedInvoiceId] = useState(null);
+  // Public share link — created only when the user asks for it, and only after
+  // the invoice has been saved (see Share Link panel in the Actions card).
+  const [shareToken, setShareToken] = useState(null);
+  const [shareBusy, setShareBusy] = useState("");
+  const [emailBusy, setEmailBusy] = useState(false);
+  const shareUrl = shareToken ? `${window.location.origin}/i/${shareToken}` : "";
   const [customInvoiceNumber, setCustomInvoiceNumber] = useState("");
   const ghostMode = localStorage.getItem("ghost_mode") === "true";
   const [sealType, setSealType] = useState(localStorage.getItem("seal_type") || "");
@@ -250,7 +257,6 @@ export default function InvoiceForm() {
   const sealRequired = sealEnabled && !sealType;
   const [discountPercent, setDiscountPercent] = useState("");
   const [discountEnabled, setDiscountEnabled] = useState(false);
-  const [emailOnSave, setEmailOnSave] = useState(false);
   const [showPrefillBanner, setShowPrefillBanner] = useState(!!prefilledData);
   const discountVal = parseFloat(discountPercent) || 0;
   const invoiceRef = useRef(null);
@@ -572,15 +578,6 @@ export default function InvoiceForm() {
     }
     setSavedInvoiceId(res.data.data.id);
     setSavedInvoiceNumber(res.data.data.invoiceNumber);
-    if (emailOnSave) {
-      try {
-        await invoiceAPI.sendInvoiceEmail(res.data.data.id, window.location.origin);
-        toast.success(`Invoice emailed to ${customer.email}`);
-        setEmailOnSave(false);
-      } catch (err) {
-        toast.error(err.response?.data?.message || "Could not send the invoice email");
-      }
-    }
     businessAPI.getProfile().then((bRes) => setBusiness(bRes.data.data)).catch(() => {});
     return res;
   };
@@ -701,6 +698,7 @@ export default function InvoiceForm() {
       const invNo = saveRes.data.data.invoiceNumber || savedInvoiceNumber || customInvoiceNumber || nextInvoiceNumber;
       const shareRes = await invoiceAPI.createShare(invoiceId);
       const token = shareRes.data?.data?.token;
+      if (token) setShareToken(token);
       const origin = typeof window !== "undefined" && window.location.origin ? window.location.origin : "https://insideinvoice.com";
       const shareUrl = token ? `${origin}/i/${token}` : undefined;
       if (!shareUrl) throw new Error("no-link");
@@ -733,6 +731,7 @@ export default function InvoiceForm() {
       // 2. Create/ensure a public share link
       const shareRes = await invoiceAPI.createShare(invoiceId);
       const token = shareRes.data?.data?.token;
+      if (token) setShareToken(token);
       const origin = typeof window !== "undefined" && window.location.origin ? window.location.origin : "https://insideinvoice.com";
       const shareUrl = token ? `${origin}/i/${token}` : undefined;
 
@@ -754,6 +753,67 @@ export default function InvoiceForm() {
     }
   };
 
+  const copyShareUrl = async (url) => {
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success("Share link copied to clipboard");
+    } catch {
+      toast.success("Share link ready — copy it from the field");
+    }
+  };
+
+  // Share Link panel — mirrors View Invoice, but only unlocked once Save has
+  // been clicked (the invoice must exist server-side before a link or email
+  // can refer to it).
+  const handleShareLink = async (action) => {
+    if (shareBusy || !savedInvoiceId) return;
+    setShareBusy(action);
+    try {
+      if (action === "create") {
+        const res = await invoiceAPI.createShare(savedInvoiceId);
+        const token = res.data?.data?.token;
+        if (!token) throw new Error("no token");
+        setShareToken(token);
+        await copyShareUrl(`${window.location.origin}/i/${token}`);
+      } else if (action === "regenerate") {
+        const res = await invoiceAPI.regenerateShare(savedInvoiceId);
+        const token = res.data?.data?.token;
+        if (!token) throw new Error("no token");
+        setShareToken(token);
+        await copyShareUrl(`${window.location.origin}/i/${token}`);
+        toast("Previous link disabled — only the new one works", { icon: "🔑" });
+      } else if (action === "revoke") {
+        await invoiceAPI.revokeShare(savedInvoiceId);
+        setShareToken(null);
+        toast.success("Share link revoked — it no longer resolves");
+      }
+    } catch (err) {
+      if (err?.response?.status === 404) toast.error("Invoice not found");
+      else toast.error("Could not update the share link");
+    } finally {
+      setShareBusy("");
+    }
+  };
+
+  const sendInvoiceEmailToCustomer = async () => {
+    if (emailBusy || !savedInvoiceId) return;
+    setEmailBusy(true);
+    try {
+      // Make sure the email carries the same link the panel shows.
+      if (!shareToken) {
+        const res = await invoiceAPI.createShare(savedInvoiceId);
+        const token = res.data?.data?.token;
+        if (token) setShareToken(token);
+      }
+      const res = await invoiceAPI.sendInvoiceEmail(savedInvoiceId, window.location.origin);
+      toast.success(res.data?.message || "Invoice emailed to the customer");
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Could not send the invoice email");
+    } finally {
+      setEmailBusy(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-[100dvh] flex items-center justify-center bg-gradient-to-br from-gray-50 via-slate-50 to-gray-100">
@@ -766,13 +826,17 @@ export default function InvoiceForm() {
     <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 sticky top-6">
       <h2 className="text-sm font-bold text-slate-800 mb-4 pb-3 border-b border-slate-100">Actions</h2>
       <div className="space-y-3">
-        {/* Row 1: Save + Share + WhatsApp — equal width */}
+        {/* Row 1: Save (icon) + Share + WhatsApp */}
         <div className="flex items-stretch gap-2">
-          <button onClick={handleSave} disabled={saving}
-            className="flex-1 min-w-0 flex items-center justify-center gap-1.5 px-2 py-2.5 bg-slate-800 text-white text-sm font-semibold rounded-lg hover:bg-slate-700 disabled:opacity-50 transition-all shadow-sm min-h-[44px]">
-            {saving ? <Spinner size={16} className="text-white shrink-0" /> : <Save className="w-4 h-4 shrink-0" />}
-            <span className="truncate">{saving ? "Saving..." : "Save"}</span>
-          </button>
+          <span className="relative group flex-1 flex">
+            <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-20 whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-[11px] font-medium text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100">
+              Save invoice
+            </span>
+            <button onClick={handleSave} aria-label="Save invoice" disabled={saving}
+              className="w-full flex items-center justify-center px-4 py-2.5 bg-slate-800 text-white rounded-lg hover:bg-slate-700 disabled:opacity-50 transition-all shadow-sm min-h-[44px] min-w-[44px]">
+              {saving ? <Spinner size={16} className="text-white shrink-0" /> : <Save className="w-4 h-4 shrink-0" />}
+            </button>
+          </span>
 
           <span className="relative group flex-1 flex">
             <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-20 whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-[11px] font-medium text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100">
@@ -798,16 +862,16 @@ export default function InvoiceForm() {
           </span>
         </div>
 
-        {/* Delivery + Proforma — one per line */}
-        <div className="space-y-2">
+        {/* Delivery + Proforma — one row, equal width */}
+        <div className="flex gap-2">
           <button onClick={generateDeliveryChallanPdf}
             disabled={saving || !customer.name?.trim() || !(items || []).some((i) => (i.itemName || "").trim() && parseFloat(i.qty) > 0)}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 border border-teal-300 text-teal-700 text-sm font-semibold rounded-lg hover:bg-teal-50 disabled:opacity-50 transition-all min-h-[44px] whitespace-nowrap">
-            <Truck className="w-4 h-4 shrink-0" /> Delivery Challan
+            className="flex-1 min-w-0 flex items-center justify-center gap-2 px-2 sm:px-3 py-2.5 border border-teal-300 text-teal-700 text-sm font-semibold rounded-lg hover:bg-teal-50 disabled:opacity-50 transition-all min-h-[44px] whitespace-nowrap">
+            <Truck className="w-4 h-4 shrink-0" /> Delivery
           </button>
           <button onClick={() => generatePDF("PROFORMA_INVOICE")} disabled={saving || sealRequired || totals.grandTotal <= 0}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 border border-emerald-300 text-emerald-700 text-sm font-semibold rounded-lg hover:bg-emerald-50 disabled:opacity-50 transition-all min-h-[44px] whitespace-nowrap">
-            <Download className="w-4 h-4 shrink-0" /> Proforma Invoice
+            className="flex-1 min-w-0 flex items-center justify-center gap-2 px-2 sm:px-3 py-2.5 border border-emerald-300 text-emerald-700 text-sm font-semibold rounded-lg hover:bg-emerald-50 disabled:opacity-50 transition-all min-h-[44px] whitespace-nowrap">
+            <Download className="w-4 h-4 shrink-0" /> Proforma
           </button>
         </div>
 
@@ -816,6 +880,78 @@ export default function InvoiceForm() {
           className="w-full flex items-center justify-center gap-2 px-4 py-2.5 border border-indigo-300 text-indigo-700 text-sm font-semibold rounded-lg hover:bg-indigo-50 disabled:opacity-50 transition-all min-h-[44px]">
           <Download className="w-4 h-4" /> Tax Invoice PDF
         </button>
+
+        {/* Share Link — same as View Invoice; unlocks only after Save */}
+        <div className="pt-3 border-t border-slate-100">
+          <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-1.5"
+            title="Send Email creates the link automatically. Anyone with it can view the invoice without logging in.">
+            <Link2 className="w-3.5 h-3.5" /> Share Link
+          </h3>
+          {shareToken ? (
+            <div className="space-y-2">
+              <input
+                type="text"
+                readOnly
+                value={shareUrl}
+                onFocus={(e) => e.target.select()}
+                className="w-full px-2.5 py-2 border border-slate-200 bg-slate-50 rounded-lg text-xs font-mono text-slate-600 focus:outline-none"
+                aria-label="Public share link"
+              />
+              <div className="flex gap-2">
+                <button type="button" onClick={() => copyShareUrl(shareUrl)} disabled={!!shareBusy || !savedInvoiceId}
+                  className="min-w-0 flex-1 flex items-center justify-center gap-1.5 px-2 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 disabled:opacity-60 transition-all">
+                  <Copy className="w-3.5 h-3.5 shrink-0" />
+                  <span className="text-[11px] sm:text-xs font-semibold whitespace-nowrap">Copy link</span>
+                </button>
+                <button type="button" onClick={sendInvoiceEmailToCustomer} disabled={emailBusy || !savedInvoiceId}
+                  title="Email this invoice and its link to the customer"
+                  className="min-w-0 flex-1 flex items-center justify-center gap-1.5 px-2 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-60 transition-all shadow-sm">
+                  {emailBusy ? <Spinner size={14} className="shrink-0" /> : <Mail className="w-3.5 h-3.5 shrink-0" />}
+                  <span className="text-[11px] sm:text-xs font-semibold whitespace-nowrap">
+                    {emailBusy ? "Sending..." : "Send Email"}
+                  </span>
+                </button>
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-[11px] text-slate-400 leading-relaxed flex-1">
+                  Anyone with this link can view the invoice without logging in.
+                </p>
+                <div className="flex items-center gap-1 shrink-0">
+                  <button type="button" onClick={() => handleShareLink("regenerate")} disabled={!!shareBusy || !savedInvoiceId}
+                    className="flex items-center gap-1 px-1.5 py-1 text-[11px] text-slate-500 hover:text-indigo-600 rounded disabled:opacity-60 transition-colors"
+                    title="Create a new link and disable the current one">
+                    {shareBusy === "regenerate" ? <Spinner size={12} /> : <RotateCw className="w-3 h-3" />} New
+                  </button>
+                  <button type="button" onClick={() => handleShareLink("revoke")} disabled={!!shareBusy || !savedInvoiceId}
+                    className="flex items-center gap-1 px-1.5 py-1 text-[11px] text-slate-500 hover:text-red-600 rounded disabled:opacity-60 transition-colors"
+                    title="Revoke the link — recipients can no longer open it">
+                    {shareBusy === "revoke" ? <Spinner size={12} /> : <Unlink className="w-3 h-3" />} Revoke
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <div className="flex gap-2" title={!savedInvoiceId ? "Click Save first — Create link and Send Email unlock once the invoice is saved." : undefined}>
+                <button type="button" onClick={() => handleShareLink("create")} disabled={saving || !!shareBusy || !savedInvoiceId}
+                  className="min-w-0 flex-1 flex items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-2.5 border border-sky-300 text-sky-700 rounded-lg hover:bg-sky-50 disabled:opacity-60 transition-all">
+                  {shareBusy === "create" ? <Spinner size={14} className="shrink-0" /> : <Link2 className="w-3.5 h-3.5 shrink-0" />}
+                  <span className="text-[11px] sm:text-xs font-semibold whitespace-nowrap">
+                    {shareBusy === "create" ? "Creating..." : "Create link"}
+                  </span>
+                </button>
+                <button type="button" onClick={sendInvoiceEmailToCustomer} disabled={saving || emailBusy || !savedInvoiceId}
+                  title="Email this invoice and its link to the customer"
+                  className="min-w-0 flex-1 flex items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-60 transition-all shadow-sm">
+                  {emailBusy ? <Spinner size={14} className="shrink-0" /> : <Mail className="w-3.5 h-3.5 shrink-0" />}
+                  <span className="text-[11px] sm:text-xs font-semibold whitespace-nowrap">
+                    {emailBusy ? "Sending..." : "Send Email"}
+                  </span>
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="mt-6 pt-4 border-t border-slate-100">
@@ -895,7 +1031,7 @@ export default function InvoiceForm() {
             </button>
           </div>
         )}
-        <div className="grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-6 items-start">
+        <div className="grid grid-cols-1 xl:grid-cols-[1fr_320px] side-fixed-grid gap-6 items-start">
           <div className="space-y-6">
 
             {/* Customer Details - Inline Fields */}
@@ -1005,7 +1141,7 @@ export default function InvoiceForm() {
                       onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); focusNext("invoiceType"); } }}
                       className={selectClass}>
                       <option value="TAX_INVOICE">Tax Invoice</option>
-                      <option value="PROFORMA_INVOICE">Proforma Invoice</option>
+                      <option value="PROFORMA_INVOICE">Proforma</option>
                     </select>
                     <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                   </div>
@@ -1156,7 +1292,7 @@ export default function InvoiceForm() {
           </div>
           </div>
 
-          <div className="xl:sticky xl:top-6 space-y-4">
+            <div className="xl:sticky xl:top-6 space-y-4 side-fixed">
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Discount</h3>
@@ -1189,33 +1325,10 @@ export default function InvoiceForm() {
                 </div>
               )}
             </div>
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Email</h3>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={emailOnSave}
-                  aria-label="Email the invoice to the customer on save"
-                  onClick={() => setEmailOnSave((v) => !v)}
-                  className={`relative w-12 h-6 rounded-full transition-colors ${emailOnSave ? "bg-blue-500" : "bg-slate-300"}`}>
-                  <span className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${emailOnSave ? "translate-x-6" : ""}`} />
-                </button>
-              </div>
-              {emailOnSave && (
-                <p className={`text-xs leading-relaxed ${customer.email ? "text-slate-500" : "text-amber-600"}`}>
-                  {customer.email ? (
-                    <>The customer will receive this invoice with a view-only link at <span className="font-medium text-slate-700">{customer.email}</span>.</>
-                  ) : (
-                    <>This customer has no email address yet — add one to send the invoice.</>
-                  )}
-                </p>
-              )}
-            </div>
             {sealEnabled && (
               <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
                 <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Company Stamp</h3>
-                <div className="space-y-2">
+                <div className="space-y-2 md:space-y-0 md:flex md:items-center md:gap-4">
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input
                       type="radio"

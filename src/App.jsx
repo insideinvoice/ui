@@ -64,7 +64,7 @@ function PrivateRoute({ children }) {
   // Bottom padding clears the fixed mobile tab bar + home indicator — scoped to app pages
   // only, so landing/legal pages don't get a white strip below their footer
   return isAuthenticated ? (
-    <div className="app-shell lg:ml-60 pb-[calc(env(safe-area-inset-bottom,0px)_+_64px)] lg:pb-0">
+    <div className="app-shell md:ml-60 pb-[calc(env(safe-area-inset-bottom,0px)_+_64px)] md:pb-0">
       {children}
     </div>
   ) : <Navigate to="/login" />;

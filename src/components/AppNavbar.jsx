@@ -8,6 +8,10 @@ import {
 } from "lucide-react";
 import insideInvoiceLogo from "../assets/inside-invoice-logo.svg";
 
+// Same range as the icon-rail rules in index.css: tablet (~768px) up to a
+// ~15" display (1536px = Tailwind 2xl).
+const RAIL_MEDIA = "(min-width: 768px) and (max-width: 1535.98px)";
+
 // Publishes the mobile top-nav's real height (incl. safe-area inset + border) as
 // a CSS var so sibling headers can pin themselves directly beneath it with
 // position: fixed. Without this, fixed headers slide under the navbar because
@@ -109,10 +113,15 @@ export default memo(function AppNavbar() {
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  // Medium screens (1024–1279px) start with the sidebar collapsed to an icon
+  // Tablet up to ~15" (768–1535px) starts with the sidebar collapsed to an icon
   // rail so page content (e.g. wide tables) keeps the full width. The CSS in
   // index.css scopes this state to that breakpoint only.
   const [railCollapsed, setRailCollapsed] = useState(true);
+  // Hover tooltip shown next to an icon while the rail is collapsed.
+  const [railTip, setRailTip] = useState(null); // { label, top, left }
+  const [railMode, setRailMode] = useState(() =>
+    typeof window !== "undefined" && window.matchMedia(RAIL_MEDIA).matches
+  );
   useNavbarHeightVar();
 
   useEffect(() => {
@@ -120,6 +129,27 @@ export default memo(function AppNavbar() {
     root.classList.toggle("rail-collapsed", railCollapsed);
     return () => root.classList.remove("rail-collapsed");
   }, [railCollapsed]);
+
+  useEffect(() => {
+    const mq = window.matchMedia(RAIL_MEDIA);
+    const onChange = () => {
+      setRailMode(mq.matches);
+      setRailTip(null);
+    };
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+
+  const showRailTip = useCallback((e, label, force = false) => {
+    if (!railMode) return;
+    if (!force && !railCollapsed) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const aside = document.querySelector("aside.app-side-nav");
+    const left = aside ? aside.getBoundingClientRect().right + 8 : 72;
+    setRailTip({ label, top: rect.top + rect.height / 2, left });
+  }, [railMode, railCollapsed]);
+
+  const hideRailTip = useCallback(() => setRailTip(null), []);
 
   const handleLogout = useCallback(() => {
     logout();
@@ -135,6 +165,7 @@ export default memo(function AppNavbar() {
   const handleNav = useCallback((path) => {
     navigate(path);
     setMobileMenuOpen(false);
+    setRailTip(null);
   }, [navigate]);
 
   const isActive = useCallback((path) => location.pathname === path, [location.pathname]);
@@ -187,9 +218,10 @@ export default memo(function AppNavbar() {
           </button>
           <button
             type="button"
-            onClick={() => setRailCollapsed((v) => !v)}
-            title={railCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            onClick={() => { setRailCollapsed((v) => !v); setRailTip(null); }}
             aria-label={railCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            onMouseEnter={(e) => showRailTip(e, railCollapsed ? "Expand sidebar" : "Collapse sidebar", true)}
+            onMouseLeave={hideRailTip}
             className="rail-toggle items-center justify-center p-2 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors shrink-0"
           >
             {railCollapsed ? <Menu className="w-5 h-5" /> : <X className="w-5 h-5" />}
@@ -215,7 +247,8 @@ export default memo(function AppNavbar() {
               <button
                 key={item.label}
                 onClick={() => handleNav(item.path)}
-                title={item.label}
+                onMouseEnter={(e) => showRailTip(e, item.label)}
+                onMouseLeave={hideRailTip}
                 className={`rail-item flex items-center gap-3 w-full px-3 py-2.5 text-sm rounded-lg transition-colors text-left min-h-[40px] ${
                   isActive(item.path)
                     ? "bg-indigo-50 text-indigo-700 font-medium"
@@ -236,7 +269,8 @@ export default memo(function AppNavbar() {
       <div className="px-3 py-3 border-t border-slate-100 space-y-1">
         <button
           onClick={() => handleNav("/settings")}
-          title="Settings"
+          onMouseEnter={(e) => showRailTip(e, "Settings")}
+          onMouseLeave={hideRailTip}
           className={`rail-item flex items-center gap-3 w-full px-3 py-2.5 text-sm rounded-lg transition-colors text-left min-h-[40px] ${
             isActive("/settings")
               ? "bg-indigo-50 text-indigo-700 font-medium"
@@ -250,7 +284,8 @@ export default memo(function AppNavbar() {
         </button>
         <button
           onClick={handleLogout}
-          title="Logout"
+          onMouseEnter={(e) => showRailTip(e, "Logout")}
+          onMouseLeave={hideRailTip}
           className="rail-item flex items-center gap-3 w-full px-3 py-2.5 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors text-left min-h-[40px]"
         >
           <LogOut className="w-4 h-4 shrink-0" />
@@ -262,14 +297,22 @@ export default memo(function AppNavbar() {
 
   return (
     <>
-      {/* ===== DESKTOP SIDEBAR (lg+) ===== */}
-      <aside className="app-side-nav hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 lg:left-0 lg:z-50 lg:w-60 lg:bg-white lg:border-r lg:border-slate-200">
+      {/* ===== DESKTOP SIDEBAR (md+) ===== */}
+      <aside className="app-side-nav hidden md:flex md:flex-col md:fixed md:inset-y-0 md:left-0 md:z-50 md:w-60 md:bg-white md:border-r md:border-slate-200">
         {sidebarContent}
+        {railTip && (
+          <div
+            className="pointer-events-none fixed z-[60] rounded-md bg-slate-900 px-2 py-1 text-[11px] font-medium text-white shadow-lg whitespace-nowrap"
+            style={{ left: railTip.left, top: railTip.top, transform: "translateY(-50%)" }}
+          >
+            {railTip.label}
+          </div>
+        )}
       </aside>
 
       {/* ===== MOBILE TOP NAV ===== */}
       <nav
-        className="app-nav-fixed lg:hidden bg-white border-b border-slate-200 px-3 sm:px-4 py-2 sm:py-3 sticky top-0 z-[99]"
+        className="app-nav-fixed md:hidden bg-white border-b border-slate-200 px-3 sm:px-4 py-2 sm:py-3 sticky top-0 z-[99]"
         style={{
           paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)",
           // #root already pads the whole app down by the safe-area inset
@@ -296,7 +339,7 @@ export default memo(function AppNavbar() {
 
       {/* ===== MOBILE HAMBURGER DRAWER ===== */}
       <div
-        className={`fixed inset-0 z-[999] transition-all duration-300 ease-in-out lg:hidden ${
+        className={`fixed inset-0 z-[999] transition-all duration-300 ease-in-out md:hidden ${
           mobileMenuOpen ? "pointer-events-auto visible opacity-100" : "pointer-events-none invisible opacity-0"
         }`}
       >
@@ -354,7 +397,7 @@ export default memo(function AppNavbar() {
       </div>
 
       {/* ===== MOBILE BOTTOM TAB BAR ===== */}
-      <div className="app-nav-bottom fixed bottom-0 left-0 right-0 z-[1000] lg:hidden" style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)", backgroundColor: "#ffffff" }}>
+      <div className="app-nav-bottom fixed bottom-0 left-0 right-0 z-[1000] md:hidden" style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)", backgroundColor: "#ffffff" }}>
         <div className="bg-white border-t border-slate-200">
           <div className="flex items-center justify-around px-2">
             {bottomTabs.map((tab) => (

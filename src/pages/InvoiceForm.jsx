@@ -5,7 +5,7 @@ import Spinner from "../components/Spinner";
 import { useAuth } from "../context/AuthContext";
 import AppNavbar from "../components/AppNavbar";
 import PageHeader from "../components/PageHeader";
-import { invoiceAPI, customerAPI, businessAPI, productAPI } from "../api/auth";
+import { invoiceAPI, customerAPI, businessAPI, productAPI, deliveryChallanAPI } from "../api/auth";
 import toast from "react-hot-toast";
 import {
   ArrowLeft, Plus, Trash2, Save, FileText, Download,
@@ -98,7 +98,7 @@ const ItemRow = memo(({ item, calc, idx, onItemChange, onRemove, onAdd, onHsnLoo
         placeholder="Item name" />
     </td>
     <td className="py-3 px-3 border-b border-slate-100">
-      <input type="number" step="0.01" min="0" value={item.qty} name={`qty-${idx + 1}`}
+      <input type="number" step="1" min="0" value={item.qty} name={`qty-${idx + 1}`}
         onChange={(e) => onItemChange(idx, "qty", e.target.value)}
         onKeyDown={(e) => handleKeyDown(e, "qty")}
         className="w-full px-3 py-2 border border-slate-200 rounded text-sm text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
@@ -191,10 +191,10 @@ const ItemCard = memo(({ item, calc, idx, onItemChange, onRemove, onAdd, onHsnLo
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="block text-[10px] font-semibold text-slate-500 uppercase mb-1">Qty</label>
-            <input type="number" step="0.01" min="0" value={item.qty} data-mobile-field={`qty-${idx}`}
+            <input type="number" step="1" min="0" value={item.qty} data-mobile-field={`qty-${idx}`}
               onChange={(e) => onItemChange(idx, "qty", e.target.value)}
               onKeyDown={(e) => handleKeyDown(e, "qty")}
-              inputMode="decimal"
+              inputMode="numeric"
               className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono min-h-[44px] [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
           </div>
           <div>
@@ -240,6 +240,7 @@ export default function InvoiceForm() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [sharing, setSharing] = useState(false);
+  const [linkSharing, setLinkSharing] = useState(false);
   const [savedInvoiceNumber, setSavedInvoiceNumber] = useState(null);
   const [savedInvoiceId, setSavedInvoiceId] = useState(null);
   const [customInvoiceNumber, setCustomInvoiceNumber] = useState("");
@@ -402,6 +403,11 @@ export default function InvoiceForm() {
       hsnRef.current[idx] = value;
       delete hsnLookupRef.current[idx];
     }
+    if (field === "qty") {
+      // Integers only: no decimals, no negatives, no exponent notation.
+      const n = parseFloat(value);
+      value = value.trim() === "" || Number.isNaN(n) ? "" : String(Math.max(0, Math.floor(n)));
+    }
     setItems((prev) => prev.map((item, i) => {
       if (i !== idx) return item;
       if (field === "gstPercentage" && parseFloat(value) > 40) value = "40";
@@ -540,7 +546,7 @@ export default function InvoiceForm() {
     discountPercent: discountEnabled ? parseFloat(discountPercent) || 0 : 0,
     items: items.filter((i) => i.itemName.trim() && parseFloat(i.qty) > 0 && parseFloat(i.rate) > 0).map((i, idx) => ({
       sno: idx + 1, itemName: i.itemName, hsn: i.hsn || undefined,
-      qty: parseFloat(i.qty), rate: parseFloat(i.rate), gstPercentage: parseFloat(i.gstPercentage) || 0,
+      qty: Math.floor(parseFloat(i.qty)) || 0, rate: parseFloat(i.rate), gstPercentage: parseFloat(i.gstPercentage) || 0,
     })),
   });
 
@@ -595,10 +601,9 @@ export default function InvoiceForm() {
   const generateDeliveryChallanPdf = async () => {
     const dcItems = (items || [])
       .filter((i) => (i.itemName || "").trim() && parseFloat(i.qty) > 0)
-      .map((i, idx) => ({
-        sno: idx + 1,
+      .map((i) => ({
         description: i.itemName.trim(),
-        quantity: parseFloat(i.qty),
+        quantity: Math.max(0, Math.floor(parseFloat(i.qty))),
       }));
     if (!dcItems.length) {
       toast.error("Add at least one item with quantity to generate a delivery challan");
@@ -611,27 +616,39 @@ export default function InvoiceForm() {
     setSaving(true);
     try {
       const today = new Date().toISOString().split("T")[0];
+      // Persist with the customer first — only when the user clicks this
+      // button — so the challan can be re-downloaded from Delivery Challans.
+      let customerId = existingCustomer?.id;
+      if (!customerId) {
+        const custRes = await customerAPI.create({
+          name: customer.name,
+          email: customer.email || undefined,
+          phone: customer.phone || undefined,
+          billingAddress: customer.billingAddress || undefined,
+          gstIn: customer.gstIn || undefined,
+        });
+        customerId = custRes.data.data?.id;
+        setExistingCustomer(custRes.data.data);
+        setCustomerSaved(true);
+      }
       const po = form.otherReferences && form.otherReferences !== "N/A" ? form.otherReferences : "";
-      const dc = {
-        challanNumber: `DC-${(form.invoiceDate || today).replace(/-/g, "")}`,
+      const res = await deliveryChallanAPI.create({
+        customerId,
         challanDate: form.invoiceDate || today,
-        poNumber: po,
-        poDate: form.invoiceDate || today,
-        customerName: customer.name,
-        customerAddress: [customer.billingAddress, customer.city].filter(Boolean).join(", "),
-        customerPhone: customer.phone,
-        customerGstIn: customer.gstIn,
+        poNumber: po || undefined,
+        poDate: po ? form.invoiceDate || today : undefined,
         items: dcItems,
-      };
+      });
+      const dc = res.data.data;
       const variant = localStorage.getItem("ii_dc_template") || "classic";
       const sealOn = localStorage.getItem("ii_dc_seal") !== "off";
       const b = business || (await businessAPI.getProfile()).data.data;
       const pdf = await renderDeliveryChallanPdf(dc, b, { variant, sealOn });
       pdf.save(`Delivery_Challan_${dc.challanNumber}.pdf`);
-      toast.success("Delivery challan downloaded");
+      toast.success(`Delivery challan ${dc.challanNumber} saved & downloaded`);
     } catch (err) {
       console.error(err);
-      toast.error("Failed to generate delivery challan PDF");
+      toast.error(err.response?.data?.message || "Failed to save delivery challan");
     } finally {
       setSaving(false);
     }
@@ -670,40 +687,35 @@ export default function InvoiceForm() {
     setSaving(false);
   };
 
-  const handlePrint = async () => {
+  // Share opens the native share sheet with the invoice LINK only — it must
+  // never build/open/download a PDF (the old flow fell back to downloading
+  // one after the share sheet was dismissed).
+  const handleShare = async () => {
+    if (linkSharing) return;
     if (!validate()) return;
     recalcAll();
-    setSaving(true);
-    await mountPdfPreview();
+    setLinkSharing(true);
     try {
-      const { buildInvoicePdf } = await import("../utils/invoicePdf");
-      const ps = (getPrintSettings()[form.invoiceType] || {}).paperSize || "A4_PORTRAIT";
-      const pdf = await buildInvoicePdf(invoiceRef.current, ps);
-      const blob = pdf.output("blob");
-      const filename = `Invoice_draft.pdf`;
-      let shared = false;
-      try {
-        if (navigator.share) {
-          const file = new File([blob], filename, { type: "application/pdf" });
-          if (navigator.canShare && navigator.canShare({ files: [file] })) {
-            await navigator.share({ files: [file], title: filename });
-            shared = true;
-          }
-        }
-      } catch { /* share cancelled or unsupported — fall back to download */ }
-      if (!shared) {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url; a.download = filename; a.click();
-        setTimeout(() => URL.revokeObjectURL(url), 5000);
-        toast.success("PDF downloaded");
+      const saveRes = await saveInvoice();
+      const invoiceId = saveRes.data.data.id;
+      const invNo = saveRes.data.data.invoiceNumber || savedInvoiceNumber || customInvoiceNumber || nextInvoiceNumber;
+      const shareRes = await invoiceAPI.createShare(invoiceId);
+      const token = shareRes.data?.data?.token;
+      const origin = typeof window !== "undefined" && window.location.origin ? window.location.origin : "https://insideinvoice.com";
+      const shareUrl = token ? `${origin}/i/${token}` : undefined;
+      if (!shareUrl) throw new Error("no-link");
+      if (navigator.share) {
+        try {
+          await navigator.share({ title: `Invoice ${invNo}`, url: shareUrl });
+        } catch { /* dismissed — do nothing, never download */ }
+      } else {
+        await navigator.clipboard.writeText(shareUrl);
+        toast.success("Invoice link copied to clipboard");
       }
     } catch (err) {
-      console.error("Print error:", err);
-      toast.error("Failed to generate PDF");
+      toast.error(err.response?.data?.message || "Could not share invoice");
     } finally {
-      setShowPdfPreview(false);
-      setSaving(false);
+      setLinkSharing(false);
     }
   };
 
@@ -754,52 +766,52 @@ export default function InvoiceForm() {
     <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 sticky top-6">
       <h2 className="text-sm font-bold text-slate-800 mb-4 pb-3 border-b border-slate-100">Actions</h2>
       <div className="space-y-3">
-        {/* Row 1: Save + icon-only share actions (label shows on hover) */}
+        {/* Row 1: Save + Share + WhatsApp — equal width */}
         <div className="flex items-stretch gap-2">
           <button onClick={handleSave} disabled={saving}
-            className="flex-1 min-w-0 flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-800 text-white text-sm font-semibold rounded-lg hover:bg-slate-700 disabled:opacity-50 transition-all shadow-sm min-h-[44px] whitespace-nowrap">
+            className="flex-1 min-w-0 flex items-center justify-center gap-1.5 px-2 py-2.5 bg-slate-800 text-white text-sm font-semibold rounded-lg hover:bg-slate-700 disabled:opacity-50 transition-all shadow-sm min-h-[44px]">
             {saving ? <Spinner size={16} className="text-white shrink-0" /> : <Save className="w-4 h-4 shrink-0" />}
-            {saving ? "Saving..." : "Save Invoice"}
+            <span className="truncate">{saving ? "Saving..." : "Save Invoice"}</span>
           </button>
 
-          <span className="relative group flex">
+          <span className="relative group flex-1 flex">
             <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-20 whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-[11px] font-medium text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100">
-              Share PDF
+              Share Invoice Link
             </span>
-            <button onClick={handlePrint} aria-label="Share PDF"
-              disabled={sealRequired || totals.grandTotal <= 0}
-              className="flex h-full items-center justify-center px-3 py-2.5 bg-white text-slate-700 rounded-lg border border-slate-300 hover:bg-slate-50 disabled:opacity-50 transition-all shadow-sm min-h-[44px]">
-              <Share2 className="w-4 h-4" />
+            <button onClick={handleShare} aria-label="Share invoice link"
+              disabled={linkSharing || sealRequired || totals.grandTotal <= 0}
+              className="w-full flex items-center justify-center px-2 py-2.5 bg-white text-slate-700 rounded-lg border border-slate-300 hover:bg-slate-50 disabled:opacity-50 transition-all shadow-sm min-h-[44px]">
+              {linkSharing ? <Spinner size={16} /> : <Share2 className="w-4 h-4" />}
             </button>
           </span>
 
-          <span className="relative group flex">
+          <span className="relative group flex-1 flex">
             <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-20 whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-[11px] font-medium text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100">
               Share on WhatsApp
             </span>
             <button type="button" onClick={shareViaWhatsApp}
               aria-label="Share on WhatsApp"
               disabled={sharing || sealRequired || totals.grandTotal <= 0}
-              className="flex h-full items-center justify-center px-3 py-2.5 bg-[#25D366] text-white rounded-lg hover:bg-[#1ebe5b] disabled:opacity-50 transition-all shadow-sm min-h-[44px]">
+              className="w-full flex items-center justify-center px-2 py-2.5 bg-[#25D366] text-white rounded-lg hover:bg-[#1ebe5b] disabled:opacity-50 transition-all shadow-sm min-h-[44px]">
               {sharing ? <Spinner size={18} /> : <WhatsAppIcon className="w-5 h-5" />}
             </button>
           </span>
         </div>
 
-        {/* Row 2: Delivery Challan */}
-        <button onClick={generateDeliveryChallanPdf}
-          disabled={saving || !customer.name?.trim() || !(items || []).some((i) => (i.itemName || "").trim() && parseFloat(i.qty) > 0)}
-          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-teal-600 text-white text-sm font-semibold rounded-lg hover:bg-teal-700 disabled:opacity-50 transition-all shadow-sm min-h-[44px]">
-          <Truck className="w-4 h-4" /> Delivery Challan PDF
-        </button>
+        {/* Row 2: Delivery Challan + Proforma */}
+        <div className="flex items-stretch gap-2">
+          <button onClick={generateDeliveryChallanPdf}
+            disabled={saving || !customer.name?.trim() || !(items || []).some((i) => (i.itemName || "").trim() && parseFloat(i.qty) > 0)}
+            className="flex-1 min-w-0 flex items-center justify-center gap-1.5 px-2 py-2.5 bg-teal-600 text-white text-sm font-semibold rounded-lg hover:bg-teal-700 disabled:opacity-50 transition-all shadow-sm min-h-[44px] whitespace-nowrap">
+            <Truck className="w-4 h-4 shrink-0" /> Delivery Challan
+          </button>
+          <button onClick={() => generatePDF("PROFORMA_INVOICE")} disabled={saving || sealRequired || totals.grandTotal <= 0}
+            className="flex-1 min-w-0 flex items-center justify-center gap-1.5 px-2 py-2.5 bg-emerald-600 text-white text-sm font-semibold rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-all shadow-sm min-h-[44px] whitespace-nowrap">
+            <Download className="w-4 h-4 shrink-0" /> Proforma PDF
+          </button>
+        </div>
 
-        {/* Row 3: Proforma */}
-        <button onClick={() => generatePDF("PROFORMA_INVOICE")} disabled={saving || sealRequired || totals.grandTotal <= 0}
-          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 text-white text-sm font-semibold rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-all shadow-sm min-h-[44px]">
-          <Download className="w-4 h-4" /> Proforma PDF
-        </button>
-
-        {/* Row 4: Tax Invoice */}
+        {/* Row 3: Tax Invoice — full row */}
         <button onClick={() => generatePDF("TAX_INVOICE")} disabled={saving || sealRequired || totals.grandTotal <= 0}
           className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-all shadow-sm min-h-[44px]">
           <Download className="w-4 h-4" /> Tax Invoice PDF

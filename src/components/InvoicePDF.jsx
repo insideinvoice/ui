@@ -4,7 +4,7 @@ import CompanySeal from "./CompanySeal";
 import CompanyStamp from "./CompanyStamp";
 import { getSpecialistInLine } from "../utils/specialistIn";
 import { computeInvoiceTotals } from "../utils/invoiceTotals";
-import { getIndustryConfig, getTemplateRightValues } from "../constants/industryConfig";
+import { getIndustryConfig, getTemplateRightRows, fieldLabel } from "../constants/industryConfig";
 
 const S = {
   border: "1px solid #000",
@@ -82,16 +82,9 @@ const InvoicePDF = React.memo(React.forwardRef(({ business, customer, form, item
   const calcTaxAmount = calc.taxAmount;
   const finalTotal = calc.grandTotal;
 
-  const rightLabels = isProforma
-    ? ["Proforma Ref.", "Delivery Note", "Reference No. & Date.", "Buyer's Order No.",
-       "Dispatch Doc No.", "Dispatched through", "Terms of Delivery", "Valid Until",
-       "Mode/Terms of Payment", "Other References", "Dated", "Delivery Note Date", "Destination"]
-    : ["Invoice No.", "Delivery Note", "Reference No. & Date.", "Buyer's Order No.",
-       "Dispatch Doc No.", "Dispatched through", "Terms of Delivery", "Payment Date",
-       "Mode/Terms of Payment", "Other References", "Dated", "Delivery Note Date", "Destination"];
-  const rightValues = getTemplateRightValues(
-    getIndustryConfig(business?.industry), form, displayInvNo, isProforma
-  );
+  const industryConfig = getIndustryConfig(business?.industry);
+  const rightRows = getTemplateRightRows(industryConfig, form, displayInvNo, isProforma);
+  const itemDescLabel = fieldLabel(industryConfig, "itemName", "Description of Goods");
 
   const sealVisible = typeof window !== "undefined" && localStorage.getItem("show_seal") === "true";
   const sealType = typeof window !== "undefined" ? localStorage.getItem("seal_type") || "round" : "round";
@@ -177,27 +170,27 @@ const InvoicePDF = React.memo(React.forwardRef(({ business, customer, form, item
             <td style={{ width: "43%", borderRight: S.border, padding: 0, verticalAlign: "top" }}>
               <table style={tStyle}>
                 <tbody>
-                  {rightLabels.map((label, idx) => (
-                    <tr key={idx} style={{ height: "25px" }}>
+                  {rightRows.map((row, idx) => (
+                    <tr key={row.key} style={{ height: "25px" }}>
                       <td style={{
                         width: "52%",
-                        borderBottom: idx < rightLabels.length - 1 ? S.border : 0,
+                        borderBottom: idx < rightRows.length - 1 ? S.border : 0,
                         borderRight: S.border,
                         padding: "5px 6px",
                         fontSize: "10px",
                         verticalAlign: "middle",
                       }}>
-                        {label}
+                        {row.label}
                       </td>
                       <td style={{
                         width: "48%",
-                        borderBottom: idx < rightLabels.length - 1 ? S.border : 0,
+                        borderBottom: idx < rightRows.length - 1 ? S.border : 0,
                         padding: "5px 6px",
                         fontSize: "10px",
                         fontWeight: "bold",
                         verticalAlign: "middle",
                       }}>
-                        {rightValues[idx] || "-"}
+                        {row.value || "-"}
                       </td>
                     </tr>
                   ))}
@@ -225,7 +218,7 @@ const InvoicePDF = React.memo(React.forwardRef(({ business, customer, form, item
                           lineHeight: "1.5",
                           whiteSpace: "normal",
                         }}>
-                          {idx === 5 ? "Rate (Incl. of Tax)" : col.key === "sl" ? "Sl No" : col.key === "desc" ? "Description of Goods" : col.key === "hsn" ? "HSN/SAC" : col.key === "gst" ? "GST Rate" : col.key === "qty" ? "Quantity" : col.key === "per" ? "per" : "Amount"}
+                          {idx === 5 ? "Rate (Incl. of Tax)" : col.key === "sl" ? "Sl No" : col.key === "desc" ? itemDescLabel : col.key === "hsn" ? "HSN/SAC" : col.key === "gst" ? "GST Rate" : col.key === "qty" ? "Quantity" : col.key === "per" ? "per" : "Amount"}
                        </th>
                      ))}
                    </tr>

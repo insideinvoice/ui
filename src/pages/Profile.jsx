@@ -3,7 +3,6 @@ import { useAuth } from "../context/AuthContext";
 import AppNavbar from "../components/AppNavbar";
 import PrintSettings from "./PrintSettings";
 import { authAPI, businessAPI } from "../api/auth";
-import { invalidateBusinessProfile } from "../utils/businessProfile";
 import { formatInvoiceNumber } from "../utils/invoiceConvention";
 import { INDUSTRY_LIST, DEFAULT_INDUSTRY, INDUSTRY_PROFILES } from "../constants/industryConfig";
 import toast from "react-hot-toast";
@@ -115,7 +114,6 @@ export default function Profile() {
     setUploadingSig(true);
     try {
       const res = await businessAPI.uploadSignature(file);
-      invalidateBusinessProfile();
       setSignature(res.data.data);
       toast.success("Signature uploaded successfully");
     } catch (err) {
@@ -130,7 +128,6 @@ export default function Profile() {
     setUploadingSig(true);
     try {
       await businessAPI.removeSignature();
-      invalidateBusinessProfile();
       setSignature(null);
       toast.success("Signature removed");
     } catch (err) {
@@ -145,7 +142,6 @@ export default function Profile() {
     setSavingBank(true);
     try {
       await businessAPI.update(bankForm);
-      invalidateBusinessProfile();
       toast.success("Bank details updated");
     } catch (err) {
       toast.error(err.response?.data?.message || "Failed to update bank details");
@@ -169,7 +165,6 @@ export default function Profile() {
       const res = await businessAPI.update(bizForm);
       const updated = res?.data?.data;
       if (updated) setBusinessData(updated);
-      invalidateBusinessProfile();
       refreshBusiness?.();
       toast.success("Business information updated");
     } catch (err) {

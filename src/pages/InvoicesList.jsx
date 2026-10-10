@@ -7,7 +7,7 @@ import AppNavbar from "../components/AppNavbar";
 import PageHeader from "../components/PageHeader";
 import ConfirmModal from "../components/ConfirmModal";
 import { invoiceAPI } from "../api/auth";
-import { resolveBusinessProfile, getBusinessProfile } from "../utils/businessProfile";
+import { resolveBusinessProfile } from "../utils/businessProfile";
 import toast from "react-hot-toast";
 import { ArrowLeft, FileText, Download, Eye, PlusCircle, Share2, Trash2, Search, X, Link2, ChevronDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
 import WhatsAppIcon from "../components/WhatsAppIcon";
@@ -83,9 +83,6 @@ export default function InvoicesList() {
   }, []);
 
   useEffect(() => { fetchInvoices(); }, [fetchInvoices]);
-
-  // Warm the business profile cache so the first PDF/share click is instant
-  useEffect(() => { getBusinessProfile().catch(() => {}); }, []);
 
   const [pageSize, setPageSize] = useState(25);
   const [currentPage, setCurrentPage] = useState(1);
@@ -364,11 +361,9 @@ export default function InvoicesList() {
     const invoice = shareSheetInvoice;
     const origin = typeof window !== "undefined" && window.location.origin ? window.location.origin : "https://insideinvoice.com";
 
-    // Fast path: token already known (cache or earlier share in this session)
-    // → build the message and share with no network round-trip, so
-    // navigator.share / wa.me stay inside the tap's user-gesture window.
-    // resolveBusinessProfile is a localStorage peek (microtask), which does
-    // not cost the gesture.
+    // Fast path: share token already known (earlier share in this session)
+    // → build the message without re-requesting the share token. The business
+    // profile is always fetched fresh so settings changes apply immediately.
     const cachedToken = sheetShareToken || readCachedShareToken(invoice.id);
     if (cachedToken) {
       const business = await resolveBusinessProfile();

@@ -9,6 +9,7 @@ import DeliveryChallanDoc from "../components/DeliveryChallanDoc";
 import { DC_PAGE_W } from "../utils/deliveryChallanPdf";
 import { ArrowLeft, Check, X, Eye, FileText, ClipboardList } from "lucide-react";
 import toast from "react-hot-toast";
+import { resolveIndustryId } from "../constants/industryConfig";
 
 const ALL_TEMPLATES = [
   {
@@ -62,11 +63,131 @@ const sampleItems = [
   { itemName: "LED Monitor 27 inch", hsn: "852852", qty: "8", rate: "18500", gstPercentage: "18", taxableValue: 148000, taxAmount: 26640, total: 174640 },
 ];
 
-const sampleTotals = {
-  subtotal: 258000,
-  taxAmount: 46440,
-  grandTotal: 304440,
+// Per-industry demo content for the template gallery so previews reflect the
+// selected industry (names, references and line items), not a fixed trading set.
+const SAMPLE_CONTENT = {
+  FOOD: {
+    business: { businessName: "Spice Garden Restaurant", addressLine1: "12, Food Street", addressLine2: "Indiranagar", city: "Bengaluru", pincode: "560038", phone: "+91 98450 11223", email: "orders@spicegarden.in", gstIn: "29AAACS1234A1Z5" },
+    customer: { name: "Sunrise Corporate Events", billingAddress: "8, MG Road, Bengaluru - 560001", phone: "+91 99887 76655", email: "events@sunrise.in", gstIn: "29PQRS9876L1Z1" },
+    form: { deliveryNote: "ORD-2026-8841", buyerOrderNumber: "EVT-2026-77", paymentTerms: "Net 15", otherReferences: "Catering Order EVT-2026-77", termsOfDelivery: "Delivered to venue" },
+    items: [
+      { itemName: "Veg Thali (Catering Bulk)", hsn: "9963", qty: "80", rate: "320", gstPercentage: "5", taxableValue: 25600, taxAmount: 1280, total: 26880 },
+      { itemName: "Fresh Fruit Juice (1 Ltr)", hsn: "2009", qty: "40", rate: "120", gstPercentage: "12", taxableValue: 4800, taxAmount: 576, total: 5376 },
+      { itemName: "Bakery Assortment Box", hsn: "1905", qty: "15", rate: "450", gstPercentage: "18", taxableValue: 6750, taxAmount: 1215, total: 7965 },
+    ],
+  },
+  PROFESSIONAL_SERVICES: {
+    business: { businessName: "Nexora Consulting LLP", addressLine1: "5th Floor, Prestige Tower", addressLine2: "Residency Road", city: "Bengaluru", pincode: "560025", phone: "+91 98860 22114", email: "billing@nexora.in", gstIn: "29AAXFN5678M1ZQ" },
+    customer: { name: "Vertex Retail Pvt Ltd", billingAddress: "22, Cunningham Road, Bengaluru - 560052", phone: "+91 99450 33221", email: "accounts@vertex.in", gstIn: "29VVCD2468P1Z9" },
+    form: { referenceNumber: "SOW-2026-12", buyerOrderNumber: "PO-4410", paymentTerms: "Net 30", otherReferences: "Client PO PO-4410", deliveryNote: undefined, deliveryNoteDate: undefined, dispatchDocNumber: undefined, dispatchedThrough: undefined, termsOfDelivery: undefined, destination: undefined },
+    items: [
+      { itemName: "Software Development (Retainer)", hsn: "998314", qty: "1", rate: "150000", gstPercentage: "18", taxableValue: 150000, taxAmount: 27000, total: 177000 },
+      { itemName: "UI/UX Design Sprint", hsn: "998391", qty: "2", rate: "45000", gstPercentage: "18", taxableValue: 90000, taxAmount: 16200, total: 106200 },
+      { itemName: "Cloud Infrastructure Setup", hsn: "998315", qty: "1", rate: "35000", gstPercentage: "18", taxableValue: 35000, taxAmount: 6300, total: 41300 },
+    ],
+  },
+  HEALTHCARE: {
+    business: { businessName: "Aarogya Wellness Clinic", addressLine1: "3, Health Avenue", addressLine2: "Jayanagar", city: "Bengaluru", pincode: "560041", phone: "+91 99001 44556", email: "care@aarogyaclinic.in", gstIn: "29CCQRS1357H1Z2" },
+    customer: { name: "Healthy Minds Corporate", billingAddress: "41, Industrial Suburb, Bengaluru - 560068", phone: "+91 98450 99887", email: "hr@healthyminds.in", gstIn: "29HHM2468F1Z7" },
+    form: { referenceNumber: "Visit Ref. VC-2026-88", buyerOrderNumber: "HR-PO-221", paymentTerms: "Net 15", otherReferences: "Corporate Order PO-221" },
+    items: [
+      { itemName: "Health Check-up Package", hsn: "999311", qty: "25", rate: "1800", gstPercentage: "0", taxableValue: 45000, taxAmount: 0, total: 45000 },
+      { itemName: "Physiotherapy Session", hsn: "999312", qty: "10", rate: "1200", gstPercentage: "18", taxableValue: 12000, taxAmount: 2160, total: 14160 },
+      { itemName: "Wellness Workshop (2 hrs)", hsn: "999293", qty: "1", rate: "15000", gstPercentage: "18", taxableValue: 15000, taxAmount: 2700, total: 17700 },
+    ],
+  },
+  TRANSPORT: {
+    business: { businessName: "Swift Freight Carriers", addressLine1: "Plot 7, Transport Nagar", addressLine2: "Peenya", city: "Bengaluru", pincode: "560058", phone: "+91 97400 55667", email: "dispatch@swiftfreight.in", gstIn: "29DDSFG3579K1Z4" },
+    customer: { name: "Global Parts India Ltd", billingAddress: "19, Hosur Road, Bengaluru - 560068", phone: "+91 99860 11224", email: "logistics@globalparts.in", gstIn: "29GGPL9753J1Z8" },
+    form: { deliveryNote: "LR-2026-8891", deliveryNoteDate: "2026-09-29", dispatchDocNumber: "EWB-2026-4412", dispatchedThrough: "Truck MH-12-AB-1234", destination: "Chennai", buyerOrderNumber: "PO-5521", paymentTerms: "Net 15", otherReferences: "Shipper PO PO-5521", termsOfDelivery: "Freight prepaid" },
+    items: [
+      { itemName: "Freight — Bengaluru to Chennai", hsn: "996511", qty: "1", rate: "18500", gstPercentage: "5", taxableValue: 18500, taxAmount: 925, total: 19425 },
+      { itemName: "Loading & Unloading Charges", hsn: "999799", qty: "1", rate: "2500", gstPercentage: "18", taxableValue: 2500, taxAmount: 450, total: 2950 },
+      { itemName: "Transit Insurance", hsn: "9971", qty: "1", rate: "1200", gstPercentage: "18", taxableValue: 1200, taxAmount: 216, total: 1416 },
+    ],
+  },
+  CONSTRUCTION: {
+    business: { businessName: "Shree Balaji Constructions", addressLine1: "Site Office, Plot 14", addressLine2: "Whitefield Main Road", city: "Bengaluru", pincode: "560066", phone: "+91 98801 77889", email: "projects@sbc.in", gstIn: "29DDSPC4680N1Z6" },
+    customer: { name: "Prestige Developers", billingAddress: "Prestige Towers, MG Road, Bengaluru - 560001", phone: "+91 99720 33445", email: "procurement@prestige.in", gstIn: "29PPDL1357R1Z0" },
+    form: { deliveryNote: "WO-2026-14", deliveryNoteDate: "2026-09-20", dispatchDocNumber: undefined, dispatchedThrough: "Site Transport", destination: "Whitefield Site", buyerOrderNumber: "PRJ-WF-22", paymentTerms: "Net 45", otherReferences: "Project PRJ-WF-22", termsOfDelivery: "At site" },
+    items: [
+      { itemName: "Civil Work — Foundation (RCC)", hsn: "995421", qty: "1", rate: "450000", gstPercentage: "18", taxableValue: 450000, taxAmount: 81000, total: 531000 },
+      { itemName: "Steel Reinforcement Supply", hsn: "7214", qty: "5", rate: "62000", gstPercentage: "18", taxableValue: 310000, taxAmount: 55800, total: 365800 },
+      { itemName: "Site Labour Charges (Monthly)", hsn: "998596", qty: "1", rate: "85000", gstPercentage: "18", taxableValue: 85000, taxAmount: 15300, total: 100300 },
+    ],
+  },
+  MANUFACTURING: {
+    business: { businessName: "Precision Fabricators", addressLine1: "Unit 4, MIDC Phase II", addressLine2: "Hoskote", city: "Bengaluru", pincode: "562114", phone: "+91 97310 22446", email: "sales@precisionfab.in", gstIn: "29EEEPF2468L1Z3" },
+    customer: { name: "AutoTech Components Pvt Ltd", billingAddress: "Plot 9, Auto Nagar, Bengaluru - 560091", phone: "+91 99002 88990", email: "purchase@autotech.in", gstIn: "29AATC8642M1Z5" },
+    form: { deliveryNote: "DN-2026-331", deliveryNoteDate: "2026-09-28", dispatchDocNumber: "EWB-2026-5510", dispatchedThrough: "Tata Ace MH-04-KL-9087", destination: "Auto Nagar", buyerOrderNumber: "AT-PO-778", paymentTerms: "Net 30", otherReferences: "Batch LOT-2026-77", termsOfDelivery: "Ex-works" },
+    items: [
+      { itemName: "CNC Machined Parts (Batch A)", hsn: "8466", qty: "200", rate: "450", gstPercentage: "18", taxableValue: 90000, taxAmount: 16200, total: 106200 },
+      { itemName: "Sheet Metal Fabrication", hsn: "7326", qty: "50", rate: "1200", gstPercentage: "18", taxableValue: 60000, taxAmount: 10800, total: 70800 },
+      { itemName: "Powder Coating Service", hsn: "9988", qty: "200", rate: "85", gstPercentage: "18", taxableValue: 17000, taxAmount: 3060, total: 20060 },
+    ],
+  },
+  REPAIR: {
+    business: { businessName: "AutoCare Service Centre", addressLine1: "Shop 8, Service Road", addressLine2: "Koramangala", city: "Bengaluru", pincode: "560095", phone: "+91 98451 66778", email: "service@autocare.in", gstIn: "29FFAAC3579P1Z1" },
+    customer: { name: "Rahul Sharma", billingAddress: "17, 5th Block, Koramangala, Bengaluru - 560095", phone: "+91 99800 11225", email: "rahul.s@email.in", gstIn: "" },
+    form: { referenceNumber: "KA-05-MJ-2211", deliveryNote: "Job Card JC-2026-441", deliveryNoteDate: "2026-09-30", paymentTerms: "On Delivery", otherReferences: "Job Card JC-2026-441", termsOfDelivery: "Vehicle released after payment" },
+    items: [
+      { itemName: "Engine Oil Change + Filter", hsn: "9987", qty: "1", rate: "2800", gstPercentage: "18", taxableValue: 2800, taxAmount: 504, total: 3304 },
+      { itemName: "Brake Pad Replacement (Pair)", hsn: "8708", qty: "1", rate: "3500", gstPercentage: "28", taxableValue: 3500, taxAmount: 980, total: 4480 },
+      { itemName: "Labour Charges (2 hrs)", hsn: "9987", qty: "2", rate: "750", gstPercentage: "18", taxableValue: 1500, taxAmount: 270, total: 1770 },
+    ],
+  },
+  RENTAL: {
+    business: { businessName: "Prime Equipment Rentals", addressLine1: "Depot 2,NH-4 Highway", addressLine2: "Tumkur Road", city: "Bengaluru", pincode: "562123", phone: "+91 97410 33557", email: "hire@primerentals.in", gstIn: "29GGGPR7531Q1Z8" },
+    customer: { name: "Metro Infra Projects", billingAddress: "Tower B, Tech Park, Bengaluru - 560103", phone: "+91 99801 44668", email: "ops@metroinfra.in", gstIn: "29MIPP8642T1Z2" },
+    form: { deliveryNote: "Handover HO-2026-91", deliveryNoteDate: "2026-09-25", referenceNumber: "EQ-0042", dispatchedThrough: "Rental Transporter", destination: "Metro Infra Site", buyerOrderNumber: "MI-RA-31", paymentTerms: "Advance + Monthly", otherReferences: "Agreement RA-2026-31", termsOfDelivery: "On rental agreement" },
+    items: [
+      { itemName: "Excavator Rental (Weekly)", hsn: "9973", qty: "2", rate: "45000", gstPercentage: "18", taxableValue: 90000, taxAmount: 16200, total: 106200 },
+      { itemName: "Generator 5 kVA (Monthly)", hsn: "9973", qty: "1", rate: "12000", gstPercentage: "18", taxableValue: 12000, taxAmount: 2160, total: 14160 },
+      { itemName: "Operator Charges", hsn: "9985", qty: "10", rate: "1500", gstPercentage: "18", taxableValue: 15000, taxAmount: 2700, total: 17700 },
+    ],
+  },
+  TELECOM_IT: {
+    business: { businessName: "ConnectWave Broadband", addressLine1: "Gateway Park, Tower C", addressLine2: "Outer Ring Road", city: "Bengaluru", pincode: "560103", phone: "+91 99003 77881", email: "billing@connectwave.in", gstIn: "29HHCW1357V1Z6" },
+    customer: { name: "Skyline Offices LLP", billingAddress: "6th Floor, Galaxy Plaza, Bengaluru - 560071", phone: "+91 98861 22335", email: "admin@skyline.in", gstIn: "29SSLO2468W1Z4" },
+    form: { referenceNumber: "ACC-77821", buyerOrderNumber: "SO-2026-441", paymentTerms: "Annual Advance", otherReferences: "Subscription SUB-2026-441" },
+    items: [
+      { itemName: "Leased Line 100 Mbps (Annual)", hsn: "998411", qty: "1", rate: "180000", gstPercentage: "18", taxableValue: 180000, taxAmount: 32400, total: 212400 },
+      { itemName: "Managed Wi-Fi Setup", hsn: "998412", qty: "1", rate: "35000", gstPercentage: "18", taxableValue: 35000, taxAmount: 6300, total: 41300 },
+      { itemName: "Static IP Add-on (Quarterly)", hsn: "998411", qty: "4", rate: "4500", gstPercentage: "18", taxableValue: 18000, taxAmount: 3240, total: 21240 },
+    ],
+  },
+  EDUCATION: {
+    business: { businessName: "SkillUp Training Institute", addressLine1: "2nd Floor, Knowledge Park", addressLine2: "HSR Layout", city: "Bengaluru", pincode: "560102", phone: "+91 99802 55669", email: "admin@skillup.in", gstIn: "29IISU3579X1Z9" },
+    customer: { name: "FutureTech Students (Batch A)", billingAddress: "Batch A, HSR Layout, Bengaluru - 560102", phone: "+91 97401 88992", email: "batcha@futuretech.in", gstIn: "" },
+    form: { referenceNumber: "BATCH-A-2026", buyerOrderNumber: "FT-BATCH-A", paymentTerms: "Instalment Plan", otherReferences: "Enrolment ENR-2026-512" },
+    items: [
+      { itemName: "Full Stack Development Course", hsn: "999293", qty: "20", rate: "15000", gstPercentage: "18", taxableValue: 300000, taxAmount: 54000, total: 354000 },
+      { itemName: "Course Material & Lab Access", hsn: "999293", qty: "20", rate: "2000", gstPercentage: "18", taxableValue: 40000, taxAmount: 7200, total: 47200 },
+      { itemName: "Certification Exam Fee", hsn: "999293", qty: "20", rate: "1500", gstPercentage: "18", taxableValue: 30000, taxAmount: 5400, total: 35400 },
+    ],
+  },
+  AGRICULTURE: {
+    business: { businessName: "GreenField Agro Producers", addressLine1: "Farm Gate, Survey 44", addressLine2: "Doddaballapur Road", city: "Bengaluru", pincode: "561203", phone: "+91 97420 11335", email: "mandi@greenfieldagro.in", gstIn: "29JJGA4680Y1Z1" },
+    customer: { name: "Metro Wholesale Mandi", billingAddress: "Mandi Yard, Anekal Road, Bengaluru - 562106", phone: "+91 99004 66778", email: "buy@metromandi.in", gstIn: "29MWMH8642Z1Z7" },
+    form: { deliveryNote: "CONSIGN-2026-118", deliveryNoteDate: "2026-09-30", dispatchDocNumber: "EWB-2026-6620", dispatchedThrough: "Tempo KA-51-C-4412", destination: "Mandi Yard", buyerOrderNumber: "MW-PO-881", paymentTerms: "Net 7", otherReferences: "Lot LOT-TP-22A Grade A", termsOfDelivery: "Farm gate loading" },
+    items: [
+      { itemName: "Tomatoes (Grade A) — 20 kg Crates", hsn: "0702", qty: "120", rate: "380", gstPercentage: "0", taxableValue: 45600, taxAmount: 0, total: 45600 },
+      { itemName: "Basmati Rice (Premium) — 25 kg Bag", hsn: "1006", qty: "80", rate: "2400", gstPercentage: "5", taxableValue: 192000, taxAmount: 9600, total: 201600 },
+      { itemName: "Fresh Onions — 50 kg Sack", hsn: "0703", qty: "40", rate: "1250", gstPercentage: "0", taxableValue: 50000, taxAmount: 0, total: 50000 },
+    ],
+  },
 };
+
+function sampleContentFor(industry) {
+  const id = resolveIndustryId(industry);
+  const override = SAMPLE_CONTENT[id];
+  return {
+    business: { ...sampleBusiness, ...(override?.business || {}), industry: id },
+    customer: override?.customer || sampleCustomer,
+    form: { ...sampleForm, ...(override?.form || {}) },
+    items: override?.items || sampleItems,
+  };
+}
 
 const sampleDcItems = [
   { sno: 1, description: "Premium Teak Wood Plank 6ft", quantity: 12 },
@@ -116,13 +237,13 @@ function DcPreviewDoc({ variant }) {
 function TemplatePreview({ templateId }) {
   const previewRef = useRef(null);
   const { industry } = useAuth();
+  const sample = sampleContentFor(industry);
 
   const commonProps = {
-    business: { ...sampleBusiness, industry },
-    customer: sampleCustomer,
-    form: sampleForm,
-    items: sampleItems,
-    totals: sampleTotals,
+    business: sample.business,
+    customer: sample.customer,
+    form: sample.form,
+    items: sample.items,
     discountPercent: "0",
     type: "TAX_INVOICE",
     invoiceNumber: "INV-2026-001",
@@ -402,7 +523,8 @@ const TemplateCard = memo(function TemplateCard({ template, isSelected, onSelect
 });
 
 export default function InvoiceTemplates() {
-  const { selectedTemplate, updateTemplate } = useAuth();
+  const { selectedTemplate, updateTemplate, documentAccess } = useAuth();
+  const dcEnabled = documentAccess?.deliveryChallan !== false;
   const [selected, setSelected] = useState(selectedTemplate);
   const [previewId, setPreviewId] = useState(null);
   const [dcTemplate, setDcTemplate] = useState(
@@ -468,6 +590,8 @@ export default function InvoiceTemplates() {
           ))}
         </div>
 
+        {dcEnabled && (
+        <>
         <div className="flex items-center gap-2 mb-3">
           <ClipboardList className="w-4 h-4 text-teal-500" />
           <h2 className="text-sm font-bold text-slate-800">Delivery Challan</h2>
@@ -484,10 +608,12 @@ export default function InvoiceTemplates() {
             />
           ))}
         </div>
+        </>
+        )}
       </div>
 
       {/* Delivery Challan Preview Modal */}
-      {dcPreviewId && dcPreviewTemplate && (
+      {dcEnabled && dcPreviewId && dcPreviewTemplate && (
         <div
           className="fixed inset-0 z-[1200] bg-black/40 backdrop-blur-sm flex justify-center overflow-y-auto overflow-x-hidden overscroll-contain p-3 sm:p-10"
           style={{ touchAction: "pan-y" }}

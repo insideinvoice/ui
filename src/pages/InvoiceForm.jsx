@@ -146,7 +146,7 @@ const ItemRow = memo(({ item, calc, idx, onItemChange, onRemove, onAdd, onHsnLoo
   );
 });
 
-const ItemCard = memo(({ item, calc, idx, onItemChange, onRemove, onAdd, onHsnLookup }) => {
+const ItemCard = memo(({ item, calc, idx, onItemChange, onRemove, onAdd, onHsnLookup, descLabel = "Description" }) => {
   const handleKeyDown = (e, field) => {
     if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
@@ -191,7 +191,7 @@ const ItemCard = memo(({ item, calc, idx, onItemChange, onRemove, onAdd, onHsnLo
             className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono min-h-[44px]" placeholder="Scan or type" />
         </div>
         <div>
-          <label className="block text-[10px] font-semibold text-slate-500 uppercase mb-1">Description</label>
+          <label className="block text-[10px] font-semibold text-slate-500 uppercase mb-1">{descLabel}</label>
           <input type="text" value={item.itemName} data-mobile-field={`desc-${idx}`}
             onChange={(e) => onItemChange(idx, "itemName", e.target.value)}
             onKeyDown={(e) => handleKeyDown(e, "desc")}
@@ -1453,7 +1453,7 @@ export default function InvoiceForm() {
                 <tr className="bg-slate-800">
                   <th className="text-white text-xs font-semibold py-3.5 px-3 text-center">#</th>
                   <th className="text-white text-xs font-semibold py-3.5 px-3 text-left">HSN/SAC</th>
-                  <th className="text-white text-xs font-semibold py-3.5 px-3 text-left">Description</th>
+                  <th className="text-white text-xs font-semibold py-3.5 px-3 text-left">{labelFor("itemName", "Description")}</th>
                   <th className="text-white text-xs font-semibold py-3.5 px-3 text-center">Qty</th>
                   <th className="text-white text-xs font-semibold py-3.5 px-3 text-center">Rate</th>
                   <th className="text-white text-xs font-semibold py-3.5 px-3 text-center">GST %</th>
@@ -1474,7 +1474,7 @@ export default function InvoiceForm() {
           {/* Mobile cards */}
           <div className="md:hidden space-y-3">
             {items.map((item, idx) => (
-              <ItemCard key={item.id ?? idx} item={item} calc={totals.perItem[idx]} idx={idx} onItemChange={handleItemChange} onRemove={removeItem} onAdd={addItem} onHsnLookup={handleHsnLookup} />
+              <ItemCard key={item.id ?? idx} item={item} calc={totals.perItem[idx]} idx={idx} onItemChange={handleItemChange} onRemove={removeItem} onAdd={addItem} onHsnLookup={handleHsnLookup} descLabel={labelFor("itemName", "Description")} />
             ))}
             <button onClick={addItem}
               className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-slate-800 text-white text-sm font-semibold rounded-lg hover:bg-slate-700 transition-all shadow-lg min-h-[48px]">

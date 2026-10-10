@@ -92,6 +92,7 @@ export const INDUSTRY_PROFILES = {
     labels: {
       referenceNumber: "Engagement Ref.",
       otherReferences: "Client P.O. / Project Ref.",
+      itemName: "Description of Services",
     },
     placeholders: {
       referenceNumber: "e.g. SOW / engagement reference",
@@ -140,6 +141,7 @@ export const INDUSTRY_PROFILES = {
     labels: {
       otherReferences: "Order / Event Reference",
       deliveryNote: "Delivery / Order Note",
+      itemName: "Description of Items",
     },
     placeholders: {
       otherReferences: "e.g. Table, order or event ref",
@@ -171,6 +173,7 @@ export const INDUSTRY_PROFILES = {
     labels: {
       referenceNumber: "Service / Account Ref.",
       otherReferences: "Subscription / Order Ref.",
+      itemName: "Description of Services",
     },
     placeholders: {
       referenceNumber: "e.g. Account or service ID",
@@ -186,6 +189,7 @@ export const INDUSTRY_PROFILES = {
     labels: {
       referenceNumber: "Visit / Case Ref.",
       otherReferences: "Appointment / Order Ref.",
+      itemName: "Description of Services",
     },
     placeholders: {
       referenceNumber: "e.g. Visit or case reference",
@@ -201,6 +205,7 @@ export const INDUSTRY_PROFILES = {
     labels: {
       referenceNumber: "Course / Batch Ref.",
       otherReferences: "Enrolment / P.O. Reference",
+      itemName: "Description of Services",
     },
     placeholders: {
       referenceNumber: "e.g. Course or batch code",
@@ -225,7 +230,7 @@ export const INDUSTRY_PROFILES = {
   },
   OTHER: {
     id: "OTHER",
-    name: "Other / General Business",
+    name: "General Business",
     description:
       "A safe general-purpose configuration that keeps every existing invoice field available.",
     hiddenFields: [],
@@ -292,34 +297,35 @@ export function isReferencesSectionVisible(config) {
   return REFERENCES_SECTION_FIELDS.some((field) => !isFieldHidden(config, field));
 }
 
-const TEMPLATE_REFERENCE_FIELDS = {
-  deliveryNote: (form) => form?.deliveryNote,
-  referenceNumber: (form) =>
-    form?.referenceNumber ? `${form.referenceNumber} / ${form.invoiceDate || ""}` : form?.invoiceDate,
-  buyerOrderNumber: (form) => form?.buyerOrderNumber,
-  dispatchDocNumber: (form) => form?.dispatchDocNumber,
-  dispatchedThrough: (form) => form?.dispatchedThrough,
-  termsOfDelivery: (form) => form?.termsOfDelivery,
-  otherReferences: (form) => form?.otherReferences,
-  deliveryNoteDate: (form) => form?.deliveryNoteDate,
-  destination: (form) => form?.destination,
-};
+const TEMPLATE_RIGHT_ROW_DEFS = [
+  // key: form field it reads (also the industry-label override key).
+  // protectedField rows are never hidden by any industry profile.
+  { key: "invoiceNumber", protectedField: true, label: (isP) => (isP ? "Proforma Ref." : "Invoice No."), value: (form, displayInvNo, isP) => (isP ? `PF-${displayInvNo}` : displayInvNo) },
+  { key: "deliveryNote", label: () => "Delivery Note", value: (form) => form?.deliveryNote },
+  { key: "referenceNumber", label: () => "Reference No. & Date.", value: (form) => (form?.referenceNumber ? `${form.referenceNumber} / ${form.invoiceDate || ""}` : form?.invoiceDate) },
+  { key: "buyerOrderNumber", label: () => "Buyer's Order No.", value: (form) => form?.buyerOrderNumber },
+  { key: "dispatchDocNumber", label: () => "Dispatch Doc No.", value: (form) => form?.dispatchDocNumber },
+  { key: "dispatchedThrough", label: () => "Dispatched through", value: (form) => form?.dispatchedThrough },
+  { key: "termsOfDelivery", label: () => "Terms of Delivery", value: (form) => form?.termsOfDelivery },
+  { key: "paymentDate", protectedField: true, label: (isP) => (isP ? "Valid Until" : "Payment Date"), value: (form) => form?.dueDate },
+  { key: "paymentTerms", protectedField: true, label: () => "Mode/Terms of Payment", value: (form) => form?.paymentTerms },
+  { key: "otherReferences", label: () => "Other References", value: (form) => form?.otherReferences },
+  { key: "invoiceDate", protectedField: true, label: () => "Dated", value: (form) => form?.invoiceDate },
+  { key: "deliveryNoteDate", label: () => "Delivery Note Date", value: (form) => form?.deliveryNoteDate },
+  { key: "destination", label: () => "Destination", value: (form) => form?.destination },
+];
 
-export function getTemplateRightValues(config, form, displayInvNo, isProforma) {
-  const val = (field, fallback) => (isFieldHidden(config, field) ? undefined : (fallback ?? undefined));
-  return [
-    isProforma ? `PF-${displayInvNo}` : displayInvNo,
-    val("deliveryNote", TEMPLATE_REFERENCE_FIELDS.deliveryNote(form)),
-    TEMPLATE_REFERENCE_FIELDS.referenceNumber(form),
-    val("buyerOrderNumber", TEMPLATE_REFERENCE_FIELDS.buyerOrderNumber(form)),
-    val("dispatchDocNumber", TEMPLATE_REFERENCE_FIELDS.dispatchDocNumber(form)),
-    val("dispatchedThrough", TEMPLATE_REFERENCE_FIELDS.dispatchedThrough(form)),
-    val("termsOfDelivery", TEMPLATE_REFERENCE_FIELDS.termsOfDelivery(form)),
-    form?.dueDate,
-    form?.paymentTerms,
-    val("otherReferences", TEMPLATE_REFERENCE_FIELDS.otherReferences(form)),
-    form?.invoiceDate,
-    val("deliveryNoteDate", TEMPLATE_REFERENCE_FIELDS.deliveryNoteDate(form)),
-    val("destination", TEMPLATE_REFERENCE_FIELDS.destination(form)),
-  ];
+// Right-side metadata rows for invoice templates. Hidden fields are dropped
+// entirely (no label + "-" ghost rows); visible rows pick up the industry's
+// label override where one exists.
+export function getTemplateRightRows(config, form, displayInvNo, isProforma) {
+  return TEMPLATE_RIGHT_ROW_DEFS
+    .filter((def) => def.protectedField || !isFieldHidden(config, def.key))
+    .map((def) => ({
+      key: def.key,
+      label: def.protectedField
+        ? def.label(isProforma)
+        : fieldLabel(config, def.key, def.label(isProforma)),
+      value: def.value(form, displayInvNo, isProforma),
+    }));
 }

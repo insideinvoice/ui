@@ -1018,7 +1018,7 @@ export default function InvoiceView() {
                   <thead>
                     <tr className="bg-slate-800">
                       <th className="text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">#</th>
-                      <th className="text-white text-xs font-semibold py-3.5 px-3 text-left whitespace-nowrap">Description</th>
+                      <th className="text-white text-xs font-semibold py-3.5 px-3 text-left whitespace-nowrap">{labelFor("itemName", "Description")}</th>
                       <th className="text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">HSN/SAC</th>
                       <th className="text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">Qty</th>
                       <th className="text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">Rate</th>
@@ -1053,7 +1053,7 @@ export default function InvoiceView() {
                     {isEditing ? (
                       <>
                         <div>
-                          <label className="text-[10px] font-semibold text-slate-500 uppercase">Description</label>
+                          <label className="text-[10px] font-semibold text-slate-500 uppercase">{labelFor("itemName", "Description")}</label>
                           <input type="text" value={item.itemName}
                             onChange={(e) => handleItemChange(idx, "itemName", e.target.value)}
                             className="w-full px-3 py-2 border border-slate-200 rounded text-sm bg-white min-h-[44px]" placeholder="Item name" />

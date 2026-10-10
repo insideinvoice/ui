@@ -7,6 +7,10 @@ export const authAPI = {
   resetPassword: (data) => api.post("/auth/reset-password", data),
   updateProfile: (data) => api.put("/auth/profile", data),
   changePassword: (data) => api.put("/auth/change-password", data),
+  // Explicit bearer: storage is wiped synchronously right after this call, so we
+  // cannot rely on the axios request interceptor to still find the token.
+  logout: (token) =>
+    api.post("/auth/logout", null, token ? { headers: { Authorization: `Bearer ${token}` } } : {}),
 };
 
 export const businessAPI = {

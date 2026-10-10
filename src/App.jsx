@@ -1,8 +1,8 @@
 import { Toaster } from "react-hot-toast";
 import { Route, Routes, Navigate, useLocation } from "react-router-dom";
 import { useEffect } from "react";
-import LoadingDots from "./components/LoadingDots";
-import { AuthProvider, useAuth } from "./context/AuthContext";
+import { useAuth } from "./context/AuthContext";
+import { AuthProvider } from "./context/AuthProvider";
 import PWAInstallPrompt from "./components/PWAInstallPrompt";
 import GSTBillingLanding from "./Landing/gst-landing-final";
 import PrivacyPolicy from "./Landing/PrivacyPolicy";
@@ -59,8 +59,7 @@ function ScrollToTop() {
 }
 
 function PrivateRoute({ children }) {
-  const { isAuthenticated, loading } = useAuth();
-  if (loading) return <div className="min-h-screen flex items-center justify-center"><LoadingDots className="text-slate-400" /></div>;
+  const { isAuthenticated } = useAuth();
   // Bottom padding clears the fixed mobile tab bar + home indicator — scoped to app pages
   // only, so landing/legal pages don't get a white strip below their footer
   return isAuthenticated ? (

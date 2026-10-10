@@ -4,6 +4,7 @@ import CompanyStamp from "./CompanyStamp";
 import InvoiceTemplateRetro from "./InvoiceTemplateRetro";
 import { numberToWords, formatINR } from "../utils/invoiceFormat";
 import { computeInvoiceTotals } from "../utils/invoiceTotals";
+import { L, TEMPLATE_THEMES } from "../constants/templateThemes";
 
 const cell = (width) => ({
   width: `${width}px`,
@@ -39,148 +40,6 @@ const tStyleSep = {
   boxSizing: "border-box",
 };
 
-const L = {
-  classic: "classic",
-  split: "split",
-  stacked: "stacked",
-  cards: "cards",
-  compact: "compact",
-  modern: "modern",
-  centered: "centered",
-  executive: "executive",
-  divided: "divided",
-  "minimal-bar": "minimal-bar",
-  letterhead: "letterhead",
-  panel: "panel",
-  "clean-white": "clean-white",
-  "bold-corporate": "bold-corporate",
-  "classic-formal": "classic-formal",
-  "dark-modern": "dark-modern",
-  retro: "retro",
-};
-
-const TEMPLATE_THEMES = {
-  "template-31": {
-    id: "template-31", label: "Retro", desc: "Fixed A4 page in classic shop-bill style — No / Particulars / Qty / Rate / Amount",
-    layout: L.retro, font: "Arial, Helvetica, sans-serif", bodyBg: "#ffffff",
-    borderColor: "#000000", borderWidth: "2px", borderStyle: "solid", primary: "#000000",
-    headerBg: "#ffffff", headerText: "#000000", accentBg: "#000000", accentText: "#ffffff",
-    sectionTitleBorder: true, tableHeaderBg: "#d6d6d6", tableHeaderText: "#000000",
-    tableRowHeight: 26, compact: false, labelStyle: "normal",
-  },
-  "template-3": {
-    id: "template-3", label: "Corporate Blue", desc: "Professional navy blue accents",
-    layout: L.classic, font: "'Segoe UI', Arial, sans-serif", bodyBg: "#ffffff",
-    borderColor: "#2b4c7e", borderWidth: "1px", borderStyle: "solid", primary: "#1e3a5f",
-    headerBg: "#1e3a5f", headerText: "#ffffff", accentBg: "#1e3a5f", accentText: "#ffffff",
-    sectionTitleBorder: false, tableHeaderBg: "#1e3a5f", tableHeaderText: "#ffffff",
-    tableRowHeight: 28, compact: false, labelStyle: "normal",
-  },
-  "template-5": {
-    id: "template-5", label: "Minimalist", desc: "Borderless design with maximum whitespace",
-    layout: L.classic, font: "'Inter', 'Segoe UI', Arial, sans-serif", bodyBg: "#ffffff",
-    borderColor: "#cbd5e1", borderWidth: "1px", borderStyle: "solid", primary: "#334155",
-    headerBg: "#ffffff", headerText: "#334155", accentBg: "#334155", accentText: "#ffffff",
-    sectionTitleBorder: true, tableHeaderBg: "#ffffff", tableHeaderText: "#94a3b8",
-    tableRowHeight: 28, compact: false, labelStyle: "uppercase-light",
-  },
-  "template-8": {
-    id: "template-8", label: "Premium Gold", desc: "Elegant navy and gold luxury style",
-    layout: L.classic, font: "'Playfair Display', Georgia, 'Times New Roman', serif", bodyBg: "#fdfcf8",
-    borderColor: "#b8860b", borderWidth: "1px", borderStyle: "solid", primary: "#1a1a2e",
-    headerBg: "#1a1a2e", headerText: "#ffffff", accentBg: "#b8860b", accentText: "#1a1a2e",
-    sectionTitleBorder: true, tableHeaderBg: "#1a1a2e", tableHeaderText: "#ffffff",
-    tableRowHeight: 28, compact: false, labelStyle: "normal",
-  },
-  "template-10": {
-    id: "template-10", label: "Slate Professional", desc: "Clean slate-grey corporate style",
-    layout: L.classic, font: "'Inter', 'Segoe UI', Arial, sans-serif", bodyBg: "#ffffff",
-    borderColor: "#475569", borderWidth: "2px", borderStyle: "solid", primary: "#334155",
-    headerBg: "#334155", headerText: "#ffffff", accentBg: "#475569", accentText: "#ffffff",
-    sectionTitleBorder: true, tableHeaderBg: "#334155", tableHeaderText: "#ffffff",
-    tableRowHeight: 28, compact: false, labelStyle: "normal",
-  },
-  "template-18": {
-    id: "template-18", label: "Executive", desc: "Company name in bold header band, buyer + details below",
-    layout: L.executive, font: "'Inter', 'Segoe UI', Arial, sans-serif", bodyBg: "#ffffff",
-    borderColor: "#1e3a5f", borderWidth: "1px", borderStyle: "solid", primary: "#1e3a5f",
-    headerBg: "#1e3a5f", headerText: "#ffffff", accentBg: "#c9a84c", accentText: "#1e3a5f",
-    sectionTitleBorder: true, tableHeaderBg: "#f0f4f8", tableHeaderText: "#1e3a5f",
-    tableRowHeight: 28, compact: false, labelStyle: "normal",
-  },
-  "template-19": {
-    id: "template-19", label: "Divided", desc: "Three-column grid: seller | buyer | details",
-    layout: L.divided, font: "'Inter', 'Segoe UI', Arial, sans-serif", bodyBg: "#ffffff",
-    borderColor: "#64748b", borderWidth: "1px", borderStyle: "solid", primary: "#475569",
-    headerBg: "#475569", headerText: "#ffffff", accentBg: "#0ea5e9", accentText: "#ffffff",
-    sectionTitleBorder: true, tableHeaderBg: "#f1f5f9", tableHeaderText: "#334155",
-    tableRowHeight: 28, compact: false, labelStyle: "normal",
-  },
-  "template-23": {
-    id: "template-23", label: "Clean White", desc: "Ultra minimal greyscale with maximum whitespace",
-    layout: L["clean-white"], font: "'Inter', 'Segoe UI', Arial, sans-serif", bodyBg: "#ffffff",
-    borderColor: "#e5e5e5", borderWidth: "1px", borderStyle: "solid", primary: "#333333",
-    headerBg: "#f5f5f5", headerText: "#333333", accentBg: "#333333", accentText: "#ffffff",
-    sectionTitleBorder: true, tableHeaderBg: "#fafafa", tableHeaderText: "#555555",
-    tableRowHeight: 30, compact: false, labelStyle: "normal",
-  },
-  "template-24": {
-    id: "template-24", label: "Ironclad", desc: "Steel-grey structure with forge-amber accents — iron & steel works",
-    layout: L.classic, font: "'Segoe UI', Arial, sans-serif", bodyBg: "#ffffff",
-    borderColor: "#94a3b8", borderWidth: "1px", borderStyle: "solid", primary: "#334155",
-    headerBg: "#334155", headerText: "#ffffff", accentBg: "#d97706", accentText: "#ffffff",
-    sectionTitleBorder: true, tableHeaderBg: "#334155", tableHeaderText: "#ffffff",
-    tableRowHeight: 28, compact: false, labelStyle: "uppercase-light",
-  },
-  "template-25": {
-    id: "template-25", label: "Copper Circuit", desc: "Deep navy header with copper highlights — electricals & electronics",
-    layout: L.classic, font: "'Segoe UI', Arial, sans-serif", bodyBg: "#ffffff",
-    borderColor: "#94a3b8", borderWidth: "1px", borderStyle: "solid", primary: "#0c4a6e",
-    headerBg: "#0c4a6e", headerText: "#ffffff", accentBg: "#b45309", accentText: "#ffffff",
-    sectionTitleBorder: true, tableHeaderBg: "#0c4a6e", tableHeaderText: "#ffffff",
-    tableRowHeight: 28, compact: false, labelStyle: "normal",
-  },
-  "template-26": {
-    id: "template-26", label: "Timber Line", desc: "Warm walnut serif styling — wood, plywood & furniture",
-    layout: L.classic, font: "Georgia, 'Times New Roman', serif", bodyBg: "#fffdf7",
-    borderColor: "#c9b6a0", borderWidth: "1px", borderStyle: "solid", primary: "#4a3527",
-    headerBg: "#4a3527", headerText: "#ffffff", accentBg: "#8b5e34", accentText: "#ffffff",
-    sectionTitleBorder: true, tableHeaderBg: "#f3ead9", tableHeaderText: "#4a3527",
-    tableRowHeight: 28, compact: false, labelStyle: "normal",
-  },
-  "template-27": {
-    id: "template-27", label: "Carbon Grid", desc: "Bold black grid with brand-red accent — hardware, tools & fasteners",
-    layout: L.classic, font: "Arial, Helvetica, sans-serif", bodyBg: "#ffffff",
-    borderColor: "#111111", borderWidth: "1px", borderStyle: "solid", primary: "#111111",
-    headerBg: "#111111", headerText: "#ffffff", accentBg: "#b91c1c", accentText: "#ffffff",
-    sectionTitleBorder: true, tableHeaderBg: "#111111", tableHeaderText: "#ffffff",
-    tableRowHeight: 26, compact: false, labelStyle: "uppercase-light",
-  },
-  "template-28": {
-    id: "template-28", label: "Blueprint Pro", desc: "Engineering blue with light spec-sheet table — fabrication & industrial supply",
-    layout: L.classic, font: "'Segoe UI', Arial, sans-serif", bodyBg: "#ffffff",
-    borderColor: "#93c5fd", borderWidth: "1px", borderStyle: "solid", primary: "#1e40af",
-    headerBg: "#1e40af", headerText: "#ffffff", accentBg: "#1d4ed8", accentText: "#ffffff",
-    sectionTitleBorder: true, tableHeaderBg: "#dbeafe", tableHeaderText: "#1e3a8a",
-    tableRowHeight: 28, compact: false, labelStyle: "normal",
-  },
-  "template-29": {
-    id: "template-29", label: "Trade Command", desc: "Gunmetal three-column trade layout with gold accent — distribution & contracting",
-    layout: L.divided, font: "'Segoe UI', Arial, sans-serif", bodyBg: "#ffffff",
-    borderColor: "#a8a29e", borderWidth: "1px", borderStyle: "solid", primary: "#292524",
-    headerBg: "#292524", headerText: "#ffffff", accentBg: "#a16207", accentText: "#ffffff",
-    sectionTitleBorder: true, tableHeaderBg: "#292524", tableHeaderText: "#ffffff",
-    tableRowHeight: 28, compact: false, labelStyle: "uppercase-light",
-  },
-  "template-30": {
-    id: "template-30", label: "Ledger Formal", desc: "Traditional double-rule ledger with oxblood accents — established merchants",
-    layout: L["classic-formal"], font: "Georgia, 'Times New Roman', serif", bodyBg: "#ffffff",
-    borderColor: "#52525b", borderWidth: "1px", borderStyle: "solid", primary: "#18181b",
-    headerBg: "#18181b", headerText: "#ffffff", accentBg: "#7f1d1d", accentText: "#ffffff",
-    sectionTitleBorder: true, tableHeaderBg: "#f4f4f5", tableHeaderText: "#18181b",
-    tableRowHeight: 28, compact: false, labelStyle: "normal",
-  },
-};
 
 const InvoiceTemplateVariants = React.memo(React.forwardRef(({ theme, business, customer, form, items, discountPercent, type, invoiceNumber }, ref) => {
   const t = TEMPLATE_THEMES[theme] || TEMPLATE_THEMES["template-3"];
@@ -1438,5 +1297,4 @@ const InvoiceTemplateVariants = React.memo(React.forwardRef(({ theme, business, 
 }));
 
 InvoiceTemplateVariants.displayName = "InvoiceTemplateVariants";
-export { TEMPLATE_THEMES };
 export default InvoiceTemplateVariants;

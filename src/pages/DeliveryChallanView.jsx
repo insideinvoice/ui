@@ -153,7 +153,6 @@ export default function DeliveryChallanView() {
       el.removeEventListener("touchend", onTouchEnd);
       el.removeEventListener("touchcancel", onTouchEnd);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dc]);
 
   // Desktop ctrl/cmd + wheel zoom.

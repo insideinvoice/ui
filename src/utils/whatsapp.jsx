@@ -102,7 +102,7 @@ export function prefetchInvoicePdf() {
 export async function createInvoicePdfFile(element, paperSizeId, filename) {
   if (!element) return null;
   try {
-    const { downloadInvoicePDF } = await import("../components/InvoicePDF");
+    const { downloadInvoicePDF } = await import("./downloadInvoicePdf");
     const url = await downloadInvoicePDF(element, null, paperSizeId);
     if (!url) return null;
     const blob = await (await fetch(url)).blob();

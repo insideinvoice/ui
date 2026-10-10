@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { createRoot } from "react-dom/client";
 import { useNavigate, useLocation } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
 import LoadingDots from "../components/LoadingDots";
 import Spinner from "../components/Spinner";
 import AppNavbar from "../components/AppNavbar";
@@ -12,7 +11,7 @@ import { resolveBusinessProfile, getBusinessProfile } from "../utils/businessPro
 import toast from "react-hot-toast";
 import { ArrowLeft, FileText, Download, Eye, PlusCircle, Share2, Trash2, Search, X, Link2, ChevronDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
 import WhatsAppIcon from "../components/WhatsAppIcon";
-import { downloadInvoicePDF } from "../components/InvoicePDF";
+import { downloadInvoicePDF } from "../utils/downloadInvoicePdf";
 import InvoiceTemplateRenderer from "../components/InvoiceTemplateRenderer";
 import { getInvoiceTemplate } from "../constants/paperSizes";
 import { buildInvoiceWhatsAppMessage, openWhatsAppChat } from "../utils/whatsapp";
@@ -53,7 +52,6 @@ const parseDate = (dateStr) => {
 };
 
 export default function InvoicesList() {
-  const { logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [invoices, setInvoices] = useState([]);
@@ -143,16 +141,6 @@ export default function InvoicesList() {
       })
       .map((d) => d.month)
   )].sort((a, b) => a - b), [yearMonthPairs, selectedYear]);
-
-  // Available years: depends on selected month
-  const availableYearsForMonth = useMemo(() => [...new Set(
-    yearMonthPairs
-      .filter((d) => {
-        if (!selectedMonth) return true;
-        return d.month === parseInt(selectedMonth, 10);
-      })
-      .map((d) => d.year)
-  )].sort((a, b) => b - a), [yearMonthPairs, selectedMonth]);
 
   // Handle year change - reset month if not available in new year
   const handleYearChange = useCallback((e) => {

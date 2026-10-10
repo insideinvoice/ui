@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
 import LoadingDots from "../components/LoadingDots";
 import AppNavbar from "../components/AppNavbar";
 import PageHeader from "../components/PageHeader";
@@ -26,7 +25,7 @@ export default function PaymentsList() {
     try {
       const res = await paymentAPI.getAll({ size: 100, sortBy: "createdAt", sortDir: "desc" });
       setPayments(res.data.data?.content || res.data.data || []);
-    } catch (err) {
+    } catch {
       toast.error("Failed to load payments");
     } finally {
       setLoading(false);

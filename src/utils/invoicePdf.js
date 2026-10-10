@@ -35,14 +35,18 @@ function collectGeometry(element) {
   return { rects };
 }
 
+// A document that overflows a single page by only a hair (a footer note that
+// lands 13mm past the edge) is far worse UX than type set a few percent
+// smaller, so near-misses are scaled down to one page instead of paginated.
+// Anything longer than this floor still paginates on section boundaries.
+const FIT_TO_PAGE_FLOOR = 0.92;
+
 // Rasterize the invoice and slice it into pages, cutting only on section
 // boundaries so blocks (item rows, totals, the seal/stamp footer) stay whole.
 // A block that does not fit moves entirely to the next page.
 export async function buildInvoicePdf(element, paperSizeId, fit = 1) {
   const dim = getPaperDimensions(paperSizeId);
   const SCALE = 2;
-  const CONTENT_W = dim.contentW * fit;
-  const LEFT = dim.left + (dim.contentW - CONTENT_W) / 2;
   const PAGE_H = dim.usableH;
 
   const { rects } = collectGeometry(element);
@@ -63,7 +67,20 @@ export async function buildInvoicePdf(element, paperSizeId, fit = 1) {
     window.__II_H2C_ASCENT_FIX = false;
   }
 
+  // `fit` only scales the placed raster, so the shrink decision can be made
+  // after the single capture instead of paying for a second one.
+  const naturalH = (canvas.height * dim.contentW * fit) / canvas.width;
+  let effectiveFit = fit;
+  if (naturalH > PAGE_H) {
+    const needed = (fit * PAGE_H) / naturalH;
+    // 0.5% slack so onePagePx lands just past the last pixel and the slice
+    // loop cannot pick a section boundary short of the bottom.
+    if (needed * 0.995 >= FIT_TO_PAGE_FLOOR) effectiveFit = needed * 0.995;
+  }
+
   const pdf = new jsPDF(dim.orientation, "mm", dim.format);
+  const CONTENT_W = dim.contentW * effectiveFit;
+  const LEFT = dim.left + (dim.contentW - CONTENT_W) / 2;
   const pxToMm = CONTENT_W / canvas.width;
   const onePagePx = PAGE_H / pxToMm;
 

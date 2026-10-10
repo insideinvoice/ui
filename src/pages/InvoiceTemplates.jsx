@@ -3,10 +3,10 @@ import { useAuth } from "../context/AuthContext";
 import AppNavbar from "../components/AppNavbar";
 import PageHeader from "../components/PageHeader";
 import InvoicePDF from "../components/InvoicePDF";
-import InvoiceTemplateVariants, { TEMPLATE_THEMES } from "../components/InvoiceTemplateVariants";
+import InvoiceTemplateVariants from "../components/InvoiceTemplateVariants";
+import { TEMPLATE_THEMES } from "../constants/templateThemes";
 import DeliveryChallanDoc from "../components/DeliveryChallanDoc";
 import { DC_PAGE_W } from "../utils/deliveryChallanPdf";
-import { businessAPI } from "../api/auth";
 import { ArrowLeft, Check, X, Eye, FileText, ClipboardList } from "lucide-react";
 import toast from "react-hot-toast";
 

@@ -6,6 +6,7 @@ import AppNavbar from "../components/AppNavbar";
 import PageHeader from "../components/PageHeader";
 import toast from "react-hot-toast";
 import { ArrowLeft, Check, ArrowRight, Building2, MapPin, Phone, Mail, Globe, FileText, Landmark } from "lucide-react";
+import { INDUSTRY_LIST, DEFAULT_INDUSTRY } from "../constants/industryConfig";
 
 export default function BusinessSetup() {
   const { setupBusiness, logout } = useAuth();
@@ -13,6 +14,7 @@ export default function BusinessSetup() {
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     businessName: "",
+    industry: DEFAULT_INDUSTRY,
     gstIn: "",
     phone: "",
     email: "",
@@ -82,6 +84,18 @@ export default function BusinessSetup() {
                 <label className="block text-xs font-medium text-slate-600 mb-1">Business Name *</label>
                 <input type="text" name="businessName" value={formData.businessName} onChange={handleChange}
                   className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-slate-400" placeholder="Acme Corp" />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="block text-xs font-medium text-slate-600 mb-1">Industry *</label>
+                <select name="industry" value={formData.industry} onChange={handleChange}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-slate-400 bg-white">
+                  {INDUSTRY_LIST.map((option) => (
+                    <option key={option.id} value={option.id}>{option.name}</option>
+                  ))}
+                </select>
+                <p className="text-[10px] text-slate-400 mt-1">
+                  Sets which invoice fields and document types fit your line of work. You can change it later in Settings.
+                </p>
               </div>
               <div>
                 <label className="block text-xs font-medium text-slate-600 mb-1">GSTIN</label>

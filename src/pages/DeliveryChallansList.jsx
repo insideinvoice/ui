@@ -16,9 +16,12 @@ import {
   Search,
   X,
 } from "lucide-react";
+import { useAuth } from "../context/AuthContext";
 
 export default function DeliveryChallansList() {
   const navigate = useNavigate();
+  const { documentAccess } = useAuth();
+  const canCreate = documentAccess?.deliveryChallan !== false;
   const [challans, setChallans] = useState([]);
   const [business, setBusiness] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -125,6 +128,7 @@ export default function DeliveryChallansList() {
                 {query ? `${filtered.length} of ${challans.length} shown` : `${challans.length} total`}
               </p>
             </div>
+            {canCreate && (
             <button
               onClick={() => navigate("/delivery-challans/new")}
               title="New Challan"
@@ -133,6 +137,7 @@ export default function DeliveryChallansList() {
             >
               <Plus className="w-5 h-5" />
             </button>
+            )}
           </div>
 
           {challans.length > 0 && (
@@ -170,12 +175,14 @@ export default function DeliveryChallansList() {
               <p className="text-xs text-slate-500 mt-1">
                 Create your first delivery challan — the PDF downloads instantly
               </p>
+              {canCreate && (
               <button
                 onClick={() => navigate("/delivery-challans/new")}
                 className="mt-4 px-4 py-2 bg-teal-600 text-white text-sm font-semibold rounded-lg hover:bg-teal-700 transition-all"
               >
                 New Delivery Challan
               </button>
+              )}
             </div>
           ) : filtered.length === 0 ? (
             <div className="p-12 text-center">

@@ -4,6 +4,7 @@ import CompanySeal from "./CompanySeal";
 import CompanyStamp from "./CompanyStamp";
 import { getSpecialistInLine } from "../utils/specialistIn";
 import { computeInvoiceTotals } from "../utils/invoiceTotals";
+import { getIndustryConfig, getTemplateRightValues } from "../constants/industryConfig";
 
 const S = {
   border: "1px solid #000",
@@ -88,13 +89,9 @@ const InvoicePDF = React.memo(React.forwardRef(({ business, customer, form, item
     : ["Invoice No.", "Delivery Note", "Reference No. & Date.", "Buyer's Order No.",
        "Dispatch Doc No.", "Dispatched through", "Terms of Delivery", "Payment Date",
        "Mode/Terms of Payment", "Other References", "Dated", "Delivery Note Date", "Destination"];
-  const rightValues = [
-    isProforma ? `PF-${displayInvNo}` : displayInvNo, form?.deliveryNote,
-    form?.referenceNumber ? `${form.referenceNumber} / ${form.invoiceDate || ""}` : form?.invoiceDate,
-    form?.buyerOrderNumber, form?.dispatchDocNumber, form?.dispatchedThrough,
-    form?.termsOfDelivery, form?.dueDate, form?.paymentTerms, form?.otherReferences,
-    form?.invoiceDate, form?.deliveryNoteDate, form?.destination,
-  ];
+  const rightValues = getTemplateRightValues(
+    getIndustryConfig(business?.industry), form, displayInvNo, isProforma
+  );
 
   const sealVisible = typeof window !== "undefined" && localStorage.getItem("show_seal") === "true";
   const sealType = typeof window !== "undefined" ? localStorage.getItem("seal_type") || "round" : "round";

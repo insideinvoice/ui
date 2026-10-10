@@ -18,6 +18,7 @@ import { getPrintSettings, getInvoiceTemplate } from "../constants/paperSizes";
 import { computeInvoiceTotals, round2 } from "../utils/invoiceTotals";
 import { goBack } from "../utils/navigation";
 import { INDIAN_STATES, DELIVERY_TERMS, PAYMENT_TERMS } from "../constants/indianStates";
+import { getIndustryConfig, isFieldHidden, fieldLabel } from "../constants/industryConfig";
 
 const uid = () => (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `i${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`);
 const emptyItem = () => ({ id: uid(), itemName: "", hsn: "", qty: "1", rate: "", gstPercentage: "18", taxableValue: "0", taxAmount: "0", total: "0" });
@@ -135,6 +136,12 @@ export default function InvoiceView() {
   const [discountDirty, setDiscountDirty] = useState(false);
   const discountVal = parseFloat(discountPercent) || 0;
   const [business, setBusiness] = useState(null);
+  const industryConfig = useMemo(
+    () => business?.industryConfig || getIndustryConfig(business?.industry),
+    [business?.industry, business?.industryConfig]
+  );
+  const isHidden = (field) => isFieldHidden(industryConfig, field);
+  const labelFor = (field, fallback) => fieldLabel(industryConfig, field, fallback);
   const [form, setForm] = useState({
     customerId: null, customerName: "", customerEmail: "", customerPhone: "", billingAddress: "", customerGstIn: "",
     invoiceDate: "", dueDate: "", placeOfSupply: "", destination: "", termsOfDelivery: "",
@@ -887,8 +894,9 @@ export default function InvoiceView() {
                       <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                     </div>
                   </div>
+                  {!isHidden("destination") && (
                   <div>
-                    <label className={labelClass}>Destination</label>
+                    <label className={labelClass}>{labelFor("destination", "Destination")}</label>
                     <div className="relative">
                       <select name="destination" value={form.destination} onChange={handleFieldChange} className={selectClass}>
                         <option value="">State</option>
@@ -897,8 +905,10 @@ export default function InvoiceView() {
                       <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                     </div>
                   </div>
+                  )}
+                  {!isHidden("termsOfDelivery") && (
                   <div>
-                    <label className={labelClass}>Terms of Delivery</label>
+                    <label className={labelClass}>{labelFor("termsOfDelivery", "Terms of Delivery")}</label>
                     <div className="relative">
                       <select name="termsOfDelivery" value={form.termsOfDelivery} onChange={handleFieldChange} className={selectClass}>
                         {DELIVERY_TERMS.map((t) => <option key={t} value={t}>{t}</option>)}
@@ -906,6 +916,7 @@ export default function InvoiceView() {
                       <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                     </div>
                   </div>
+                  )}
                   <div>
                     <label className={labelClass}>Payment Terms</label>
                     <div className="relative">
@@ -915,12 +926,14 @@ export default function InvoiceView() {
                       <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                     </div>
                   </div>
+                  {!isHidden("deliveryNote") && (
                   <div>
-                    <label className={labelClass}>Delivery Note</label>
+                    <label className={labelClass}>{labelFor("deliveryNote", "Delivery Note")}</label>
                     <input name="deliveryNote" value={form.deliveryNote} onChange={handleFieldChange} className={inputClass} />
                   </div>
+                  )}
                   <div>
-                    <label className={labelClass}>Others</label>
+                    <label className={labelClass}>{labelFor("otherReferences", "Others")}</label>
                     <input name="otherReferences" value={form.otherReferences} onChange={handleFieldChange} className={inputClass} />
                   </div>
                   <div>
@@ -956,24 +969,24 @@ export default function InvoiceView() {
                     <label className={labelClass}>Place of Supply</label>
                     <p className="text-sm text-slate-800">{form.placeOfSupply}</p>
                   </div>}
-                  {form.destination && <div>
-                    <label className={labelClass}>Destination</label>
+                  {!isHidden("destination") && form.destination && <div>
+                    <label className={labelClass}>{labelFor("destination", "Destination")}</label>
                     <p className="text-sm text-slate-800">{form.destination}</p>
                   </div>}
-                  {form.termsOfDelivery && <div>
-                    <label className={labelClass}>Terms of Delivery</label>
+                  {!isHidden("termsOfDelivery") && form.termsOfDelivery && <div>
+                    <label className={labelClass}>{labelFor("termsOfDelivery", "Terms of Delivery")}</label>
                     <p className="text-sm text-slate-800">{form.termsOfDelivery}</p>
                   </div>}
                   {form.paymentTerms && <div>
                     <label className={labelClass}>Payment Terms</label>
                     <p className="text-sm text-slate-800">{form.paymentTerms}</p>
                   </div>}
-                  {form.deliveryNote && <div>
-                    <label className={labelClass}>Delivery Note</label>
+                  {!isHidden("deliveryNote") && form.deliveryNote && <div>
+                    <label className={labelClass}>{labelFor("deliveryNote", "Delivery Note")}</label>
                     <p className="text-sm text-slate-800">{form.deliveryNote}</p>
                   </div>}
                   {form.otherReferences && <div>
-                    <label className={labelClass}>Others</label>
+                    <label className={labelClass}>{labelFor("otherReferences", "Others")}</label>
                     <p className="text-sm text-slate-800">{form.otherReferences}</p>
                   </div>}
                   {form.paymentMode && <div>

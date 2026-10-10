@@ -49,7 +49,11 @@ function useNavbarHeightVar() {
   }, []);
 }
 
-const sections = (isAdmin) => [
+const ALL_DOCUMENTS = { deliveryChallan: true, shippingLabel: true, hazmatLabel: true };
+
+const sections = (isAdmin, documentAccess) => {
+  const docs = { ...ALL_DOCUMENTS, ...(documentAccess || {}) };
+  return [
   {
     header: "Dashboard",
     items: [
@@ -69,7 +73,7 @@ const sections = (isAdmin) => [
   {
     header: "Delivery Challan",
     items: [
-      { label: "New Delivery Challan", icon: ClipboardList, path: "/delivery-challans/new" },
+      ...(docs.deliveryChallan ? [{ label: "New Delivery Challan", icon: ClipboardList, path: "/delivery-challans/new" }] : []),
       { label: "Delivery Challans", icon: List, path: "/delivery-challans" },
     ],
   },
@@ -80,15 +84,19 @@ const sections = (isAdmin) => [
       { label: "View Customers", icon: UserCheck, path: "/customers" },
     ],
   },
-  {
+  ...(docs.shippingLabel || docs.hazmatLabel ? [{
     header: "Labels",
     items: [
-      { label: "New Shipping Label", icon: Truck, path: "/labels/shipping/new" },
-      { label: "Shipping Labels", icon: List, path: "/labels/shipping" },
-      { label: "New Hazmat Label", icon: Flame, path: "/labels/hazmat/new" },
-      { label: "Hazmat Labels", icon: List, path: "/labels/hazmat" },
+      ...(docs.shippingLabel ? [
+        { label: "New Shipping Label", icon: Truck, path: "/labels/shipping/new" },
+        { label: "Shipping Labels", icon: List, path: "/labels/shipping" },
+      ] : []),
+      ...(docs.hazmatLabel ? [
+        { label: "New Hazmat Label", icon: Flame, path: "/labels/hazmat/new" },
+        { label: "Hazmat Labels", icon: List, path: "/labels/hazmat" },
+      ] : []),
     ],
-  },
+  }] : []),
   ...(isAdmin ? [
     {
       header: "Admin",
@@ -99,7 +107,8 @@ const sections = (isAdmin) => [
       ],
     },
   ] : []),
-];
+  ];
+};
 
 const bottomTabs = [
   { label: "Dashboard", icon: Home, path: "/dashboard" },
@@ -109,7 +118,7 @@ const bottomTabs = [
 ];
 
 export default memo(function AppNavbar() {
-  const { logout, isAdmin } = useAuth();
+  const { logout, isAdmin, documentAccess } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -157,7 +166,10 @@ export default memo(function AppNavbar() {
     navigate("/");
   }, [logout, navigate]);
 
-  const dropdownSections = useMemo(() => sections(isAdmin).filter((s) => s.header), [isAdmin]);
+  const dropdownSections = useMemo(
+    () => sections(isAdmin, documentAccess).filter((s) => s.header && s.items.length > 0),
+    [isAdmin, documentAccess]
+  );
 
   const closeMobile = useCallback(() => {
     setMobileMenuOpen(false);

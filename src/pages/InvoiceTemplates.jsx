@@ -115,9 +115,10 @@ function DcPreviewDoc({ variant }) {
 
 function TemplatePreview({ templateId }) {
   const previewRef = useRef(null);
+  const { industry } = useAuth();
 
   const commonProps = {
-    business: sampleBusiness,
+    business: { ...sampleBusiness, industry },
     customer: sampleCustomer,
     form: sampleForm,
     items: sampleItems,

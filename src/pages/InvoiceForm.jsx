@@ -22,6 +22,9 @@ import { getPrintSettings, getInvoiceTemplate } from "../constants/paperSizes";
 import { computeInvoiceTotals, round2 } from "../utils/invoiceTotals";
 import { formatInvoiceNumber } from "../utils/invoiceConvention";
 import { INDIAN_STATES, DELIVERY_TERMS, PAYMENT_TERMS } from "../constants/indianStates";
+import {
+  getIndustryConfig, isFieldHidden, fieldLabel, fieldPlaceholder, REFERENCES_SECTION_FIELDS,
+} from "../constants/industryConfig";
 
 const uid = () => (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `i${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`);
 const emptyItem = { itemName: "", hsn: "", qty: "", rate: "", gstPercentage: "18", taxableValue: 0, taxAmount: 0, total: 0 };
@@ -34,8 +37,14 @@ const FOCUS_ORDER = ["phone", "name", "email", "gstIn", "billingAddress", "invoi
 const focusNext = (currentName) => {
   const i = FOCUS_ORDER.indexOf(currentName);
   if (i === -1 || i === FOCUS_ORDER.length - 1) return;
-  const next = document.querySelector(`[name="${FOCUS_ORDER[i + 1]}"], select[name="${FOCUS_ORDER[i + 1]}"]`);
-  next?.focus();
+  // Fields hidden by the industry profile are not rendered, so skip over them.
+  for (let j = i + 1; j < FOCUS_ORDER.length; j++) {
+    const next = document.querySelector(`[name="${FOCUS_ORDER[j]}"], select[name="${FOCUS_ORDER[j]}"]`);
+    if (next) {
+      next.focus();
+      return;
+    }
+  }
 };
 
 const FOCUS_FIELDS = ["hsn", "desc", "qty", "rate", "gst"];
@@ -327,6 +336,19 @@ export default function InvoiceForm() {
     ? formatInvoiceNumber(business.invoicePrefix, business.nextInvoiceSequence ?? 1)
     : "";
 
+  const industryConfig = useMemo(
+    () => business?.industryConfig || getIndustryConfig(business?.industry),
+    [business?.industry, business?.industryConfig]
+  );
+  const isHidden = useCallback((field) => isFieldHidden(industryConfig, field), [industryConfig]);
+  const labelFor = useCallback((field, fallback) => fieldLabel(industryConfig, field, fallback), [industryConfig]);
+  const placeholderFor = useCallback((field) => fieldPlaceholder(industryConfig, field), [industryConfig]);
+  const showReferencesCard = useMemo(
+    () => REFERENCES_SECTION_FIELDS.some((field) => !isFieldHidden(industryConfig, field)),
+    [industryConfig]
+  );
+  const canCreateDeliveryChallan = industryConfig?.documents?.deliveryChallan !== false;
+
   useEffect(() => {
     if (business && ghostMode) {
       setCustomInvoiceNumber((prev) => prev || nextInvoiceNumber);
@@ -531,31 +553,36 @@ export default function InvoiceForm() {
     return true;
   };
 
-  const buildPayload = (customerId) => ({
-    customerId,
-    invoiceType: form.invoiceType,
-    invoiceDate: form.invoiceDate,
-    dueDate: form.dueDate,
-    placeOfSupply: form.placeOfSupply || undefined,
-    paymentTerms: form.paymentTerms || undefined,
-    paymentMode: form.paymentMode || undefined,
-    notes: form.notes || undefined,
-    deliveryNote: form.deliveryNote || undefined,
-    deliveryNoteDate: form.deliveryNoteDate || undefined,
-    referenceNumber: form.referenceNumber || undefined,
-    buyerOrderNumber: form.otherReferences || undefined,
-    dispatchDocNumber: form.dispatchDocNumber || undefined,
-    dispatchedThrough: form.dispatchedThrough || undefined,
-    termsOfDelivery: form.termsOfDelivery || undefined,
-    otherReferences: form.otherReferences || undefined,
-    destination: form.destination || undefined,
-    ...(ghostMode && customInvoiceNumber.trim() ? { invoiceNumber: customInvoiceNumber.trim() } : {}),
-    discountPercent: discountEnabled ? parseFloat(discountPercent) || 0 : 0,
-    items: items.filter((i) => i.itemName.trim() && parseFloat(i.qty) > 0 && parseFloat(i.rate) > 0).map((i, idx) => ({
-      sno: idx + 1, itemName: i.itemName, hsn: i.hsn || undefined,
-      qty: Math.floor(parseFloat(i.qty)) || 0, rate: parseFloat(i.rate), gstPercentage: parseFloat(i.gstPercentage) || 0,
-    })),
-  });
+  const buildPayload = (customerId) => {
+    // Hidden industry fields are omitted on create so form defaults never
+    // leak into stored data. Existing values are preserved on the server.
+    const opt = (field, value) => (isHidden(field) ? undefined : value || undefined);
+    return {
+      customerId,
+      invoiceType: form.invoiceType,
+      invoiceDate: form.invoiceDate,
+      dueDate: form.dueDate,
+      placeOfSupply: form.placeOfSupply || undefined,
+      paymentTerms: form.paymentTerms || undefined,
+      paymentMode: form.paymentMode || undefined,
+      notes: form.notes || undefined,
+      deliveryNote: opt("deliveryNote", form.deliveryNote),
+      deliveryNoteDate: opt("deliveryNoteDate", form.deliveryNoteDate),
+      referenceNumber: form.referenceNumber || undefined,
+      buyerOrderNumber: opt("otherReferences", form.otherReferences),
+      dispatchDocNumber: opt("dispatchDocNumber", form.dispatchDocNumber),
+      dispatchedThrough: opt("dispatchedThrough", form.dispatchedThrough),
+      termsOfDelivery: opt("termsOfDelivery", form.termsOfDelivery),
+      otherReferences: opt("otherReferences", form.otherReferences),
+      destination: opt("destination", form.destination),
+      ...(ghostMode && customInvoiceNumber.trim() ? { invoiceNumber: customInvoiceNumber.trim() } : {}),
+      discountPercent: discountEnabled ? parseFloat(discountPercent) || 0 : 0,
+      items: items.filter((i) => i.itemName.trim() && parseFloat(i.qty) > 0 && parseFloat(i.rate) > 0).map((i, idx) => ({
+        sno: idx + 1, itemName: i.itemName, hsn: i.hsn || undefined,
+        qty: Math.floor(parseFloat(i.qty)) || 0, rate: parseFloat(i.rate), gstPercentage: parseFloat(i.gstPercentage) || 0,
+      })),
+    };
+  };
 
   const saveInvoice = async () => {
     recalcAll();
@@ -869,13 +896,15 @@ export default function InvoiceForm() {
 
         {/* Delivery + Proforma — one row, equal width */}
         <div className="flex gap-2">
+          {canCreateDeliveryChallan && (
           <button onClick={generateDeliveryChallanPdf}
             disabled={saving || !customer.name?.trim() || !(items || []).some((i) => (i.itemName || "").trim() && parseFloat(i.qty) > 0)}
             className="flex-1 min-w-0 flex items-center justify-center gap-2 px-2 sm:px-3 py-2.5 border border-teal-300 text-teal-700 text-sm font-semibold rounded-lg hover:bg-teal-50 disabled:opacity-50 transition-all min-h-[44px] whitespace-nowrap">
             <Truck className="w-4 h-4 shrink-0" /> Delivery
           </button>
+          )}
           <button onClick={() => generatePDF("PROFORMA_INVOICE")} disabled={saving || sealRequired || totals.grandTotal <= 0}
-            className="flex-1 min-w-0 flex items-center justify-center gap-2 px-2 sm:px-3 py-2.5 border border-emerald-300 text-emerald-700 text-sm font-semibold rounded-lg hover:bg-emerald-50 disabled:opacity-50 transition-all min-h-[44px] whitespace-nowrap">
+            className={`${canCreateDeliveryChallan ? "flex-1" : "w-full"} min-w-0 flex items-center justify-center gap-2 px-2 sm:px-3 py-2.5 border border-emerald-300 text-emerald-700 text-sm font-semibold rounded-lg hover:bg-emerald-50 disabled:opacity-50 transition-all min-h-[44px] whitespace-nowrap`}>
             <Download className="w-4 h-4 shrink-0" /> Proforma
           </button>
         </div>
@@ -1195,8 +1224,9 @@ export default function InvoiceForm() {
                     <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                   </div>
                 </div>
+                {!isHidden("destination") && (
                 <div>
-                  <label className={labelClass}>Destination</label>
+                  <label className={labelClass}>{labelFor("destination", "Destination")}</label>
                   <div className="relative">
                     <select name="destination" value={form.destination} onChange={handleFieldChange}
                       onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); focusNext("destination"); } }}
@@ -1207,6 +1237,7 @@ export default function InvoiceForm() {
                     <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                   </div>
                 </div>
+                )}
                 <div>
                   <label className={labelClass}>Payment Terms</label>
                   <div className="relative">
@@ -1238,6 +1269,7 @@ export default function InvoiceForm() {
             </div>
 
             {/* References & Delivery */}
+            {showReferencesCard && (
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
               <div className="flex items-center gap-2.5 mb-5 pb-3 border-b border-slate-100">
                 <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center">
@@ -1246,38 +1278,51 @@ export default function InvoiceForm() {
                 <h2 className="text-sm font-bold text-slate-800">References & Delivery</h2>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {!isHidden("deliveryNote") && (
                 <div>
-                  <label className={labelClass}>Delivery Note</label>
+                  <label className={labelClass}>{labelFor("deliveryNote", "Delivery Note")}</label>
                   <input type="text" name="deliveryNote" value={form.deliveryNote} onChange={handleFieldChange}
                     onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); focusNext("deliveryNote"); } }}
+                    placeholder={placeholderFor("deliveryNote")}
                     className={inputClass} />
                 </div>
+                )}
+                {!isHidden("deliveryNoteDate") && (
                 <div>
-                  <label className={labelClass}>Delivery Note Date</label>
+                  <label className={labelClass}>{labelFor("deliveryNoteDate", "Delivery Note Date")}</label>
                   <input type="date" name="deliveryNoteDate" value={form.deliveryNoteDate} onChange={handleFieldChange}
                     onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); focusNext("deliveryNoteDate"); } }}
                     className={inputClass} />
                 </div>
+                )}
                 <div>
-                  <label className={labelClass}>Reference No</label>
+                  <label className={labelClass}>{labelFor("referenceNumber", "Reference No")}</label>
                   <input type="text" name="referenceNumber" value={form.referenceNumber} onChange={handleFieldChange}
                     onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); focusNext("referenceNumber"); } }}
+                    placeholder={placeholderFor("referenceNumber")}
                     className={inputClass} />
                 </div>
+                {!isHidden("dispatchDocNumber") && (
                 <div>
-                  <label className={labelClass}>Dispatch Doc No</label>
+                  <label className={labelClass}>{labelFor("dispatchDocNumber", "Dispatch Doc No")}</label>
                   <input type="text" name="dispatchDocNumber" value={form.dispatchDocNumber} onChange={handleFieldChange}
                     onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); focusNext("dispatchDocNumber"); } }}
+                    placeholder={placeholderFor("dispatchDocNumber")}
                     className={inputClass} />
                 </div>
+                )}
+                {!isHidden("dispatchedThrough") && (
                 <div>
-                  <label className={labelClass}>Dispatched Through</label>
+                  <label className={labelClass}>{labelFor("dispatchedThrough", "Dispatched Through")}</label>
                   <input type="text" name="dispatchedThrough" value={form.dispatchedThrough} onChange={handleFieldChange}
                     onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); focusNext("dispatchedThrough"); } }}
+                    placeholder={placeholderFor("dispatchedThrough")}
                     className={inputClass} />
                 </div>
+                )}
+                {!isHidden("termsOfDelivery") && (
                 <div>
-                  <label className={labelClass}>Terms of Delivery</label>
+                  <label className={labelClass}>{labelFor("termsOfDelivery", "Terms of Delivery")}</label>
                   <div className="relative">
                     <select name="termsOfDelivery" value={form.termsOfDelivery} onChange={handleFieldChange}
                       onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); focusNext("termsOfDelivery"); } }}
@@ -1287,14 +1332,17 @@ export default function InvoiceForm() {
                     <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                   </div>
                 </div>
+                )}
                 <div>
-                  <label className={labelClass}>Others / P.O No</label>
+                  <label className={labelClass}>{labelFor("otherReferences", "Others / P.O No")}</label>
                   <input type="text" name="otherReferences" value={form.otherReferences} onChange={handleFieldChange}
                     onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); focusNext("otherReferences"); } }}
+                    placeholder={placeholderFor("otherReferences")}
                     className={inputClass} />
+                </div>
               </div>
             </div>
-          </div>
+            )}
           </div>
 
             <div className="xl:sticky xl:top-6 space-y-4 side-fixed">

@@ -5,11 +5,12 @@ import PrintSettings from "./PrintSettings";
 import { authAPI, businessAPI } from "../api/auth";
 import { invalidateBusinessProfile } from "../utils/businessProfile";
 import { formatInvoiceNumber } from "../utils/invoiceConvention";
+import { INDUSTRY_LIST, DEFAULT_INDUSTRY, INDUSTRY_PROFILES } from "../constants/industryConfig";
 import toast from "react-hot-toast";
 import { User, Lock, Upload, Trash2, Pen, Eye, EyeOff, Landmark, Building, MapPin, Globe, Phone, Mail, Hash, FileText } from "lucide-react";
 
 export default function Profile() {
-  const { user, setUser } = useAuth();
+  const { user, setUser, refreshBusiness } = useAuth();
 
   const [displayName, setDisplayName] = useState(user?.username || user?.name || "");
   const [currentPassword, setCurrentPassword] = useState("");
@@ -23,7 +24,7 @@ export default function Profile() {
   const [businessData, setBusinessData] = useState(null);
   const [bankForm, setBankForm] = useState({ bankName: "", accountNo: "", branch: "", ifsc: "", bankAddress: "", upiId: "" });
   const [savingBank, setSavingBank] = useState(false);
-  const [bizForm, setBizForm] = useState({ businessName: "", gstIn: "", phone: "", email: "", website: "", addressLine1: "", addressLine2: "", city: "", state: "", country: "", pincode: "", invoicePrefix: "", specialistIn: "", specialistInEnabled: false });
+  const [bizForm, setBizForm] = useState({ businessName: "", industry: DEFAULT_INDUSTRY, gstIn: "", phone: "", email: "", website: "", addressLine1: "", addressLine2: "", city: "", state: "", country: "", pincode: "", invoicePrefix: "", specialistIn: "", specialistInEnabled: false });
   const [savingBiz, setSavingBiz] = useState(false);
   const fileInputRef = useRef(null);
 
@@ -43,6 +44,7 @@ export default function Profile() {
         });
         setBizForm({
           businessName: b?.businessName || "",
+          industry: b?.industry || DEFAULT_INDUSTRY,
           gstIn: b?.gstIn || "",
           phone: b?.phone || "",
           email: b?.email || "",
@@ -164,8 +166,11 @@ export default function Profile() {
     e.preventDefault();
     setSavingBiz(true);
     try {
-      await businessAPI.update(bizForm);
+      const res = await businessAPI.update(bizForm);
+      const updated = res?.data?.data;
+      if (updated) setBusinessData(updated);
       invalidateBusinessProfile();
+      refreshBusiness?.();
       toast.success("Business information updated");
     } catch (err) {
       toast.error(err.response?.data?.message || "Failed to update business information");
@@ -334,6 +339,18 @@ export default function Profile() {
                 <label className="block text-xs font-semibold text-slate-600 mb-1.5 tracking-wide uppercase">Business Name</label>
                 <input type="text" name="businessName" value={bizForm.businessName} onChange={handleBizChange}
                   className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400/30 focus:border-indigo-400 bg-white transition-all" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1.5 tracking-wide uppercase">Industry</label>
+                <select name="industry" value={bizForm.industry} onChange={handleBizChange}
+                  className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400/30 focus:border-indigo-400 bg-white transition-all">
+                  {INDUSTRY_LIST.map((option) => (
+                    <option key={option.id} value={option.id}>{option.name}</option>
+                  ))}
+                </select>
+                <p className="text-[10px] text-slate-400 mt-1">
+                  {INDUSTRY_PROFILES[bizForm.industry]?.description}
+                </p>
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1.5 tracking-wide uppercase">GSTIN</label>

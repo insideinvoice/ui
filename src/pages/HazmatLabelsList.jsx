@@ -7,11 +7,14 @@ import { labelAPI } from "../api/auth";
 import toast from "react-hot-toast";
 import { Search, Flame, Plus } from "lucide-react";
 import { downloadLabelPdf, printLabelPdf } from "../utils/labelPdf";
+import { useAuth } from "../context/AuthContext";
 
 const STATUS_OPTIONS = ["", "DRAFT", "GENERATED", "PRINTED", "VOID"];
 
 export default function HazmatLabelsList() {
   const navigate = useNavigate();
+  const { documentAccess } = useAuth();
+  const canCreate = documentAccess?.hazmatLabel !== false;
   const [labels, setLabels] = useState([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
@@ -52,10 +55,12 @@ export default function HazmatLabelsList() {
                 className="border border-slate-300 rounded-lg text-xs px-2 py-2 bg-white">
                 {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s || "Status"}</option>)}
               </select>
+              {canCreate && (
               <button onClick={() => navigate("/labels/hazmat/new")}
                 className="inline-flex items-center gap-2 px-4 py-2.5 min-h-[44px] bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 transition-all shadow-sm whitespace-nowrap">
                 <Plus className="w-4 h-4" /> New
               </button>
+              )}
             </div>
           </div>
           {loading ? (
@@ -67,10 +72,12 @@ export default function HazmatLabelsList() {
               </div>
               <p className="text-sm font-semibold text-slate-700">No hazmat labels yet</p>
               <p className="text-xs text-slate-400 mt-1 mb-4">Create your first hazmat label</p>
+              {canCreate && (
               <button onClick={() => navigate("/labels/hazmat/new")}
                 className="inline-flex items-center gap-2 px-5 py-2.5 min-h-[44px] bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 transition-all shadow-sm whitespace-nowrap">
                 Create Label
               </button>
+              )}
             </div>
           ) : (
             <div className="overflow-x-auto">

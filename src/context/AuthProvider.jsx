@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { authAPI, businessAPI } from "../api/auth";
 import { setAuthToken } from "../api/axios";
 import { sanitizeTemplate, clearTemplateOverrides } from "../constants/paperSizes";
+import { getIndustryConfig } from "../constants/industryConfig";
 import { AuthContext } from "./AuthContext";
 
 const TOKEN_KEY = "ii_token";
@@ -79,6 +80,7 @@ export function AuthProvider({ children }) {
       "template-1"
     )
   );
+  const [business, setBusiness] = useState(null);
 
   useEffect(() => {
     if (!session) {
@@ -98,6 +100,7 @@ export function AuthProvider({ children }) {
     }
     businessAPI.getProfile().then((r) => {
       const { b, tpl } = applyAccountSettings(r);
+      if (b) setBusiness(b);
       if (tpl) setSelectedTemplate(tpl);
       // First time after the V20 migration: push the browser-held settings
       // back to the account so the shared links inherit them.
@@ -135,12 +138,24 @@ export function AuthProvider({ children }) {
     // the server.
     try {
       const profile = await businessAPI.getProfile();
-      const { tpl } = applyAccountSettings(profile);
+      const { b, tpl } = applyAccountSettings(profile);
+      if (b) setBusiness(b);
       if (tpl) setSelectedTemplate(tpl);
     } catch {
       // Best effort: local/template fallbacks still apply.
     }
     return data;
+  }, []);
+
+  const refreshBusiness = useCallback(async () => {
+    try {
+      const profile = await businessAPI.getProfile();
+      const { b } = applyAccountSettings(profile);
+      if (b) setBusiness(b);
+      return b;
+    } catch {
+      return null;
+    }
   }, []);
 
   const updateTemplate = useCallback(async (templateId) => {
@@ -181,6 +196,7 @@ export function AuthProvider({ children }) {
     const rememberMe = localStorage.getItem(REMEMBER_KEY) === "true";
     writeStorage(USER_KEY, JSON.stringify(updatedUser), rememberMe);
     setUser(updatedUser);
+    if (res.data.data) setBusiness(res.data.data);
     return res.data.data;
   }, [user]);
 
@@ -197,6 +213,7 @@ export function AuthProvider({ children }) {
     localStorage.removeItem("mustChangePassword");
     setToken(null);
     setUser(null);
+    setBusiness(null);
     setSelectedTemplate("template-1");
   }, []);
 
@@ -204,6 +221,8 @@ export function AuthProvider({ children }) {
   const isBusinessSetupComplete = user?.businessSetupCompleted;
   const isAdmin = user?.role === "ADMIN";
   const mustChangePassword = user?.mustChangePassword === true || localStorage.getItem("mustChangePassword") === "true";
+  const industryConfig = useMemo(() => getIndustryConfig(business?.industry), [business?.industry]);
+  const documentAccess = industryConfig.documents;
 
   const value = useMemo(() => ({
     user,
@@ -219,10 +238,16 @@ export function AuthProvider({ children }) {
     mustChangePassword,
     selectedTemplate,
     updateTemplate,
+    business,
+    refreshBusiness,
+    industry: industryConfig.id,
+    industryConfig,
+    documentAccess,
   }), [
     user, token, login, setupBusiness, logout, setUser, setToken,
     isAuthenticated, isBusinessSetupComplete, isAdmin, mustChangePassword,
-    selectedTemplate, updateTemplate,
+    selectedTemplate, updateTemplate, business, refreshBusiness,
+    industryConfig, documentAccess,
   ]);
 
   return (

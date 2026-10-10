@@ -31,6 +31,7 @@ function mapToTemplateProps(data, typeOverride) {
     signature: s.signature,
     specialistIn: s.specialistIn,
     specialistInEnabled: s.specialistInEnabled,
+    industry: s.industry,
     bankName: pay.bankName,
     branch: pay.branch,
     accountNo: pay.accountNo,

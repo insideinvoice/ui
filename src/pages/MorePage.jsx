@@ -7,8 +7,9 @@ import {
 } from "lucide-react";
 
 export default function MorePage() {
-  const { user, isAdmin, logout } = useAuth();
+  const { user, isAdmin, logout, documentAccess } = useAuth();
   const navigate = useNavigate();
+  const canDeliveryChallan = documentAccess?.deliveryChallan !== false;
 
   const handleLogout = () => {
     logout();
@@ -27,7 +28,7 @@ export default function MorePage() {
           <div className="grid grid-cols-2 gap-3">
             {[
               { label: "New Invoice", icon: Plus, path: "/invoice", gradient: "from-blue-500 to-blue-600" },
-              { label: "Delivery Challan", icon: ClipboardList, path: "/delivery-challans/new", gradient: "from-teal-500 to-teal-600" },
+              ...(canDeliveryChallan ? [{ label: "Delivery Challan", icon: ClipboardList, path: "/delivery-challans/new", gradient: "from-teal-500 to-teal-600" }] : []),
               { label: "Add Customer", icon: UserPlus, path: "/customers/new", gradient: "from-emerald-500 to-emerald-600" },
               { label: "Add Product", icon: Package, path: "/products/new", gradient: "from-amber-500 to-orange-500" },
               { label: "Templates", icon: FileText, path: "/invoice-templates", gradient: "from-purple-500 to-purple-600" },
@@ -49,7 +50,7 @@ export default function MorePage() {
           <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
             {[
               { label: "View Invoices", icon: List, path: "/invoices" },
-              { label: "New Delivery Challan", icon: ClipboardList, path: "/delivery-challans/new" },
+              ...(canDeliveryChallan ? [{ label: "New Delivery Challan", icon: ClipboardList, path: "/delivery-challans/new" }] : []),
               { label: "Delivery Challans", icon: List, path: "/delivery-challans" },
               { label: "View Customers", icon: Users, path: "/customers" },
               { label: "Product Items", icon: Package, path: "/products" },

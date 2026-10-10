@@ -27,6 +27,7 @@ export const businessAPI = {
     });
   },
   removeSignature: () => api.delete("/business/signature"),
+  industries: () => api.get("/industries"),
 };
 
 export const customerAPI = {

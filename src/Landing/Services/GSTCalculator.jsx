@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import InvoiceNav from "../Navigation/InvoiceNav";
 
 const GSTCalculator = () => {
@@ -12,21 +12,12 @@ const GSTCalculator = () => {
   const [userType, setUserType] = useState("Buyer");
   const year = new Date().getFullYear();
 
-  // Results State
-  const [results, setResults] = useState({
-    netPrice: 0,
-    grossPrice: 0,
-    totalTax: 0,
-    cgst: 0,
-    sgst: 0,
-  });
-
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
 
-  // Calculation Logic
-  useEffect(() => {
+  // Calculation Logic — derived from inputs so no effect write-back is needed
+  const results = useMemo(() => {
     const price = parseFloat(amount) || 0;
     const rate = parseFloat(taxRate) || 0;
 
@@ -46,13 +37,13 @@ const GSTCalculator = () => {
       net = price - totalTax;
     }
 
-    setResults({
+    return {
       netPrice: net,
       grossPrice: gross,
       totalTax: totalTax,
       cgst: totalTax / 2,
       sgst: totalTax / 2,
-    });
+    };
   }, [amount, taxRate, calculationMode]);
 
   // Helper for currency formatting

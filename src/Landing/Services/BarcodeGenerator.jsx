@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import JsBarcode from "jsbarcode";
 import jsPDF from "jspdf";
 import InvoiceNav from "../Navigation/InvoiceNav";
@@ -6,7 +6,6 @@ import { Link } from "react-router-dom";
 
 const BarcodeGenerator = () => {
   // State
-  const year = new Date().getFullYear();
   const [itemName, setItemName] = useState("My Product");
   const [itemCode, setItemCode] = useState("123456789");
   const [barcodeSize, setBarcodeSize] = useState(2); // Scale factor
@@ -18,7 +17,7 @@ const BarcodeGenerator = () => {
     window.scrollTo(0, 0);
   }, []);
 
-  const generateBarcode = () => {
+  const generateBarcode = useCallback(() => {
     if (canvasRef.current) {
       try {
         JsBarcode(canvasRef.current, itemCode, {
@@ -32,15 +31,15 @@ const BarcodeGenerator = () => {
           marginTop: 20, // Space for item name if we were drawing it manually, but JsBarcode draws the code
           marginBottom: 20,
         });
-      } catch (error) {
+      } catch {
         // Handle invalid characters for certain barcode formats
         console.error("Invalid input for barcode");
       }
     }
-  };
+  }, [itemCode, barcodeSize]);
   useEffect(() => {
     generateBarcode();
-  }, [itemCode, barcodeSize, itemName]);
+  }, [generateBarcode]);
 
   // --- DOWNLOAD FUNCTIONS ---
 

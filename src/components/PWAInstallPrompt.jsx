@@ -13,7 +13,12 @@ function isStandalone() {
 export default function PWAInstallPrompt() {
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [showAndroidPrompt, setShowAndroidPrompt] = useState(false);
-  const [showIOSHint, setShowIOSHint] = useState(false);
+  const [showIOSHint, setShowIOSHint] = useState(() => {
+    if (isStandalone()) return false;
+    const until = localStorage.getItem("pwa_install_dismissed_until");
+    if (until && Date.now() < parseInt(until, 10)) return false;
+    return isIOS();
+  });
   const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
@@ -22,10 +27,7 @@ export default function PWAInstallPrompt() {
     const dismissedUntil = localStorage.getItem("pwa_install_dismissed_until");
     if (dismissedUntil && Date.now() < parseInt(dismissedUntil, 10)) return;
 
-    if (isIOS()) {
-      setShowIOSHint(true);
-      return;
-    }
+    if (isIOS()) return;
 
     const handler = (e) => {
       e.preventDefault();

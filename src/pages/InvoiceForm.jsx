@@ -1,8 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback, memo } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import LoadingDots from "../components/LoadingDots";
 import Spinner from "../components/Spinner";
-import { useAuth } from "../context/AuthContext";
 import AppNavbar from "../components/AppNavbar";
 import PageHeader from "../components/PageHeader";
 import { invoiceAPI, customerAPI, businessAPI, productAPI, deliveryChallanAPI } from "../api/auth";
@@ -232,8 +231,6 @@ const ItemCard = memo(({ item, calc, idx, onItemChange, onRemove, onAdd, onHsnLo
 });
 
 export default function InvoiceForm() {
-  const { logout } = useAuth();
-  const navigate = useNavigate();
   const location = useLocation();
   const prefilled = location.state?.prefilled;
   const prefilledData = prefilled ? location.state : null;
@@ -244,6 +241,10 @@ export default function InvoiceForm() {
   const [linkSharing, setLinkSharing] = useState(false);
   const [savedInvoiceNumber, setSavedInvoiceNumber] = useState(null);
   const [savedInvoiceId, setSavedInvoiceId] = useState(null);
+  // Status as last seen from the server. Sending a hardcoded "DRAFT" on every save
+  // silently downgraded a PAID/CANCELLED invoice; the API requires the field, so we
+  // echo back what the server currently holds instead of assuming DRAFT.
+  const [savedStatus, setSavedStatus] = useState("DRAFT");
   // Public share link — created only when the user asks for it, and only after
   // the invoice has been saved (see Share Link panel in the Actions card).
   const [shareToken, setShareToken] = useState(null);
@@ -327,10 +328,10 @@ export default function InvoiceForm() {
     : "";
 
   useEffect(() => {
-    if (business && ghostMode && !customInvoiceNumber) {
-      setCustomInvoiceNumber(nextInvoiceNumber);
+    if (business && ghostMode) {
+      setCustomInvoiceNumber((prev) => prev || nextInvoiceNumber);
     }
-  }, [business]);
+  }, [business, ghostMode, nextInvoiceNumber]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -572,17 +573,21 @@ export default function InvoiceForm() {
     }
     let res;
     if (savedInvoiceId) {
-      res = await invoiceAPI.update(savedInvoiceId, { ...buildPayload(customerId), status: "DRAFT" });
+      res = await invoiceAPI.update(savedInvoiceId, { ...buildPayload(customerId), status: savedStatus || "DRAFT" });
     } else {
       res = await invoiceAPI.create(buildPayload(customerId));
     }
     setSavedInvoiceId(res.data.data.id);
     setSavedInvoiceNumber(res.data.data.invoiceNumber);
+    setSavedStatus(res.data.data.status || "DRAFT");
     businessAPI.getProfile().then((bRes) => setBusiness(bRes.data.data)).catch(() => {});
     return res;
   };
 
   const handleSave = async () => {
+    // Without this, an invalid save still reached saveInvoice(), which creates the
+    // customer record first — so every failed attempt left an orphan customer behind.
+    if (!validate()) return;
     setSaving(true);
     try {
       const res = await saveInvoice();

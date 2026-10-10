@@ -2,7 +2,6 @@ import { useState, useEffect, useRef, useMemo, useCallback, memo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import LoadingDots from "../components/LoadingDots";
 import Spinner from "../components/Spinner";
-import { useAuth } from "../context/AuthContext";
 import AppNavbar from "../components/AppNavbar";
 import PageHeader from "../components/PageHeader";
 import { invoiceAPI, businessAPI, customerAPI } from "../api/auth";
@@ -114,7 +113,6 @@ const ViewItemRow = memo(({ item, calc, idx, isEditing, onItemChange, onRemove, 
 
 export default function InvoiceView() {
   const { id } = useParams();
-  const { logout } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -145,6 +143,10 @@ export default function InvoiceView() {
     dispatchDocNumber: "", dispatchedThrough: "", invoiceType: "TAX_INVOICE", status: "DRAFT",
   });
   const [items, setItems] = useState([{ ...emptyItem() }]);
+  // Last-saved BILL TO values. Saving an invoice only sends invoice fields, so the
+  // buyer block is persisted separately through the customer record; without this
+  // snapshot there is no way to tell whether it actually changed.
+  const buyerSnapshotRef = useRef(null);
   const [showPdfPreview, setShowPdfPreview] = useState(false);
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState(null);
 
@@ -374,6 +376,9 @@ export default function InvoiceView() {
         dispatchedThrough: inv.dispatchedThrough || "",
         invoiceType: inv.invoiceType || "TAX_INVOICE", status: inv.status || "DRAFT",
       });
+      buyerSnapshotRef.current = {
+        name: inv.customerName || "", phone: "", email: "", billingAddress: "", gstIn: "",
+      };
       setItems((inv.items || []).length > 0 ? inv.items.map((i) => ({
         id: uid(),
         itemName: i.itemName, hsn: i.hsn || "", qty: String(i.qty), rate: String(i.rate),
@@ -388,6 +393,13 @@ export default function InvoiceView() {
               ...p, customerEmail: c.email || "", customerPhone: c.phone || "",
               billingAddress: c.billingAddress || "", customerGstIn: c.gstIn || "",
             }));
+            if (buyerSnapshotRef.current) {
+              buyerSnapshotRef.current = {
+                ...buyerSnapshotRef.current,
+                phone: c.phone || "", email: c.email || "",
+                billingAddress: c.billingAddress || "", gstIn: c.gstIn || "",
+              };
+            }
           })
           .catch(() => {});
       }
@@ -481,10 +493,34 @@ export default function InvoiceView() {
     return true;
   };
 
+  // The invoice payload carries only customerId, so BILL TO edits have to be
+  // written to the customer record separately or they are silently dropped.
+  // Only changed fields are sent: the backend treats a null/omitted field as
+  // "leave unchanged", so an untouched save must not rewrite the record.
+  const saveBuyerChanges = async () => {
+    const snap = buyerSnapshotRef.current;
+    if (!form.customerId || !snap) return;
+    const patch = {};
+    if (form.customerName !== snap.name) patch.name = form.customerName;
+    // An empty phone fails the backend's 10-digit pattern, which would abort the
+    // whole save; omit it instead (the backend cannot clear a phone either).
+    if (form.customerPhone && form.customerPhone !== snap.phone) patch.phone = form.customerPhone;
+    if (form.customerEmail !== snap.email) patch.email = form.customerEmail;
+    if (form.billingAddress !== snap.billingAddress) patch.billingAddress = form.billingAddress;
+    if (form.customerGstIn !== snap.gstIn) patch.gstIn = form.customerGstIn;
+    if (Object.keys(patch).length === 0) return;
+    await customerAPI.update(form.customerId, patch);
+    buyerSnapshotRef.current = {
+      name: form.customerName, phone: form.customerPhone, email: form.customerEmail,
+      billingAddress: form.billingAddress, gstIn: form.customerGstIn,
+    };
+  };
+
   const handleSave = async () => {
     if (!validate()) return false;
     setSaving(true);
     try {
+      await saveBuyerChanges();
       await invoiceAPI.update(id, {
         customerId: form.customerId,
         invoiceType: form.invoiceType,
@@ -543,7 +579,7 @@ export default function InvoiceView() {
       const captureRef = await mountCapture(type);
       const ps = (getPrintSettings()[type] || {}).paperSize || "A4_PORTRAIT";
       await processPrint(captureRef, type, filename, ps);
-    } catch (err) {
+    } catch {
       toast.error("Failed to generate");
     } finally {
       releaseCapture();

@@ -9,7 +9,7 @@ import toast from "react-hot-toast";
 import { ArrowLeft, UserPlus, AlertCircle, Mail, Lock, User, Building2, Shield } from "lucide-react";
 
 export default function AdminAddUsers() {
-  const { isAdmin, logout } = useAuth();
+  const { isAdmin } = useAuth();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -46,7 +46,7 @@ export default function AdminAddUsers() {
     }
     setIsLoading(true);
     try {
-      const res = await authAPI.signup({
+      await authAPI.signup({
         name: formData.name,
         username: formData.username || undefined,
         email: formData.email,

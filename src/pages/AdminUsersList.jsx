@@ -10,7 +10,7 @@ import { ArrowLeft, Users, Eye, EyeOff, Shield, AlertCircle, Trash2, ToggleLeft,
 import ConfirmModal from "../components/ConfirmModal";
 
 export default function AdminUsersList() {
-  const { user: currentUser, isAdmin, logout } = useAuth();
+  const { user: currentUser, isAdmin } = useAuth();
   const navigate = useNavigate();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -194,7 +194,7 @@ export default function AdminUsersList() {
               </table>
             </div>
             <div className="md:hidden divide-y divide-slate-100">
-              {users.map((u, idx) => (
+              {users.map((u) => (
                 <div key={u.id} className="p-4">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm font-semibold text-slate-800">{u.name}</span>

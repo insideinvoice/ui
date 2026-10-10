@@ -1141,12 +1141,6 @@ const BusinessCardMaker = () => {
   const [showTemplates, setShowTemplates] = useState(false);
   const cardRef = useRef(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const year = new Date().getFullYear();
-
-  // Handle broken images
-  const handleImageError = (e) => {
-    e.target.style.display = "none";
-  };
 
   // Handle form input changes
   const handleInputChange = (e) => {

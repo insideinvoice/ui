@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import LoadingDots from "../components/LoadingDots";
 import { adminAPI } from "../api/auth";
 import { ArrowLeft, UserCheck } from "lucide-react";
@@ -7,7 +6,6 @@ import AppNavbar from "../components/AppNavbar";
 import PageHeader from "../components/PageHeader";
 
 export default function AdminCustomersList() {
-  const navigate = useNavigate();
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
 

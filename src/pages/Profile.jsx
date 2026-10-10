@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import AppNavbar from "../components/AppNavbar";
 import PrintSettings from "./PrintSettings";
@@ -10,8 +9,7 @@ import toast from "react-hot-toast";
 import { User, Lock, Upload, Trash2, Pen, Eye, EyeOff, Landmark, Building, MapPin, Globe, Phone, Mail, Hash, FileText } from "lucide-react";
 
 export default function Profile() {
-  const { user, token, setUser, logout, isAdmin } = useAuth();
-  const navigate = useNavigate();
+  const { user, setUser } = useAuth();
 
   const [displayName, setDisplayName] = useState(user?.username || user?.name || "");
   const [currentPassword, setCurrentPassword] = useState("");

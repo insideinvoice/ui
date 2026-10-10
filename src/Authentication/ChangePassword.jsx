@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from "react";
-import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import LoadingDots from "../components/LoadingDots";
 import { useAuth } from "../context/AuthContext";
 import api from "../api/axios";
 import { Lock, Eye, EyeOff, CheckCircle, AlertCircle } from "lucide-react";
 
 export default function ChangePassword() {
-  const { loading, user } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
@@ -22,17 +22,6 @@ export default function ChangePassword() {
   });
 
   const [errors, setErrors] = useState({});
-
-  useEffect(() => {
-    setApiError("");
-    setSuccessMessage("");
-    setErrors({});
-    setFormData({
-      currentPassword: "",
-      newPassword: "",
-      confirmPassword: "",
-    });
-  }, [loading]);
 
   useEffect(() => {
     window.scrollTo(0, 0);

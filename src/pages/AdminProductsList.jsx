@@ -1,6 +1,4 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
 import LoadingDots from "../components/LoadingDots";
 import AppNavbar from "../components/AppNavbar";
 import PageHeader from "../components/PageHeader";
@@ -9,7 +7,6 @@ import toast from "react-hot-toast";
 import { ArrowLeft, Package, Building2, User, Hash, IndianRupee, Percent } from "lucide-react";
 
 export default function AdminProductsList() {
-  const navigate = useNavigate();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -19,7 +16,7 @@ export default function AdminProductsList() {
         const res = await adminAPI.getAllProducts();
         const data = res?.data?.data;
         setProducts(Array.isArray(data) ? data : data?.content || []);
-      } catch (err) {
+      } catch {
         toast.error("Failed to load products");
       } finally {
         setLoading(false);

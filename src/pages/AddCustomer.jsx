@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import LoadingDots from "../components/LoadingDots";
-import { useAuth } from "../context/AuthContext";
 import AppNavbar from "../components/AppNavbar";
 import PageHeader from "../components/PageHeader";
 import { customerAPI } from "../api/auth";
@@ -9,7 +8,6 @@ import toast from "react-hot-toast";
 import { ArrowLeft, Building2, Phone, MapPin, Hash, Save, User, Mail, X } from "lucide-react";
 
 export default function AddCustomer() {
-  const { logout } = useAuth();
   const navigate = useNavigate();
   const [form, setForm] = useState({ name: "", email: "", phone: "", billingAddress: "", gstIn: "" });
   const [saving, setSaving] = useState(false);

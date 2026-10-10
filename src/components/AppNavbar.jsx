@@ -109,7 +109,7 @@ const bottomTabs = [
 ];
 
 export default memo(function AppNavbar() {
-  const { user, logout, isAdmin } = useAuth();
+  const { logout, isAdmin } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -153,6 +153,7 @@ export default memo(function AppNavbar() {
 
   const handleLogout = useCallback(() => {
     logout();
+    setMobileMenuOpen(false);
     navigate("/");
   }, [logout, navigate]);
 
@@ -182,13 +183,14 @@ export default memo(function AppNavbar() {
   useEffect(() => {
     if (!mobileMenuOpen) return;
     const onEscape = (e) => { if (e.key === "Escape") closeMobile(); };
+    const onPopState = () => closeMobile();
     window.addEventListener("keydown", onEscape);
-    return () => window.removeEventListener("keydown", onEscape);
+    window.addEventListener("popstate", onPopState);
+    return () => {
+      window.removeEventListener("keydown", onEscape);
+      window.removeEventListener("popstate", onPopState);
+    };
   }, [mobileMenuOpen, closeMobile]);
-
-  useEffect(() => {
-    closeMobile();
-  }, [location.pathname, closeMobile]);
 
   const sidebarContent = (
     <div className="flex flex-col h-full">

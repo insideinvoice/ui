@@ -4,5 +4,6 @@ export default {
   theme: {
     extend: {},
   },
-  plugins: [require("@tailwindcss/line-clamp")],
+  // line-clamp is built into Tailwind >= 3.3; the standalone plugin is redundant.
+  plugins: [],
 };

@@ -54,7 +54,8 @@ const TABLE_W = ITEM_COLS.reduce((s, c) => s + c.w, 0);
 
 const tStyle = {
   width: "100%",
-  borderCollapse: "collapse",
+  borderCollapse: "separate",
+  borderSpacing: 0,
   tableLayout: "fixed",
   boxSizing: "border-box",
 };
@@ -266,12 +267,12 @@ const InvoicePDF = React.memo(React.forwardRef(({ business, customer, form, item
                             {c.v}
                           </td>
                         ))}
-                     </tr>
-                    ); }) : (
-          <tr>
-                        <td colSpan={itemCols.length} style={{ borderTop: S.border, borderLeft: S.border, borderBottom: S.border, textAlign: "center", padding: "8px", fontSize: "10px" }}>No items</td>
-                     </tr>
-                    )}
+                      </tr>
+                     ); }) : (
+           <tr>
+                        <td colSpan={itemCols.length} style={{ borderBottom: S.border, textAlign: "center", padding: "8px", fontSize: "10px" }}>No items</td>
+                      </tr>
+                     )}
                 </tbody>
               </table>
             </td>
@@ -282,7 +283,7 @@ const InvoicePDF = React.memo(React.forwardRef(({ business, customer, form, item
           {/* PROFORMA ESTIMATED TOTALS */}
           <tr id="section-subtotals">
             <td colSpan={2} style={{ borderLeft: S.border, borderRight: S.border, borderBottom: S.border, padding: 0 }}>
-              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0 }}>
                 <tbody>
                   <tr>
                     <td style={{ textAlign: "right", padding: "4px 10px", border: 0 }}>
@@ -308,7 +309,7 @@ const InvoicePDF = React.memo(React.forwardRef(({ business, customer, form, item
           {/* PROFORMA AMOUNT IN WORDS + TOTAL */}
           <tr id="section-amount-words">
             <td colSpan={2} style={{ borderLeft: S.border, borderRight: S.border, borderBottom: S.border, padding: 0 }}>
-              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0 }}>
                 <tbody>
                   <tr>
                     <td style={{ width: "72%", borderRight: S.border, padding: "6px 10px", verticalAlign: "top" }}>
@@ -344,7 +345,7 @@ const InvoicePDF = React.memo(React.forwardRef(({ business, customer, form, item
           {/* GST SUMMARY */}
           <tr id="section-subtotals">
             <td colSpan={2} style={{ borderLeft: S.border, borderRight: S.border, borderBottom: S.border, padding: 0 }}>
-              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0 }}>
                 <tbody>
                   <tr>
                     <td style={{ textAlign: "right", padding: "4px 10px", border: 0 }}>
@@ -374,7 +375,7 @@ const InvoicePDF = React.memo(React.forwardRef(({ business, customer, form, item
           {/* AMOUNT IN WORDS + TOTAL */}
           <tr id="section-amount-words">
             <td colSpan={2} style={{ borderLeft: S.border, borderRight: S.border, borderBottom: S.border, padding: 0 }}>
-              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0 }}>
                 <tbody>
                   <tr>
                     <td style={{ width: "72%", borderRight: S.border, padding: "6px 10px", verticalAlign: "top" }}>
@@ -407,7 +408,7 @@ const InvoicePDF = React.memo(React.forwardRef(({ business, customer, form, item
 
           {/* TAX BREAKUP TABLE */}
           <tr>
-            <td colSpan={2} style={{ borderLeft: S.border, borderRight: S.border, borderBottom: S.border, padding: 0 }}>
+            <td colSpan={2} style={{ borderLeft: S.border, borderRight: S.border, padding: 0 }}>
               <table style={tStyleSep}>
                 <thead id="section-hsn-header">
                    <tr style={{ height: "28px" }}>
@@ -433,17 +434,17 @@ const InvoicePDF = React.memo(React.forwardRef(({ business, customer, form, item
                        const taxable = (parseFloat(item.taxableValue) || 0) * discRatio;
                        const taxAmt = (taxable * gst) / 100;
                        return (
-                          <tr id={`section-hsn-row-${idx}`} key={idx} style={{ height: "26px" }}>
-                            {showHnSac && (
-                            <td style={{ borderRight: S.border, borderBottom: S.border, textAlign: "center", fontSize: "10px", padding: "5px 6px", lineHeight: "1.5" }}>{item.hsn || "-"}</td>
-                            )}
-                            <td style={{ borderRight: S.border, borderBottom: S.border, textAlign: "right", fontSize: "10px", padding: "5px 6px", lineHeight: "1.5" }}>{formatINR(taxable)}</td>
-                            <td style={{ borderRight: S.border, borderBottom: S.border, textAlign: "center", fontSize: "10px", padding: "5px 6px", lineHeight: "1.5" }}>{halfGst.toFixed(1)}%</td>
-                            <td style={{ borderRight: S.border, borderBottom: S.border, textAlign: "right", fontSize: "10px", padding: "5px 6px", lineHeight: "1.5" }}>{formatINR(taxAmt / 2)}</td>
-                            <td style={{ borderRight: S.border, borderBottom: S.border, textAlign: "center", fontSize: "10px", padding: "5px 6px", lineHeight: "1.5" }}>{halfGst.toFixed(1)}%</td>
-                            <td style={{ borderRight: S.border, borderBottom: S.border, textAlign: "right", fontSize: "10px", padding: "5px 6px", lineHeight: "1.5" }}>{formatINR(taxAmt / 2)}</td>
-                            <td style={{ borderBottom: S.border, textAlign: "right", fontSize: "10px", padding: "5px 6px", lineHeight: "1.5", fontWeight: "bold" }}>{formatINR(taxAmt)}</td>
-                         </tr>
+                           <tr id={`section-hsn-row-${idx}`} key={idx} style={{ height: "26px" }}>
+                             {showHnSac && (
+                             <td style={{ borderRight: S.border, borderBottom: S.border, textAlign: "center", fontSize: "10px", padding: "5px 6px", lineHeight: "1.5" }}>{item.hsn || "-"}</td>
+                             )}
+                             <td style={{ borderRight: S.border, borderBottom: S.border, textAlign: "right", fontSize: "10px", padding: "5px 6px", lineHeight: "1.5" }}>{formatINR(taxable)}</td>
+                             <td style={{ borderRight: S.border, borderBottom: S.border, textAlign: "center", fontSize: "10px", padding: "5px 6px", lineHeight: "1.5" }}>{halfGst.toFixed(1)}%</td>
+                             <td style={{ borderRight: S.border, borderBottom: S.border, textAlign: "right", fontSize: "10px", padding: "5px 6px", lineHeight: "1.5" }}>{formatINR(taxAmt / 2)}</td>
+                             <td style={{ borderRight: S.border, borderBottom: S.border, textAlign: "center", fontSize: "10px", padding: "5px 6px", lineHeight: "1.5" }}>{halfGst.toFixed(1)}%</td>
+                             <td style={{ borderRight: S.border, borderBottom: S.border, textAlign: "right", fontSize: "10px", padding: "5px 6px", lineHeight: "1.5" }}>{formatINR(taxAmt / 2)}</td>
+                             <td style={{ borderBottom: S.border, textAlign: "right", fontSize: "10px", padding: "5px 6px", lineHeight: "1.5", fontWeight: "bold" }}>{formatINR(taxAmt)}</td>
+                          </tr>
                        );
                      })}
                      <tr id="section-hsn-total" style={{ height: "26px" }}>
@@ -478,7 +479,7 @@ const InvoicePDF = React.memo(React.forwardRef(({ business, customer, form, item
           {/* BOTTOM SECTION: Bank + UPI QR | Declaration | Signature */}
           <tr id="section-footer">
             <td colSpan={2} style={{ borderLeft: S.border, borderRight: S.border, borderBottom: S.border, padding: 0 }}>
-              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0 }}>
                 <tbody>
                   <tr style={{ height: "140px" }}>
                     <td style={{ width: "37%", borderRight: S.border, padding: "8px 8px 24px 8px", verticalAlign: "top" }}>
@@ -534,7 +535,7 @@ const InvoicePDF = React.memo(React.forwardRef(({ business, customer, form, item
           {/* FOOTER */}
           <tr id="section-bottom-note">
             <td colSpan={2} style={{ padding: "6px 10px" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0 }}>
                 <tbody>
                   <tr>
                     <td style={{ textAlign: "center", padding: 0 }}>

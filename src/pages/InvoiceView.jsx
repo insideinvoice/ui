@@ -38,27 +38,17 @@ const ViewItemRow = memo(({ item, calc, idx, isEditing, onItemChange, onRemove, 
     {isEditing ? (
       <>
         <td className="py-3 px-3 border-b border-slate-100">
-          <div className="relative">
-            <input type="text" value={item.itemName} name={`desc-${idx + 1}`}
-              onChange={(e) => onItemChange(idx, "itemName", e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); const next = document.querySelector(`input[name="${showHnSac ? "hsn" : "qty"}-${idx + 1}"]`); next?.focus(); } }}
-              className="w-full px-3 py-2 border border-slate-200 rounded text-sm focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white pr-8" placeholder="Item name" />
-            <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-300" title="Barcode scannable">
-              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 5V3h4v2H5v2H3V5zm14 0V3h4v2h-2v2h-2V5zM3 19v-2h2v-2h2v4H3zm14 0v-2h2v-2h2v4h-4zM7 7h1v10H7V7zm3 0h1v10h-1V7zm3 0h1v10h-1V7zm3 0h1v10h-1V7z"/></svg>
-            </span>
-          </div>
+          <input type="text" value={item.itemName} name={`desc-${idx + 1}`}
+            onChange={(e) => onItemChange(idx, "itemName", e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); const next = document.querySelector(`input[name="${showHnSac ? "hsn" : "qty"}-${idx + 1}"]`); next?.focus(); } }}
+            className="w-full px-3 py-2 border border-slate-200 rounded text-sm focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white" placeholder="Item name" />
         </td>
         {showHnSac && (
         <td className="py-3 px-3 border-b border-slate-100">
-          <div className="relative">
-            <input type="text" value={item.hsn} name={`hsn-${idx + 1}`}
-              onChange={(e) => onItemChange(idx, "hsn", e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); const qty = document.querySelector(`input[name="qty-${idx + 1}"]`); qty?.focus(); } }}
-              className="w-full px-3 py-2 border border-slate-200 rounded text-sm focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono pr-8" placeholder="Scan or type" />
-            <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-300" title="Barcode scannable">
-              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 5V3h4v2H5v2H3V5zm14 0V3h4v2h-2v2h-2V5zM3 19v-2h2v-2h2v4H3zm14 0v-2h2v-2h2v4h-4zM7 7h1v10H7V7zm3 0h1v10h-1V7zm3 0h1v10h-1V7zm3 0h1v10h-1V7z"/></svg>
-            </span>
-          </div>
+          <input type="text" value={item.hsn} name={`hsn-${idx + 1}`}
+            onChange={(e) => onItemChange(idx, "hsn", e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); const qty = document.querySelector(`input[name="qty-${idx + 1}"]`); qty?.focus(); } }}
+            className="w-full max-w-[80px] px-3 py-2 border border-slate-200 rounded text-sm focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono" placeholder="Scan or type" />
         </td>
         )}
         <td className="py-3 px-3 border-b border-slate-100">
@@ -67,13 +57,14 @@ const ViewItemRow = memo(({ item, calc, idx, isEditing, onItemChange, onRemove, 
               onChange={(e) => onItemChange(idx, "qty", e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); const rate = document.querySelector(`input[name="rate-${idx + 1}"]`); rate?.focus(); } }}
               inputMode="decimal"
-              className="w-full min-w-0 px-3 py-2 border border-slate-200 rounded text-sm text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
+              size={10}
+              className="w-28 px-3 py-2 border border-slate-200 rounded text-sm text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
             <select value={item.unit || ""} name={`unit-${idx + 1}`}
               onChange={(e) => onItemChange(idx, "unit", e.target.value)}
               title="Unit of measurement"
-              className="shrink-0 w-[74px] px-1.5 py-2 border border-slate-200 rounded text-xs focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white text-slate-600">
+              className="shrink-0 w-[88px] px-1.5 py-2 border border-slate-200 rounded text-xs focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white text-slate-600">
               {UNITS.map((u) => (
-                <option key={u} value={u}>{u === "" ? "Unit" : u}</option>
+                <option key={u} value={u}>{u === "" ? "No unit" : u}</option>
               ))}
             </select>
           </div>
@@ -102,9 +93,9 @@ const ViewItemRow = memo(({ item, calc, idx, isEditing, onItemChange, onRemove, 
         {showHnSac && (
         <td className="py-3 px-3 text-center font-mono text-xs text-slate-500 border-b border-slate-100 whitespace-nowrap">{item.hsn || "-"}</td>
         )}
-        <td className="py-3 px-3 text-right font-mono text-sm text-slate-700 border-b border-slate-100 whitespace-nowrap">{item.qty}</td>
-        <td className="py-3 px-3 text-right font-mono text-sm text-slate-700 border-b border-slate-100 whitespace-nowrap">{fmt(item.rate)}</td>
-        <td className="py-3 px-3 text-right font-mono text-sm text-slate-600 border-b border-slate-100 whitespace-nowrap">{item.gstPercentage}%</td>
+        <td className="py-3 px-3 text-center font-mono text-sm text-slate-700 border-b border-slate-100 whitespace-nowrap">{item.qty}</td>
+        <td className="py-3 px-3 text-center font-mono text-sm text-slate-700 border-b border-slate-100 whitespace-nowrap">{fmt(item.rate)}</td>
+        <td className="py-3 px-3 text-center font-mono text-sm text-slate-600 border-b border-slate-100 whitespace-nowrap">{item.gstPercentage}%</td>
       </>
     )}
     <td className={`py-3 px-3 text-right font-mono text-sm border-b border-slate-100 whitespace-nowrap ${isEditing ? "text-slate-700" : "text-slate-700"}`}>

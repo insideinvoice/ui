@@ -4,9 +4,11 @@
 // "per" column — purely a display label; qty x rate maths is unchanged.
 
 export const UNITS = [
-  "", // blank = no unit shown (legacy behaviour: templates print "Piece")
+  "", // blank = no unit selected (legacy behaviour: templates print "Piece")
+  "Unit",
   "Nos",
   "Pieces",
+  "Piece",
   "Kg",
   "Gram",
   "Quintal",

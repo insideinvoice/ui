@@ -94,7 +94,25 @@ const InvoicePDF = React.memo(React.forwardRef(({ business, customer, form, item
     () => (showHnSac ? ITEM_COLS : ITEM_COLS.map((c) => (c.key === "hsn" ? null : c.key === "desc" ? { ...c, w: c.w + 76 } : c)).filter(Boolean)),
     [showHnSac],
   );
-  const rightRows = getTemplateRightRows(industryConfig, form, displayInvNo, isProforma);
+  const rightRowsRaw = getTemplateRightRows(industryConfig, form, displayInvNo, isProforma);
+  // The right meta column is a fixed part of the classic GST layout (13 ruled
+  // rows). Service industries (telecom, healthcare, education, professional
+  // services) and construction hide the dispatch/delivery rows, so the column
+  // rendered only 7 rows and simply ended after "Dated" — leaving the lower
+  // half of the cell unruled and the frame looking cut off. Pad the column
+  // with empty rows so every horizontal line and the label/value divider run
+  // all the way down to the section separator.
+  const RIGHT_ROW_LAYOUT_ROWS = 13;
+  const rightRows = rightRowsRaw.length >= RIGHT_ROW_LAYOUT_ROWS
+    ? rightRowsRaw
+    : [
+        ...rightRowsRaw,
+        ...Array.from({ length: RIGHT_ROW_LAYOUT_ROWS - rightRowsRaw.length }, (_, i) => ({
+          key: `filler-${i}`,
+          label: "-",
+          value: "-",
+        })),
+      ];
   const itemDescLabel = fieldLabel(industryConfig, "itemName", "Description of Goods");
 
   const sealVisible = typeof window !== "undefined" && localStorage.getItem("show_seal") === "true";

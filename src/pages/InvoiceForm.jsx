@@ -29,7 +29,7 @@ import {
 } from "../constants/industryConfig";
 
 const uid = () => (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `i${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`);
-const emptyItem = { itemName: "", hsn: "", unit: "", qty: "", rate: "", gstPercentage: "18", taxableValue: 0, taxAmount: 0, total: 0 };
+const emptyItem = { itemName: "", hsn: "", unit: "Unit", qty: "", rate: "", gstPercentage: "18", taxableValue: 0, taxAmount: 0, total: 0 };
 const inputClass = "w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-400/30 focus:border-slate-400 bg-white transition-all min-h-[44px]";
 const selectClass = "w-full pl-3 pr-9 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-400/30 focus:border-slate-400 bg-white transition-all min-h-[44px] appearance-none cursor-pointer text-slate-800 font-normal";
 const labelClass = "block text-xs font-semibold text-slate-600 mb-1.5 tracking-wide uppercase";
@@ -135,7 +135,7 @@ const ItemRow = memo(({ item, calc, idx, onItemChange, onRemove, onAdd, onHsnLoo
           inputMode="decimal"
           placeholder="Qty"
           className="flex-[7] min-w-0 w-0 px-2 py-2 border border-slate-200 rounded text-sm text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
-        <select value={item.unit || ""} name={`unit-${idx + 1}`}
+        <select value={item.unit ?? "Unit"} name={`unit-${idx + 1}`}
           onChange={(e) => onItemChange(idx, "unit", e.target.value)}
           onKeyDown={(e) => handleKeyDown(e, "unit")}
           title="Unit of measurement"
@@ -154,8 +154,8 @@ const ItemRow = memo(({ item, calc, idx, onItemChange, onRemove, onAdd, onHsnLoo
         placeholder="0.00"
         className="w-full min-w-0 px-2.5 py-2 border border-slate-200 rounded text-sm text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
     </td>
-    <td className="py-3 px-1 border-b border-slate-100">
-      <div className="relative">
+    <td className="py-3 px-1 border-b border-slate-100 text-center">
+      <div className="relative max-w-[56px] mx-auto">
         <input type="number" step="0.01" min="0" max="40" value={item.gstPercentage} name={`gst-${idx + 1}`}
           onChange={(e) => onItemChange(idx, "gstPercentage", e.target.value)}
           onKeyDown={(e) => handleKeyDown(e, "gst")}
@@ -246,7 +246,7 @@ const ItemCard = memo(({ item, calc, idx, onItemChange, onRemove, onAdd, onHsnLo
               onKeyDown={(e) => handleKeyDown(e, "qty")}
               inputMode="numeric"
               className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono min-h-[44px] [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
-            <select value={item.unit || ""} data-mobile-field={`unit-${idx}`}
+            <select value={item.unit ?? "Unit"} data-mobile-field={`unit-${idx}`}
               onChange={(e) => onItemChange(idx, "unit", e.target.value)}
               onKeyDown={(e) => handleKeyDown(e, "unit")}
               title="Unit of measurement"
@@ -1690,14 +1690,14 @@ export default function InvoiceForm() {
             <table className="w-full min-w-[1100px] text-sm border-collapse" style={{ tableLayout: "fixed" }}>
               <colgroup>
                 <col style={{ width: "2.5%" }} />
-                <col style={{ width: showHnSac ? "11%" : "0%" }} />
-                <col style={{ width: showHnSac ? "18%" : "29%" }} />
-                <col style={{ width: "14%" }} />
-                <col style={{ width: "10%" }} />
-                <col style={{ width: "4.5%" }} />
+                <col style={{ width: showHnSac ? "16%" : "0%" }} />
+                <col style={{ width: showHnSac ? "22%" : "38%" }} />
                 <col style={{ width: "14%" }} />
                 <col style={{ width: "9.5%" }} />
-                <col style={{ width: "14%" }} />
+                <col style={{ width: "4.5%" }} />
+                <col style={{ width: "10.5%" }} />
+                <col style={{ width: "9.5%" }} />
+                <col style={{ width: "9%" }} />
                 <col style={{ width: "2.5%" }} />
               </colgroup>
               <thead>
@@ -1707,7 +1707,7 @@ export default function InvoiceForm() {
                   <th className="text-white text-xs font-semibold py-3.5 px-2 text-left whitespace-nowrap">{labelFor("itemName", "Description")}</th>
                   <th className="text-white text-xs font-semibold py-3.5 px-2 text-center whitespace-nowrap">Qty</th>
                   <th className="text-white text-xs font-semibold py-3.5 px-2 text-center whitespace-nowrap">Rate</th>
-                  <th className="text-white text-xs font-semibold py-3.5 px-2 text-center whitespace-nowrap">GST %</th>
+                  <th className="text-white text-xs font-semibold py-3.5 px-1 text-center whitespace-nowrap">GST %</th>
                   <th className="text-white text-xs font-semibold py-3.5 px-2.5 text-right whitespace-nowrap">Taxable</th>
                   <th className="text-white text-xs font-semibold py-3.5 px-2.5 text-right whitespace-nowrap">Tax</th>
                   <th className="text-white text-xs font-semibold py-3.5 px-2.5 text-right whitespace-nowrap">Total</th>

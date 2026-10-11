@@ -380,7 +380,6 @@ function ClassicPage({ business, customer, challan, items }) {
 function RoyalPage({ business, customer, challan, items }) {
   const b = businessLines(business);
   const gst = business?.gstIn || "";
-  const pan = panFromGstin(gst);
   const specialist = getSpecialistInLine(business);
 
   const cellBase = {
@@ -540,7 +539,6 @@ function RoyalPage({ business, customer, challan, items }) {
           <div style={{ flex: 1 }}>
             {gst ? `GSTIN : ${gst}` : "GSTIN :"}
           </div>
-          <div>{pan ? `PAN No.: ${pan}` : "PAN No.:"}</div>
         </div>
         <div
           style={{

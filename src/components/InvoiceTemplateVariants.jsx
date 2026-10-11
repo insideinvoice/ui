@@ -985,7 +985,7 @@ const InvoiceTemplateVariants = React.memo(React.forwardRef(({ theme, business, 
             <>
           {/* PROFORMA ESTIMATED TOTALS */}
           <tr id="section-subtotals">
-            <td colSpan={2} style={{ borderLeft: S.border, borderRight: S.border, borderBottom: S.border, padding: 0 }}>
+            <td colSpan={2} style={{ borderBottom: S.border, padding: 0 }}>
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <tbody>
                   <tr>
@@ -1011,7 +1011,7 @@ const InvoiceTemplateVariants = React.memo(React.forwardRef(({ theme, business, 
 
           {/* PROFORMA AMOUNT IN WORDS + TOTAL */}
           <tr id="section-amount-words">
-            <td colSpan={2} style={{ borderLeft: S.border, borderRight: S.border, borderBottom: S.border, padding: 0 }}>
+            <td colSpan={2} style={{ borderBottom: S.border, padding: 0 }}>
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <tbody>
                   <tr>
@@ -1049,7 +1049,7 @@ const InvoiceTemplateVariants = React.memo(React.forwardRef(({ theme, business, 
             <>
           {/* GST SUMMARY */}
           <tr id="section-subtotals">
-            <td colSpan={2} style={{ borderLeft: S.border, borderRight: S.border, borderBottom: S.border, padding: 0 }}>
+            <td colSpan={2} style={{ borderBottom: S.border, padding: 0 }}>
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <tbody>
                   <tr>
@@ -1079,7 +1079,7 @@ const InvoiceTemplateVariants = React.memo(React.forwardRef(({ theme, business, 
 
           {/* AMOUNT IN WORDS + TOTAL */}
           <tr id="section-amount-words">
-            <td colSpan={2} style={{ borderLeft: S.border, borderRight: S.border, borderBottom: S.border, padding: 0 }}>
+            <td colSpan={2} style={{ borderBottom: S.border, padding: 0 }}>
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <tbody>
                   <tr>
@@ -1115,7 +1115,7 @@ const InvoiceTemplateVariants = React.memo(React.forwardRef(({ theme, business, 
 
           {/* TAX BREAKUP TABLE */}
           <tr>
-            <td colSpan={2} style={{ borderLeft: S.border, borderRight: S.border, borderBottom: S.border, padding: 0 }}>
+            <td colSpan={2} style={{ borderBottom: S.border, padding: 0 }}>
               <table style={tStyleSep}>
                 <thead id="section-hsn-header">
                   <tr style={{ height: t.compact ? "24px" : "28px" }}>
@@ -1185,7 +1185,7 @@ const InvoiceTemplateVariants = React.memo(React.forwardRef(({ theme, business, 
 
           {/* BOTTOM SECTION */}
           <tr id="section-footer">
-            <td colSpan={2} style={{ borderLeft: S.border, borderRight: S.border, borderBottom: S.border, padding: 0 }}>
+            <td colSpan={2} style={{ borderBottom: S.border, padding: 0 }}>
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <tbody>
                   <tr style={{ height: t.compact ? "120px" : "140px" }}>

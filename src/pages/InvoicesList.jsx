@@ -537,21 +537,17 @@ export default function InvoicesList() {
                         <td className="py-3 px-4 text-right font-mono text-xs sm:text-sm font-semibold text-slate-800">
                           Rs. {parseFloat(inv.grandTotal || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                         </td>
-                        <td className="py-3 px-4 text-right">
-                          <div className="flex items-center justify-end gap-1.5">
-                            <button onClick={() => goToInvoice(inv)} disabled={rowBusy(inv.id)}
-                              className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors disabled:opacity-60">
-                              {isBusy(inv.id, "view") ? <Spinner size={14} /> : <Eye className="w-3.5 h-3.5" />} {isBusy(inv.id, "view") ? "Loading..." : "View"}
-                            </button>
-                            <button onClick={() => downloadPDF(inv)} disabled={rowBusy(inv.id)}
-                              className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors disabled:opacity-60" title="Download PDF">
-                              {isBusy(inv.id, "pdf") ? <Spinner size={14} /> : <Download className="w-3.5 h-3.5" />} {isBusy(inv.id, "pdf") ? "Loading..." : "Download"}
-                            </button>
-                            <button onClick={() => openShareSheet(inv)} disabled={rowBusy(inv.id)}
-                              className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors disabled:opacity-60">
-                              {isBusy(inv.id, "share") ? <Spinner size={14} /> : <Share2 className="w-3.5 h-3.5" />} {isBusy(inv.id, "share") ? "Loading..." : "Share"}
-                            </button>
-                            {ghostMode && (
+<td className="py-3 px-4 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button onClick={() => downloadPDF(inv)} disabled={rowBusy(inv.id)}
+                                className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors disabled:opacity-60" title="Download PDF">
+                                {isBusy(inv.id, "pdf") ? <Spinner size={14} /> : <Download className="w-3.5 h-3.5" />} {isBusy(inv.id, "pdf") ? "Loading..." : "Download"}
+                              </button>
+                              <button onClick={() => openShareSheet(inv)} disabled={rowBusy(inv.id)}
+                                className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors disabled:opacity-60">
+                                {isBusy(inv.id, "share") ? <Spinner size={14} /> : <Share2 className="w-3.5 h-3.5" />} {isBusy(inv.id, "share") ? "Loading..." : "Share"}
+                              </button>
+                              {ghostMode && (
                               <button onClick={() => openDeleteModal(inv)}
                                 className="min-h-[44px] min-w-[44px] flex items-center justify-center p-2 hover:bg-red-50 rounded-lg transition-colors text-slate-400 hover:text-red-600" title="Delete Invoice">
                                 <Trash2 className="w-4 h-4" />

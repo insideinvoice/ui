@@ -19,7 +19,7 @@ import { computeInvoiceTotals, round2 } from "../utils/invoiceTotals";
 import { goBack } from "../utils/navigation";
 import { INDIAN_STATES, DELIVERY_TERMS, PAYMENT_TERMS } from "../constants/indianStates";
 import { UNITS } from "../constants/units";
-import { getIndustryConfig, isFieldHidden, fieldLabel } from "../constants/industryConfig";
+import { getIndustryConfig, isFieldHidden, fieldLabel, getExtendedFields, isExtendedFieldType, ALL_EXTENDED_FIELDS } from "../constants/industryConfig";
 
 const uid = () => (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `i${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`);
 const emptyItem = () => ({ id: uid(), itemName: "", hsn: "", unit: "", qty: "1", rate: "", gstPercentage: "18", taxableValue: "0", taxAmount: "0", total: "0" });
@@ -157,6 +157,11 @@ export default function InvoiceView() {
   );
   const isHidden = (field) => isFieldHidden(industryConfig, field);
   const labelFor = (field, fallback) => fieldLabel(industryConfig, field, fallback);
+  // V29 extended fields the current industry exposes (empty for all others).
+  const extendedFields = useMemo(
+    () => getExtendedFields(business?.industry || industryConfig?.id),
+    [business?.industry, industryConfig?.id]
+  );
   // Display-only HSN/SAC switch; missing/legacy business data keeps the column on.
   const showHnSac = !business || business.showHnSac !== false;
   const isConstruction = business?.industry === "CONSTRUCTION";
@@ -166,6 +171,10 @@ export default function InvoiceView() {
     paymentTerms: "", paymentMode: "CASH", deliveryNote: "", otherReferences: "", notes: "", invoiceNumber: "",
     deliveryNoteDate: "", referenceNumber: "", buyerOrderNumber: "",
     dispatchDocNumber: "", dispatchedThrough: "", invoiceType: "TAX_INVOICE", status: "DRAFT",
+    agreementNumber: "", assetNumber: "", serialNumber: "", vehicleNumber: "",
+    periodStart: "", periodEnd: "", billingPeriodStart: "", billingPeriodEnd: "",
+    expectedReturnDate: "", depositReference: "", patientReference: "", serviceDate: "",
+    treatmentReference: "", referringDoctor: "",
   });
   const [items, setItems] = useState([{ ...emptyItem() }]);
   // Last-saved BILL TO values. Saving an invoice only sends invoice fields, so the
@@ -401,6 +410,14 @@ export default function InvoiceView() {
         dispatchedThrough: inv.dispatchedThrough || "",
         invoiceType: inv.invoiceType || "TAX_INVOICE", status: inv.status || "DRAFT",
         billingMode: inv.billingMode || "ITEMIZED",
+        // V29 extended fields — always loaded so a save round-trips them intact.
+        agreementNumber: inv.agreementNumber || "", assetNumber: inv.assetNumber || "",
+        serialNumber: inv.serialNumber || "", vehicleNumber: inv.vehicleNumber || "",
+        periodStart: inv.periodStart || "", periodEnd: inv.periodEnd || "",
+        billingPeriodStart: inv.billingPeriodStart || "", billingPeriodEnd: inv.billingPeriodEnd || "",
+        expectedReturnDate: inv.expectedReturnDate || "", depositReference: inv.depositReference || "",
+        patientReference: inv.patientReference || "", serviceDate: inv.serviceDate || "",
+        treatmentReference: inv.treatmentReference || "", referringDoctor: inv.referringDoctor || "",
       });
       buyerSnapshotRef.current = {
         name: inv.customerName || "", phone: "", email: "", billingAddress: "", gstIn: "",
@@ -514,6 +531,13 @@ export default function InvoiceView() {
   const validate = () => {
     if (!form.customerName.trim()) { toast.error("Customer name is required"); return false; }
     if (!form.invoiceDate) { toast.error("Invoice date is required"); return false; }
+    // V29 period sanity — mirrors the backend's validateExtendedDates.
+    if (form.periodStart && form.periodEnd && form.periodEnd < form.periodStart) {
+      toast.error("Period end date cannot be before the period start date"); return false;
+    }
+    if (form.billingPeriodStart && form.billingPeriodEnd && form.billingPeriodEnd < form.billingPeriodStart) {
+      toast.error("Billing period end date cannot be before the billing period start date"); return false;
+    }
     const validItems = items.filter((i) => i.itemName.trim() && parseFloat(i.qty) > 0 && parseFloat(i.rate) > 0);
     if (validItems.length === 0) { toast.error("At least one valid item required"); return false; }
     return true;
@@ -568,6 +592,9 @@ export default function InvoiceView() {
         otherReferences: form.otherReferences || undefined,
         notes: form.notes || undefined,
         billingMode: form.billingMode || undefined,
+        // V29 extended fields: always re-sent so loaded values survive the
+        // update path (backend assigns them unconditionally). Empty -> dropped.
+        ...Object.fromEntries(ALL_EXTENDED_FIELDS.map((f) => [f, form[f] || undefined])),
         discountPercent: discountEnabled ? parseFloat(discountPercent) || 0 : 0,
         items: items.filter((i) => i.itemName.trim() && parseFloat(i.qty) > 0 && parseFloat(i.rate) > 0)
           .map((i, idx) => ({
@@ -965,12 +992,47 @@ export default function InvoiceView() {
                         <option value="CARD">CARD</option>
                         <option value="CHEQUE">CHEQUE</option>
                         <option value="NEFT">NEFT</option>
-                        <option value="IMPS">IMPS</option>
-                      </select>
-                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-                    </div>
+                      <option value="IMPS">IMPS</option>
+                    </select>
+                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                   </div>
                 </div>
+                {/* Reference / delivery rows the PDF already prints — view ≡ PDF */}
+                <div>
+                  <label className={labelClass}>{labelFor("referenceNumber", "Reference No")}</label>
+                  <input name="referenceNumber" value={form.referenceNumber} onChange={handleFieldChange} className={inputClass} />
+                </div>
+                {!isHidden("deliveryNoteDate") && (
+                <div>
+                  <label className={labelClass}>{labelFor("deliveryNoteDate", "Delivery Note Date")}</label>
+                  <input type="date" name="deliveryNoteDate" value={form.deliveryNoteDate} onChange={handleFieldChange} className={inputClass} />
+                </div>
+                )}
+                {!isHidden("dispatchDocNumber") && (
+                <div>
+                  <label className={labelClass}>{labelFor("dispatchDocNumber", "Dispatch Doc No")}</label>
+                  <input name="dispatchDocNumber" value={form.dispatchDocNumber} onChange={handleFieldChange} className={inputClass} />
+                </div>
+                )}
+                {!isHidden("dispatchedThrough") && (
+                <div>
+                  <label className={labelClass}>{labelFor("dispatchedThrough", "Dispatched Through")}</label>
+                  <input name="dispatchedThrough" value={form.dispatchedThrough} onChange={handleFieldChange} className={inputClass} />
+                </div>
+                )}
+                {/* V29 industry-extended fields (reference/display only) */}
+                {extendedFields.map((field) => (
+                  <div key={field}>
+                    <label className={labelClass}>{labelFor(field, field)}</label>
+                    <input
+                      type={isExtendedFieldType(field, "date") ? "date" : "text"}
+                      name={field}
+                      value={form[field] || ""}
+                      onChange={handleFieldChange}
+                      className={inputClass} />
+                  </div>
+                ))}
+              </div>
               ) : (
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                   <div>
@@ -1013,6 +1075,30 @@ export default function InvoiceView() {
                     <label className={labelClass}>Payment Mode</label>
                     <p className="text-sm text-slate-800">{form.paymentMode}</p>
                   </div>}
+                  {/* Reference / delivery rows the PDF already prints — view ≡ PDF */}
+                  {form.referenceNumber && <div>
+                    <label className={labelClass}>{labelFor("referenceNumber", "Reference No")}</label>
+                    <p className="text-sm text-slate-800">{form.referenceNumber}</p>
+                  </div>}
+                  {!isHidden("deliveryNoteDate") && form.deliveryNoteDate && <div>
+                    <label className={labelClass}>{labelFor("deliveryNoteDate", "Delivery Note Date")}</label>
+                    <p className="text-sm text-slate-800">{form.deliveryNoteDate}</p>
+                  </div>}
+                  {!isHidden("dispatchDocNumber") && form.dispatchDocNumber && <div>
+                    <label className={labelClass}>{labelFor("dispatchDocNumber", "Dispatch Doc No")}</label>
+                    <p className="text-sm text-slate-800">{form.dispatchDocNumber}</p>
+                  </div>}
+                  {!isHidden("dispatchedThrough") && form.dispatchedThrough && <div>
+                    <label className={labelClass}>{labelFor("dispatchedThrough", "Dispatched Through")}</label>
+                    <p className="text-sm text-slate-800">{form.dispatchedThrough}</p>
+                  </div>}
+                  {/* V29 industry-extended fields — value-driven only */}
+                  {extendedFields.map((field) => form[field] ? (
+                    <div key={field}>
+                      <label className={labelClass}>{labelFor(field, field)}</label>
+                      <p className="text-sm text-slate-800">{form[field]}</p>
+                    </div>
+                  ) : null)}
                 </div>
               )}
             </div>

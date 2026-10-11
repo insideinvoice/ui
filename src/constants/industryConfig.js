@@ -164,10 +164,25 @@ export const INDUSTRY_PROFILES = {
       deliveryNote: "Handover Note",
       referenceNumber: "Rental / Asset Ref.",
       otherReferences: "Agreement / P.O. No.",
+      agreementNumber: "Rental Agreement No.",
+      assetNumber: "Asset / Equipment ID",
+      serialNumber: "Serial Number",
+      vehicleNumber: "Vehicle Reg. No.",
+      periodStart: "Rental Period Start",
+      periodEnd: "Rental Period End",
+      billingPeriodStart: "Billing Period Start",
+      billingPeriodEnd: "Billing Period End",
+      expectedReturnDate: "Expected Return Date",
+      depositReference: "Deposit Reference",
     },
     placeholders: {
       referenceNumber: "e.g. Asset ID or agreement no.",
       otherReferences: "e.g. Rental agreement / customer PO",
+      agreementNumber: "e.g. RA-2026-5566",
+      assetNumber: "e.g. CRANE-12",
+      serialNumber: "e.g. SN-8899",
+      vehicleNumber: "e.g. KA-01-AB-1234",
+      depositReference: "e.g. DEP-100",
     },
     documents: { deliveryChallan: true, shippingLabel: true, hazmatLabel: false },
   },
@@ -196,10 +211,19 @@ export const INDUSTRY_PROFILES = {
       referenceNumber: "Visit / Case Ref.",
       otherReferences: "Appointment / Order Ref.",
       itemName: "Description of Services",
+      patientReference: "Patient / Customer ID",
+      serviceDate: "Service Date",
+      treatmentReference: "Treatment / Session Ref.",
+      referringDoctor: "Referring Doctor",
+      billingPeriodStart: "Billing Period Start",
+      billingPeriodEnd: "Billing Period End",
     },
     placeholders: {
       referenceNumber: "e.g. Visit or case reference",
       otherReferences: "e.g. Appointment or order number",
+      patientReference: "e.g. PAT-2211 (reference only, no medical data)",
+      treatmentReference: "e.g. Sess-14",
+      referringDoctor: "e.g. Dr. Iyer",
     },
     documents: { deliveryChallan: false, shippingLabel: false, hazmatLabel: false },
   },
@@ -311,6 +335,64 @@ export function isReferencesSectionVisible(config) {
   return REFERENCES_SECTION_FIELDS.some((field) => !isFieldHidden(config, field));
 }
 
+// ---------------------------------------------------------------- V29 extended
+// Industry-extended invoice fields (Rental & Leasing, Healthcare & Wellness).
+// Display-only reference/date columns: they never feed totals, tax or line
+// items. Deliberately NOT in CONFIGURABLE_FIELDS / IndustryField catalogue —
+// they exist only for their own industries. Labels live in the profiles above;
+// the server (email + share PDF) mirrors the same ids in IndustryExtendedFields.
+
+export const EXTENDED_FIELDS = {
+  RENTAL: [
+    "agreementNumber",
+    "assetNumber",
+    "serialNumber",
+    "vehicleNumber",
+    "periodStart",
+    "periodEnd",
+    "billingPeriodStart",
+    "billingPeriodEnd",
+    "expectedReturnDate",
+    "depositReference",
+  ],
+  HEALTHCARE: [
+    "patientReference",
+    "serviceDate",
+    "treatmentReference",
+    "referringDoctor",
+    "billingPeriodStart",
+    "billingPeriodEnd",
+  ],
+};
+
+export const EXTENDED_FIELD_TYPES = {
+  periodStart: "date",
+  periodEnd: "date",
+  billingPeriodStart: "date",
+  billingPeriodEnd: "date",
+  expectedReturnDate: "date",
+  serviceDate: "date",
+};
+
+/** Every extended field id across industries (for payload round-trips). */
+export const ALL_EXTENDED_FIELDS = [
+  ...new Set([...EXTENDED_FIELDS.RENTAL, ...EXTENDED_FIELDS.HEALTHCARE]),
+];
+
+/** Extended field ids exposed by an industry (empty array for all others). */
+export function getExtendedFields(industryId) {
+  return EXTENDED_FIELDS[resolveIndustryId(industryId)] || [];
+}
+
+/** Whether the industry exposes the given extended field id. */
+export function isExtendedField(industryId, field) {
+  return getExtendedFields(industryId).includes(field);
+}
+
+export function isExtendedFieldType(field, type) {
+  return EXTENDED_FIELD_TYPES[field] === type;
+}
+
 const TEMPLATE_RIGHT_ROW_DEFS = [
   // key: form field it reads (also the industry-label override key).
   // protectedField rows are never hidden by any industry profile.
@@ -329,11 +411,66 @@ const TEMPLATE_RIGHT_ROW_DEFS = [
   { key: "destination", label: () => "Destination", value: (form) => form?.destination },
 ];
 
+// V29 extended right-column rows: value-driven AND industry-gated, appended
+// after the base rows. An industry only ever sees its own fields, and rows
+// with no value are never emitted — every existing invoice therefore renders
+// byte-identically (golden template gate).
+const RIGHT_ROW_CAP = 13;
+
+function textOr(value) {
+  if (value === null || value === undefined) return null;
+  const s = String(value).trim();
+  return s === "" ? null : s;
+}
+
+function dateRange(start, end) {
+  const s = textOr(start);
+  const e = textOr(end);
+  if (!s && !e) return null;
+  if (!s) return e;
+  if (!e) return s;
+  return `${s} – ${e}`;
+}
+
+function rentalDetails(form) {
+  return (
+    [
+      textOr(form?.agreementNumber),
+      textOr(form?.assetNumber),
+      textOr(form?.serialNumber),
+      textOr(form?.vehicleNumber),
+      dateRange(form?.periodStart, form?.periodEnd),
+      textOr(form?.billingPeriodStart) || textOr(form?.billingPeriodEnd)
+        ? `Billing ${dateRange(form?.billingPeriodStart, form?.billingPeriodEnd)}`
+        : null,
+      textOr(form?.expectedReturnDate) ? `Return ${textOr(form?.expectedReturnDate)}` : null,
+      textOr(form?.depositReference) ? `Deposit ${textOr(form?.depositReference)}` : null,
+    ]
+      .filter(Boolean)
+      .join(" · ") || null
+  );
+}
+
+const EXTENDED_RIGHT_ROW_DEFS = {
+  // RENTAL already uses 12 of the 13 slots — exactly one composite row.
+  RENTAL: [{ key: "rentalDetails", label: () => "Rental Details", value: (form) => rentalDetails(form) }],
+  // HEALTHCARE uses 7 slots — up to five value-driven rows (12 total).
+  HEALTHCARE: [
+    { key: "patientReference", label: (c) => fieldLabel(c, "patientReference", "Patient / Customer ID"), value: (form) => textOr(form?.patientReference) },
+    { key: "serviceDate", label: (c) => fieldLabel(c, "serviceDate", "Service Date"), value: (form) => textOr(form?.serviceDate) },
+    { key: "treatmentReference", label: (c) => fieldLabel(c, "treatmentReference", "Treatment / Session Ref."), value: (form) => textOr(form?.treatmentReference) },
+    { key: "referringDoctor", label: (c) => fieldLabel(c, "referringDoctor", "Referring Doctor"), value: (form) => textOr(form?.referringDoctor) },
+    { key: "billingPeriod", label: () => "Billing Period", value: (form) => dateRange(form?.billingPeriodStart, form?.billingPeriodEnd) },
+  ],
+};
+
 // Right-side metadata rows for invoice templates. Hidden fields are dropped
 // entirely (no label + "-" ghost rows); visible rows pick up the industry's
-// label override where one exists.
+// label override where one exists. Extended rows are appended only when they
+// carry a value for their own industry, and the total is capped at the right
+// column's 13-row layout budget.
 export function getTemplateRightRows(config, form, displayInvNo, isProforma) {
-  return TEMPLATE_RIGHT_ROW_DEFS
+  const base = TEMPLATE_RIGHT_ROW_DEFS
     .filter((def) => def.protectedField || !isFieldHidden(config, def.key))
     .map((def) => ({
       key: def.key,
@@ -342,4 +479,8 @@ export function getTemplateRightRows(config, form, displayInvNo, isProforma) {
         : fieldLabel(config, def.key, def.label(isProforma)),
       value: def.value(form, displayInvNo, isProforma),
     }));
+  const extended = (EXTENDED_RIGHT_ROW_DEFS[config?.id || config?.industry] || [])
+    .map((def) => ({ key: def.key, label: def.label(config), value: def.value(form) }))
+    .filter((row) => Boolean(row.value));
+  return [...base, ...extended].slice(0, RIGHT_ROW_CAP);
 }

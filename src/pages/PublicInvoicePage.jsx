@@ -5,6 +5,7 @@ import InvoiceTemplateRenderer from "../components/InvoiceTemplateRenderer";
 import LoadingDots from "../components/LoadingDots";
 import { publicInvoiceAPI } from "../api/public";
 import { computeInvoiceTotals } from "../utils/invoiceTotals";
+import { ALL_EXTENDED_FIELDS } from "../constants/industryConfig";
 
 const toNum = (v) => {
   const n = parseFloat(v);
@@ -74,6 +75,9 @@ function mapToTemplateProps(data, typeOverride) {
     notes: data.notes,
     status: data.status,
     invoiceType: typeOverride || data.invoiceType,
+    // V29 extended reference fields (rental/health) — templates read them from
+    // form and emit value-driven rows only for their own industry.
+    ...Object.fromEntries(ALL_EXTENDED_FIELDS.map((f) => [f, data[f]])),
   };
 
   const items = (data.items || []).map((i) => ({

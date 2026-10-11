@@ -25,6 +25,7 @@ import { INDIAN_STATES, DELIVERY_TERMS, PAYMENT_TERMS } from "../constants/india
 import { UNITS } from "../constants/units";
 import {
   getIndustryConfig, isFieldHidden, fieldLabel, fieldPlaceholder, REFERENCES_SECTION_FIELDS,
+  getExtendedFields, isExtendedFieldType, ALL_EXTENDED_FIELDS,
 } from "../constants/industryConfig";
 
 const uid = () => (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `i${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`);
@@ -32,6 +33,23 @@ const emptyItem = { itemName: "", hsn: "", unit: "", qty: "", rate: "", gstPerce
 const inputClass = "w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-400/30 focus:border-slate-400 bg-white transition-all min-h-[44px]";
 const selectClass = "w-full pl-3 pr-9 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-400/30 focus:border-slate-400 bg-white transition-all min-h-[44px] appearance-none cursor-pointer text-slate-800 font-normal";
 const labelClass = "block text-xs font-semibold text-slate-600 mb-1.5 tracking-wide uppercase";
+// Safety-net labels if an industry profile ever misses one of the V29 fields.
+const EXTENDED_FALLBACK_LABELS = {
+  agreementNumber: "Rental Agreement No.",
+  assetNumber: "Asset / Equipment ID",
+  serialNumber: "Serial Number",
+  vehicleNumber: "Vehicle Reg. No.",
+  periodStart: "Rental Period Start",
+  periodEnd: "Rental Period End",
+  billingPeriodStart: "Billing Period Start",
+  billingPeriodEnd: "Billing Period End",
+  expectedReturnDate: "Expected Return Date",
+  depositReference: "Deposit Reference",
+  patientReference: "Patient / Customer ID",
+  serviceDate: "Service Date",
+  treatmentReference: "Treatment / Session Ref.",
+  referringDoctor: "Referring Doctor",
+};
 
 const FOCUS_ORDER = ["phone", "name", "email", "gstIn", "billingAddress", "invoiceType", "invoiceDate", "dueDate", "placeOfSupply", "destination", "paymentTerms", "paymentMode", "deliveryNote", "deliveryNoteDate", "referenceNumber", "dispatchDocNumber", "dispatchedThrough", "termsOfDelivery", "otherReferences", "notes"];
 
@@ -360,6 +378,23 @@ export default function InvoiceForm() {
     otherReferences: "",
     destination: "Karnataka",
     notes: "",
+    // V29 industry-extended reference fields (Rental & Healthcare).
+    // Always present in state so updates round-trip loaded values; fields the
+    // industry does not expose stay "" and are dropped from the payload.
+    agreementNumber: "",
+    assetNumber: "",
+    serialNumber: "",
+    vehicleNumber: "",
+    periodStart: "",
+    periodEnd: "",
+    billingPeriodStart: "",
+    billingPeriodEnd: "",
+    expectedReturnDate: "",
+    depositReference: "",
+    patientReference: "",
+    serviceDate: "",
+    treatmentReference: "",
+    referringDoctor: "",
   });
 
   const [items, setItems] = useState(
@@ -414,6 +449,11 @@ export default function InvoiceForm() {
   const industryConfig = useMemo(
     () => business?.industryConfig || getIndustryConfig(business?.industry),
     [business?.industry, business?.industryConfig]
+  );
+  // V29 extended fields the current industry exposes (empty for all others).
+  const extendedFields = useMemo(
+    () => getExtendedFields(business?.industry || industryConfig?.id),
+    [business?.industry, industryConfig?.id]
   );
   // Display-only HSN/SAC switch; missing/legacy business data keeps the column on.
   const showHnSac = !business || business.showHnSac !== false;
@@ -625,6 +665,14 @@ export default function InvoiceForm() {
     if (!customer.name.trim()) { toast.error("Customer name is required"); return false; }
     if (!form.dueDate) { toast.error("Due date is required"); return false; }
     if (!form.invoiceDate) { toast.error("Invoice date is required"); return false; }
+    // V29 period sanity — mirrors the backend's validateExtendedDates (ISO
+    // strings compare lexicographically). Fires only when both ends exist.
+    if (form.periodStart && form.periodEnd && form.periodEnd < form.periodStart) {
+      toast.error("Period end date cannot be before the period start date"); return false;
+    }
+    if (form.billingPeriodStart && form.billingPeriodEnd && form.billingPeriodEnd < form.billingPeriodStart) {
+      toast.error("Billing period end date cannot be before the billing period start date"); return false;
+    }
     const validItems = items.filter((i) => i.itemName.trim() && parseFloat(i.qty) > 0 && parseFloat(i.rate) > 0);
     if (validItems.length === 0) { toast.error("Add at least one item"); return false; }
     return true;
@@ -660,6 +708,10 @@ export default function InvoiceForm() {
       termsOfDelivery: opt("termsOfDelivery", form.termsOfDelivery),
       otherReferences: opt("otherReferences", form.otherReferences),
       destination: opt("destination", form.destination),
+      // V29 extended fields: always round-trip whatever is in form state so an
+      // update never clears loaded values (backend sets them unconditionally).
+      // Unexposed fields stay "" -> undefined -> dropped by JSON serialization.
+      ...Object.fromEntries(ALL_EXTENDED_FIELDS.map((f) => [f, form[f] || undefined])),
       ...(ghostMode && customInvoiceNumber.trim() ? { invoiceNumber: customInvoiceNumber.trim() } : {}),
       discountPercent: discountEnabled ? parseFloat(discountPercent) || 0 : 0,
       items: items.filter((i) => i.itemName.trim() && parseFloat(i.qty) > 0 && parseFloat(i.rate) > 0).map((i, idx) => ({
@@ -1434,6 +1486,30 @@ export default function InvoiceForm() {
                     className={inputClass} />
                 </div>
               </div>
+              {/* V29 industry-extended fields — only rendered for Rental &
+                  Healthcare; reference/display data only, never in totals. */}
+              {extendedFields.length > 0 && (
+                <div className="mt-5 pt-4 border-t border-slate-100">
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
+                    {industryConfig?.id === "HEALTHCARE" ? "Patient & Treatment Details" : "Rental Details"}
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {extendedFields.map((field) => (
+                      <div key={field}>
+                        <label className={labelClass}>{labelFor(field, EXTENDED_FALLBACK_LABELS[field] || field)}</label>
+                        <input
+                          type={isExtendedFieldType(field, "date") ? "date" : "text"}
+                          name={field}
+                          value={form[field] || ""}
+                          onChange={handleFieldChange}
+                          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); focusNext(field); } }}
+                          placeholder={placeholderFor(field)}
+                          className={inputClass} />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
             )}
           </div>

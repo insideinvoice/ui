@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import CompanySeal from "./CompanySeal";
 import CompanyStamp from "./CompanyStamp";
@@ -83,6 +83,16 @@ const InvoicePDF = React.memo(React.forwardRef(({ business, customer, form, item
   const finalTotal = calc.grandTotal;
 
   const industryConfig = getIndustryConfig(business?.industry);
+  // Display-only HSN/SAC switch. Undefined/null (legacy business, or a client
+  // that hasn't refreshed) keeps the column on, so nothing changes visually
+  // until a business explicitly opts out.
+  const showHnSac = business?.showHnSac !== false;
+  // When HSN is hidden the freed 76px is folded into the description column, so
+  // the outer table width (TABLE_W) and every template's page fit are unchanged.
+  const itemCols = useMemo(
+    () => (showHnSac ? ITEM_COLS : ITEM_COLS.map((c) => (c.key === "hsn" ? null : c.key === "desc" ? { ...c, w: c.w + 76 } : c)).filter(Boolean)),
+    [showHnSac],
+  );
   const rightRows = getTemplateRightRows(industryConfig, form, displayInvNo, isProforma);
   const itemDescLabel = fieldLabel(industryConfig, "itemName", "Description of Goods");
 
@@ -205,10 +215,10 @@ const InvoicePDF = React.memo(React.forwardRef(({ business, customer, form, item
               <table style={tStyleSep}>
                 <thead>
                    <tr style={{ height: "32px" }}>
-                     {ITEM_COLS.map((col, idx) => (
-                        <th key={idx} style={{
+                     {itemCols.map((col, idx) => (
+                        <th key={col.key} style={{
                           ...cell(col.w),
-                          borderRight: idx < ITEM_COLS.length - 1 ? S.border : "none",
+                          borderRight: idx < itemCols.length - 1 ? S.border : "none",
                           borderBottom: S.border,
                           textAlign: "center",
                           fontSize: "10px",
@@ -218,7 +228,7 @@ const InvoicePDF = React.memo(React.forwardRef(({ business, customer, form, item
                           lineHeight: "1.5",
                           whiteSpace: "normal",
                         }}>
-                          {idx === 5 ? "Rate (Incl. of Tax)" : col.key === "sl" ? "Sl No" : col.key === "desc" ? itemDescLabel : col.key === "hsn" ? "HSN/SAC" : col.key === "gst" ? "GST Rate" : col.key === "qty" ? "Quantity" : col.key === "per" ? "per" : "Amount"}
+                          {col.key === "rate" ? "Rate (Incl. of Tax)" : col.key === "sl" ? "Sl No" : col.key === "desc" ? itemDescLabel : col.key === "hsn" ? "HSN/SAC" : col.key === "gst" ? "GST Rate" : col.key === "qty" ? "Quantity" : col.key === "per" ? "per" : "Amount"}
                        </th>
                      ))}
                    </tr>
@@ -229,21 +239,24 @@ const InvoicePDF = React.memo(React.forwardRef(({ business, customer, form, item
                     const iGst = parseFloat(item.gstPercentage) || 0;
                     const iTax = (iTaxable * iGst) / 100;
                     const iTotal = iTaxable + iTax;
+                    // Legacy items with no unit render "Piece" — exactly what every
+                    // template has always printed in the per column.
+                    const cells = [
+                      { key: "sl", a: "center", v: idx + 1, w: 52 },
+                      { key: "desc", a: "left", v: item.itemName, w: showHnSac ? 262 : 338 },
+                      ...(showHnSac ? [{ key: "hsn", a: "center", v: item.hsn || "-", w: 76 }] : []),
+                      { key: "gst", a: "center", v: (parseFloat(item.gstPercentage) || 0).toFixed(1) + "%", w: 62 },
+                      { key: "qty", a: "center", v: parseFloat(item.qty).toFixed(2), w: 72 },
+                      { key: "rate", a: "center", v: formatINR(item.rate), w: 76 },
+                      { key: "per", a: "center", v: item.unit || "Piece", w: 42 },
+                      { key: "amt", a: "right", v: formatINR(iTotal), w: 72 },
+                    ];
                     return (
                     <tr id={`section-item-row-${idx}`} key={idx} style={{ height: "28px" }}>
-                       {[
-                         { a: "center", v: idx + 1, w: 52 },
-                         { a: "left", v: item.itemName, w: 262 },
-                         { a: "center", v: item.hsn || "-", w: 76 },
-                         { a: "center", v: (parseFloat(item.gstPercentage) || 0).toFixed(1) + "%", w: 62 },
-                         { a: "center", v: parseFloat(item.qty).toFixed(2), w: 72 },
-                         { a: "center", v: formatINR(item.rate), w: 76 },
-                         { a: "center", v: "Piece", w: 42 },
-                         { a: "right", v: formatINR(iTotal), w: 72 },
-                       ].map((c, ci) => (
-                          <td key={ci} style={{
+                       {cells.map((c, ci) => (
+                          <td key={c.key} style={{
                             ...cell(c.w),
-                            borderRight: ci < ITEM_COLS.length - 1 ? S.border : "none",
+                            borderRight: ci < cells.length - 1 ? S.border : "none",
                             borderBottom: S.border,
                             textAlign: c.a,
                             fontSize: "10px",
@@ -256,7 +269,7 @@ const InvoicePDF = React.memo(React.forwardRef(({ business, customer, form, item
                      </tr>
                     ); }) : (
           <tr>
-                        <td colSpan={8} style={{ borderTop: S.border, borderLeft: S.border, borderBottom: S.border, textAlign: "center", padding: "8px", fontSize: "10px" }}>No items</td>
+                        <td colSpan={itemCols.length} style={{ borderTop: S.border, borderLeft: S.border, borderBottom: S.border, textAlign: "center", padding: "8px", fontSize: "10px" }}>No items</td>
                      </tr>
                     )}
                 </tbody>
@@ -397,9 +410,11 @@ const InvoicePDF = React.memo(React.forwardRef(({ business, customer, form, item
             <td colSpan={2} style={{ borderLeft: S.border, borderRight: S.border, borderBottom: S.border, padding: 0 }}>
               <table style={tStyleSep}>
                 <thead id="section-hsn-header">
-                  <tr style={{ height: "28px" }}>
-                    <th rowSpan={2} style={{ width: "16%", borderRight: S.border, borderBottom: S.border, textAlign: "center", fontSize: "10px", padding: "6px 6px 7px 6px", verticalAlign: "middle", lineHeight: "1.5" }}>HSN/SAC</th>
-                    <th rowSpan={2} style={{ width: "18%", borderRight: S.border, borderBottom: S.border, textAlign: "center", fontSize: "10px", padding: "6px 6px 7px 6px", verticalAlign: "middle", lineHeight: "1.5" }}>Taxable Value</th>
+                   <tr style={{ height: "28px" }}>
+                     {showHnSac && (
+                     <th rowSpan={2} style={{ width: "16%", borderRight: S.border, borderBottom: S.border, textAlign: "center", fontSize: "10px", padding: "6px 6px 7px 6px", verticalAlign: "middle", lineHeight: "1.5" }}>HSN/SAC</th>
+                     )}
+                     <th rowSpan={2} style={{ width: showHnSac ? "18%" : "34%", borderRight: S.border, borderBottom: S.border, textAlign: "center", fontSize: "10px", padding: "6px 6px 7px 6px", verticalAlign: "middle", lineHeight: "1.5" }}>Taxable Value</th>
                     <th colSpan={2} style={{ width: "24%", borderRight: S.border, borderBottom: S.border, textAlign: "center", fontSize: "10px", padding: "6px 6px 7px 6px", verticalAlign: "middle", lineHeight: "1.5" }}>CGST</th>
                      <th colSpan={2} style={{ width: "28%", borderRight: S.border, borderBottom: S.border, textAlign: "center", fontSize: "10px", padding: "6px 6px 7px 6px", verticalAlign: "middle", lineHeight: "1.5" }}>SGST/UTGST</th>
                      <th rowSpan={2} style={{ width: "14%", borderBottom: S.border, textAlign: "center", fontSize: "10px", padding: "6px 6px 7px 6px", verticalAlign: "middle", lineHeight: "1.5" }}>Total Tax Amount</th>
@@ -419,7 +434,9 @@ const InvoicePDF = React.memo(React.forwardRef(({ business, customer, form, item
                        const taxAmt = (taxable * gst) / 100;
                        return (
                           <tr id={`section-hsn-row-${idx}`} key={idx} style={{ height: "26px" }}>
+                            {showHnSac && (
                             <td style={{ borderRight: S.border, borderBottom: S.border, textAlign: "center", fontSize: "10px", padding: "5px 6px", lineHeight: "1.5" }}>{item.hsn || "-"}</td>
+                            )}
                             <td style={{ borderRight: S.border, borderBottom: S.border, textAlign: "right", fontSize: "10px", padding: "5px 6px", lineHeight: "1.5" }}>{formatINR(taxable)}</td>
                             <td style={{ borderRight: S.border, borderBottom: S.border, textAlign: "center", fontSize: "10px", padding: "5px 6px", lineHeight: "1.5" }}>{halfGst.toFixed(1)}%</td>
                             <td style={{ borderRight: S.border, borderBottom: S.border, textAlign: "right", fontSize: "10px", padding: "5px 6px", lineHeight: "1.5" }}>{formatINR(taxAmt / 2)}</td>
@@ -430,7 +447,9 @@ const InvoicePDF = React.memo(React.forwardRef(({ business, customer, form, item
                        );
                      })}
                      <tr id="section-hsn-total" style={{ height: "26px" }}>
+                       {showHnSac && (
                        <td style={{ borderRight: S.border, borderBottom: S.border, textAlign: "center", fontSize: "10px", padding: "5px 6px", lineHeight: "1.5", fontWeight: "bold", background: "linear-gradient(to right, transparent 1px, #f0f0f0 1px)" }}>Total</td>
+                       )}
                        <td style={{ borderRight: S.border, borderBottom: S.border, textAlign: "right", fontSize: "10px", padding: "5px 6px", lineHeight: "1.5", fontWeight: "bold", background: "#f0f0f0" }}>{formatINR(taxableAmount)}</td>
                        <td style={{ borderRight: S.border, borderBottom: S.border, textAlign: "center", fontSize: "10px", padding: "5px 6px", lineHeight: "1.5", background: "#f0f0f0" }}></td>
                        <td style={{ borderRight: S.border, borderBottom: S.border, textAlign: "right", fontSize: "10px", padding: "5px 6px", lineHeight: "1.5", fontWeight: "bold", background: "#f0f0f0" }}>{formatINR(cgstTotal)}</td>

@@ -38,6 +38,9 @@ function mapToTemplateProps(data, typeOverride) {
     ifsc: pay.ifsc,
     bankAddress: pay.bankAddress,
     upiId: pay.upiId,
+    // Undefined (older share payload) keeps the HSN/SAC column on, matching
+    // every other template's null-safe default.
+    showHnSac: s.showHnSac,
   };
 
   const customer = {
@@ -78,6 +81,7 @@ function mapToTemplateProps(data, typeOverride) {
     itemName: i.itemName,
     hsn: i.hsn,
     qty: i.qty,
+    unit: i.unit,
     rate: i.rate,
     gstPercentage: i.gstPercentage,
     taxableValue: i.taxableValue,

@@ -30,7 +30,6 @@ const ITEM_COLS_58 = [
   { w: 60, key: "rate" },
   { w: 60, key: "amt" },
 ];
-const TABLE_W_58 = ITEM_COLS_58.reduce((s, c) => s + c.w, 0);
 
 const ITEM_COLS_80 = [
   { w: 20, key: "sl" },
@@ -40,15 +39,21 @@ const ITEM_COLS_80 = [
   { w: 70, key: "rate" },
   { w: 70, key: "amt" },
 ];
-const TABLE_W_80 = ITEM_COLS_80.reduce((s, c) => s + c.w, 0);
 
 const cell = (w) => ({ width: `${w}px`, minWidth: `${w}px`, maxWidth: `${w}px`, boxSizing: "border-box" });
 
 const InvoiceThermal = React.forwardRef((props, ref) => {
   const { business, customer, form, items, totals, type, invoiceNumber, paperSize } = props;
   const is58 = paperSize === "THERMAL_58MM";
-  const ITEM_COLS = is58 ? ITEM_COLS_58 : ITEM_COLS_80;
-  const TABLE_W = is58 ? TABLE_W_58 : TABLE_W_80;
+  // Display-only HSN/SAC switch. Undefined/null keeps the column on, so nothing
+  // changes visually until a business explicitly opts out. 58mm has no HSN col.
+  const showHnSac = !business || business.showHnSac !== false;
+  const ITEM_COLS = !is58 && !showHnSac
+    // Dropping the 20px HSN column and folding it into desc keeps TABLE_W (and
+    // the outer fixed width of 430px) unchanged, so the paper frame is stable.
+    ? ITEM_COLS_80.filter((c) => c.key !== "hsn").map((c) => (c.key === "desc" ? { ...c, w: c.w + 20 } : c))
+    : is58 ? ITEM_COLS_58 : ITEM_COLS_80;
+  const TABLE_W = ITEM_COLS.reduce((s, c) => s + c.w, 0);
   const PAD = is58 ? 4 : 6;
   const FONT = is58 ? 9 : 10;
   const TITLE = is58 ? 11 : 13;
@@ -124,7 +129,7 @@ const InvoiceThermal = React.forwardRef((props, ref) => {
                 <td key={col.key} style={{ ...cell(col.w), fontSize: `${FONT - 1}px`, textAlign: col.key === "sl" || col.key === "qty" || col.key === "rate" || col.key === "amt" ? "right" : "left", padding: "1px 0", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                   {col.key === "sl" ? idx + 1
                     : col.key === "desc" ? item.itemName
-                    : col.key === "qty" ? item.qty
+                    : col.key === "qty" ? `${item.qty}${item.unit ? ` ${item.unit}` : ""}`
                     : col.key === "rate" ? formatINR(item.rate)
                     : col.key === "hsn" ? (item.hsn || "-")
                     : col.key === "amt" ? formatINR(item.total || item.amount)

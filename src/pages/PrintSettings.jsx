@@ -5,7 +5,7 @@ import { getPrintSettings, savePrintSettings, PAPER_SIZE_LIST, ALL_TEMPLATES, DE
 import { useAuth } from "../context/AuthContext";
 import toast from "react-hot-toast";
 import { businessAPI } from "../api/auth";
-import { ArrowLeft, Printer, FileText, FileSpreadsheet, ShoppingCart, Download, Save } from "lucide-react";
+import { ArrowLeft, Printer, FileText, FileSpreadsheet, ShoppingCart, Download, Save, Tag } from "lucide-react";
 
 const DOC_TYPES = [
   { key: "TAX_INVOICE", label: "Tax Invoice", icon: FileText },
@@ -15,15 +15,23 @@ const DOC_TYPES = [
 ];
 
 export default function PrintSettings({ noWrapper }) {
-  const { selectedTemplate, updateTemplate } = useAuth();
+  const { selectedTemplate, updateTemplate, business, refreshBusiness } = useAuth();
   const [settings, setSettings] = useState(() => getPrintSettings());
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [template, setTemplate] = useState(selectedTemplate || getGlobalTemplate());
+  // Display-only HSN/SAC switch, persisted on the business record so the value
+  // flows to every template and the share/PDF/email paths. Undefined (older
+  // record) is treated as ON — the historical rendering.
+  const [showHnSac, setShowHnSac] = useState(business?.showHnSac !== false);
 
   useEffect(() => {
     setTemplate(selectedTemplate);
   }, [selectedTemplate]);
+
+  useEffect(() => {
+    setShowHnSac(business?.showHnSac !== false);
+  }, [business?.showHnSac]);
 
   const handlePaperSizeChange = (docType, sizeId) => {
     setSettings((prev) => ({
@@ -54,7 +62,9 @@ export default function PrintSettings({ noWrapper }) {
       businessAPI.updateInvoiceSettings({
         invoiceTemplate: getGlobalTemplate(),
         printSettings: JSON.stringify(settings),
+        showHnSac,
       }).catch(() => {});
+      refreshBusiness?.();
       setDirty(false);
       toast.success("Print settings saved");
     } catch {
@@ -62,7 +72,7 @@ export default function PrintSettings({ noWrapper }) {
     } finally {
       setSaving(false);
     }
-  }, [settings]);
+  }, [settings, showHnSac, refreshBusiness]);
 
   const resetDefaults = () => {
     setSettings(structuredClone(DEFAULT_PRINT_SETTINGS));
@@ -105,6 +115,28 @@ export default function PrintSettings({ noWrapper }) {
             <option key={t.id} value={t.id}>{t.label}</option>
           ))}
         </select>
+      </div>
+
+      {/* Display-only HSN/SAC switch — sits with the shared template theme
+          because it applies to every document type and every template. */}
+      <div className="mb-3 p-3 rounded-lg border border-slate-100 hover:border-slate-200 transition-colors">
+        <label className="flex items-start gap-2.5 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={showHnSac}
+            onChange={(e) => { setShowHnSac(e.target.checked); setDirty(true); }}
+            className="mt-0.5 h-3.5 w-3.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-400/30 flex-shrink-0"
+          />
+          <div className="flex items-start gap-2">
+            <div className="w-7 h-7 rounded-lg bg-emerald-50 flex items-center justify-center flex-shrink-0">
+              <Tag className="w-3.5 h-3.5 text-emerald-600" />
+            </div>
+            <div>
+              <div className="text-xs font-semibold text-slate-800">Show HSN/SAC code on invoices</div>
+              <div className="text-[10px] text-slate-500">Applies to every document and template. When off, the HSN/SAC column is hidden and its space is given to the description. Item HSN/SAC codes are always kept on record.</div>
+            </div>
+          </div>
+        </label>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">

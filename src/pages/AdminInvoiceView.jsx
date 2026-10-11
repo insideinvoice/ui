@@ -12,7 +12,7 @@ import { getPrintSettings } from "../constants/paperSizes";
 import { computeInvoiceTotals, round2 } from "../utils/invoiceTotals";
 import { goBack } from "../utils/navigation";
 
-const emptyItem = { itemName: "", hsn: "", qty: "", rate: "", gstPercentage: "18", taxableValue: 0, taxAmount: 0, total: 0 };
+const emptyItem = { itemName: "", hsn: "", unit: "", qty: "", rate: "", gstPercentage: "18", taxableValue: 0, taxAmount: 0, total: 0 };
 
 export default function AdminInvoiceView() {
   const { id } = useParams();
@@ -25,6 +25,8 @@ export default function AdminInvoiceView() {
   const [form, setForm] = useState({});
   const [items, setItems] = useState([]);
   const [business, setBusiness] = useState(null);
+  // Display-only HSN/SAC switch; missing/legacy business data keeps the column on.
+  const showHnSac = !business || business.showHnSac !== false;
   const invoiceRef = useRef(null);
   // The hidden document is only mounted while a PDF is being generated, so
   // editing keystrokes don't re-render a full A4 invoice.
@@ -53,11 +55,13 @@ export default function AdminInvoiceView() {
           otherReferences: inv.otherReferences || "",
           destination: inv.destination || "",
           status: inv.status,
+          billingMode: inv.billingMode || "",
           discountPercent: inv.discountPercent != null ? String(inv.discountPercent) : "",
         });
         setItems(inv.items?.map((item) => ({
           itemName: item.itemName,
           hsn: item.hsn || "",
+          unit: item.unit || "",
           qty: String(item.qty),
           rate: String(item.rate),
           gstPercentage: String(item.gstPercentage),
@@ -157,9 +161,10 @@ export default function AdminInvoiceView() {
         otherReferences: form.otherReferences || undefined,
         destination: form.destination || undefined,
         status: form.status,
+        billingMode: form.billingMode || undefined,
         discountPercent: parseFloat(form.discountPercent) || 0,
         items: items.filter((i) => i.itemName.trim() && parseFloat(i.qty) > 0 && parseFloat(i.rate) > 0).map((i, idx) => ({
-          sno: idx + 1, itemName: i.itemName, hsn: i.hsn || undefined,
+          sno: idx + 1, itemName: i.itemName, hsn: i.hsn || undefined, unit: i.unit || undefined,
           qty: parseFloat(i.qty), rate: parseFloat(i.rate), gstPercentage: parseFloat(i.gstPercentage) || 0,
         })),
       };
@@ -324,7 +329,7 @@ export default function AdminInvoiceView() {
                 <tr className="border-b border-slate-200">
                   <th className="text-left py-2 px-2 text-[10px] font-medium text-slate-500 uppercase">#</th>
                   <th className="text-left py-2 px-2 text-[10px] font-medium text-slate-500 uppercase">Description</th>
-                  <th className="text-left py-2 px-2 text-[10px] font-medium text-slate-500 uppercase">HSN/SAC</th>
+                  {showHnSac && <th className="text-left py-2 px-2 text-[10px] font-medium text-slate-500 uppercase">HSN/SAC</th>}
                   <th className="text-right py-2 px-2 text-[10px] font-medium text-slate-500 uppercase">Qty</th>
                   <th className="text-right py-2 px-2 text-[10px] font-medium text-slate-500 uppercase">Rate</th>
                   <th className="text-right py-2 px-2 text-[10px] font-medium text-slate-500 uppercase">GST%</th>
@@ -344,10 +349,12 @@ export default function AdminInvoiceView() {
                           <input type="text" value={item.itemName} onChange={(e) => handleItemChange(idx, "itemName", e.target.value)}
                             className="w-full px-2 py-1 border border-slate-200 rounded text-xs focus:outline-none focus:border-slate-400" />
                         </td>
+                        {showHnSac && (
                         <td className="py-2 px-2">
                           <input type="text" value={item.hsn} onChange={(e) => handleItemChange(idx, "hsn", e.target.value)}
                             className="w-24 px-2 py-1 border border-slate-200 rounded text-xs focus:outline-none focus:border-slate-400" />
                         </td>
+                        )}
                         <td className="py-2 px-2">
                           <input type="number" step="any" value={item.qty} onChange={(e) => handleItemChange(idx, "qty", e.target.value)}
                             inputMode="decimal" className="w-16 px-2 py-1 border border-slate-200 rounded text-xs text-right focus:outline-none focus:border-slate-400" />
@@ -371,7 +378,7 @@ export default function AdminInvoiceView() {
                     ) : (
                       <>
                         <td className="py-2 px-2 text-xs text-slate-800">{item.itemName}</td>
-                        <td className="py-2 px-2 text-xs text-slate-600">{item.hsn || "-"}</td>
+                        {showHnSac && <td className="py-2 px-2 text-xs text-slate-600">{item.hsn || "-"}</td>}
                         <td className="py-2 px-2 text-xs text-slate-600 text-right">{item.qty}</td>
                         <td className="py-2 px-2 text-xs text-slate-600 text-right">₹{Number(item.rate).toLocaleString()}</td>
                         <td className="py-2 px-2 text-xs text-slate-600 text-right">{item.gstPercentage}%</td>

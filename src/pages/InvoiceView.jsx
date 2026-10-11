@@ -18,10 +18,11 @@ import { getPrintSettings, getInvoiceTemplate } from "../constants/paperSizes";
 import { computeInvoiceTotals, round2 } from "../utils/invoiceTotals";
 import { goBack } from "../utils/navigation";
 import { INDIAN_STATES, DELIVERY_TERMS, PAYMENT_TERMS } from "../constants/indianStates";
+import { UNITS } from "../constants/units";
 import { getIndustryConfig, isFieldHidden, fieldLabel } from "../constants/industryConfig";
 
 const uid = () => (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `i${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`);
-const emptyItem = () => ({ id: uid(), itemName: "", hsn: "", qty: "1", rate: "", gstPercentage: "18", taxableValue: "0", taxAmount: "0", total: "0" });
+const emptyItem = () => ({ id: uid(), itemName: "", hsn: "", unit: "", qty: "1", rate: "", gstPercentage: "18", taxableValue: "0", taxAmount: "0", total: "0" });
 const fmt = (v) => parseFloat(v || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 });
 const inputClass = "w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-400/30 focus:border-slate-400";
 const selectClass = "w-full pl-3 pr-9 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-400/30 focus:border-slate-400 bg-white appearance-none cursor-pointer text-slate-800";
@@ -31,7 +32,7 @@ const labelClass = "block text-xs font-semibold text-slate-600 mb-1.5";
 // (an inner declaration remounts every row on each parent render).
 const InfoRow = memo(({ label, value }) => value ? <p className="text-sm text-slate-600"><span className="text-slate-400">{label}:</span> {value}</p> : null);
 
-const ViewItemRow = memo(({ item, calc, idx, isEditing, onItemChange, onRemove, onAdd }) => (
+const ViewItemRow = memo(({ item, calc, idx, isEditing, onItemChange, onRemove, onAdd, showHnSac = true }) => (
   <tr className={`${idx % 2 === 0 ? "bg-white" : "bg-slate-50/40"} ${isEditing ? "hover:bg-blue-50/20" : ""} transition-colors`}>
     <td className="py-3 px-3 text-center text-slate-400 font-mono text-xs border-b border-slate-100">{idx + 1}</td>
     {isEditing ? (
@@ -40,13 +41,14 @@ const ViewItemRow = memo(({ item, calc, idx, isEditing, onItemChange, onRemove, 
           <div className="relative">
             <input type="text" value={item.itemName} name={`desc-${idx + 1}`}
               onChange={(e) => onItemChange(idx, "itemName", e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); const next = document.querySelector(`input[name="hsn-${idx + 1}"]`); next?.focus(); } }}
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); const next = document.querySelector(`input[name="${showHnSac ? "hsn" : "qty"}-${idx + 1}"]`); next?.focus(); } }}
               className="w-full px-3 py-2 border border-slate-200 rounded text-sm focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white pr-8" placeholder="Item name" />
             <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-300" title="Barcode scannable">
               <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 5V3h4v2H5v2H3V5zm14 0V3h4v2h-2v2h-2V5zM3 19v-2h2v-2h2v4H3zm14 0v-2h2v-2h2v4h-4zM7 7h1v10H7V7zm3 0h1v10h-1V7zm3 0h1v10h-1V7zm3 0h1v10h-1V7z"/></svg>
             </span>
           </div>
         </td>
+        {showHnSac && (
         <td className="py-3 px-3 border-b border-slate-100">
           <div className="relative">
             <input type="text" value={item.hsn} name={`hsn-${idx + 1}`}
@@ -58,12 +60,23 @@ const ViewItemRow = memo(({ item, calc, idx, isEditing, onItemChange, onRemove, 
             </span>
           </div>
         </td>
+        )}
         <td className="py-3 px-3 border-b border-slate-100">
-          <input type="number" step="0.01" min="0" value={item.qty} name={`qty-${idx + 1}`}
-            onChange={(e) => onItemChange(idx, "qty", e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); const rate = document.querySelector(`input[name="rate-${idx + 1}"]`); rate?.focus(); } }}
-            inputMode="decimal"
-            className="w-full px-3 py-2 border border-slate-200 rounded text-sm text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
+          <div className="flex items-center gap-1.5">
+            <input type="number" step="0.01" min="0" value={item.qty} name={`qty-${idx + 1}`}
+              onChange={(e) => onItemChange(idx, "qty", e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); const rate = document.querySelector(`input[name="rate-${idx + 1}"]`); rate?.focus(); } }}
+              inputMode="decimal"
+              className="w-full min-w-0 px-3 py-2 border border-slate-200 rounded text-sm text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
+            <select value={item.unit || ""} name={`unit-${idx + 1}`}
+              onChange={(e) => onItemChange(idx, "unit", e.target.value)}
+              title="Unit of measurement"
+              className="shrink-0 w-[74px] px-1.5 py-2 border border-slate-200 rounded text-xs focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white text-slate-600">
+              {UNITS.map((u) => (
+                <option key={u} value={u}>{u === "" ? "Unit" : u}</option>
+              ))}
+            </select>
+          </div>
         </td>
         <td className="py-3 px-3 border-b border-slate-100">
           <input type="number" step="0.01" min="0" value={item.rate} name={`rate-${idx + 1}`}
@@ -86,7 +99,9 @@ const ViewItemRow = memo(({ item, calc, idx, isEditing, onItemChange, onRemove, 
     ) : (
       <>
         <td className="py-3 px-3 text-slate-800 border-b border-slate-100 truncate">{item.itemName}</td>
+        {showHnSac && (
         <td className="py-3 px-3 text-center font-mono text-xs text-slate-500 border-b border-slate-100 whitespace-nowrap">{item.hsn || "-"}</td>
+        )}
         <td className="py-3 px-3 text-right font-mono text-sm text-slate-700 border-b border-slate-100 whitespace-nowrap">{item.qty}</td>
         <td className="py-3 px-3 text-right font-mono text-sm text-slate-700 border-b border-slate-100 whitespace-nowrap">{fmt(item.rate)}</td>
         <td className="py-3 px-3 text-right font-mono text-sm text-slate-600 border-b border-slate-100 whitespace-nowrap">{item.gstPercentage}%</td>
@@ -142,6 +157,9 @@ export default function InvoiceView() {
   );
   const isHidden = (field) => isFieldHidden(industryConfig, field);
   const labelFor = (field, fallback) => fieldLabel(industryConfig, field, fallback);
+  // Display-only HSN/SAC switch; missing/legacy business data keeps the column on.
+  const showHnSac = !business || business.showHnSac !== false;
+  const isConstruction = business?.industry === "CONSTRUCTION";
   const [form, setForm] = useState({
     customerId: null, customerName: "", customerEmail: "", customerPhone: "", billingAddress: "", customerGstIn: "",
     invoiceDate: "", dueDate: "", placeOfSupply: "", destination: "", termsOfDelivery: "",
@@ -382,13 +400,14 @@ export default function InvoiceView() {
         buyerOrderNumber: inv.buyerOrderNumber || "", dispatchDocNumber: inv.dispatchDocNumber || "",
         dispatchedThrough: inv.dispatchedThrough || "",
         invoiceType: inv.invoiceType || "TAX_INVOICE", status: inv.status || "DRAFT",
+        billingMode: inv.billingMode || "ITEMIZED",
       });
       buyerSnapshotRef.current = {
         name: inv.customerName || "", phone: "", email: "", billingAddress: "", gstIn: "",
       };
       setItems((inv.items || []).length > 0 ? inv.items.map((i) => ({
         id: uid(),
-        itemName: i.itemName, hsn: i.hsn || "", qty: String(i.qty), rate: String(i.rate),
+        itemName: i.itemName, hsn: i.hsn || "", unit: i.unit || "", qty: String(i.qty), rate: String(i.rate),
         gstPercentage: String(i.gstPercentage), taxableValue: String(i.taxableValue || 0),
         taxAmount: String(i.taxAmount || 0), total: String(i.total || 0),
       })) : [{ ...emptyItem() }]);
@@ -548,10 +567,11 @@ export default function InvoiceView() {
         dispatchedThrough: form.dispatchedThrough || undefined,
         otherReferences: form.otherReferences || undefined,
         notes: form.notes || undefined,
+        billingMode: form.billingMode || undefined,
         discountPercent: discountEnabled ? parseFloat(discountPercent) || 0 : 0,
         items: items.filter((i) => i.itemName.trim() && parseFloat(i.qty) > 0 && parseFloat(i.rate) > 0)
           .map((i, idx) => ({
-            sno: idx + 1, itemName: i.itemName, hsn: i.hsn || undefined,
+            sno: idx + 1, itemName: i.itemName, hsn: i.hsn || undefined, unit: i.unit || undefined,
             qty: parseFloat(i.qty), rate: parseFloat(i.rate), gstPercentage: parseFloat(i.gstPercentage) || 0,
           })),
       });
@@ -1003,6 +1023,19 @@ export default function InvoiceView() {
                 <div className="flex items-center gap-2.5">
                   <Package className="w-4 h-4 text-slate-600" />
                   <h2 className="text-sm font-bold text-slate-800">Items</h2>
+                  {isConstruction && !isEditing && form.billingMode && form.billingMode !== "ITEMIZED" && (
+                    <span className="text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded-full bg-blue-50 text-blue-600 border border-blue-100">
+                      {form.billingMode === "COMPLETE_PROJECT" ? "Complete Project Cost" : form.billingMode}
+                    </span>
+                  )}
+                  {isConstruction && isEditing && (
+                    <select name="billingMode" value={form.billingMode || "ITEMIZED"} onChange={handleFieldChange}
+                      title="Billing mode"
+                      className="ml-2 text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-white text-slate-600 focus:outline-none focus:border-slate-400">
+                      <option value="ITEMIZED">Itemized Cost Breakdown</option>
+                      <option value="COMPLETE_PROJECT">Complete Project Cost</option>
+                    </select>
+                  )}
                 </div>
                 {isEditing && (
                   <button onClick={addItem}
@@ -1019,7 +1052,7 @@ export default function InvoiceView() {
                     <tr className="bg-slate-800">
                       <th className="text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">#</th>
                       <th className="text-white text-xs font-semibold py-3.5 px-3 text-left whitespace-nowrap">{labelFor("itemName", "Description")}</th>
-                      <th className="text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">HSN/SAC</th>
+                      {showHnSac && <th className="text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">HSN/SAC</th>}
                       <th className="text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">Qty</th>
                       <th className="text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">Rate</th>
                       <th className="text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">GST %</th>
@@ -1031,7 +1064,7 @@ export default function InvoiceView() {
                   </thead>
                   <tbody>
                     {items.map((item, idx) => (
-                      <ViewItemRow key={item.id ?? idx} item={item} calc={totals.perItem[idx]} idx={idx} isEditing={isEditing} onItemChange={handleItemChange} onRemove={removeItem} onAdd={addItem} />
+                      <ViewItemRow key={item.id ?? idx} item={item} calc={totals.perItem[idx]} idx={idx} isEditing={isEditing} onItemChange={handleItemChange} onRemove={removeItem} onAdd={addItem} showHnSac={showHnSac} />
                     ))}
                   </tbody>
                 </table>
@@ -1058,13 +1091,15 @@ export default function InvoiceView() {
                             onChange={(e) => handleItemChange(idx, "itemName", e.target.value)}
                             className="w-full px-3 py-2 border border-slate-200 rounded text-sm bg-white min-h-[44px]" placeholder="Item name" />
                         </div>
-                        <div className="grid grid-cols-2 gap-2">
+                        <div className={showHnSac ? "grid grid-cols-2 gap-2" : "grid grid-cols-1 gap-2"}>
+                          {showHnSac && (
                           <div>
                             <label className="text-[10px] font-semibold text-slate-500 uppercase">HSN/SAC</label>
                             <input type="text" value={item.hsn}
                               onChange={(e) => handleItemChange(idx, "hsn", e.target.value)}
                               className="w-full px-3 py-2 border border-slate-200 rounded text-sm bg-white font-mono min-h-[44px]" />
                           </div>
+                          )}
                           <div>
                             <label className="text-[10px] font-semibold text-slate-500 uppercase">GST %</label>
                             <input type="number" step="0.01" min="0" max="100" value={item.gstPercentage}
@@ -1100,7 +1135,7 @@ export default function InvoiceView() {
                       <>
                         <div className="text-sm font-medium text-slate-800">{item.itemName}</div>
                         <div className="grid grid-cols-3 gap-2 text-xs">
-                          <div><span className="text-slate-400">HSN:</span> <span className="font-mono">{item.hsn || "-"}</span></div>
+                          {showHnSac && <div><span className="text-slate-400">HSN:</span> <span className="font-mono">{item.hsn || "-"}</span></div>}
                           <div><span className="text-slate-400">Qty:</span> <span className="font-mono">{item.qty}</span></div>
                           <div><span className="text-slate-400">Rate:</span> <span className="font-mono">{fmt(item.rate)}</span></div>
                           <div><span className="text-slate-400">GST:</span> <span className="font-mono">{item.gstPercentage}%</span></div>

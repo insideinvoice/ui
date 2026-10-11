@@ -23,7 +23,7 @@ export default function Profile() {
   const [businessData, setBusinessData] = useState(null);
   const [bankForm, setBankForm] = useState({ bankName: "", accountNo: "", branch: "", ifsc: "", bankAddress: "", upiId: "" });
   const [savingBank, setSavingBank] = useState(false);
-  const [bizForm, setBizForm] = useState({ businessName: "", industry: DEFAULT_INDUSTRY, gstIn: "", phone: "", email: "", website: "", addressLine1: "", addressLine2: "", city: "", state: "", country: "", pincode: "", invoicePrefix: "", specialistIn: "", specialistInEnabled: false });
+  const [bizForm, setBizForm] = useState({ businessName: "", industry: DEFAULT_INDUSTRY, gstIn: "", phone: "", email: "", website: "", addressLine1: "", addressLine2: "", city: "", state: "", country: "", pincode: "", invoicePrefix: "", specialistIn: "", specialistInEnabled: false, showHnSac: true });
   const [savingBiz, setSavingBiz] = useState(false);
   const fileInputRef = useRef(null);
 
@@ -57,6 +57,7 @@ export default function Profile() {
           invoicePrefix: b?.invoicePrefix || "",
           specialistIn: b?.specialistIn || "",
           specialistInEnabled: !!b?.specialistInEnabled,
+          showHnSac: b?.showHnSac !== false,
         });
       })
       .catch(() => {});
@@ -156,6 +157,10 @@ export default function Profile() {
 
   const handleSpecialistToggle = () => {
     setBizForm({ ...bizForm, specialistInEnabled: !bizForm.specialistInEnabled });
+  };
+
+  const handleShowHnSacToggle = () => {
+    setBizForm({ ...bizForm, showHnSac: !bizForm.showHnSac });
   };
 
   const handleBizSave = async (e) => {
@@ -421,6 +426,20 @@ export default function Profile() {
                   className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400/30 focus:border-indigo-400 bg-white transition-all disabled:bg-slate-50 disabled:text-slate-400" />
                 <p className="text-[10px] text-slate-400 mt-1">Printed under the address on the invoice when enabled.</p>
               </div>
+              {bizForm.industry === "CONSTRUCTION" && (
+              <div className="md:col-span-2 lg:col-span-3">
+                <div className="flex items-center justify-between p-3 rounded-lg border border-slate-200 bg-slate-50/60">
+                  <div>
+                    <span className="block text-xs font-semibold text-slate-700 uppercase tracking-wide">Show HSN/SAC on Invoices</span>
+                    <span className="block text-[10px] text-slate-400 mt-0.5">Display only — stored codes and GST calculations are never affected.</span>
+                  </div>
+                  <button type="button" onClick={handleShowHnSacToggle} aria-label="Show HSN/SAC on invoices"
+                    className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${bizForm.showHnSac ? "bg-blue-500" : "bg-slate-300"}`}>
+                    <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform ${bizForm.showHnSac ? "translate-x-5" : ""}`} />
+                  </button>
+                </div>
+              </div>
+              )}
             </div>
             <button type="submit" disabled={savingBiz}
               className="px-4 py-2.5 bg-slate-800 text-white text-sm font-semibold rounded-lg hover:bg-slate-700 disabled:opacity-50 transition-all shadow-sm">

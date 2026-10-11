@@ -22,12 +22,13 @@ import { getPrintSettings, getInvoiceTemplate } from "../constants/paperSizes";
 import { computeInvoiceTotals, round2 } from "../utils/invoiceTotals";
 import { formatInvoiceNumber } from "../utils/invoiceConvention";
 import { INDIAN_STATES, DELIVERY_TERMS, PAYMENT_TERMS } from "../constants/indianStates";
+import { UNITS } from "../constants/units";
 import {
   getIndustryConfig, isFieldHidden, fieldLabel, fieldPlaceholder, REFERENCES_SECTION_FIELDS,
 } from "../constants/industryConfig";
 
 const uid = () => (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `i${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`);
-const emptyItem = { itemName: "", hsn: "", qty: "", rate: "", gstPercentage: "18", taxableValue: 0, taxAmount: 0, total: 0 };
+const emptyItem = { itemName: "", hsn: "", unit: "", qty: "", rate: "", gstPercentage: "18", taxableValue: 0, taxAmount: 0, total: 0 };
 const inputClass = "w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-400/30 focus:border-slate-400 bg-white transition-all min-h-[44px]";
 const selectClass = "w-full pl-3 pr-9 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-400/30 focus:border-slate-400 bg-white transition-all min-h-[44px] appearance-none cursor-pointer text-slate-800 font-normal";
 const labelClass = "block text-xs font-semibold text-slate-600 mb-1.5 tracking-wide uppercase";
@@ -48,29 +49,33 @@ const focusNext = (currentName) => {
 };
 
 const FOCUS_FIELDS = ["hsn", "desc", "qty", "rate", "gst"];
+// When the business hides HSN/SAC, the field is not rendered, so the Enter
+// chain skips it entirely (same rule as the invoice-header focus order).
+const focusFieldsFor = (showHnSac) => (showHnSac ? FOCUS_FIELDS : FOCUS_FIELDS.filter((f) => f !== "hsn"));
 
-const ItemRow = memo(({ item, calc, idx, onItemChange, onRemove, onAdd, onHsnLookup }) => {
+const ItemRow = memo(({ item, calc, idx, onItemChange, onRemove, onAdd, onHsnLookup, showHnSac = true, locked = false }) => {
+  const focusFields = focusFieldsFor(showHnSac);
   const handleKeyDown = (e, field) => {
     if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
       onAdd();
       setTimeout(() => {
-        const next = document.querySelector('input[name="hsn-1"]');
+        const next = document.querySelector(`input[name="${focusFields[0]}-${idx + 2}"]`) || document.querySelector(`input[name="${focusFields[0]}-1"]`);
         next?.focus();
       }, 50);
       return;
     }
     if (e.key === "Enter") {
       e.preventDefault();
-      const fieldIndex = FOCUS_FIELDS.indexOf(field);
-      if (fieldIndex === FOCUS_FIELDS.length - 1) {
+      const fieldIndex = focusFields.indexOf(field);
+      if (fieldIndex === focusFields.length - 1) {
         onAdd();
         setTimeout(() => {
-          const next = document.querySelector(`input[name="hsn-${idx + 2}"]`);
+          const next = document.querySelector(`input[name="${focusFields[0]}-${idx + 2}"]`);
           next?.focus();
         }, 50);
       } else {
-        const nextField = FOCUS_FIELDS[fieldIndex + 1];
+        const nextField = focusFields[fieldIndex + 1];
         const next = document.querySelector(`input[name="${nextField}-${idx + 1}"]`);
         next?.focus();
       }
@@ -80,6 +85,7 @@ const ItemRow = memo(({ item, calc, idx, onItemChange, onRemove, onAdd, onHsnLoo
   return (
   <tr className={`${idx % 2 === 0 ? "bg-white" : "bg-slate-50/40"} hover:bg-blue-50/20 transition-colors`}>
     <td className="py-3 px-3 text-center text-slate-400 font-mono text-xs border-b border-slate-100">{idx + 1}</td>
+    {showHnSac && (
     <td className="py-3 px-3 border-b border-slate-100">
       <div className="relative">
         <input type="text" value={item.hsn} name={`hsn-${idx + 1}`}
@@ -99,23 +105,37 @@ const ItemRow = memo(({ item, calc, idx, onItemChange, onRemove, onAdd, onHsnLoo
         </span>
       </div>
     </td>
+    )}
     <td className="py-3 px-3 border-b border-slate-100">
       <input type="text" value={item.itemName} name={`desc-${idx + 1}`}
         onChange={(e) => onItemChange(idx, "itemName", e.target.value)}
         onKeyDown={(e) => handleKeyDown(e, "desc")}
-        className="w-full px-3 py-2 border border-slate-200 rounded text-sm focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white"
+        readOnly={locked}
+        className={`w-full px-3 py-2 border border-slate-200 rounded text-sm focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white ${locked ? "bg-slate-50 text-slate-500 cursor-not-allowed" : ""}`}
         placeholder="Item name" />
     </td>
     <td className="py-3 px-3 border-b border-slate-100">
-      <input type="number" step="1" min="0" value={item.qty} name={`qty-${idx + 1}`}
-        onChange={(e) => onItemChange(idx, "qty", e.target.value)}
-        onKeyDown={(e) => handleKeyDown(e, "qty")}
-        className="w-full px-3 py-2 border border-slate-200 rounded text-sm text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
+      <div className="flex items-center gap-1.5">
+        <input type="number" step="1" min="0" value={item.qty} name={`qty-${idx + 1}`}
+          onChange={(e) => onItemChange(idx, "qty", e.target.value)}
+          onKeyDown={(e) => handleKeyDown(e, "qty")}
+          className="w-full min-w-0 px-3 py-2 border border-slate-200 rounded text-sm text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
+        <select value={item.unit || ""} name={`unit-${idx + 1}`}
+          onChange={(e) => onItemChange(idx, "unit", e.target.value)}
+          onKeyDown={(e) => handleKeyDown(e, "unit")}
+          title="Unit of measurement"
+          className="shrink-0 w-[74px] px-1.5 py-2 border border-slate-200 rounded text-xs focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white text-slate-600">
+          {UNITS.map((u) => (
+            <option key={u} value={u}>{u === "" ? "Unit" : u}</option>
+          ))}
+        </select>
+      </div>
     </td>
     <td className="py-3 px-3 border-b border-slate-100">
       <input type="number" step="0.01" min="0" value={item.rate} name={`rate-${idx + 1}`}
         onChange={(e) => onItemChange(idx, "rate", e.target.value)}
         onKeyDown={(e) => handleKeyDown(e, "rate")}
+        readOnly={locked}
         className="w-full px-3 py-2 border border-slate-200 rounded text-sm text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
     </td>
     <td className="py-3 px-3 border-b border-slate-100">
@@ -146,7 +166,8 @@ const ItemRow = memo(({ item, calc, idx, onItemChange, onRemove, onAdd, onHsnLoo
   );
 });
 
-const ItemCard = memo(({ item, calc, idx, onItemChange, onRemove, onAdd, onHsnLookup, descLabel = "Description" }) => {
+const ItemCard = memo(({ item, calc, idx, onItemChange, onRemove, onAdd, onHsnLookup, descLabel = "Description", showHnSac = true, locked = false }) => {
+  const focusFields = focusFieldsFor(showHnSac);
   const handleKeyDown = (e, field) => {
     if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
@@ -155,11 +176,11 @@ const ItemCard = memo(({ item, calc, idx, onItemChange, onRemove, onAdd, onHsnLo
     }
     if (e.key === "Enter") {
       e.preventDefault();
-      const fieldIndex = FOCUS_FIELDS.indexOf(field);
-      if (fieldIndex === FOCUS_FIELDS.length - 1) {
+      const fieldIndex = focusFields.indexOf(field);
+      if (fieldIndex === focusFields.length - 1) {
         onAdd();
       } else {
-        const nextField = FOCUS_FIELDS[fieldIndex + 1];
+        const nextField = focusFields[fieldIndex + 1];
         const next = document.querySelector(`[data-mobile-field="${nextField}-${idx}"]`);
         next?.focus();
       }
@@ -176,6 +197,7 @@ const ItemCard = memo(({ item, calc, idx, onItemChange, onRemove, onAdd, onHsnLo
         </button>
       </div>
       <div className="space-y-3">
+        {showHnSac && (
         <div>
           <label className="block text-[10px] font-semibold text-slate-500 uppercase mb-1">HSN/SAC</label>
           <input type="text" value={item.hsn} data-mobile-field={`hsn-${idx}`}
@@ -190,12 +212,14 @@ const ItemCard = memo(({ item, calc, idx, onItemChange, onRemove, onAdd, onHsnLo
             onBlur={(e) => { if (e.target.value && !e.target.dataset.enterPressed) onHsnLookup(idx, e.target.value); delete e.target.dataset.enterPressed; }}
             className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono min-h-[44px]" placeholder="Scan or type" />
         </div>
+        )}
         <div>
           <label className="block text-[10px] font-semibold text-slate-500 uppercase mb-1">{descLabel}</label>
           <input type="text" value={item.itemName} data-mobile-field={`desc-${idx}`}
             onChange={(e) => onItemChange(idx, "itemName", e.target.value)}
             onKeyDown={(e) => handleKeyDown(e, "desc")}
-            className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white min-h-[44px]" placeholder="Item name" />
+            readOnly={locked}
+            className={`w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white min-h-[44px] ${locked ? "bg-slate-50 text-slate-500 cursor-not-allowed" : ""}`} placeholder="Item name" />
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
@@ -205,14 +229,24 @@ const ItemCard = memo(({ item, calc, idx, onItemChange, onRemove, onAdd, onHsnLo
               onKeyDown={(e) => handleKeyDown(e, "qty")}
               inputMode="numeric"
               className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono min-h-[44px] [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
+            <select value={item.unit || ""} data-mobile-field={`unit-${idx}`}
+              onChange={(e) => onItemChange(idx, "unit", e.target.value)}
+              onKeyDown={(e) => handleKeyDown(e, "unit")}
+              title="Unit of measurement"
+              className="mt-2 w-full px-2.5 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white text-slate-600 min-h-[44px]">
+              {UNITS.map((u) => (
+                <option key={u} value={u}>{u === "" ? "Unit" : u}</option>
+              ))}
+            </select>
           </div>
           <div>
             <label className="block text-[10px] font-semibold text-slate-500 uppercase mb-1">Rate</label>
             <input type="number" step="0.01" min="0" value={item.rate} data-mobile-field={`rate-${idx}`}
               onChange={(e) => onItemChange(idx, "rate", e.target.value)}
               onKeyDown={(e) => handleKeyDown(e, "rate")}
+              readOnly={locked}
               inputMode="decimal"
-              className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono min-h-[44px] [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
+              className={`w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono min-h-[44px] [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none ${locked ? "bg-slate-50 text-slate-500 cursor-not-allowed" : ""}`} />
           </div>
         </div>
         <div className="grid grid-cols-2 gap-3">
@@ -267,6 +301,14 @@ export default function InvoiceForm() {
   const sealRequired = sealEnabled && !sealType;
   const [discountPercent, setDiscountPercent] = useState("");
   const [discountEnabled, setDiscountEnabled] = useState(false);
+  // Construction billing representation. COMPLETE_PROJECT bills one agreed
+  // amount line; ITEMIZED bills category lines. Both are ordinary line-item
+  // invoices — the flag only restores the right editor when re-opened.
+  const isConstruction = business?.industry === "CONSTRUCTION";
+  const [billingMode, setBillingMode] = useState("ITEMIZED");
+  const [project, setProject] = useState({
+    name: "", description: "", agreedAmount: "", workOrder: "", siteAddress: "", workPeriod: "",
+  });
   const [showPrefillBanner, setShowPrefillBanner] = useState(!!prefilledData);
   const discountVal = parseFloat(discountPercent) || 0;
   const invoiceRef = useRef(null);
@@ -332,6 +374,39 @@ export default function InvoiceForm() {
   // same code, so we skip repeat calls until the user edits the code.
   const hsnLookupRef = useRef({});
 
+  // Complete Project Cost: keep a single synced line item — project name +
+  // description become the description, the agreed amount becomes the rate.
+  // GST / HSN / unit / qty on the row stay user-editable; switching back to
+  // Itemized leaves the rows exactly as they are.
+  useEffect(() => {
+    if (billingMode !== "COMPLETE_PROJECT") return;
+    const composed = [project.name.trim(), project.description.trim()].filter(Boolean).join(" — ");
+    setItems((prev) => {
+      const first = prev[0] || { ...emptyItem, id: uid() };
+      const nextRow = {
+        ...first,
+        itemName: composed,
+        qty: "1",
+      };
+      if (project.agreedAmount !== "") nextRow.rate = project.agreedAmount;
+      if (prev.length === 1 && prev[0].itemName === nextRow.itemName && String(prev[0].rate) === String(nextRow.rate) && String(prev[0].qty) === String(nextRow.qty)) {
+        return prev;
+      }
+      return [nextRow];
+    });
+  }, [billingMode, project.name, project.description, project.agreedAmount]);
+
+  // WO/contract ref + site ride existing invoice fields, labelled for
+  // construction by the industry profile (Work Order No., Site / Work Location).
+  useEffect(() => {
+    if (billingMode !== "COMPLETE_PROJECT") return;
+    setForm((f) => ({
+      ...f,
+      deliveryNote: project.workOrder,
+      destination: project.siteAddress || f.destination,
+    }));
+  }, [billingMode, project.workOrder, project.siteAddress]);
+
   const nextInvoiceNumber = business
     ? formatInvoiceNumber(business.invoicePrefix, business.nextInvoiceSequence ?? 1)
     : "";
@@ -340,6 +415,8 @@ export default function InvoiceForm() {
     () => business?.industryConfig || getIndustryConfig(business?.industry),
     [business?.industry, business?.industryConfig]
   );
+  // Display-only HSN/SAC switch; missing/legacy business data keeps the column on.
+  const showHnSac = !business || business.showHnSac !== false;
   const isHidden = useCallback((field) => isFieldHidden(industryConfig, field), [industryConfig]);
   const labelFor = useCallback((field, fallback) => fieldLabel(industryConfig, field, fallback), [industryConfig]);
   const placeholderFor = useCallback((field) => fieldPlaceholder(industryConfig, field), [industryConfig]);
@@ -557,6 +634,13 @@ export default function InvoiceForm() {
     // Hidden industry fields are omitted on create so form defaults never
     // leak into stored data. Existing values are preserved on the server.
     const opt = (field, value) => (isHidden(field) ? undefined : value || undefined);
+    // Complete Project Cost appends the work period to notes so the document
+    // says what the single agreed amount covers — without touching totals.
+    const workPeriodNote = isConstruction && billingMode === "COMPLETE_PROJECT" && project.workPeriod.trim()
+      ? `Work period: ${project.workPeriod.trim()}`
+      : "";
+    const baseNotes = form.notes || "";
+    const notes = [baseNotes, workPeriodNote].filter(Boolean).join("\n") || undefined;
     return {
       customerId,
       invoiceType: form.invoiceType,
@@ -565,7 +649,8 @@ export default function InvoiceForm() {
       placeOfSupply: form.placeOfSupply || undefined,
       paymentTerms: form.paymentTerms || undefined,
       paymentMode: form.paymentMode || undefined,
-      notes: form.notes || undefined,
+      notes,
+      billingMode: isConstruction ? billingMode : undefined,
       deliveryNote: opt("deliveryNote", form.deliveryNote),
       deliveryNoteDate: opt("deliveryNoteDate", form.deliveryNoteDate),
       referenceNumber: form.referenceNumber || undefined,
@@ -578,7 +663,7 @@ export default function InvoiceForm() {
       ...(ghostMode && customInvoiceNumber.trim() ? { invoiceNumber: customInvoiceNumber.trim() } : {}),
       discountPercent: discountEnabled ? parseFloat(discountPercent) || 0 : 0,
       items: items.filter((i) => i.itemName.trim() && parseFloat(i.qty) > 0 && parseFloat(i.rate) > 0).map((i, idx) => ({
-        sno: idx + 1, itemName: i.itemName, hsn: i.hsn || undefined,
+        sno: idx + 1, itemName: i.itemName, hsn: i.hsn || undefined, unit: i.unit || undefined,
         qty: Math.floor(parseFloat(i.qty)) || 0, rate: parseFloat(i.rate), gstPercentage: parseFloat(i.gstPercentage) || 0,
       })),
     };
@@ -1227,6 +1312,13 @@ export default function InvoiceForm() {
                 {!isHidden("destination") && (
                 <div>
                   <label className={labelClass}>{labelFor("destination", "Destination")}</label>
+                  {isConstruction ? (
+                    // Site / Work Location is a free-text address for builders —
+                    // a state dropdown would reject "Plot 12, Whitefield".
+                    <input type="text" name="destination" value={form.destination} onChange={handleFieldChange}
+                      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); focusNext("destination"); } }}
+                      className={inputClass} placeholder={placeholderFor("destination") || "e.g. Plot 12, Whitefield, Bengaluru"} />
+                  ) : (
                   <div className="relative">
                     <select name="destination" value={form.destination} onChange={handleFieldChange}
                       onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); focusNext("destination"); } }}
@@ -1236,6 +1328,7 @@ export default function InvoiceForm() {
                     </select>
                     <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                   </div>
+                  )}
                 </div>
                 )}
                 <div>
@@ -1419,6 +1512,89 @@ export default function InvoiceForm() {
           </div>
         </div>
 
+      {/* Construction billing mode */}
+      {isConstruction && (
+      <div className="w-full bg-white rounded-xl shadow-sm border border-slate-200 p-4 sm:p-6 mb-6">
+        <div className="flex items-center gap-2.5 mb-4 pb-3 border-b border-slate-100">
+          <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center">
+            <FileSpreadsheet className="w-4 h-4 text-slate-600" />
+          </div>
+          <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Billing Mode</h3>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+          <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all ${billingMode === "COMPLETE_PROJECT" ? "border-blue-400 bg-blue-50/40" : "border-slate-200 hover:border-slate-300"}`}>
+            <input type="radio" name="billingMode" value="COMPLETE_PROJECT" checked={billingMode === "COMPLETE_PROJECT"}
+              onChange={() => {
+                setBillingMode("COMPLETE_PROJECT");
+                setProject((p) => ({
+                  ...p,
+                  name: p.name || items[0]?.itemName || "",
+                  agreedAmount: p.agreedAmount || items[0]?.rate || "",
+                }));
+              }}
+              className="mt-0.5 accent-blue-500" />
+            <span>
+              <span className="block text-sm font-semibold text-slate-800">Complete Project Cost</span>
+              <span className="block text-xs text-slate-500 mt-0.5">Bill one agreed project amount as a single line.</span>
+            </span>
+          </label>
+          <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all ${billingMode === "ITEMIZED" ? "border-blue-400 bg-blue-50/40" : "border-slate-200 hover:border-slate-300"}`}>
+            <input type="radio" name="billingMode" value="ITEMIZED" checked={billingMode === "ITEMIZED"}
+              onChange={() => setBillingMode("ITEMIZED")}
+              className="mt-0.5 accent-blue-500" />
+            <span>
+              <span className="block text-sm font-semibold text-slate-800">Itemized Cost Breakdown</span>
+              <span className="block text-xs text-slate-500 mt-0.5">Bill separate work / material / labour lines.</span>
+            </span>
+          </label>
+        </div>
+        {billingMode === "COMPLETE_PROJECT" && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          <div>
+            <label className={labelClass}>Project Name</label>
+            <input type="text" value={project.name} name="projectName"
+              onChange={(e) => setProject((p) => ({ ...p, name: e.target.value }))}
+              className={inputClass} placeholder="e.g. Residential Building (G+1)" />
+          </div>
+          <div className="sm:col-span-2">
+            <label className={labelClass}>Work Description</label>
+            <input type="text" value={project.description} name="projectDescription"
+              onChange={(e) => setProject((p) => ({ ...p, description: e.target.value }))}
+              className={inputClass} placeholder="e.g. Complete civil work as per WO" />
+          </div>
+          <div>
+            <label className={labelClass}>Agreed Project Amount (₹)</label>
+            <input type="number" step="0.01" min="0" value={project.agreedAmount} name="projectAmount"
+              onChange={(e) => setProject((p) => ({ ...p, agreedAmount: e.target.value }))}
+              className={inputClass} placeholder="e.g. 450000" />
+          </div>
+          <div>
+            <label className={labelClass}>{labelFor("deliveryNote", "Work Order No.")}</label>
+            <input type="text" value={project.workOrder} name="projectWorkOrder"
+              onChange={(e) => setProject((p) => ({ ...p, workOrder: e.target.value }))}
+              className={inputClass} placeholder={placeholderFor("deliveryNote") || "e.g. WO-2026-14"} />
+          </div>
+          <div>
+            <label className={labelClass}>{labelFor("destination", "Site / Work Location")}</label>
+            <input type="text" value={project.siteAddress} name="projectSite"
+              onChange={(e) => setProject((p) => ({ ...p, siteAddress: e.target.value }))}
+              className={inputClass} placeholder={placeholderFor("destination") || "e.g. Plot 12, Whitefield, Bengaluru"} />
+          </div>
+          <div>
+            <label className={labelClass}>Work Period</label>
+            <input type="text" value={project.workPeriod} name="projectWorkPeriod"
+              onChange={(e) => setProject((p) => ({ ...p, workPeriod: e.target.value }))}
+              className={inputClass} placeholder="e.g. Jan 2026 – Mar 2026" />
+          </div>
+          <p className="sm:col-span-2 lg:col-span-3 text-xs text-slate-400">
+            Project name and description become the invoice line description; the agreed amount becomes its rate.
+            GST, HSN/SAC and unit stay editable on the line below.
+          </p>
+        </div>
+        )}
+      </div>
+      )}
+
       {/* Items — full width below the two-column grid, inside max-w container */}
       <div className="w-full bg-white rounded-xl shadow-sm border border-slate-200 p-4 sm:p-6 my-6">
           <div className="flex items-center justify-between mb-4 sm:mb-5 pb-3 border-b border-slate-100">
@@ -1439,8 +1615,8 @@ export default function InvoiceForm() {
             <table className="w-full text-sm border-collapse" style={{ tableLayout: "fixed" }}>
               <colgroup>
                 <col style={{ width: "3%" }} />
-                <col style={{ width: "14%" }} />
-                <col style={{ width: "21%" }} />
+                <col style={{ width: showHnSac ? "14%" : "0%" }} />
+                <col style={{ width: showHnSac ? "21%" : "35%" }} />
                 <col style={{ width: "9%" }} />
                 <col style={{ width: "10%" }} />
                 <col style={{ width: "8%" }} />
@@ -1452,7 +1628,7 @@ export default function InvoiceForm() {
               <thead>
                 <tr className="bg-slate-800">
                   <th className="text-white text-xs font-semibold py-3.5 px-3 text-center">#</th>
-                  <th className="text-white text-xs font-semibold py-3.5 px-3 text-left">HSN/SAC</th>
+                  {showHnSac && <th className="text-white text-xs font-semibold py-3.5 px-3 text-left">HSN/SAC</th>}
                   <th className="text-white text-xs font-semibold py-3.5 px-3 text-left">{labelFor("itemName", "Description")}</th>
                   <th className="text-white text-xs font-semibold py-3.5 px-3 text-center">Qty</th>
                   <th className="text-white text-xs font-semibold py-3.5 px-3 text-center">Rate</th>
@@ -1465,7 +1641,7 @@ export default function InvoiceForm() {
               </thead>
               <tbody>
                 {items.map((item, idx) => (
-                  <ItemRow key={item.id ?? idx} item={item} calc={totals.perItem[idx]} idx={idx} onItemChange={handleItemChange} onRemove={removeItem} onAdd={addItem} onHsnLookup={handleHsnLookup} />
+                  <ItemRow key={item.id ?? idx} item={item} calc={totals.perItem[idx]} idx={idx} onItemChange={handleItemChange} onRemove={removeItem} onAdd={addItem} onHsnLookup={handleHsnLookup} showHnSac={showHnSac} locked={isConstruction && billingMode === "COMPLETE_PROJECT"} />
                 ))}
               </tbody>
             </table>
@@ -1474,7 +1650,7 @@ export default function InvoiceForm() {
           {/* Mobile cards */}
           <div className="md:hidden space-y-3">
             {items.map((item, idx) => (
-              <ItemCard key={item.id ?? idx} item={item} calc={totals.perItem[idx]} idx={idx} onItemChange={handleItemChange} onRemove={removeItem} onAdd={addItem} onHsnLookup={handleHsnLookup} descLabel={labelFor("itemName", "Description")} />
+              <ItemCard key={item.id ?? idx} item={item} calc={totals.perItem[idx]} idx={idx} onItemChange={handleItemChange} onRemove={removeItem} onAdd={addItem} onHsnLookup={handleHsnLookup} descLabel={labelFor("itemName", "Description")} showHnSac={showHnSac} locked={isConstruction && billingMode === "COMPLETE_PROJECT"} />
             ))}
             <button onClick={addItem}
               className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-slate-800 text-white text-sm font-semibold rounded-lg hover:bg-slate-700 transition-all shadow-lg min-h-[48px]">

@@ -7,11 +7,12 @@ import { getSpecialistInLine, SPECIALIST_IN_EXTRA_H } from "../utils/specialistI
 import {
   RETRO_PAGE_METRICS,
   RETRO_CAPACITY_NOTE,
-  COLS,
-  RULE_X,
+  retroCols,
+  retroRuleX,
+  retroCharsPerLine,
   ROW_H,
   splitAmount,
-  fmtQty,
+  fmtQtyUnit,
   fmtDate,
   chunkRetroItems,
 } from "../utils/retroPage";
@@ -206,7 +207,8 @@ const Details = ({ invoiceNumber, form, customer }) => {
 
 /* ----------------------------------------------------------- item box */
 
-const ItemHead = () => {
+const ItemHead = ({ layout }) => {
+  const { cols, ruleX, showHnSac } = layout;
   const th = {
     boxSizing: "border-box",
     borderBottom: B,
@@ -222,7 +224,7 @@ const ItemHead = () => {
   // No./PARTICULARS/QTY./RATE span both header lines so the grey block is
   // continuous — only AMOUNT is split into Rs. / Ps.
   const span = { ...th, height: "39px" };
-  const amount = { ...th, height: "24px", width: COLS.rs + COLS.ps, verticalAlign: "bottom" };
+  const amount = { ...th, height: "24px", width: cols.rs + cols.ps, verticalAlign: "bottom" };
   const sub = { ...th, height: "15px", fontWeight: 400, fontSize: "11.5px", verticalAlign: "top" };
   return (
     // Rules come from the same absolute overlay as the item rows/totals —
@@ -234,40 +236,43 @@ const ItemHead = () => {
           divider at 634 while the body rules sit at RULE_X (662). The col
           widths pin every header rule to the same coordinates as the rows. */}
       <colgroup>
-        <col style={{ width: COLS.no }} />
-        <col style={{ width: COLS.particulars }} />
-        <col style={{ width: COLS.hsn }} />
-        <col style={{ width: COLS.qty }} />
-        <col style={{ width: COLS.rate }} />
-        <col style={{ width: COLS.rs }} />
-        <col style={{ width: COLS.ps }} />
+        <col style={{ width: cols.no }} />
+        <col style={{ width: cols.particulars }} />
+        {showHnSac && <col style={{ width: cols.hsn }} />}
+        <col style={{ width: cols.qty }} />
+        <col style={{ width: cols.rate }} />
+        <col style={{ width: cols.rs }} />
+        <col style={{ width: cols.ps }} />
       </colgroup>
       <tbody>
         <tr>
-          <td rowSpan={2} style={{ ...span, width: COLS.no }}>No.</td>
-          <td rowSpan={2} style={{ ...span, width: COLS.particulars }}>PARTICULARS</td>
-          <td rowSpan={2} style={{ ...span, width: COLS.hsn, lineHeight: "14px" }}>HSN<br />CODE</td>
-          <td rowSpan={2} style={{ ...span, width: COLS.qty }}>QTY.</td>
-          <td rowSpan={2} style={{ ...span, width: COLS.rate }}>RATE</td>
+          <td rowSpan={2} style={{ ...span, width: cols.no }}>No.</td>
+          <td rowSpan={2} style={{ ...span, width: cols.particulars }}>PARTICULARS</td>
+          {showHnSac && (
+          <td rowSpan={2} style={{ ...span, width: cols.hsn, lineHeight: "14px" }}>HSN<br />CODE</td>
+          )}
+          <td rowSpan={2} style={{ ...span, width: cols.qty }}>QTY.</td>
+          <td rowSpan={2} style={{ ...span, width: cols.rate }}>RATE</td>
           <td style={amount} colSpan={2}>AMOUNT</td>
         </tr>
         <tr>
-          <td style={{ ...sub, width: COLS.rs }}>Rs.</td>
-          <td style={{ ...sub, width: COLS.ps }}>Ps.</td>
+          <td style={{ ...sub, width: cols.rs }}>Rs.</td>
+          <td style={{ ...sub, width: cols.ps }}>Ps.</td>
         </tr>
       </tbody>
     </table>
       {/* vertical column rules, same overlay as the item rows/totals — but
           NOT the Rs./Ps. rule: on the printed form that rule starts at the
           item box, so the AMOUNT cell stays whole and its label reads centred */}
-      {RULE_X.slice(0, -1).map((x) => (
+      {ruleX.slice(0, -1).map((x) => (
         <div key={x} style={{ position: "absolute", top: 0, bottom: 0, left: `${x}px`, width: "1px", background: "#000000" }} />
       ))}
     </div>
   );
 };
 
-const ItemBox = ({ pageItems, startIndex, height = RETRO_PAGE_METRICS.body }) => {
+const ItemBox = ({ pageItems, startIndex, height = RETRO_PAGE_METRICS.body, layout }) => {
+  const { cols, ruleX, showHnSac } = layout;
   // Spread rows across the fixed body: tall-enough min heights so a short
   // item list still covers the box (target >= 80%) instead of leaving a
   // void before the totals block.
@@ -288,23 +293,25 @@ const ItemBox = ({ pageItems, startIndex, height = RETRO_PAGE_METRICS.body }) =>
         <tbody>
           {pageItems.map((item, i) => (
             <tr key={i} id={`retro-item-${startIndex + i}`}>
-              <td style={{ ...td, width: COLS.no, textAlign: "center" }}>{startIndex + i + 1}</td>
-              <td style={{ ...td, width: COLS.particulars, textAlign: "left", overflowWrap: "anywhere" }}>{item.itemName}</td>
+              <td style={{ ...td, width: cols.no, textAlign: "center" }}>{startIndex + i + 1}</td>
+              <td style={{ ...td, width: cols.particulars, textAlign: "left", overflowWrap: "anywhere" }}>{item.itemName}</td>
               {/* 8-digit codes wrapped to a second line here, growing every
                   row by 14px past what the chunk estimator accounts for and
                   clipping the last row at the body's overflow:hidden — keep
                   them on one line at a size that fits the 62px column */}
-              <td style={{ ...td, width: COLS.hsn, textAlign: "center", padding: "4px 3px", fontSize: "11px", whiteSpace: "nowrap" }}>{item.hsn || ""}</td>
-              <td style={{ ...td, width: COLS.qty, textAlign: "center" }}>{fmtQty(item.qty)}</td>
-              <td style={{ ...td, width: COLS.rate, textAlign: "right" }}>{formatINR(item.rate)}</td>
-              <td style={{ ...td, width: COLS.rs, textAlign: "right" }}>{splitAmount(item.__amount).rs}</td>
-              <td style={{ ...td, width: COLS.ps, textAlign: "right" }}>{splitAmount(item.__amount).ps}</td>
+              {showHnSac && (
+              <td style={{ ...td, width: cols.hsn, textAlign: "center", padding: "4px 3px", fontSize: "11px", whiteSpace: "nowrap" }}>{item.hsn || ""}</td>
+              )}
+              <td style={{ ...td, width: cols.qty, textAlign: "center" }}>{fmtQtyUnit(item.qty, item.unit)}</td>
+              <td style={{ ...td, width: cols.rate, textAlign: "right" }}>{formatINR(item.rate)}</td>
+              <td style={{ ...td, width: cols.rs, textAlign: "right" }}>{splitAmount(item.__amount).rs}</td>
+              <td style={{ ...td, width: cols.ps, textAlign: "right" }}>{splitAmount(item.__amount).ps}</td>
             </tr>
           ))}
         </tbody>
       </table>
       {/* full-height column rules: rows carry no lines, the frame does */}
-      {RULE_X.map((x) => (
+      {ruleX.map((x) => (
         <div key={x} style={{ position: "absolute", top: 0, bottom: 0, left: `${x}px`, width: "1px", background: "#000000" }} />
       ))}
     </div>
@@ -313,7 +320,8 @@ const ItemBox = ({ pageItems, startIndex, height = RETRO_PAGE_METRICS.body }) =>
 
 /* -------------------------------------------------------------- totals */
 
-const Totals = ({ gross, discAmt, discPct, cgst, sgst, grand, words, pctLabel, showTax = true }) => {
+const Totals = ({ gross, discAmt, discPct, cgst, sgst, grand, words, pctLabel, showTax = true, layout }) => {
+  const { cols, ruleX, showHnSac } = layout;
   const shade = { background: "#d6d6d6" };
   const rs = splitAmount;
   const showDiscount = parseFloat(discAmt) > 0;
@@ -364,23 +372,24 @@ const Totals = ({ gross, discAmt, discPct, cgst, sgst, grand, words, pctLabel, s
       {/* same column pins as the item box so the Rs./Ps. rule runs straight
           from the AMOUNT header through every row and totals line */}
       <colgroup>
-        <col style={{ width: COLS.no + COLS.particulars }} />
-        <col style={{ width: COLS.hsn }} />
-        <col style={{ width: COLS.qty + COLS.rate }} />
-        <col style={{ width: COLS.rs }} />
-        <col style={{ width: COLS.ps }} />
+        <col style={{ width: cols.no + cols.particulars }} />
+        {showHnSac && <col style={{ width: cols.hsn }} />}
+        <col style={{ width: cols.qty + cols.rate }} />
+        <col style={{ width: cols.rs }} />
+        <col style={{ width: cols.ps }} />
       </colgroup>
       <tbody>
         <tr>
           <td
             rowSpan={rows.length}
             style={{
-              width: COLS.no + COLS.particulars,
+              width: cols.no + cols.particulars,
               borderBottom: B,
               boxSizing: "border-box",
               height: `${totalsH}px`,
               padding: "7px 10px",
               verticalAlign: "top",
+              position: "relative",
             }}
           >
             <div style={{ display: "flex", alignItems: "flex-end", gap: "6px", fontSize: "12.5px" }}>
@@ -395,17 +404,24 @@ const Totals = ({ gross, discAmt, discPct, cgst, sgst, grand, words, pctLabel, s
                 <div style={{ marginTop: "9px", fontSize: "12.5px", whiteSpace: "nowrap", overflow: "hidden" }}>{DOTS}</div>
               </>
             )}
+            {/* Without the HSN strip there is no dedicated corner cell, so
+                E.&O.E. keeps its bottom-right place inside this one. */}
+            {!showHnSac && (
+              <div style={{ position: "absolute", right: "8px", bottom: "4px", fontSize: "11.5px", fontWeight: 700 }}>E.&amp;O.E.</div>
+            )}
           </td>
           {/* the HSN strip continues the item-box column rule; E.&O.E. lives in its corner */}
+          {showHnSac && (
           <td
             rowSpan={rows.length}
-            style={{ width: COLS.hsn, borderBottom: B, boxSizing: "border-box", position: "relative" }}
+            style={{ width: cols.hsn, borderBottom: B, boxSizing: "border-box", position: "relative" }}
           >
             <div style={{ position: "absolute", right: "5px", bottom: "4px", fontSize: "11.5px", fontWeight: 700 }}>E.&amp;O.E.</div>
           </td>
-          <td style={{ ...label, ...rows[0].shade ? shade : {}, width: COLS.qty + COLS.rate }}>{rows[0].text}</td>
-          <td style={{ ...money, ...rows[0].shade ? shade : {}, width: COLS.rs }}>{rs(rows[0].val).rs}</td>
-          <td style={{ ...money, ...rows[0].shade ? shade : {}, width: COLS.ps }}>{rs(rows[0].val).ps}</td>
+          )}
+          <td style={{ ...label, ...rows[0].shade ? shade : {}, width: cols.qty + cols.rate }}>{rows[0].text}</td>
+          <td style={{ ...money, ...rows[0].shade ? shade : {}, width: cols.rs }}>{rs(rows[0].val).rs}</td>
+          <td style={{ ...money, ...rows[0].shade ? shade : {}, width: cols.ps }}>{rs(rows[0].val).ps}</td>
         </tr>
         {rows.slice(1).map((r) => (
           <tr key={r.key}>
@@ -420,7 +436,10 @@ const Totals = ({ gross, discAmt, discPct, cgst, sgst, grand, words, pctLabel, s
       </tbody>
     </table>
       {/* only the rules that have a real column boundary in totals */}
-      {[RULE_X[1], RULE_X[2], RULE_X[4], RULE_X[5]].map((x) => (
+      {(showHnSac
+        ? [ruleX[1], ruleX[2], ruleX[4], ruleX[5]]
+        : [ruleX[1], ruleX[2], ruleX[3], ruleX[4]]
+      ).map((x) => (
         <div key={x} style={{ position: "absolute", top: 0, bottom: 0, left: `${x}px`, width: "1px", background: "#000000" }} />
       ))}
     </div>
@@ -429,9 +448,9 @@ const Totals = ({ gross, discAmt, discPct, cgst, sgst, grand, words, pctLabel, s
 
 /* -------------------------------------------------------------- footer */
 
-const FooterBand = ({ business, terms, sealVisible, sealType, sigSrc }) => (
+const FooterBand = ({ business, terms, sealVisible, sealType, sigSrc, layout }) => (
   <div style={{ height: RETRO_PAGE_METRICS.footer, display: "flex", boxSizing: "border-box", position: "relative" }}>
-    <div style={{ width: COLS.no + COLS.particulars, boxSizing: "border-box", padding: "7px 10px", overflow: "hidden" }}>
+    <div style={{ width: layout.cols.no + layout.cols.particulars, boxSizing: "border-box", padding: "7px 10px", overflow: "hidden" }}>
       <div style={{ fontSize: "13px", fontWeight: 700, marginBottom: "4px" }}>Terms &amp; Conditions :</div>
       <div style={{ fontSize: "11.5px", lineHeight: "15px" }}>{terms}</div>
     </div>
@@ -479,7 +498,7 @@ const FooterBand = ({ business, terms, sealVisible, sealType, sigSrc }) => (
         </div>
       )}
     </div>
-    <div style={{ position: "absolute", top: 0, bottom: -BOTTOM_SPACER, left: `${COLS.no + COLS.particulars}px`, width: "1px", background: "#000000" }} />
+    <div style={{ position: "absolute", top: 0, bottom: -BOTTOM_SPACER, left: `${layout.cols.no + layout.cols.particulars}px`, width: "1px", background: "#000000" }} />
   </div>
 );
 
@@ -489,8 +508,8 @@ const RetroPage = ({ pageId, chunks, startIndex, shared }) => (
   <Frame pageId={pageId}>
     <Letterhead business={shared.business} title={shared.title} subNote={shared.subNote} />
     <Details invoiceNumber={shared.displayInvNo} form={shared.form} customer={shared.customer} />
-    <ItemHead />
-    <ItemBox pageItems={chunks} startIndex={startIndex} height={shared.bodyH} />
+    <ItemHead layout={shared.layout} />
+    <ItemBox pageItems={chunks} startIndex={startIndex} height={shared.bodyH} layout={shared.layout} />
     <Totals
       gross={shared.gross}
       discAmt={shared.discAmt}
@@ -501,6 +520,7 @@ const RetroPage = ({ pageId, chunks, startIndex, shared }) => (
       words={shared.words}
       pctLabel={shared.pctLabel}
       showTax={shared.showTax}
+      layout={shared.layout}
     />
     <FooterBand
       business={shared.business}
@@ -508,6 +528,7 @@ const RetroPage = ({ pageId, chunks, startIndex, shared }) => (
       sealVisible={shared.sealVisible}
       sealType={shared.sealType}
       sigSrc={shared.sigSrc}
+      layout={shared.layout}
     />
     {/* breathing room between the terms/signature band and the frame edge */}
     <div style={{ height: `${BOTTOM_SPACER}px`, boxSizing: "border-box" }} />
@@ -519,13 +540,18 @@ const RetroPage = ({ pageId, chunks, startIndex, shared }) => (
 const InvoiceTemplateRetro = React.forwardRef(
   ({ business, customer, form, items, discountPercent, type, invoiceNumber }, ref) => {
     const all = (items || []).filter((i) => i?.itemName?.trim() && parseFloat(i?.qty) > 0);
+    // Display-only HSN/SAC switch: hidden means the whole column disappears
+    // and PARTICULARS absorbs its width — frame width and cut points unchanged.
+    const showHnSac = !business || business.showHnSac !== false;
+    const cols = retroCols(showHnSac);
+    const ruleX = retroRuleX(cols);
     // The Specialist In line grows the letterhead; take the same height out of
     // the open item box so the outer frame always equals one A4 page — the PDF
     // slicer cuts on frame boundaries and anything taller spills onto page 2.
     const bodyH =
       RETRO_PAGE_METRICS.body -
       (getSpecialistInLine(business) ? SPECIALIST_IN_EXTRA_H : 0);
-    const chunks = chunkRetroItems(all, bodyH);
+    const chunks = chunkRetroItems(all, bodyH, retroCharsPerLine(cols));
 
     const calc = computeInvoiceTotals(items, discountPercent);
     const isProforma = type === "PROFORMA_INVOICE";
@@ -556,6 +582,7 @@ const InvoiceTemplateRetro = React.forwardRef(
       business,
       customer,
       form,
+      layout: { cols, ruleX, showHnSac },
       title: TITLE_BY_TYPE[type] || (type === "PROFORMA_INVOICE" ? "PROFORMA INVOICE" : "TAX INVOICE"),
       subNote: isProforma ? "— NOT A TAX INVOICE —" : null,
       showTax: !isProforma,

@@ -45,11 +45,37 @@ export const RULE_X = [
   COLS.no + COLS.particulars + COLS.hsn + COLS.qty + COLS.rate + COLS.rs,
 ];
 
+// HSN/SAC hidden: the whole column is removed and its 62px folds into
+// PARTICULARS, so the frame width and every other column keep their exact
+// position. COLS/RULE_X above stay the default (HSN on) for anything that
+// imports them directly.
+export const COLS_NO_HSN = { no: 44, particulars: 338, qty: 76, rate: 100, rs: 104, ps: 48 };
+
+export const retroCols = (showHnSac = true) => (showHnSac ? COLS : COLS_NO_HSN);
+
+export const retroRuleX = (cols = COLS) => {
+  const keys = cols.hsn !== undefined
+    ? ["no", "particulars", "hsn", "qty", "rate", "rs"]
+    : ["no", "particulars", "qty", "rate", "rs"];
+  let x = 0;
+  return keys.map((k) => {
+    x += cols[k];
+    return x;
+  });
+};
+
 export const ROW_H = 26;
 const EST_ROW = 27;          // measured floor for one-line particular
 const EST_WRAP = 16;         // each wrapped line
 const CHARS_PER_LINE = 34;   // 264px text area at 12.5px Arial (one line of safety margin)
 const BODY_BUDGET = RETRO_PAGE_METRICS.body - 4; // safety lip above the frame
+
+// Text area grows with PARTICULARS when HSN is hidden, so the wrap estimate
+// must follow it or long names would over-chunk onto extra pages.
+export const retroCharsPerLine = (cols = COLS) => {
+  const textW = cols.particulars - 12; // td padding 6px each side
+  return Math.max(1, Math.round((CHARS_PER_LINE * textW) / (COLS.particulars - 12)));
+};
 
 // Worst case (all one-line particulars): how many rows one page holds.
 export const RETRO_CAPACITY_NOTE = Math.floor(BODY_BUDGET / EST_ROW);
@@ -66,13 +92,15 @@ export const estimateRow = (name) => EST_ROW + EST_WRAP * (linesFor(name) - 1);
  * header grows (e.g. the Specialist In line) so the outer frame height
  * never exceeds one A4 page.
  */
-export function chunkRetroItems(items, bodyH = RETRO_PAGE_METRICS.body) {
+export function chunkRetroItems(items, bodyH = RETRO_PAGE_METRICS.body, charsPerLine = CHARS_PER_LINE) {
   const budget = bodyH - 4; // safety lip above the frame
+  const linesFor = (name) => Math.max(1, Math.ceil(String(name || "").length / charsPerLine));
+  const estimate = (name) => EST_ROW + EST_WRAP * (linesFor(name) - 1);
   const pages = [];
   let current = [];
   let used = 0;
   (items || []).forEach((item) => {
-    const h = estimateRow(item?.itemName);
+    const h = estimate(item?.itemName);
     if (current.length > 0 && used + h > budget) {
       pages.push(current);
       current = [];
@@ -97,6 +125,15 @@ export const splitAmount = (val) => {
 export const fmtQty = (q) => {
   const n = parseFloat(q);
   return Number.isFinite(n) ? String(n) : "";
+};
+
+// Qty with the unit appended (e.g. "10.00 Kg"). Missing unit falls back to
+// "Piece" so every template agrees on the legacy default. Returns "" when the
+// qty itself is empty.
+export const fmtQtyUnit = (q, unit) => {
+  const n = parseFloat(q);
+  if (!Number.isFinite(n)) return "";
+  return `${n} ${unit || "Piece"}`;
 };
 
 export const fmtDate = (d) => {

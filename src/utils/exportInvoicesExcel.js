@@ -88,6 +88,7 @@ const text = (v) => (v == null ? null : String(v));
 // their own industry.
 
 const CORE_COLUMNS = [
+  { header: "Industry", key: "industry", width: 30, type: "text" },
   { header: "Invoice No", key: "invoiceNumber", width: 18, type: "text" },
   { header: "Type", key: "invoiceType", width: 20, type: "text" },
   { header: "Status", key: "status", width: 12, type: "text" },
@@ -208,7 +209,7 @@ const EXTENDED_HEADERS = {
 // (taxAmount / (subtotal - discount) * 100) so the row's formulas reproduce the
 // invoice's true Subtotal / Tax / Grand Total while staying editable. This is
 // what keeps 161 invoices at 161 rows instead of 2576.
-function invoiceToRow(inv, customer) {
+function invoiceToRow(inv, customer, business) {
   const items = Array.isArray(inv.items) ? inv.items : [];
   const subtotal = num(inv.subtotal) ?? 0;
   const discount = num(inv.discountPercent) ?? 0;
@@ -241,6 +242,7 @@ function invoiceToRow(inv, customer) {
   }
 
   return {
+    industry: text(inv.industry || business?.industry),
     invoiceNumber: text(inv.invoiceNumber),
     invoiceType: text(inv.invoiceType),
     status: text(inv.status),
@@ -463,7 +465,7 @@ export async function exportInvoicesExcel({ search = "", month = "", year = "" }
   sheet.views = [{ state: "frozen", ySplit: 2 }];
 
   filtered.forEach((inv) => {
-    sheet.addRow(invoiceToRow(inv, customerById.get(inv.customerId)));
+    sheet.addRow(invoiceToRow(inv, customerById.get(inv.customerId), business));
   });
   sheet.autoFilter = {
     from: { row: 2, column: 1 },
@@ -472,6 +474,29 @@ export async function exportInvoicesExcel({ search = "", month = "", year = "" }
 
   // Live formulas on the three computed money columns.
   injectFormulas(sheet, colMap, columns);
+
+  // Add data validation (dropdown) for the Industry column (col 1 = A).
+  // Use all industry profile names from INDUSTRY_PROFILES.
+  const industryNames = Object.values(INDUSTRY_PROFILES || {}).map((p) => p.name).sort();
+  if (industryNames.length > 0) {
+    const lastDataRow = 2 + filtered.length; // header at row 2, data rows start at 3
+    sheet.getColumn(1).eachCell({ includeEmpty: true }, (cell, rowNumber) => {
+      if (rowNumber >= 3 && rowNumber <= lastDataRow) {
+        cell.dataValidation = {
+          type: "list",
+          allowBlank: true,
+          formulae: [industryNames.join(",")],
+          showErrorMessage: true,
+          errorStyle: "warning",
+          errorTitle: "Invalid Industry",
+          error: "Please select a valid industry from the list",
+          showInputMessage: true,
+          promptTitle: "Select Industry",
+          prompt: "Choose the industry for this invoice",
+        };
+      }
+    });
+  }
 
   // Force Excel/LibreOffice to recalculate the formulas on open so totals are
   // always correct even if a cached `result` is stale after an edit.

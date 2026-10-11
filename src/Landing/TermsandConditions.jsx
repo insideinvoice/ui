@@ -17,12 +17,12 @@ export default function TermsandConditions() {
         </Link>
       <h1 className="text-3xl font-bold mb-2">Terms and Conditions</h1>
       <p className="text-sm text-slate-500 mb-6">
-        Last Updated: October 3, 2026
+        Last Updated: October 11, 2026
       </p>
 
       <p className="mb-6">
         Welcome to <strong>Inside Invoice</strong>, a product of{" "}
-        <strong>2X+1</strong>. By accessing or using our GST billing and invoice
+        <strong>Gritx</strong>. By accessing or using our GST billing and invoice
         management application, you agree to be bound by these Terms and
         Conditions (“Terms”).
       </p>
@@ -91,7 +91,7 @@ export default function TermsandConditions() {
       </h2>
       <p>
         All trademarks, designs, software, and branding belong to{" "}
-        <strong>2X+1</strong>. You retain ownership of your business data.
+        <strong>Gritx</strong>. You retain ownership of your business data.
       </p>
 
       {/* 6 */}
@@ -158,7 +158,7 @@ export default function TermsandConditions() {
       </p>
 
       <p className="mt-10 text-sm text-slate-500">
-        © {year} Inside Invoice by 2X+1. All rights reserved.
+        © {year} Inside Invoice by Gritx. All rights reserved.
       </p>
     </div>
     </div>

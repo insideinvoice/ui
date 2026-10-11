@@ -226,7 +226,7 @@ export default memo(function AppNavbar() {
                 Inside Invoice
               </span>
               <span className="text-[8px] text-slate-500 font-medium tracking-widest text-left">
-                BY 2X+1
+                BY GRITX
               </span>
             </div>
           </button>

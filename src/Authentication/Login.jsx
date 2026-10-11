@@ -111,7 +111,7 @@ export default function AuthPage() {
                 Inside Invoice
               </span>
               <span className="text-[10px] text-slate-400 font-medium tracking-wider leading-tight">
-                BY 2X+1
+                BY GRITX
               </span>
             </div>
           </Link>

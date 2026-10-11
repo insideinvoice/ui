@@ -80,7 +80,7 @@ export default function InsideInvoiceHelpCenter() {
         </section>
 
         <footer className="border-t pt-6 text-sm text-slate-500">
-          &copy; {year} Inside Invoice by 2X+1. All rights reserved.
+          &copy; {year} Inside Invoice by Gritx. All rights reserved.
         </footer>
       </div>
     </div>

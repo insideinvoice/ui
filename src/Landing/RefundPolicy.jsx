@@ -17,13 +17,13 @@ export default function RefundPolicy() {
         </Link>
       <h1 className="text-3xl font-bold mb-2">Refund Policy</h1>
       <p className="text-sm text-slate-500 mb-6">
-        Last Updated: October 3, 2026
+        Last Updated: October 11, 2026
       </p>
 
       <p className="mb-6">
         This Refund Policy explains our policies regarding refunds,
         cancellations, and billing for <strong>Inside Invoice</strong>, a
-        product of <strong>2X+1</strong>.
+        product of <strong>Gritx</strong>.
       </p>
 
       {/* 1 */}
@@ -140,7 +140,7 @@ export default function RefundPolicy() {
       </p>
 
       <p className="mt-10 text-sm text-slate-500">
-        © {year} Inside Invoice by 2X+1. All rights reserved.
+        © {year} Inside Invoice by Gritx. All rights reserved.
       </p>
     </div>
     </div>

@@ -468,7 +468,7 @@ const GSTCalculator = () => {
 
           <footer className="mt-16 border-t border-slate-200 pt-8 pb-4 text-center">
             <p className="text-slate-400 text-xs font-medium">
-              © {year} Inside Invoice by 2X+1. All rights reserved.
+              © {year} Inside Invoice by Gritx. All rights reserved.
             </p>
           </footer>
         </div>

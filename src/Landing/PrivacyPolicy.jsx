@@ -17,12 +17,12 @@ export default function PrivacyPolicy() {
         </Link>
       <h1 className="text-3xl font-bold mb-2">Privacy Policy</h1>
       <p className="text-sm text-slate-500 mb-6">
-        Last Updated: October 3, 2026
+        Last Updated: October 11, 2026
       </p>
 
       <p className="mb-6">
         Welcome to <strong>Inside Invoice</strong> ("we", "our", or "us"), a
-        product of <strong>2X+1</strong>. We are committed to protecting your
+        product of <strong>Gritx</strong>. We are committed to protecting your
         privacy and ensuring the security of your personal information.
       </p>
 
@@ -116,7 +116,7 @@ export default function PrivacyPolicy() {
       </p>
 
       <p className="mt-10 text-sm text-slate-500">
-        © {year} Inside Invoice by 2X+1. All rights reserved.
+        © {year} Inside Invoice by Gritx. All rights reserved.
       </p>
     </div>
     </div>

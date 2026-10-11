@@ -27,7 +27,7 @@ export default function InvoiceNav({ scrolled, setIsMenuOpen, isMenuOpen }) {
                   Inside Invoice
                 </span>
                 <span className="text-[8px] text-slate-500 font-semibold tracking-wider leading-tight">
-                  BY 2X+1
+                  BY GRITX
                 </span>
               </div>
             </Link>

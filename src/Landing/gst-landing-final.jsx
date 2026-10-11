@@ -23,6 +23,19 @@ import {
   ChevronRight,
   ChevronDown,
   HelpCircle,
+  Store,
+  HardHat,
+  Factory,
+  Briefcase,
+  Wrench,
+  Truck,
+  UtensilsCrossed,
+  Key,
+  Server,
+  HeartPulse,
+  GraduationCap,
+  Sprout,
+  Building2,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import InvoiceNav from "./Navigation/InvoiceNav";
@@ -519,6 +532,137 @@ export default function GSTBillingLanding() {
         </div>
       </section>
 
+      {/* Industries Section */}
+      <section
+        id="industries"
+        className="py-12 sm:py-16 lg:py-20 px-3 sm:px-4 lg:px-6 bg-slate-50"
+      >
+        <div className="max-w-full mx-auto">
+          <div className="text-center mb-8 sm:mb-12 lg:mb-16 px-2">
+            <div className="inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 bg-white/80 backdrop-blur-sm rounded-full text-xs sm:text-sm font-medium text-slate-700 mb-4 sm:mb-6 border border-slate-200">
+              <Building2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              13 Industries Supported
+            </div>
+            <h2 className="text-2xl sm:text-3xl lg:text-5xl font-bold text-slate-900 mb-2 sm:mb-3">
+              One Platform,{" "}
+              <span className="gradient-text">Every Industry</span>
+            </h2>
+            <p className="text-sm sm:text-lg text-slate-600 font-normal max-w-2xl mx-auto">
+              Choose your industry during setup and Inside Invoice reshapes its
+              fields, wording and documents around how you actually bill — from
+              crane rentals to clinics.
+            </p>
+          </div>
+
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 lg:gap-5 px-2 sm:px-4">
+            {[
+              {
+                icon: <Store className="w-5 h-5" />,
+                title: "Trading, Retail & Distribution",
+                description: "Wholesale, retail and distribution billing with full dispatch details.",
+              },
+              {
+                icon: <HardHat className="w-5 h-5" />,
+                title: "Construction & Contracting",
+                description: "Work-order billing with project references and delivery notes.",
+              },
+              {
+                icon: <Factory className="w-5 h-5" />,
+                title: "Manufacturing & Fabrication",
+                description: "Item-wise HSN/SAC invoicing for makers and fabricators.",
+              },
+              {
+                icon: <Briefcase className="w-5 h-5" />,
+                title: "Professional & Business Services",
+                description: "Clean service invoices for agencies, consultancies and firms.",
+              },
+              {
+                icon: <Wrench className="w-5 h-5" />,
+                title: "Repair & Maintenance",
+                description: "Job-card style billing for service and repair workshops.",
+              },
+              {
+                icon: <Truck className="w-5 h-5" />,
+                title: "Transport & Logistics",
+                description: "Consignment billing with vehicle and carrier details.",
+              },
+              {
+                icon: <UtensilsCrossed className="w-5 h-5" />,
+                title: "Food & Hospitality",
+                description: "Cafés, caterers and restaurants billing in seconds.",
+              },
+              {
+                icon: <Key className="w-5 h-5" />,
+                title: "Rental & Leasing",
+                description: "Agreement numbers, asset IDs, rental periods and deposits.",
+              },
+              {
+                icon: <Server className="w-5 h-5" />,
+                title: "Telecom, IT & Subscriptions",
+                description: "Account-based and subscription-style billing cycles.",
+              },
+              {
+                icon: <HeartPulse className="w-5 h-5" />,
+                title: "Healthcare & Wellness Services",
+                description: "Clinics and wellness providers — billing only, no medical data.",
+              },
+              {
+                icon: <GraduationCap className="w-5 h-5" />,
+                title: "Education & Training",
+                description: "Course, batch and enrolment friendly fee invoices.",
+              },
+              {
+                icon: <Sprout className="w-5 h-5" />,
+                title: "Agriculture & Primary Goods",
+                description: "Lot, grade and consignment friendly produce billing.",
+              },
+            ].map((industry, index) => (
+              <div
+                key={index}
+                className="group bg-white rounded-xl p-4 sm:p-5 hover:shadow-lg transition-all duration-200 border border-slate-200 hover:scale-[1.02] cursor-default"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 sm:w-10 sm:h-10 bg-gradient-to-br from-slate-500 to-gray-600 rounded-xl flex items-center justify-center text-white shrink-0 group-hover:scale-105 group-hover:rotate-3 transition-all duration-200 shadow-md">
+                    {industry.icon}
+                  </div>
+                  <h3 className="text-sm sm:text-base font-bold text-slate-900 leading-snug">
+                    {industry.title}
+                  </h3>
+                </div>
+                <p className="text-slate-600 leading-relaxed font-normal text-xs sm:text-sm mt-2.5 sm:mt-3">
+                  {industry.description}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          {/* Catch-all for every other trade */}
+          <div className="mt-4 sm:mt-5 lg:mt-6 px-2 sm:px-4">
+            <div className="bg-white rounded-xl border border-slate-200 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 bg-gradient-to-br from-slate-600 to-gray-700 rounded-xl flex items-center justify-center text-white shrink-0 shadow-md">
+                <Building2 className="w-5 h-5" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-sm sm:text-base font-bold text-slate-900">
+                  General Business
+                </h3>
+                <p className="text-slate-600 leading-relaxed font-normal text-xs sm:text-sm">
+                  Not on the list? The default profile keeps every field
+                  visible — nothing hidden, nothing required. You can switch
+                  industries any time without losing a single invoice.
+                </p>
+              </div>
+              <Link to="/login" className="shrink-0">
+                <button className="w-full sm:w-auto px-5 py-2.5 bg-gradient-to-r from-slate-700 via-gray-700 to-slate-800 text-white rounded-lg hover:shadow-lg hover:shadow-slate-500/30 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 font-medium text-sm flex items-center justify-center gap-2 min-h-[44px]">
+                  Start Billing
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Invoice Analytics Section */}
       <section
         id="tracking"
@@ -960,7 +1104,7 @@ export default function GSTBillingLanding() {
                   { icon: <Clock className="w-5 h-5" />, label: "Real-time invoice status tracking", color: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-100" },
                   { icon: <CreditCard className="w-5 h-5" />, label: "Payment tracking & records", color: "text-sky-600", bg: "bg-sky-50", border: "border-sky-100" },
                   { icon: <BarChart3 className="w-5 h-5" />, label: "Visual analytics and reports", color: "text-violet-600", bg: "bg-violet-50", border: "border-violet-100" },
-                  { icon: <FileText className="w-5 h-5" />, label: "Export data to Excel/PDF", color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-100" },
+                  { icon: <FileText className="w-5 h-5" />, label: "Export data to Excel", color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-100" },
                   { icon: <CheckCircle className="w-5 h-5" />, label: "Filter by date, customer, status", color: "text-rose-600", bg: "bg-rose-50", border: "border-rose-100" },
                   { icon: <Shield className="w-5 h-5" />, label: "GST-compliant reporting", color: "text-teal-600", bg: "bg-teal-50", border: "border-teal-100" },
                 ].map((benefit, i) => (
@@ -1131,7 +1275,7 @@ export default function GSTBillingLanding() {
                     Inside Invoice
                   </span>
                   <div className="text-[7px] sm:text-[8px] text-slate-400 font-medium tracking-widest">
-                    BY 2X+1
+                    BY GRITX
                   </div>
                 </div>
               </div>
@@ -1163,7 +1307,7 @@ export default function GSTBillingLanding() {
             <div>
               <h4 className="text-white font-bold mb-2 sm:mb-3 text-sm sm:text-base">Company</h4>
               <ul className="space-y-1.5 sm:space-y-2 text-xs sm:text-sm font-normal">
-                <li><span className="text-slate-400">About 2X+1</span></li>
+                <li><span className="text-slate-400">About Gritx Technologies</span></li>
                 <li><Link to="/terms-and-condition" className="hover:text-slate-400 transition-colors">Terms & Conditions</Link></li>
                 <li><Link to="/refund-policy" className="hover:text-slate-400 transition-colors">Refund Policy</Link></li>
                 <li><Link to="/privacy-policy" className="hover:text-slate-400 transition-colors">Privacy Policy</Link></li>
@@ -1173,7 +1317,7 @@ export default function GSTBillingLanding() {
 
           <div className="border-t border-gray-800 pt-6 sm:pt-8 flex flex-col md:flex-row justify-between items-center gap-3 sm:gap-4">
             <p className="text-[10px] sm:text-xs text-gray-400 font-normal">
-              &copy; {year} Inside Invoice by 2X+1. All rights reserved.
+              &copy; {year} Inside Invoice by Gritx Technologies. All rights reserved.
             </p>
             <div className="flex gap-2 sm:gap-4">
               <a href="https://x.com/InsideInvoice" className="text-gray-400 hover:text-slate-400 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center" target="_blank" rel="noopener noreferrer">

@@ -436,7 +436,7 @@ const BarcodeGenerator = () => {
           </section>
           <div className="mt-16 border-t pt-8 text-center text-sm text-gray-500">
             <p>
-              Copyright © {new Date().getFullYear()} Inside Invoice by 2X+1. All
+              Copyright © {new Date().getFullYear()} Inside Invoice by Gritx. All
               rights reserved.
             </p>
           </div>

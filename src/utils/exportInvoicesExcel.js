@@ -429,6 +429,9 @@ export async function exportInvoicesExcel({ search = "", month = "", year = "" }
   customers.forEach((c) => customerById.set(c.id, c));
 
   const filtered = invoices.filter((inv) => invoiceMatchesFilters(inv, search, month, year));
+  // Nothing matched the filters: bail before building/downloading a file so the
+  // caller's "No invoices match" toast is the only effect.
+  if (filtered.length === 0) return 0;
 
   // Dynamic import keeps exceljs (~1 MB) out of the main bundle; it only
   // loads when someone actually clicks Export.

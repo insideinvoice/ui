@@ -43,7 +43,7 @@ export default function InsideInvoiceVideoTutorials() {
         </div>
 
         <footer className="mt-8 sm:mt-10 text-xs sm:text-sm text-slate-500">
-          &copy; {year} Inside Invoice by 2X+1. All rights reserved.
+          &copy; {year} Inside Invoice by Gritx. All rights reserved.
         </footer>
       </div>
     </div>

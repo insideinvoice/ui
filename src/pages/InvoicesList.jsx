@@ -9,9 +9,10 @@ import ConfirmModal from "../components/ConfirmModal";
 import { invoiceAPI } from "../api/auth";
 import { resolveBusinessProfile } from "../utils/businessProfile";
 import toast from "react-hot-toast";
-import { ArrowLeft, FileText, Download, Eye, PlusCircle, Share2, Trash2, Search, X, Link2, ChevronDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
+import { ArrowLeft, FileText, Download, Eye, PlusCircle, Share2, Trash2, Search, X, Link2, ChevronDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, FileSpreadsheet, Loader2 } from "lucide-react";
 import WhatsAppIcon from "../components/WhatsAppIcon";
 import { downloadInvoicePDF } from "../utils/downloadInvoicePdf";
+import { exportInvoicesExcel, invoiceMatchesFilters } from "../utils/exportInvoicesExcel";
 import InvoiceTemplateRenderer from "../components/InvoiceTemplateRenderer";
 import { getInvoiceTemplate } from "../constants/paperSizes";
 import { buildInvoiceWhatsAppMessage, openWhatsAppChat } from "../utils/whatsapp";
@@ -57,11 +58,18 @@ export default function InvoicesList() {
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [selectedMonth, setSelectedMonth] = useState(() => location.state?.month ? String(location.state.month) : "");
-  const [selectedYear, setSelectedYear] = useState(() => location.state?.year ? String(location.state.year) : "");
+  // Single period filter: "YYYY-MM" (e.g. "2026-09"). Dashboard navigates here
+  // with { month, year } state, so combine both into one value on mount.
+  const [selectedPeriod, setSelectedPeriod] = useState(() => {
+    const m = location.state?.month;
+    const y = location.state?.year;
+    if (m && y) return `${y}-${String(m).padStart(2, "0")}`;
+    return "";
+  });
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [invoiceToDelete, setInvoiceToDelete] = useState(null);
   const [busy, setBusy] = useState("");
+  const [exporting, setExporting] = useState(false);
 
   const isBusy = (id, action) => busy === `${id}:${action}`;
   const rowBusy = (id) => busy.startsWith(`${id}:`);
@@ -71,9 +79,39 @@ export default function InvoicesList() {
     window.setTimeout(() => navigate(`/invoice/${invoice.id}`), 80);
   }, [navigate]);
 
+  // Export the currently filtered invoices to Excel. Honours the same
+  // search + period the table shows. The util fetches ALL pages (the table
+  // only holds the first 100), joins customers, and writes live formulas.
+  const handleExportExcel = useCallback(async () => {
+    if (exporting) return;
+    setExporting(true);
+    const loadingToast = toast.loading("Preparing Excel export…");
+    try {
+      let month = "";
+      let year = "";
+      if (selectedPeriod) {
+        const [y, m] = selectedPeriod.split("-");
+        year = y;
+        month = m;
+      }
+      const count = await exportInvoicesExcel({ search, month, year });
+      toast.dismiss(loadingToast);
+      if (count === 0) {
+        toast.error("No invoices match the current filters");
+      } else {
+        toast.success(`Exported ${count} invoice${count === 1 ? "" : "s"} to Excel`);
+      }
+    } catch (err) {
+      toast.dismiss(loadingToast);
+      toast.error(err?.message || "Failed to export Excel");
+    } finally {
+      setExporting(false);
+    }
+  }, [exporting, search, selectedPeriod]);
+
   const fetchInvoices = useCallback(async () => {
     try {
-      const res = await invoiceAPI.getAll({ size: 100, sortBy: "createdAt", sortDir: "desc" });
+      const res = await invoiceAPI.getAll({ size: 1000, sortBy: "createdAt", sortDir: "desc" });
       setInvoices(res.data.data?.content || res.data.data || []);
     } catch (err) {
       toast.error(err.response?.data?.message || "Failed to load invoices");
@@ -87,26 +125,21 @@ export default function InvoicesList() {
   const [pageSize, setPageSize] = useState(25);
   const [currentPage, setCurrentPage] = useState(1);
 
-  const filtered = useMemo(() => invoices.filter((inv) => {
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      const matchesSearch = (inv.invoiceNumber || "").toLowerCase().includes(q)
-        || (inv.customerName || "").toLowerCase().includes(q);
-      if (!matchesSearch) return false;
+  const filtered = useMemo(() => {
+    let month = "";
+    let year = "";
+    if (selectedPeriod) {
+      const [y, m] = selectedPeriod.split("-");
+      year = y;
+      month = m;
     }
-    if (selectedMonth || selectedYear) {
-      const { month, year } = parseDate(inv.invoiceDate || "");
-      if (!month && !year) return false;
-      if (selectedMonth && month !== parseInt(selectedMonth, 10)) return false;
-      if (selectedYear && year !== parseInt(selectedYear, 10)) return false;
-    }
-    return true;
-  }), [invoices, search, selectedMonth, selectedYear]);
+    return invoices.filter((inv) => invoiceMatchesFilters(inv, search, month, year));
+  }, [invoices, search, selectedPeriod]);
 
   // Reset to first page when search filters change or page size changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [search, selectedMonth, selectedYear, pageSize]);
+  }, [search, selectedPeriod, pageSize]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const startIndex = (currentPage - 1) * pageSize;
@@ -118,50 +151,21 @@ export default function InvoicesList() {
 
   const monthNames = MONTH_NAMES;
 
-  // Get all year+month combos from invoices
-  const yearMonthPairs = useMemo(() => invoices
-    .map((inv) => parseDate(inv.invoiceDate || ""))
-    .filter((d) => d.month > 0 && d.year > 0), [invoices]);
-
-  // Available years: unique years from all invoices
-  const availableYears = useMemo(
-    () => [...new Set(yearMonthPairs.map((d) => d.year))].sort((a, b) => b - a),
-    [yearMonthPairs]
-  );
-
-  // Available months: depends on selected year
-  const availableMonths = useMemo(() => [...new Set(
-    yearMonthPairs
-      .filter((d) => {
-        if (!selectedYear) return true;
-        return d.year === parseInt(selectedYear, 10);
-      })
-      .map((d) => d.month)
-  )].sort((a, b) => a - b), [yearMonthPairs, selectedYear]);
-
-  // Handle year change - reset month if not available in new year
-  const handleYearChange = useCallback((e) => {
-    const newYear = e.target.value;
-    setSelectedYear(newYear);
-    if (newYear && selectedMonth) {
-      const monthExists = yearMonthPairs.some(
-        (d) => d.year === parseInt(newYear, 10) && d.month === parseInt(selectedMonth, 10)
-      );
-      if (!monthExists) setSelectedMonth("");
+  // Unique year+month combos from invoices, newest first, as one dropdown.
+  const availablePeriods = useMemo(() => {
+    const seen = new Set();
+    const periods = [];
+    for (const inv of invoices) {
+      const { month, year } = parseDate(inv.invoiceDate || "");
+      if (!month || !year) continue;
+      const value = `${year}-${String(month).padStart(2, "0")}`;
+      if (seen.has(value)) continue;
+      seen.add(value);
+      periods.push({ value, month, year, label: `${monthNames[month]} ${year}` });
     }
-  }, [selectedMonth, yearMonthPairs]);
-
-  // Handle month change - reset year if not available in new month
-  const handleMonthChange = useCallback((e) => {
-    const newMonth = e.target.value;
-    setSelectedMonth(newMonth);
-    if (newMonth && selectedYear) {
-      const yearExists = yearMonthPairs.some(
-        (d) => d.month === parseInt(newMonth, 10) && d.year === parseInt(selectedYear, 10)
-      );
-      if (!yearExists) setSelectedYear("");
-    }
-  }, [selectedYear, yearMonthPairs]);
+    periods.sort((a, b) => (b.year - a.year) || (b.month - a.month));
+    return periods;
+  }, [invoices, monthNames]);
 
   const downloadPDF = useCallback(async (invoice) => {
     setBusy(`${invoice.id}:pdf`);
@@ -457,33 +461,33 @@ export default function InvoicesList() {
         <PageHeader title="View Invoices" />
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
           <div className="p-4 sm:p-5 border-b border-slate-200">
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2 sm:gap-3">
-              <div className="relative w-full sm:w-auto min-w-[110px]">
-                <select value={selectedMonth} onChange={handleMonthChange}
-                  className="w-full pl-3 pr-8 py-2 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-400/30 focus:border-indigo-400 bg-white appearance-none cursor-pointer text-slate-700 font-medium">
-                  <option value="">Month</option>
-                  {availableMonths.map((m) => (
-                    <option key={m} value={m}>{monthNames[m]}</option>
-                  ))}
-                </select>
-                <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
-              </div>
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 sm:gap-3">
+              <button
+                type="button"
+                onClick={handleExportExcel}
+                disabled={exporting || invoices.length === 0}
+                className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold bg-emerald-600 text-white hover:bg-emerald-700 transition-all shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileSpreadsheet className="w-4 h-4" />}
+                {exporting ? "Exporting…" : "Export Excel"}
+              </button>
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
+                <div className="relative w-full sm:w-auto min-w-[140px]">
+                  <select value={selectedPeriod} onChange={(e) => setSelectedPeriod(e.target.value)}
+                    className="w-full pl-3 pr-8 py-2 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-400/30 focus:border-indigo-400 bg-white appearance-none cursor-pointer text-slate-700 font-medium">
+                    <option value="">All periods</option>
+                    {availablePeriods.map((p) => (
+                      <option key={p.value} value={p.value}>{p.label}</option>
+                    ))}
+                  </select>
+                  <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                </div>
 
-              <div className="relative w-full sm:w-auto min-w-[100px]">
-                <select value={selectedYear} onChange={handleYearChange}
-                  className="w-full pl-3 pr-8 py-2 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-400/30 focus:border-indigo-400 bg-white appearance-none cursor-pointer text-slate-700 font-medium">
-                  <option value="">Years</option>
-                  {availableYears.map((y) => (
-                    <option key={y} value={y}>{y}</option>
-                  ))}
-                </select>
-                <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
-              </div>
-
-              <div className="relative w-full sm:w-56">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-                <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search"
-                  className="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-400/30 focus:border-indigo-400 bg-white text-slate-800 placeholder:text-slate-400" />
+                <div className="relative w-full sm:w-56">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                  <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search"
+                    className="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-400/30 focus:border-indigo-400 bg-white text-slate-800 placeholder:text-slate-400" />
+                </div>
               </div>
             </div>
           </div>

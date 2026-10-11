@@ -102,7 +102,7 @@ const ItemRow = memo(({ item, calc, idx, onItemChange, onRemove, onAdd, onHsnLoo
 
   return (
   <tr className={`${idx % 2 === 0 ? "bg-white" : "bg-slate-50/40"} hover:bg-blue-50/20 transition-colors`}>
-    <td className="py-3 px-2 text-center text-slate-400 font-mono text-xs border-b border-slate-100">{idx + 1}</td>
+    <td className="py-3 px-2 text-center text-slate-400 font-mono text-xs border-b border-slate-100 whitespace-nowrap w-[36px] min-w-[36px]">{idx + 1}</td>
     {showHnSac && (
     <td className="py-3 px-2 border-b border-slate-100">
       <input type="text" value={item.hsn} name={`hsn-${idx + 1}`}
@@ -115,7 +115,7 @@ const ItemRow = memo(({ item, calc, idx, onItemChange, onRemove, onAdd, onHsnLoo
           handleKeyDown(e, "hsn");
         }}
         onBlur={(e) => { if (e.target.value && !e.target.dataset.enterPressed) onHsnLookup(idx, e.target.value); delete e.target.dataset.enterPressed; }}
-        className="w-full min-w-0 px-2.5 py-2 border border-slate-200 rounded text-sm focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono"
+        className="w-full min-w-[100px] px-2.5 py-2 border border-slate-200 rounded text-sm focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono"
         placeholder="Scan or type" />
     </td>
     )}
@@ -124,22 +124,22 @@ const ItemRow = memo(({ item, calc, idx, onItemChange, onRemove, onAdd, onHsnLoo
         onChange={(e) => onItemChange(idx, "itemName", e.target.value)}
         onKeyDown={(e) => handleKeyDown(e, "desc")}
         readOnly={locked}
-        className={`w-full min-w-0 px-2.5 py-2 border border-slate-200 rounded text-sm focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white ${locked ? "bg-slate-50 text-slate-500 cursor-not-allowed" : ""}`}
+        className={`w-full min-w-[160px] px-2.5 py-2 border border-slate-200 rounded text-sm focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white ${locked ? "bg-slate-50 text-slate-500 cursor-not-allowed" : ""}`}
         placeholder="Item name" />
     </td>
     <td className="py-3 px-2 border-b border-slate-100">
-      <div className="flex items-center gap-1.5 w-full">
+      <div className="flex items-center gap-1.5 w-full min-w-[140px]">
         <input type="number" step="1" min="0" value={item.qty} name={`qty-${idx + 1}`}
           onChange={(e) => onItemChange(idx, "qty", e.target.value)}
           onKeyDown={(e) => handleKeyDown(e, "qty")}
           inputMode="decimal"
           placeholder="Qty"
-          className="flex-[7] min-w-0 w-0 px-2 py-2 border border-slate-200 rounded text-sm text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
+          className="flex-[7] min-w-[50px] w-0 px-2 py-2 border border-slate-200 rounded text-sm text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
         <select value={item.unit ?? "Unit"} name={`unit-${idx + 1}`}
           onChange={(e) => onItemChange(idx, "unit", e.target.value)}
           onKeyDown={(e) => handleKeyDown(e, "unit")}
           title="Unit of measurement"
-          className="flex-[10] min-w-0 w-0 px-1 py-2 border border-slate-200 rounded text-xs focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white text-slate-600">
+          className="flex-[10] min-w-[75px] w-0 px-1 py-2 border border-slate-200 rounded text-xs focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white text-slate-600">
           {UNITS.map((u) => (
             <option key={u} value={u}>{u === "" ? "No unit" : u}</option>
           ))}
@@ -152,10 +152,10 @@ const ItemRow = memo(({ item, calc, idx, onItemChange, onRemove, onAdd, onHsnLoo
         onKeyDown={(e) => handleKeyDown(e, "rate")}
         readOnly={locked}
         placeholder="0.00"
-        className="w-full min-w-0 px-2.5 py-2 border border-slate-200 rounded text-sm text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
+        className="w-full min-w-[85px] px-2.5 py-2 border border-slate-200 rounded text-sm text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
     </td>
     <td className="py-3 px-1 border-b border-slate-100 text-center">
-      <div className="relative max-w-[56px] mx-auto">
+      <div className="relative w-[56px] min-w-[56px] mx-auto">
         <input type="number" step="0.01" min="0" max="40" value={item.gstPercentage} name={`gst-${idx + 1}`}
           onChange={(e) => onItemChange(idx, "gstPercentage", e.target.value)}
           onKeyDown={(e) => handleKeyDown(e, "gst")}
@@ -163,16 +163,16 @@ const ItemRow = memo(({ item, calc, idx, onItemChange, onRemove, onAdd, onHsnLoo
         <span className="absolute right-1 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none">%</span>
       </div>
     </td>
-    <td className="py-3 px-2.5 text-right font-mono text-sm text-slate-700 border-b border-slate-100 whitespace-nowrap tabular-nums">
+    <td className="py-3 px-3 text-right font-mono text-sm text-slate-700 border-b border-slate-100 whitespace-nowrap tabular-nums min-w-[160px]">
       {((calc?.taxable ?? parseFloat(item.taxableValue)) || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
     </td>
-    <td className="py-3 px-2.5 text-right font-mono text-sm text-slate-600 border-b border-slate-100 whitespace-nowrap tabular-nums">
+    <td className="py-3 px-3 text-right font-mono text-sm text-slate-600 border-b border-slate-100 whitespace-nowrap tabular-nums min-w-[145px]">
       {((calc?.tax ?? parseFloat(item.taxAmount)) || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
     </td>
-    <td className="py-3 px-2.5 text-right font-mono text-sm font-semibold text-slate-900 border-b border-slate-100 whitespace-nowrap tabular-nums">
+    <td className="py-3 px-3 text-right font-mono text-sm font-semibold text-slate-900 border-b border-slate-100 whitespace-nowrap tabular-nums min-w-[170px]">
       {((calc?.total ?? parseFloat(item.total)) || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
     </td>
-    <td className="py-3 px-1 text-center border-b border-slate-100">
+    <td className="py-3 px-1 text-center border-b border-slate-100 w-[45px] min-w-[45px]">
       <button onClick={() => onRemove(idx)}
         className="p-1.5 hover:bg-red-50 rounded transition-colors text-slate-400 hover:text-red-500"
         title="Delete item">
@@ -1687,31 +1687,31 @@ export default function InvoiceForm() {
 
           {/* Desktop table */}
           <div className="hidden md:block border border-slate-200 rounded-lg w-full overflow-x-auto">
-            <table className="w-full min-w-[1100px] text-sm border-collapse" style={{ tableLayout: "fixed" }}>
+            <table className="w-full min-w-[1260px] text-sm border-collapse" style={{ tableLayout: "auto" }}>
               <colgroup>
                 <col style={{ width: "2.5%" }} />
-                <col style={{ width: showHnSac ? "16%" : "0%" }} />
-                <col style={{ width: showHnSac ? "22%" : "38%" }} />
-                <col style={{ width: "14%" }} />
-                <col style={{ width: "9.5%" }} />
+                <col style={{ width: showHnSac ? "13%" : "0%" }} />
+                <col style={{ width: showHnSac ? "20%" : "33%" }} />
+                <col style={{ width: "12%" }} />
+                <col style={{ width: "8.5%" }} />
                 <col style={{ width: "4.5%" }} />
-                <col style={{ width: "10.5%" }} />
-                <col style={{ width: "9.5%" }} />
-                <col style={{ width: "9%" }} />
+                <col style={{ width: "12.5%" }} />
+                <col style={{ width: "11%" }} />
+                <col style={{ width: "13.5%" }} />
                 <col style={{ width: "2.5%" }} />
               </colgroup>
               <thead>
                 <tr className="bg-slate-800">
-                  <th className="text-white text-xs font-semibold py-3.5 px-2 text-center whitespace-nowrap">#</th>
-                  {showHnSac && <th className="text-white text-xs font-semibold py-3.5 px-2 text-left whitespace-nowrap">HSN/SAC</th>}
-                  <th className="text-white text-xs font-semibold py-3.5 px-2 text-left whitespace-nowrap">{labelFor("itemName", "Description")}</th>
-                  <th className="text-white text-xs font-semibold py-3.5 px-2 text-center whitespace-nowrap">Qty</th>
-                  <th className="text-white text-xs font-semibold py-3.5 px-2 text-center whitespace-nowrap">Rate</th>
-                  <th className="text-white text-xs font-semibold py-3.5 px-1 text-center whitespace-nowrap">GST %</th>
-                  <th className="text-white text-xs font-semibold py-3.5 px-2.5 text-right whitespace-nowrap">Taxable</th>
-                  <th className="text-white text-xs font-semibold py-3.5 px-2.5 text-right whitespace-nowrap">Tax</th>
-                  <th className="text-white text-xs font-semibold py-3.5 px-2.5 text-right whitespace-nowrap">Total</th>
-                  <th className="text-white py-3.5 px-1"></th>
+                  <th className="text-white text-xs font-semibold py-3.5 px-2 text-center whitespace-nowrap w-[36px] min-w-[36px]">#</th>
+                  {showHnSac && <th className="text-white text-xs font-semibold py-3.5 px-2 text-left whitespace-nowrap min-w-[120px]">HSN/SAC</th>}
+                  <th className="text-white text-xs font-semibold py-3.5 px-2 text-left whitespace-nowrap min-w-[180px]">{labelFor("itemName", "Description")}</th>
+                  <th className="text-white text-xs font-semibold py-3.5 px-2 text-center whitespace-nowrap min-w-[140px]">Qty</th>
+                  <th className="text-white text-xs font-semibold py-3.5 px-2 text-center whitespace-nowrap min-w-[95px]">Rate</th>
+                  <th className="text-white text-xs font-semibold py-3.5 px-1 text-center whitespace-nowrap min-w-[65px]">GST %</th>
+                  <th className="text-white text-xs font-semibold py-3.5 px-3 text-right whitespace-nowrap min-w-[160px]">Taxable</th>
+                  <th className="text-white text-xs font-semibold py-3.5 px-3 text-right whitespace-nowrap min-w-[145px]">Tax</th>
+                  <th className="text-white text-xs font-semibold py-3.5 px-3 text-right whitespace-nowrap min-w-[170px]">Total</th>
+                  <th className="text-white py-3.5 px-1 w-[45px] min-w-[45px]"></th>
                 </tr>
               </thead>
               <tbody>

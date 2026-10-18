@@ -18,14 +18,16 @@ export default function InvoiceNav({ scrolled, setIsMenuOpen, isMenuOpen }) {
 
   return (
     <nav
-      className={`fixed left-0 right-0 z-50 transition-all duration-300 ${
+      className={`fixed left-0 right-0 z-50 pt-3 transition-all duration-300 ${
         scrolled ? "bg-white border-b border-slate-200" : "bg-transparent"
       }`}
       style={{
         // Pin below the status-bar strip (body::before in index.css) instead
         // of covering it: iOS standalone PWAs rasterize layers extending
         // under the status bar at the wrong scale, which blurred this nav's
-        // icon and hamburger button in the installed app.
+        // icon and hamburger button in the installed app. The pt-3 keeps the
+        // icon and hamburger a comfortable margin below the status bar in
+        // the PWA (env() is 0 in the browser, where the strip is too).
         top: "env(safe-area-inset-top, 0px)",
       }}
     >

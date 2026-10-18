@@ -93,13 +93,29 @@ div:has(> label + input[type="date"]) {
 /* ---------------------------------------------------------------------------
    Medium screens (768–1535px / tablet up to ~15") only: the fixed left nav
    starts as a 64px icon rail (logo and icons visible, labels hidden) so wide
-   content such as the invoice items table gets the width. Hovering or focusing
-   the rail reveals the full 240px sidebar over the content. The header toggle
-   can keep it open. Above 1536px (16" and larger displays) the default full
+   content such as the invoice items table gets the width. Hovering/focusing
+   only the app logo reveals the toggle icon; clicking that toggle opens the
+   full sidebar. Above 1536px (16" and larger displays) the default full
    sidebar is shown.
 --------------------------------------------------------------------------- */
 .rail-toggle {
   display: none;
+}
+
+.rail-logo-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.rail-logo-toggle {
+  position: absolute;
+  inset: 0;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  background: #ffffff;
 }
 
 @media (min-width: 768px) and (max-width: 1535.98px) {
@@ -115,33 +131,45 @@ div:has(> label + input[type="date"]) {
     margin-left: 4rem;
   }
 
-  /* Hover expansion overlays the page instead of shifting its layout. */
+  /* Clicking the logo toggle opens the sidebar and gives the page its full
+     sidebar offset. The sidebar no longer expands from hovering its rail. */
   html.rail-expanded aside.app-side-nav {
     width: 15rem;
-    box-shadow: 8px 0 24px rgb(15 23 42 / 0.08);
   }
 
   html.rail-expanded .app-shell {
-    margin-left: 4rem;
+    margin-left: 15rem;
   }
 
   html.rail-collapsed .rail-hide {
     display: none;
   }
 
-  /* Keep the square logo visible in the collapsed rail. The toggle is shown
-     again as soon as the rail expands, leaving the logo centered at 64px. */
-  html.rail-collapsed .rail-head > div {
+  /* Keep the square logo visible in the collapsed rail. Only hovering/focusing
+     this logo area reveals the toggle overlay. */
+  html.rail-collapsed .rail-head-row {
     justify-content: center;
   }
 
-  html.rail-collapsed .rail-logo {
+  html.rail-collapsed .rail-logo-wrap {
     flex: 0 0 2rem;
+    width: 2rem;
+    height: 2rem;
+  }
+
+  html.rail-collapsed .rail-logo {
+    width: 2rem;
+    height: 2rem;
     justify-content: center;
   }
 
   html.rail-collapsed .rail-toggle {
     display: none;
+  }
+
+  html.rail-collapsed .rail-logo-toggle {
+    display: flex;
+    margin: 0;
   }
 
   html.rail-collapsed .rail-item {
@@ -151,10 +179,6 @@ div:has(> label + input[type="date"]) {
     padding-right: 0;
   }
 
-  html.rail-collapsed .rail-toggle {
-    margin-left: auto;
-    margin-right: auto;
-  }
 }
 
 /* Collapsed rail header: tighter padding so the logo fits in 64px */

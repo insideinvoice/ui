@@ -123,34 +123,34 @@ export default memo(function AppNavbar() {
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   // Tablet up to ~15" (768–1535px) starts with the sidebar collapsed to an icon
-  // rail so page content (e.g. wide tables) keeps the full width. Hovering the
-  // rail temporarily reveals the full sidebar; clicking its toggle keeps it
-  // open until it is toggled again.
+  // rail so page content (e.g. wide tables) keeps the full width. The toggle is
+  // revealed only while hovering/focusing the collapsed logo; clicking it
+  // opens the sidebar until it is toggled closed again.
   const [railCollapsed, setRailCollapsed] = useState(true);
-  const [railHovered, setRailHovered] = useState(false);
+  const [railLogoHovered, setRailLogoHovered] = useState(false);
   // Hover tooltip shown next to an icon while the rail is collapsed.
   const [railTip, setRailTip] = useState(null); // { label, top, left }
   const [railMode, setRailMode] = useState(() =>
     typeof window !== "undefined" && window.matchMedia(RAIL_MEDIA).matches
   );
-  const railExpanded = railMode && (railHovered || !railCollapsed);
+  const railExpanded = railMode && !railCollapsed;
   useNavbarHeightVar();
 
   useEffect(() => {
     const root = document.documentElement;
-    root.classList.toggle("rail-collapsed", railMode && !railExpanded);
+    root.classList.toggle("rail-collapsed", railMode && railCollapsed);
     root.classList.toggle("rail-expanded", railExpanded);
     return () => {
       root.classList.remove("rail-collapsed");
       root.classList.remove("rail-expanded");
     };
-  }, [railMode, railExpanded]);
+  }, [railMode, railCollapsed, railExpanded]);
 
   useEffect(() => {
     const mq = window.matchMedia(RAIL_MEDIA);
     const onChange = () => {
       setRailMode(mq.matches);
-      setRailHovered(false);
+      setRailLogoHovered(false);
       setRailTip(null);
     };
     mq.addEventListener("change", onChange);
@@ -168,26 +168,26 @@ export default memo(function AppNavbar() {
 
   const hideRailTip = useCallback(() => setRailTip(null), []);
 
-  const handleRailMouseEnter = useCallback(() => {
+  const handleRailLogoMouseEnter = useCallback(() => {
     if (!railMode) return;
-    setRailHovered(true);
+    setRailLogoHovered(true);
     setRailTip(null);
   }, [railMode]);
 
-  const handleRailMouseLeave = useCallback(() => {
-    setRailHovered(false);
+  const handleRailLogoMouseLeave = useCallback(() => {
+    setRailLogoHovered(false);
     setRailTip(null);
   }, []);
 
-  const handleRailFocus = useCallback(() => {
+  const handleRailLogoFocus = useCallback(() => {
     if (!railMode) return;
-    setRailHovered(true);
+    setRailLogoHovered(true);
     setRailTip(null);
   }, [railMode]);
 
-  const handleRailBlur = useCallback((e) => {
+  const handleRailLogoBlur = useCallback((e) => {
     if (!e.currentTarget.contains(e.relatedTarget)) {
-      setRailHovered(false);
+      setRailLogoHovered(false);
       setRailTip(null);
     }
   }, []);
@@ -240,42 +240,64 @@ export default memo(function AppNavbar() {
     <div className="flex flex-col h-full">
       {/* Logo + rail toggle */}
       <div className="rail-head px-4 py-4 border-b border-slate-100">
-        <div className="flex items-center justify-between gap-2">
-          <button
-            type="button"
-            onClick={() => handleNav("/dashboard")}
-            className="rail-logo flex items-center gap-2.5 hover:opacity-80 transition-opacity min-w-0"
+        <div className="rail-head-row flex items-center justify-between gap-2">
+          <div
+            className="rail-logo-wrap"
+            onMouseEnter={handleRailLogoMouseEnter}
+            onMouseLeave={handleRailLogoMouseLeave}
+            onFocus={handleRailLogoFocus}
+            onBlur={handleRailLogoBlur}
           >
-            <img
-              src={insideInvoiceLogo}
-              alt="Inside Invoice"
-              className="w-8 h-8 shrink-0"
-            />
-            <div className="flex flex-col rail-hide">
-              <span
-                className="font-bold text-slate-800 text-sm leading-tight"
-                style={{ fontFamily: "'Space Grotesk', sans-serif" }}
+            <button
+              type="button"
+              onClick={() => handleNav("/dashboard")}
+              className="rail-logo flex items-center gap-2.5 hover:opacity-80 transition-opacity min-w-0"
+            >
+              <img
+                src={insideInvoiceLogo}
+                alt="Inside Invoice"
+                className="w-8 h-8 shrink-0"
+              />
+              <div className="flex flex-col rail-hide">
+                <span
+                  className="font-bold text-slate-800 text-sm leading-tight"
+                  style={{ fontFamily: "'Space Grotesk', sans-serif" }}
+                >
+                  Inside Invoice
+                </span>
+                <span className="text-[8px] text-slate-500 font-medium tracking-widest text-left">
+                  BY GRITX
+                </span>
+              </div>
+            </button>
+            {railCollapsed && railLogoHovered && (
+              <button
+                type="button"
+                onClick={() => {
+                  setRailCollapsed(false);
+                  setRailLogoHovered(false);
+                  setRailTip(null);
+                }}
+                aria-label="Expand sidebar"
+                className="rail-logo-toggle rail-toggle items-center justify-center rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors"
               >
-                Inside Invoice
-              </span>
-              <span className="text-[8px] text-slate-500 font-medium tracking-widest text-left">
-                BY GRITX
-              </span>
-            </div>
-          </button>
+                <Menu className="w-5 h-5" />
+              </button>
+            )}
+          </div>
           <button
             type="button"
             onClick={() => {
               setRailCollapsed((v) => !v);
-              setRailHovered(false);
+              setRailLogoHovered(false);
               setRailTip(null);
             }}
             aria-label={railExpanded ? "Collapse sidebar" : "Expand sidebar"}
             onMouseEnter={(e) => showRailTip(e, railExpanded ? "Collapse sidebar" : "Expand sidebar", true)}
             onMouseLeave={hideRailTip}
-            className="rail-toggle items-center justify-center p-2 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors shrink-0"
+            className="rail-toggle rail-expanded-toggle items-center justify-center p-2 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors shrink-0"
           >
-            {railExpanded ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            <X className="w-5 h-5" />
           </button>
         </div>
         {isAdmin && (
@@ -351,10 +373,6 @@ export default memo(function AppNavbar() {
       {/* ===== DESKTOP SIDEBAR (md+) ===== */}
       <aside
         className="app-side-nav hidden md:flex md:flex-col md:fixed md:inset-y-0 md:left-0 md:z-50 md:w-60 md:bg-white md:border-r md:border-slate-200 transition-[width] duration-200 ease-out"
-        onMouseEnter={handleRailMouseEnter}
-        onMouseLeave={handleRailMouseLeave}
-        onFocus={handleRailFocus}
-        onBlur={handleRailBlur}
       >
         {sidebarContent}
         {railTip && (

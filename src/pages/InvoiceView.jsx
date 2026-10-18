@@ -134,6 +134,14 @@ export default function InvoiceView() {
   // busy-flag toggle re-rendered two full invoice documents.
   const [captureType, setCaptureType] = useState(null);
   const [sealType, setSealType] = useState(localStorage.getItem("seal_type") || "");
+  const ghostMode = localStorage.getItem("ghost_mode") === "true";
+  const [discountPercent, setDiscountPercent] = useState("");
+  const [discountEnabled, setDiscountEnabled] = useState(false);
+  const [discountDirty, setDiscountDirty] = useState(false);
+  const discountVal = parseFloat(discountPercent) || 0;
+  const [business, setBusiness] = useState(null);
+  // NOTE: these must come after `business` is declared — reading `business` from
+  // an earlier line would hit the temporal dead zone and crash the component.
   // The business profile is the source of truth (it is what the public share
   // page and the emailed PDF use). localStorage stays as the immediate value
   // for the logged-in app and as a fallback before the profile loads.
@@ -149,12 +157,6 @@ export default function InvoiceView() {
     setBusiness((b) => (b ? { ...b, sealType: type } : b));
     businessAPI.update({ sealType: type }).catch(() => {});
   }, []);
-  const ghostMode = localStorage.getItem("ghost_mode") === "true";
-  const [discountPercent, setDiscountPercent] = useState("");
-  const [discountEnabled, setDiscountEnabled] = useState(false);
-  const [discountDirty, setDiscountDirty] = useState(false);
-  const discountVal = parseFloat(discountPercent) || 0;
-  const [business, setBusiness] = useState(null);
   const industryConfig = useMemo(
     () => business?.industryConfig || getIndustryConfig(business?.industry),
     [business?.industry, business?.industryConfig]

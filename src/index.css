@@ -110,8 +110,6 @@ div:has(> label + input[type="date"]) {
 }
 
 .rail-logo-toggle {
-  position: absolute;
-  inset: 0;
   width: 2rem;
   height: 2rem;
   padding: 0;

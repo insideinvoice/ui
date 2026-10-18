@@ -248,29 +248,7 @@ export default memo(function AppNavbar() {
             onFocus={handleRailLogoFocus}
             onBlur={handleRailLogoBlur}
           >
-            <button
-              type="button"
-              onClick={() => handleNav("/dashboard")}
-              className="rail-logo flex items-center gap-2.5 hover:opacity-80 transition-opacity min-w-0"
-            >
-              <img
-                src={insideInvoiceLogo}
-                alt="Inside Invoice"
-                className="w-8 h-8 shrink-0"
-              />
-              <div className="flex flex-col rail-hide">
-                <span
-                  className="font-bold text-slate-800 text-sm leading-tight"
-                  style={{ fontFamily: "'Space Grotesk', sans-serif" }}
-                >
-                  Inside Invoice
-                </span>
-                <span className="text-[8px] text-slate-500 font-medium tracking-widest text-left">
-                  BY GRITX
-                </span>
-              </div>
-            </button>
-            {railCollapsed && railLogoHovered && (
+            {railCollapsed && railLogoHovered ? (
               <button
                 type="button"
                 onClick={() => {
@@ -282,6 +260,29 @@ export default memo(function AppNavbar() {
                 className="rail-logo-toggle rail-toggle items-center justify-center rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors"
               >
                 <Menu className="w-5 h-5" />
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => handleNav("/dashboard")}
+                className="rail-logo flex items-center gap-2.5 hover:opacity-80 transition-opacity min-w-0"
+              >
+                <img
+                  src={insideInvoiceLogo}
+                  alt="Inside Invoice"
+                  className="w-8 h-8 shrink-0"
+                />
+                <div className="flex flex-col rail-hide">
+                  <span
+                    className="font-bold text-slate-800 text-sm leading-tight"
+                    style={{ fontFamily: "'Space Grotesk', sans-serif" }}
+                  >
+                    Inside Invoice
+                  </span>
+                  <span className="text-[8px] text-slate-500 font-medium tracking-widest text-left">
+                    BY GRITX
+                  </span>
+                </div>
               </button>
             )}
           </div>

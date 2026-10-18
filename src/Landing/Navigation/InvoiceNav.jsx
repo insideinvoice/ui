@@ -1,14 +1,33 @@
 import { Menu, X } from "lucide-react";
-import React from "react";
+import React, { useEffect } from "react";
 import { Link } from "react-router-dom";
 
 export default function InvoiceNav({ scrolled, setIsMenuOpen, isMenuOpen }) {
+  // Keep the painted status-bar strip matching this nav's background so the
+  // top edge stays seamless in the installed PWA: page-grey while the nav is
+  // transparent, white once the nav gains its solid scrolled background.
+  useEffect(() => {
+    document.documentElement.style.setProperty(
+      "--status-bar-bg",
+      scrolled ? "#ffffff" : "#f8fafc"
+    );
+    return () => {
+      document.documentElement.style.removeProperty("--status-bar-bg");
+    };
+  }, [scrolled]);
+
   return (
     <nav
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+      className={`fixed left-0 right-0 z-50 transition-all duration-300 ${
         scrolled ? "bg-white border-b border-slate-200" : "bg-transparent"
       }`}
-      style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
+      style={{
+        // Pin below the status-bar strip (body::before in index.css) instead
+        // of covering it: iOS standalone PWAs rasterize layers extending
+        // under the status bar at the wrong scale, which blurred this nav's
+        // icon and hamburger button in the installed app.
+        top: "env(safe-area-inset-top, 0px)",
+      }}
     >
       <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-10">
         <div className="flex justify-between items-center h-14">

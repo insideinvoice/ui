@@ -19,6 +19,10 @@ html, body, #root {
   /* Real mobile top-nav height, injected by AppNavbar at runtime (varies with
      the device safe-area inset). Fallback covers pre-hydration paint. */
   --app-nav-height: calc(env(safe-area-inset-top, 0px) + 61px);
+  /* Color of the painted status-bar strip (body::before below). Defaults to
+     the page background; AppNavbar overrides it to white while the app shell
+     is mounted, and InvoiceNav switches it with its scrolled state. */
+  --status-bar-bg: #f8fafc;
 }
 
 html {
@@ -51,9 +55,9 @@ body {
 
 /* Installed-PWA (standalone) status bar: `black-translucent` lets the page
    draw behind the iOS status bar. #root reserves that strip with padding;
-   this fixed layer paints it solid white so the clock/icons always sit on
-   white and scrolled content never shows behind them. Zero-height wherever
-   the inset is 0 (Safari browser, Android, desktop). */
+   this fixed layer paints it so the clock/icons always sit on a solid
+   background and scrolled content never shows behind them. Zero-height
+   wherever the inset is 0 (Safari browser, Android, desktop). */
 body::before {
   content: "";
   position: fixed;
@@ -61,7 +65,7 @@ body::before {
   left: 0;
   right: 0;
   height: env(safe-area-inset-top, 0px);
-  background-color: #ffffff;
+  background-color: var(--status-bar-bg, #f8fafc);
   z-index: 98;
   pointer-events: none;
 }

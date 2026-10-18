@@ -19,6 +19,10 @@ const RAIL_MEDIA = "(min-width: 768px) and (max-width: 1535.98px)";
 function useNavbarHeightVar() {
   useEffect(() => {
     const root = document.documentElement;
+    // While the app shell is mounted its navbar is white, so the painted
+    // status-bar strip must be white too (kept just below the status bar via
+    // top: env(...) — see body::before in index.css).
+    root.style.setProperty("--status-bar-bg", "#ffffff");
     const measure = () => {
       const el = document.querySelector("nav.app-nav-fixed");
       if (!el) return;
@@ -48,6 +52,7 @@ function useNavbarHeightVar() {
       clearTimeout(t1);
       clearTimeout(t2);
       root.style.removeProperty("--app-nav-height");
+      root.style.removeProperty("--status-bar-bg");
     };
   }, []);
 }

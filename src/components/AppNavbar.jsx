@@ -22,7 +22,10 @@ function useNavbarHeightVar() {
     const measure = () => {
       const el = document.querySelector("nav.app-nav-fixed");
       if (!el) return;
-      const h = Math.round(el.getBoundingClientRect().height);
+      // Report the distance from the viewport top to the navbar's bottom
+      // edge: consumers offset content from the bar's bottom, which now
+      // starts at the safe-area inset instead of y=0.
+      const h = Math.round(el.getBoundingClientRect().bottom);
       if (h > 0) root.style.setProperty("--app-nav-height", `${h}px`);
     };
     measure();
@@ -388,15 +391,16 @@ export default memo(function AppNavbar() {
 
       {/* ===== MOBILE TOP NAV ===== */}
       <nav
-        className="app-nav-fixed md:hidden bg-white border-b border-slate-200 px-3 sm:px-4 py-2 sm:py-3 sticky top-0 z-[99]"
+        className="app-nav-fixed md:hidden bg-white border-b border-slate-200 px-3 sm:px-4 py-2 sm:py-3 sticky z-[99]"
         style={{
-          paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)",
-          // #root already pads the whole app down by the safe-area inset
-          // (protection for navbar-less pages like Login). Cancel it here so
-          // the inset is counted ONCE for navbar pages — otherwise the nav and
-          // every fixed header below it are pushed down by 2x the status-bar
-          // height in standalone PWA mode.
-          marginTop: "calc(-1 * env(safe-area-inset-top, 0px))",
+          // Pin just BELOW the status-bar strip (#root reserves the inset at
+          // the top of the page; body::before in index.css paints it white).
+          // The navbar must never overlap that strip: iOS standalone PWAs
+          // rasterize layers extending under the status bar at the wrong
+          // scale, which blurred this navbar's text and icons — the browser
+          // and the bottom tab bar (which never touches the status bar)
+          // rendered sharp.
+          top: "env(safe-area-inset-top, 0px)",
         }}
       >
         <div className="flex items-center justify-between max-w-full">
@@ -420,8 +424,14 @@ export default memo(function AppNavbar() {
         }`}
       >
         <div className={`absolute inset-0 bg-black/40 transition-opacity duration-300 ease-in-out ${mobileMenuOpen ? "opacity-100" : "opacity-0"}`} onClick={closeMobile} />
-        <div className={`absolute top-0 left-0 h-full w-5/6 max-w-sm bg-white shadow-2xl transition-all duration-300 ease-in-out flex flex-col ${mobileMenuOpen ? "translate-x-0" : "-translate-x-full"}`}
-          style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
+        <div className={`absolute left-0 h-full w-5/6 max-w-sm bg-white shadow-2xl transition-all duration-300 ease-in-out flex flex-col ${mobileMenuOpen ? "translate-x-0" : "-translate-x-full"}`}
+          style={{
+            // Sit below the status-bar strip for the same reason as the top
+            // navbar: a layer spanning the under-status-bar region renders
+            // blurry in iOS standalone PWAs.
+            top: "env(safe-area-inset-top, 0px)",
+            height: "calc(100% - env(safe-area-inset-top, 0px))",
+          }}>
           <div className="bg-white border-b border-slate-100 shrink-0" style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
             <div className="flex items-center justify-between px-4 py-3">
               <div className="flex items-center gap-2">

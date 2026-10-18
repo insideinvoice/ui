@@ -49,6 +49,35 @@ body {
   box-sizing: border-box;
 }
 
+/* Installed-PWA (standalone) status bar: `black-translucent` lets the page
+   draw behind the iOS status bar. #root reserves that strip with padding;
+   this fixed layer paints it solid white so the clock/icons always sit on
+   white and scrolled content never shows behind them. Zero-height wherever
+   the inset is 0 (Safari browser, Android, desktop). */
+body::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: env(safe-area-inset-top, 0px);
+  background-color: #ffffff;
+  z-index: 98;
+  pointer-events: none;
+}
+
+/* iOS standalone PWAs rasterize layers that overlap the status-bar strip at
+   the wrong scale, softening the whole top navbar. The navbar no longer
+   spans the strip (it pins below it via the inline `top` env() offset in
+   AppNavbar); it is also explicitly promoted so it rasterizes crisply at
+   device scale. */
+.app-nav-fixed {
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
 /* iOS Safari: prevent auto-zoom on input focus (requires font-size >= 16px) */
 input, textarea, select {
   font-size: 16px !important;

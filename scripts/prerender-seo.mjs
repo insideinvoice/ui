@@ -16,7 +16,9 @@
  * 2. Static body content. The body is an empty `#root` that React fills in.
  *    React uses createRoot (not hydrateRoot), so it REPLACES whatever is in
  *    `#root` on mount. That lets us ship real, crawlable text in the initial
- *    HTML for search engines, while users still get the interactive app.
+ *    HTML for search engines, while users still get the interactive app. The
+ *    block is hidden from JS-capable browsers before first paint (`.js` class
+ *    + CSS) so the raw text never flashes for humans on slow connections.
  */
 
 import { mkdir, readFile, writeFile } from "node:fs/promises";
@@ -488,7 +490,27 @@ function renderPage(template, page) {
 
   // Ship the page's real content in the initial HTML. React replaces the
   // contents of #root on mount, so users never see a layout change.
+  //
+  // Humans must never SEE this block, though: on a slow connection the raw
+  // static text would flash before the bundle loads and React swaps it out
+  // (reported on Android/iOS refresh). A tiny head script adds `js` to
+  // <html> BEFORE the body is parsed, and the stylesheet hides the block for
+  // any JS-capable browser from the very first paint. Crawlers and no-JS
+  // clients still receive the text (styled readably as a fallback).
   if (page.content) {
+    html = html.replace(
+      "</head>",
+      [
+        '    <script>document.documentElement.classList.add("js");</script>',
+        "    <style>",
+        "      .js [data-static-seo] { display: none !important; }",
+        "      [data-static-seo] { max-width: 640px; margin: 0 auto; padding: 24px 16px;",
+        '        font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;',
+        "        line-height: 1.6; color: #111827; }",
+        "    </style>",
+        "  </head>",
+      ].join("\n"),
+    );
     html = html.replace(
       '<div id="root"></div>',
       `<div id="root">${renderStaticContent(page.content)}</div>`,

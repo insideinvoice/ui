@@ -123,6 +123,16 @@ function isNoIndexPath(pathname) {
   );
 }
 
+/**
+ * The static host serves these routes as directory URLs and permanently
+ * redirects the no-slash form, so the canonical must be the trailing-slash
+ * URL. Pointing it at a redirecting URL makes Google treat the page as a
+ * conflicting canonical and it drops out of the index.
+ */
+function canonicalUrlFor(normalizedPath) {
+  return normalizedPath === "/" ? `${SITE_URL}/` : `${SITE_URL}${normalizedPath}/`;
+}
+
 function getPageMetadata(pathname) {
   const normalizedPath = pathname === "/" ? "/" : pathname.replace(/\/+$/, "");
   const page = INDEXABLE_PAGES[normalizedPath];
@@ -130,7 +140,7 @@ function getPageMetadata(pathname) {
     return {
       ...page,
       robots: "index,follow",
-      canonical: `${SITE_URL}${normalizedPath}`,
+      canonical: canonicalUrlFor(normalizedPath),
     };
   }
 

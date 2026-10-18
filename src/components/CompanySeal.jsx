@@ -5,6 +5,9 @@ export default function CompanySeal({
   year = new Date().getFullYear(),
   size = 120,
   color = "#0A4BFF",
+  // slight hand-stamped skew instead of sitting perfectly straight; applied
+  // inside the SVG so it survives rasterization into the PDFs too
+  tilt = -8,
 }) {
   const uid = useId();
   const vw = 300;
@@ -45,50 +48,52 @@ export default function CompanySeal({
         </clipPath>
       </defs>
 
-      <circle cx={cx} cy={cy} r={outerR} fill="none" stroke={color} strokeWidth={3.5} />
-      <circle cx={cx} cy={cy} r={innerR} fill="none" stroke={color} strokeWidth={2} />
+      <g transform={`rotate(${tilt} ${cx} ${cy})`}>
+        <circle cx={cx} cy={cy} r={outerR} fill="none" stroke={color} strokeWidth={3.5} />
+        <circle cx={cx} cy={cy} r={innerR} fill="none" stroke={color} strokeWidth={2} />
 
-      <g clipPath={`url(#${clipId})`}>
+        <g clipPath={`url(#${clipId})`}>
+          <text
+            fontFamily={font}
+            fontSize={26}
+            fontWeight="bold"
+            fill={color}
+            textLength={circumference}
+            lengthAdjust="spacing"
+          >
+            <textPath href={`#${circleId}`} startOffset="0%" textAnchor="start">
+              {wrapped}
+            </textPath>
+          </text>
+        </g>
+
         <text
+          x={cx}
+          y={cy - 8}
+          textAnchor="middle"
+          dominantBaseline="middle"
           fontFamily={font}
-          fontSize={26}
+          fontSize={34}
           fontWeight="bold"
           fill={color}
-          textLength={circumference}
-          lengthAdjust="spacing"
+          letterSpacing={9}
         >
-          <textPath href={`#${circleId}`} startOffset="0%" textAnchor="start">
-            {wrapped}
-          </textPath>
+          SEAL
+        </text>
+
+        <text
+          x={cx}
+          y={cy + 27}
+          textAnchor="middle"
+          dominantBaseline="middle"
+          fontFamily={font}
+          fontSize={30}
+          fontWeight="bold"
+          fill={color}
+        >
+          {String(year)}
         </text>
       </g>
-
-      <text
-        x={cx}
-        y={cy - 8}
-        textAnchor="middle"
-        dominantBaseline="middle"
-        fontFamily={font}
-        fontSize={34}
-        fontWeight="bold"
-        fill={color}
-        letterSpacing={9}
-      >
-        SEAL
-      </text>
-
-      <text
-        x={cx}
-        y={cy + 27}
-        textAnchor="middle"
-        dominantBaseline="middle"
-        fontFamily={font}
-        fontSize={30}
-        fontWeight="bold"
-        fill={color}
-      >
-        {String(year)}
-      </text>
     </svg>
   );
 }

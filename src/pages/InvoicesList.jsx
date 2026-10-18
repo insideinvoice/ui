@@ -597,6 +597,12 @@ export default function InvoicesList() {
                         className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors min-h-[44px] disabled:opacity-60">
                         {isBusy(inv.id, "share") ? <Spinner size={14} /> : <Share2 className="w-3.5 h-3.5" />} {isBusy(inv.id, "share") ? "Loading..." : "Share"}
                       </button>
+                      {ghostMode && (
+                        <button onClick={(e) => { e.stopPropagation(); openDeleteModal(inv); }} disabled={rowBusy(inv.id)}
+                          className="flex items-center justify-center px-3 py-2 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors min-h-[44px] disabled:opacity-60" title="Delete Invoice">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}

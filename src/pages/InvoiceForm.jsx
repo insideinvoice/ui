@@ -867,7 +867,7 @@ export default function InvoiceForm() {
       const shareRes = await invoiceAPI.createShare(invoiceId);
       const token = shareRes.data?.data?.token;
       if (token) setShareToken(token);
-      const origin = typeof window !== "undefined" && window.location.origin ? window.location.origin : "https://insideinvoice.com";
+      const origin = typeof window !== "undefined" && window.location.origin ? window.location.origin : "https://www.insideinvoice.com";
       const shareUrl = token ? `${origin}/i/${token}` : undefined;
       if (!shareUrl) throw new Error("no-link");
       if (navigator.share) {
@@ -900,7 +900,7 @@ export default function InvoiceForm() {
       const shareRes = await invoiceAPI.createShare(invoiceId);
       const token = shareRes.data?.data?.token;
       if (token) setShareToken(token);
-      const origin = typeof window !== "undefined" && window.location.origin ? window.location.origin : "https://insideinvoice.com";
+      const origin = typeof window !== "undefined" && window.location.origin ? window.location.origin : "https://www.insideinvoice.com";
       const shareUrl = token ? `${origin}/i/${token}` : undefined;
 
       // 3. Open WhatsApp with the prefilled invoice message + link

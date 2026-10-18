@@ -1,2 +1,6 @@
-https://insideinvoice.netlify.app/*  https://insideinvoice.in/:splat  301!
-/*    /index.html   200
+https://insideinvoice.netlify.app/*  https://www.insideinvoice.com/:splat  301!
+https://insideinvoice.in/*           https://www.insideinvoice.com/:splat  301!
+https://www.insideinvoice.in/*       https://www.insideinvoice.com/:splat  301!
+https://insideinvoice.com/*          https://www.insideinvoice.com/:splat  301!
+/i/*                               /i/index.html 200
+/*                                 /index.html   200

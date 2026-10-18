@@ -2,12 +2,30 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="./src/assets/inside-invoice-logo.svg" />
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="48x48" href="/favicon-48.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <!-- Shared invoice pages leak no referrer to outbound links on the document -->
     <meta name="referrer" content="no-referrer" />
+    <meta name="description" content="Create professional GST invoices and streamline billing with Inside Invoice. Manage products, customers, payments, and business records in one web-based platform." />
+    <meta name="robots" content="index,follow" />
     <!-- <script src="https://cdn.tailwindcss.com"></script> -->
-    <title>Inside Invoice</title>
+    <title>InsideInvoice — GST Invoice &amp; Billing Software for Indian Businesses</title>
+    <link rel="canonical" href="https://www.insideinvoice.com/" />
+    <meta property="og:title" content="InsideInvoice — GST Invoice &amp; Billing Software for Indian Businesses" />
+    <meta property="og:description" content="Create professional GST invoices and streamline billing with Inside Invoice. Manage products, customers, payments, and business records in one web-based platform." />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Inside Invoice" />
+    <meta property="og:url" content="https://www.insideinvoice.com/" />
+    <meta property="og:image" content="https://www.insideinvoice.com/og-image.png" />
+    <meta property="og:image:alt" content="Inside Invoice GST invoice and billing software" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="InsideInvoice — GST Invoice &amp; Billing Software for Indian Businesses" />
+    <meta name="twitter:description" content="Create professional GST invoices and streamline billing with Inside Invoice. Manage products, customers, payments, and business records in one web-based platform." />
+    <meta name="twitter:image" content="https://www.insideinvoice.com/og-image.png" />
     <link rel="manifest" href="/manifest.json" />
     <meta name="theme-color" content="#1e293b" />
     <meta name="mobile-web-app-capable" content="yes" />
@@ -17,7 +35,25 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
-    <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <script>
+      // Apply the privacy directive before the React bundle runs. This keeps
+      // authenticated and token-based routes out of indexing even when a
+      // crawler inspects the initial SPA shell before rendering it.
+      (function () {
+        var path = window.location.pathname;
+        var privateRoute = /^\/(login|forgot-password|change-password)(\/|$)/.test(path) ||
+          /^\/(dashboard|business-setup|invoice|invoices|customers|products|delivery-challans|invoice-templates|payments|labels|settings|profile|more|admin|i|video)(\/|$)/.test(path);
+        if (!privateRoute) return;
+        var robots = document.querySelector('meta[name="robots"]');
+        if (robots) robots.setAttribute("content", "noindex,nofollow,noarchive");
+        var canonical = document.querySelector('link[rel="canonical"]');
+        if (canonical) canonical.remove();
+        var socialUrl = document.querySelector('meta[property="og:url"]');
+        if (socialUrl) socialUrl.remove();
+        document.title = "Inside Invoice";
+      })();
+    </script>
     <style>
       @media (max-width: 767px) { body { -webkit-tap-highlight-color: transparent; } }
     </style>
@@ -39,4 +75,3 @@
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
-

@@ -123,26 +123,34 @@ export default memo(function AppNavbar() {
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   // Tablet up to ~15" (768–1535px) starts with the sidebar collapsed to an icon
-  // rail so page content (e.g. wide tables) keeps the full width. The CSS in
-  // index.css scopes this state to that breakpoint only.
+  // rail so page content (e.g. wide tables) keeps the full width. Hovering the
+  // rail temporarily reveals the full sidebar; clicking its toggle keeps it
+  // open until it is toggled again.
   const [railCollapsed, setRailCollapsed] = useState(true);
+  const [railHovered, setRailHovered] = useState(false);
   // Hover tooltip shown next to an icon while the rail is collapsed.
   const [railTip, setRailTip] = useState(null); // { label, top, left }
   const [railMode, setRailMode] = useState(() =>
     typeof window !== "undefined" && window.matchMedia(RAIL_MEDIA).matches
   );
+  const railExpanded = railMode && (railHovered || !railCollapsed);
   useNavbarHeightVar();
 
   useEffect(() => {
     const root = document.documentElement;
-    root.classList.toggle("rail-collapsed", railCollapsed);
-    return () => root.classList.remove("rail-collapsed");
-  }, [railCollapsed]);
+    root.classList.toggle("rail-collapsed", railMode && !railExpanded);
+    root.classList.toggle("rail-expanded", railExpanded);
+    return () => {
+      root.classList.remove("rail-collapsed");
+      root.classList.remove("rail-expanded");
+    };
+  }, [railMode, railExpanded]);
 
   useEffect(() => {
     const mq = window.matchMedia(RAIL_MEDIA);
     const onChange = () => {
       setRailMode(mq.matches);
+      setRailHovered(false);
       setRailTip(null);
     };
     mq.addEventListener("change", onChange);
@@ -151,14 +159,38 @@ export default memo(function AppNavbar() {
 
   const showRailTip = useCallback((e, label, force = false) => {
     if (!railMode) return;
-    if (!force && !railCollapsed) return;
+    if (!force && railExpanded) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const aside = document.querySelector("aside.app-side-nav");
     const left = aside ? aside.getBoundingClientRect().right + 8 : 72;
     setRailTip({ label, top: rect.top + rect.height / 2, left });
-  }, [railMode, railCollapsed]);
+  }, [railMode, railExpanded]);
 
   const hideRailTip = useCallback(() => setRailTip(null), []);
+
+  const handleRailMouseEnter = useCallback(() => {
+    if (!railMode) return;
+    setRailHovered(true);
+    setRailTip(null);
+  }, [railMode]);
+
+  const handleRailMouseLeave = useCallback(() => {
+    setRailHovered(false);
+    setRailTip(null);
+  }, []);
+
+  const handleRailFocus = useCallback(() => {
+    if (!railMode) return;
+    setRailHovered(true);
+    setRailTip(null);
+  }, [railMode]);
+
+  const handleRailBlur = useCallback((e) => {
+    if (!e.currentTarget.contains(e.relatedTarget)) {
+      setRailHovered(false);
+      setRailTip(null);
+    }
+  }, []);
 
   const handleLogout = useCallback(() => {
     logout();
@@ -210,6 +242,7 @@ export default memo(function AppNavbar() {
       <div className="rail-head px-4 py-4 border-b border-slate-100">
         <div className="flex items-center justify-between gap-2">
           <button
+            type="button"
             onClick={() => handleNav("/dashboard")}
             className="rail-logo flex items-center gap-2.5 hover:opacity-80 transition-opacity min-w-0"
           >
@@ -232,13 +265,17 @@ export default memo(function AppNavbar() {
           </button>
           <button
             type="button"
-            onClick={() => { setRailCollapsed((v) => !v); setRailTip(null); }}
-            aria-label={railCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-            onMouseEnter={(e) => showRailTip(e, railCollapsed ? "Expand sidebar" : "Collapse sidebar", true)}
+            onClick={() => {
+              setRailCollapsed((v) => !v);
+              setRailHovered(false);
+              setRailTip(null);
+            }}
+            aria-label={railExpanded ? "Collapse sidebar" : "Expand sidebar"}
+            onMouseEnter={(e) => showRailTip(e, railExpanded ? "Collapse sidebar" : "Expand sidebar", true)}
             onMouseLeave={hideRailTip}
             className="rail-toggle items-center justify-center p-2 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors shrink-0"
           >
-            {railCollapsed ? <Menu className="w-5 h-5" /> : <X className="w-5 h-5" />}
+            {railExpanded ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
         </div>
         {isAdmin && (
@@ -312,7 +349,13 @@ export default memo(function AppNavbar() {
   return (
     <>
       {/* ===== DESKTOP SIDEBAR (md+) ===== */}
-      <aside className="app-side-nav hidden md:flex md:flex-col md:fixed md:inset-y-0 md:left-0 md:z-50 md:w-60 md:bg-white md:border-r md:border-slate-200">
+      <aside
+        className="app-side-nav hidden md:flex md:flex-col md:fixed md:inset-y-0 md:left-0 md:z-50 md:w-60 md:bg-white md:border-r md:border-slate-200 transition-[width] duration-200 ease-out"
+        onMouseEnter={handleRailMouseEnter}
+        onMouseLeave={handleRailMouseLeave}
+        onFocus={handleRailFocus}
+        onBlur={handleRailBlur}
+      >
         {sidebarContent}
         {railTip && (
           <div

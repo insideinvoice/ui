@@ -363,7 +363,7 @@ export default function InvoicesList() {
   const shareFromSheetWhatsApp = async () => {
     if (shareBusy || !shareSheetInvoice) return;
     const invoice = shareSheetInvoice;
-    const origin = typeof window !== "undefined" && window.location.origin ? window.location.origin : "https://insideinvoice.com";
+    const origin = typeof window !== "undefined" && window.location.origin ? window.location.origin : "https://www.insideinvoice.com";
 
     // Fast path: share token already known (earlier share in this session)
     // → build the message without re-requesting the share token. The business

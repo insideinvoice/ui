@@ -92,10 +92,11 @@ div:has(> label + input[type="date"]) {
 
 /* ---------------------------------------------------------------------------
    Medium screens (768–1535px / tablet up to ~15") only: the fixed left nav
-   collapses into a 64px icon rail (labels hidden, icons centred, native hover
-   tooltips) so wide content such as the invoice items table gets the width.
-   A hamburger in the rail toggles it back to the full 240px sidebar.
-   Above 1536px (16" and larger displays) the default full sidebar is shown.
+   starts as a 64px icon rail (logo and icons visible, labels hidden) so wide
+   content such as the invoice items table gets the width. Hovering or focusing
+   the rail reveals the full 240px sidebar over the content. The header toggle
+   can keep it open. Above 1536px (16" and larger displays) the default full
+   sidebar is shown.
 --------------------------------------------------------------------------- */
 .rail-toggle {
   display: none;
@@ -114,14 +115,32 @@ div:has(> label + input[type="date"]) {
     margin-left: 4rem;
   }
 
+  /* Hover expansion overlays the page instead of shifting its layout. */
+  html.rail-expanded aside.app-side-nav {
+    width: 15rem;
+    box-shadow: 8px 0 24px rgb(15 23 42 / 0.08);
+  }
+
+  html.rail-expanded .app-shell {
+    margin-left: 4rem;
+  }
+
   html.rail-collapsed .rail-hide {
     display: none;
   }
 
-  /* Collapsed rail: the logo button flexes to ~6px and preflight's
-     `img { max-width: 100% }` squeezes it into a dot — drop it entirely so
-     only the centred hamburger remains, inline with the nav icons. */
+  /* Keep the square logo visible in the collapsed rail. The toggle is shown
+     again as soon as the rail expands, leaving the logo centered at 64px. */
+  html.rail-collapsed .rail-head > div {
+    justify-content: center;
+  }
+
   html.rail-collapsed .rail-logo {
+    flex: 0 0 2rem;
+    justify-content: center;
+  }
+
+  html.rail-collapsed .rail-toggle {
     display: none;
   }
 
@@ -138,7 +157,7 @@ div:has(> label + input[type="date"]) {
   }
 }
 
-/* Collapsed rail header: tighter padding so the toggle button fits in 64px */
+/* Collapsed rail header: tighter padding so the logo fits in 64px */
 @media (min-width: 768px) and (max-width: 1535.98px) {
   html.rail-collapsed .rail-head {
     padding-left: 0.5rem;

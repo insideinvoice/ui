@@ -1,7 +1,7 @@
 {
   "name": "Inside Invoice",
   "short_name": "Inside Invoice",
-  "description": "Invoice management app",
+  "description": "GST invoice and billing software for Indian businesses",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

@@ -49,6 +49,7 @@ import DeliveryChallansList from "./pages/DeliveryChallansList";
 import DeliveryChallanView from "./pages/DeliveryChallanView";
 import MorePage from "./pages/MorePage";
 import PublicInvoicePage from "./pages/PublicInvoicePage";
+import SeoHead from "./components/SeoHead";
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -73,6 +74,7 @@ function AppRoutes() {
   return (
     <>
       <ScrollToTop />
+      <SeoHead />
       <Routes>
       <Route path="/" element={<GSTBillingLanding />} />
       <Route path="/login" element={<Login />} />

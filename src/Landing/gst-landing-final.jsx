@@ -329,7 +329,7 @@ export default function GSTBillingLanding() {
               </div>
 
               <h1 className="text-3xl sm:text-4xl lg:text-6xl font-bold text-slate-900 leading-tight">
-                GST Billing <span className="gradient-text">Made Simple</span>{" "}
+                GST Invoice &amp; Billing <span className="gradient-text">Made Simple</span>{" "}
                 for India
               </h1>
 

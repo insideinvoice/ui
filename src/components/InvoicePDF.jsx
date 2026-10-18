@@ -2,6 +2,7 @@ import React, { useMemo } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import CompanySeal from "./CompanySeal";
 import CompanyStamp from "./CompanyStamp";
+import { resolveSeal } from "../utils/seal";
 import { getSpecialistInLine } from "../utils/specialistIn";
 import { computeInvoiceTotals } from "../utils/invoiceTotals";
 import { getIndustryConfig, getTemplateRightRows, fieldLabel } from "../constants/industryConfig";
@@ -115,8 +116,7 @@ const InvoicePDF = React.memo(React.forwardRef(({ business, customer, form, item
       ];
   const itemDescLabel = fieldLabel(industryConfig, "itemName", "Description of Goods");
 
-  const sealVisible = typeof window !== "undefined" && localStorage.getItem("show_seal") === "true";
-  const sealType = typeof window !== "undefined" ? localStorage.getItem("seal_type") || "round" : "round";
+  const { sealVisible, sealType } = resolveSeal(business);
   const stampAddress1 = business?.addressLine1 || "";
   const stampAddress2 = [business?.addressLine2, business?.city, business?.state, business?.pincode ? "-" + business.pincode : ""].filter(Boolean).join(", ");
   const stampPhone = business?.phone ? `Ph: ${business.phone}` : "";

@@ -1,6 +1,7 @@
 import React from "react";
 import CompanySeal from "./CompanySeal";
 import CompanyStamp from "./CompanyStamp";
+import { resolveSeal } from "../utils/seal";
 import InvoiceTemplateRetro from "./InvoiceTemplateRetro";
 import { numberToWords, formatINR } from "../utils/invoiceFormat";
 import { computeInvoiceTotals } from "../utils/invoiceTotals";
@@ -97,8 +98,7 @@ const InvoiceTemplateVariants = React.memo(React.forwardRef(({ theme, business, 
     ...(showDeliveryChip ? [["Delivery", form?.deliveryNote || "-"]] : []),
   ];
 
-  const sealVisible = typeof window !== "undefined" && localStorage.getItem("show_seal") === "true";
-  const sealType = typeof window !== "undefined" ? localStorage.getItem("seal_type") || "round" : "round";
+  const { sealVisible, sealType } = resolveSeal(business);
   const stampAddress1 = business?.addressLine1 || "";
   const stampAddress2 = [business?.addressLine2, business?.city, business?.state, business?.pincode ? "-" + business.pincode : ""].filter(Boolean).join(", ");
   const stampPhone = business?.phone ? `Ph: ${business.phone}` : "";

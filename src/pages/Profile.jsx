@@ -33,6 +33,10 @@ export default function Profile() {
         const b = res.data.data;
         setSignature(b?.signature || null);
         setBusinessData(b);
+        // The seal preference is stored on the business so the emailed PDF and
+        // the public share page (customer's device) match the owner's choice.
+        if (typeof b?.sealEnabled === "boolean") setSealEnabled(b.sealEnabled);
+        if (b?.sealType) localStorage.setItem("seal_type", b.sealType);
         setBankForm({
           bankName: b?.bankName || "",
           accountNo: b?.accountNo || "",
@@ -249,6 +253,10 @@ export default function Profile() {
                 const next = !sealEnabled;
                 setSealEnabled(next);
                 localStorage.setItem("show_seal", String(next));
+                setBusinessData((d) => (d ? { ...d, sealEnabled: next } : d));
+                // Persist server-side: this is what the emailed PDF and the
+                // public share page read, so the toggle must not stay local.
+                businessAPI.update({ sealEnabled: next }).catch(() => {});
               }}
                 className={`relative w-11 h-6 rounded-full transition-colors ${sealEnabled ? "bg-blue-500" : "bg-slate-300"}`}>
                 <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform ${sealEnabled ? "translate-x-5" : ""}`} />

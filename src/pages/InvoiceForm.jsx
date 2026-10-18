@@ -7,7 +7,7 @@ import PageHeader from "../components/PageHeader";
 import { invoiceAPI, customerAPI, businessAPI, productAPI, deliveryChallanAPI } from "../api/auth";
 import toast from "react-hot-toast";
 import {
-  ArrowLeft, Plus, Trash2, Save, FileText, Download,
+  ArrowLeft, Plus, Trash2, Zap, FileText, Download,
   User, Building2, Phone, MapPin, Hash,
   Package, FileSpreadsheet, Share2, Info, X, ChevronDown, Truck,
   Link2, Copy, Mail, RotateCw, Unlink
@@ -310,6 +310,10 @@ export default function InvoiceForm() {
   const [shareToken, setShareToken] = useState(null);
   const [shareBusy, setShareBusy] = useState("");
   const [emailBusy, setEmailBusy] = useState(false);
+  // Generate Tax Invoice flow — once the invoice has been saved + emailed, the
+  // button reads "Download Tax Invoice PDF" until the invoice content changes.
+  const [generating, setGenerating] = useState(false);
+  const [generatedSignature, setGeneratedSignature] = useState(null);
   const shareUrl = shareToken ? `${window.location.origin}/i/${shareToken}` : "";
   const [customInvoiceNumber, setCustomInvoiceNumber] = useState("");
   const ghostMode = localStorage.getItem("ghost_mode") === "true";
@@ -654,6 +658,25 @@ export default function InvoiceForm() {
     [items]
   );
 
+  // Fingerprint of everything that shapes the invoice document. Compared with
+  // the snapshot taken when Generate Tax Invoice ran, so any later edit flips
+  // the button from Download back to Generate.
+  const contentSignature = useMemo(
+    () =>
+      JSON.stringify({
+        form,
+        customer,
+        // Derived totals are recomputed on save — only raw inputs count as edits.
+        items: items.map(({ taxableValue, taxAmount, total, ...rest }) => rest),
+        discountEnabled,
+        discountPercent,
+        billingMode,
+        project,
+      }),
+    [form, customer, items, discountEnabled, discountPercent, billingMode, project]
+  );
+  const taxInvoiceGenerated = !!generatedSignature && generatedSignature === contentSignature;
+
   // localStorage read + JSON.parse + structuredClone — done once per invoice
   // type instead of on every render of the hidden capture document.
   const effectiveType = captureType || form.invoiceType;
@@ -747,19 +770,58 @@ export default function InvoiceForm() {
     return res;
   };
 
-  const handleSave = async () => {
-    // Without this, an invalid save still reached saveInvoice(), which creates the
-    // customer record first — so every failed attempt left an orphan customer behind.
+  // Generate Tax Invoice — one action that saves the invoice to the DB
+  // (create or update) and emails it to the customer's registered email with
+  // its share link. Afterwards the button turns into "Download Tax Invoice
+  // PDF"; editing the invoice brings Generate back (see contentSignature).
+  const handleGenerateTaxInvoice = async () => {
+    if (saving) return;
+    // Without validate(), an invalid save still reached saveInvoice(), which
+    // creates the customer record first — leaving orphan customers behind.
     if (!validate()) return;
+    const signature = contentSignature;
     setSaving(true);
+    setGenerating(true);
+
+    let invoiceId;
+    let invNo;
     try {
       const res = await saveInvoice();
-      toast.success(`Invoice ${res.data.data.invoiceNumber} ${savedInvoiceId ? "updated" : "created"} successfully`);
+      invoiceId = res.data.data.id;
+      invNo = res.data.data.invoiceNumber;
     } catch (err) {
       const msg = err.response?.data?.message || err.response?.data?.details?.[0]?.msg || "Failed to save invoice";
       toast.error(msg);
-    } finally {
+      setGenerating(false);
       setSaving(false);
+      return;
+    }
+
+    let emailed = false;
+    if (customer.email?.trim()) {
+      try {
+        // The email carries the same public link the Share Link panel shows;
+        // createShare is idempotent and the backend also creates it on demand.
+        if (!shareToken) {
+          const shareRes = await invoiceAPI.createShare(invoiceId);
+          const token = shareRes.data?.data?.token;
+          if (token) setShareToken(token);
+        }
+        await invoiceAPI.sendInvoiceEmail(invoiceId, window.location.origin);
+        emailed = true;
+      } catch (err) {
+        toast.error(err.response?.data?.message || "Invoice saved, but the email could not be sent — retry with Send Email below");
+      }
+    }
+
+    setGeneratedSignature(signature);
+    setGenerating(false);
+    setSaving(false);
+    if (emailed) {
+      toast.success(`Tax Invoice ${invNo} saved & emailed to ${customer.email.trim()}`);
+    } else if (!customer.email?.trim()) {
+      toast.success(`Tax Invoice ${invNo} saved`);
+      toast("Customer has no email on record — add one to email the invoice", { icon: "📧" });
     }
   };
 
@@ -994,18 +1056,9 @@ export default function InvoiceForm() {
     <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 sticky top-6">
       <h2 className="text-sm font-bold text-slate-800 mb-4 pb-3 border-b border-slate-100">Actions</h2>
       <div className="space-y-3">
-        {/* Row 1: Save (icon) + Share + WhatsApp */}
+        {/* Row 1: Share + WhatsApp — equal width. Saving happens automatically
+            through Generate Tax Invoice, Share, WhatsApp and Proforma. */}
         <div className="flex items-stretch gap-2">
-          <span className="relative group flex-1 flex">
-            <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-20 whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-[11px] font-medium text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100">
-              Save invoice
-            </span>
-            <button onClick={handleSave} aria-label="Save invoice" disabled={saving}
-              className="w-full flex items-center justify-center px-4 py-2.5 bg-slate-800 text-white rounded-lg hover:bg-slate-700 disabled:opacity-50 transition-all shadow-sm min-h-[44px] min-w-[44px]">
-              {saving ? <Spinner size={16} className="text-white shrink-0" /> : <Save className="w-4 h-4 shrink-0" />}
-            </button>
-          </span>
-
           <span className="relative group flex-1 flex">
             <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-20 whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-[11px] font-medium text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100">
               Share Invoice Link
@@ -1045,13 +1098,24 @@ export default function InvoiceForm() {
           </button>
         </div>
 
-        {/* Tax Invoice PDF — full row */}
-        <button onClick={() => generatePDF("TAX_INVOICE")} disabled={saving || sealRequired || totals.grandTotal <= 0}
-          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 border border-indigo-300 text-indigo-700 text-sm font-semibold rounded-lg hover:bg-indigo-50 disabled:opacity-50 transition-all min-h-[44px]">
-          <Download className="w-4 h-4" /> Tax Invoice PDF
-        </button>
+        {/* Tax Invoice — Generate (save + email) until it has been generated;
+            then Download, until an edit brings Generate back. */}
+        {taxInvoiceGenerated ? (
+          <button onClick={() => generatePDF("TAX_INVOICE")} disabled={saving || sealRequired || totals.grandTotal <= 0}
+            title="Download the tax invoice PDF"
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 border border-indigo-300 text-indigo-700 text-sm font-semibold rounded-lg hover:bg-indigo-50 disabled:opacity-50 transition-all min-h-[44px]">
+            {saving ? <Spinner size={16} className="shrink-0" /> : <Download className="w-4 h-4 shrink-0" />} {saving ? "Preparing..." : "Download Tax Invoice PDF"}
+          </button>
+        ) : (
+          <button onClick={handleGenerateTaxInvoice} disabled={saving || sealRequired || totals.grandTotal <= 0}
+            title="Save this invoice and email it to the customer"
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 border border-indigo-300 text-indigo-700 text-sm font-semibold rounded-lg hover:bg-indigo-50 disabled:opacity-50 transition-all min-h-[44px]">
+            {generating ? <Spinner size={16} className="shrink-0" /> : <Zap className="w-4 h-4 shrink-0" />} {generating ? "Generating..." : "Generate Tax Invoice"}
+          </button>
+        )}
 
-        {/* Share Link — same as View Invoice; unlocks only after Save */}
+        {/* Share Link — same as View Invoice; unlocks once the invoice has been
+            saved (Generate Tax Invoice, Share and WhatsApp all save) */}
         <div className="pt-3 border-t border-slate-100">
           <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-1.5"
             title="Send Email creates the link automatically. Anyone with it can view the invoice without logging in.">
@@ -1102,7 +1166,7 @@ export default function InvoiceForm() {
             </div>
           ) : (
             <div className="space-y-2">
-              <div className="flex gap-2" title={!savedInvoiceId ? "Click Save first — Create link and Send Email unlock once the invoice is saved." : undefined}>
+              <div className="flex gap-2" title={!savedInvoiceId ? "Save the invoice first (Generate Tax Invoice, Share or WhatsApp) — Create link and Send Email unlock once it exists." : undefined}>
                 <button type="button" onClick={() => handleShareLink("create")} disabled={saving || !!shareBusy || !savedInvoiceId}
                   className="min-w-0 flex-1 flex items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-2.5 border border-sky-300 text-sky-700 rounded-lg hover:bg-sky-50 disabled:opacity-60 transition-all">
                   {shareBusy === "create" ? <Spinner size={14} className="shrink-0" /> : <Link2 className="w-3.5 h-3.5 shrink-0" />}

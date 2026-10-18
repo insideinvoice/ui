@@ -58,8 +58,16 @@ export const invoiceAPI = {
   createShare: (id) => api.post(`/invoices/${id}/share`),
   revokeShare: (id) => api.delete(`/invoices/${id}/share`),
   regenerateShare: (id) => api.post(`/invoices/${id}/share/regenerate`),
-  // Email the invoice + share link to the customer (backend creates the link on demand)
-  sendInvoiceEmail: (id, origin) => api.post(`/invoices/${id}/email`, { frontendOrigin: origin }),
+  // Email the invoice + share link to the customer (backend creates the link on
+  // demand). `pdfFile` is the SAME client-rendered PDF the Download button
+  // produces (seal/stamp included), attached so the emailed document matches
+  // the download exactly. Sent as multipart because of the file part.
+  sendInvoiceEmail: (id, origin, pdfFile) => {
+    const form = new FormData();
+    form.append("frontendOrigin", origin || "");
+    if (pdfFile) form.append("pdf", pdfFile);
+    return api.post(`/invoices/${id}/email`, form);
+  },
 };
 
 export const deliveryChallanAPI = {

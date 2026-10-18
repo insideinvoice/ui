@@ -1,6 +1,7 @@
 import React from "react";
 import CompanySeal from "./CompanySeal";
 import CompanyStamp from "./CompanyStamp";
+import { resolveSeal } from "../utils/seal";
 import { numberToWords, formatINR } from "../utils/invoiceFormat";
 import { computeInvoiceTotals } from "../utils/invoiceTotals";
 import { getSpecialistInLine, SPECIALIST_IN_EXTRA_H } from "../utils/specialistIn";
@@ -597,8 +598,7 @@ const InvoiceTemplateRetro = React.forwardRef(
       words: grand > 0 ? numberToWords(grand) : "",
       pctLabel,
       terms: (form?.notes && form.notes.trim()) || "Goods once sold cannot be taken back or exchanged.",
-      sealVisible: typeof window !== "undefined" && window.localStorage?.getItem("show_seal") === "true",
-      sealType: (typeof window !== "undefined" && window.localStorage?.getItem("seal_type")) || "round",
+      ...resolveSeal(business),
       sigSrc: business?.signature ? `data:image/png;base64,${business.signature}` : null,
     };
 

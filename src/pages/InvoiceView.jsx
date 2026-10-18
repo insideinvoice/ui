@@ -134,8 +134,21 @@ export default function InvoiceView() {
   // busy-flag toggle re-rendered two full invoice documents.
   const [captureType, setCaptureType] = useState(null);
   const [sealType, setSealType] = useState(localStorage.getItem("seal_type") || "");
-  const sealEnabled = localStorage.getItem("show_seal") === "true";
+  // The business profile is the source of truth (it is what the public share
+  // page and the emailed PDF use). localStorage stays as the immediate value
+  // for the logged-in app and as a fallback before the profile loads.
+  const sealEnabled =
+    typeof business?.sealEnabled === "boolean" ? business.sealEnabled : localStorage.getItem("show_seal") === "true";
   const sealRequired = sealEnabled && !sealType;
+  // Choosing a seal type updates the on-screen preview instantly (local state),
+  // keeps localStorage for the logged-in app, and persists to the business
+  // profile so the emailed PDF and the public share page match it.
+  const chooseSealType = useCallback((type) => {
+    setSealType(type);
+    localStorage.setItem("seal_type", type);
+    setBusiness((b) => (b ? { ...b, sealType: type } : b));
+    businessAPI.update({ sealType: type }).catch(() => {});
+  }, []);
   const ghostMode = localStorage.getItem("ghost_mode") === "true";
   const [discountPercent, setDiscountPercent] = useState("");
   const [discountEnabled, setDiscountEnabled] = useState(false);
@@ -361,7 +374,21 @@ export default function InvoiceView() {
         const res = await invoiceAPI.createShare(id);
         setShareToken(res.data?.data?.token);
       }
-      const res = await invoiceAPI.sendInvoiceEmail(id, window.location.origin);
+      // Build the SAME PDF the Download button produces (it reads the
+      // seal/stamp preference from localStorage) and attach it, so the document
+      // the customer receives by email is identical to the one they'd download.
+      let pdfFile = null;
+      try {
+        const captureRef = await mountCapture(invoiceType);
+        const ps = (getPrintSettings()[invoiceType] || {}).paperSize || "A4_PORTRAIT";
+        const filename = `${invoiceType === "PROFORMA_INVOICE" ? "Proforma" : "Tax"}_Invoice_${form.invoiceNumber}.pdf`;
+        pdfFile = await createInvoicePdfFile(captureRef.current, ps, filename);
+      } catch {
+        pdfFile = null; // attachment is best-effort; the email still sends
+      } finally {
+        releaseCapture();
+      }
+      const res = await invoiceAPI.sendInvoiceEmail(id, window.location.origin, pdfFile);
       toast.success(res.data?.message || "Invoice emailed to the customer");
     } catch (err) {
       toast.error(err.response?.data?.message || "Could not send the invoice email");
@@ -379,6 +406,9 @@ export default function InvoiceView() {
     ]).then(([invRes, bizRes]) => {
       const inv = invRes.data.data;
       setBusiness(bizRes?.data?.data || null);
+      // Seed the seal type from the saved business profile so the radio and the
+      // rendered document agree with what the share page/email will show.
+      if (bizRes?.data?.data?.sealType) setSealType(bizRes.data.data.sealType);
       // Restore a share token the user already consented to on this device, so
       // the first WhatsApp/share tap needs no network and stays in-gesture.
       const cachedToken = readCachedShareToken(id);
@@ -1305,10 +1335,7 @@ export default function InvoiceView() {
                       name="sealType"
                       value="round"
                       checked={sealType === "round"}
-                      onChange={() => {
-                        setSealType("round");
-                        localStorage.setItem("seal_type", "round");
-                      }}
+                      onChange={() => chooseSealType("round")}
                       className="accent-blue-500"
                     />
                     <span className="text-sm text-slate-700">Round Seal</span>
@@ -1319,10 +1346,7 @@ export default function InvoiceView() {
                       name="sealType"
                       value="stamp"
                       checked={sealType === "stamp"}
-                      onChange={() => {
-                        setSealType("stamp");
-                        localStorage.setItem("seal_type", "stamp");
-                      }}
+                      onChange={() => chooseSealType("stamp")}
                       className="accent-blue-500"
                     />
                     <span className="text-sm text-slate-700">Rubber Stamp</span>

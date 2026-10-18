@@ -42,6 +42,10 @@ function mapToTemplateProps(data, typeOverride) {
     // Undefined (older share payload) keeps the HSN/SAC column on, matching
     // every other template's null-safe default.
     showHnSac: s.showHnSac,
+    // The share page opens on the customer's device, which has none of the
+    // owner's localStorage, so the seal/stamp must come from the payload.
+    sealEnabled: s.sealEnabled,
+    sealType: s.sealType,
   };
 
   const customer = {

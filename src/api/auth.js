@@ -66,7 +66,13 @@ export const invoiceAPI = {
     const form = new FormData();
     form.append("frontendOrigin", origin || "");
     if (pdfFile) form.append("pdf", pdfFile);
-    return api.post(`/invoices/${id}/email`, form);
+    // The axios instance defaults every request to application/json, which would
+    // be sent alongside this multipart body and get rejected with 415. Override
+    // it explicitly, exactly as uploadSignature does.
+    return api.post(`/invoices/${id}/email`, form, {
+      headers: { "Content-Type": "multipart/form-data" },
+      timeout: 120000,
+    });
   },
 };
 

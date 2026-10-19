@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import AppNavbar from "../components/AppNavbar";
 import PageHeader from "../components/PageHeader";
 import LoadingDots from "../components/LoadingDots";
+import SelectMenu from "../components/SelectMenu";
 import { deliveryChallanAPI, customerAPI, businessAPI } from "../api/auth";
 import { renderDeliveryChallanPdf } from "../components/DeliveryChallanDownload";
 import { goBack } from "../utils/navigation";
@@ -16,7 +16,7 @@ const labelClass =
 
 const todayIso = () => new Date().toISOString().split("T")[0];
 
-const emptyItem = { description: "", quantity: "" };
+const emptyItem = { description: "", quantity: "", remarks: "" };
 
 export default function DeliveryChallanForm() {
   const navigate = useNavigate();
@@ -159,6 +159,9 @@ export default function DeliveryChallanForm() {
         items: validItems.map((it) => ({
           description: it.description.trim(),
           quantity: parseFloat(it.quantity),
+          // Printed only by the Royal template's Remarks column; Classic
+          // ignores it (no column there). Optional — null when blank.
+          remarks: it.remarks?.trim() || null,
         })),
       };
       const res = await deliveryChallanAPI.create(payload);
@@ -183,7 +186,6 @@ export default function DeliveryChallanForm() {
   if (loading) {
     return (
       <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-gray-100">
-        <AppNavbar />
         <div
           className="flex items-center justify-center"
           style={{ minHeight: "calc(100dvh - 80px)" }}
@@ -196,7 +198,6 @@ export default function DeliveryChallanForm() {
 
   return (
     <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-gray-100">
-      <AppNavbar />
       <div className="px-4 sm:px-5 lg:px-6 py-3 sm:py-4 lg:py-5 max-w-[1400px] mx-auto">
         <PageHeader title="New Delivery Challan" />
 
@@ -206,7 +207,9 @@ export default function DeliveryChallanForm() {
               <ClipboardList className="w-4.5 h-4.5 text-white" />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-slate-800">Challan Details</h2>
+              <h2 className="text-sm font-bold text-slate-800">
+                Challan Details
+              </h2>
               <p className="text-xs text-slate-500">
                 Creates the record and instantly downloads the PDF
               </p>
@@ -297,19 +300,28 @@ export default function DeliveryChallanForm() {
             </div>
             <div>
               <label className={labelClass}>Customer *</label>
-              <select
-                value={form.customerId}
-                onChange={(e) => handleCustomerSelect(e.target.value)}
-                className={inputClass}
-              >
-                <option value="">Select customer *</option>
-                <option value="__new_customer__">➕ New Customer…</option>
-                {customers.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
+              {/* SelectMenu instead of native <select>: options can carry a
+                  real lucide icon, so "New Customer…" shows the same
+                  UserPlus icon the rest of the app uses (native <option>
+                  elements can only render plain text). */}
+              <SelectMenu
+                value={String(form.customerId || "")}
+                onChange={handleCustomerSelect}
+                options={[
+                  { value: "", label: "Select customer *" },
+                  {
+                    value: "__new_customer__",
+                    label: "New Customer…",
+                    icon: UserPlus,
+                  },
+                  ...customers.map((c) => ({
+                    value: String(c.id),
+                    label: c.name,
+                  })),
+                ]}
+                ariaLabel="Customer"
+                className="w-full"
+              />
             </div>
             <div>
               <label className={labelClass}>Your P.O No (optional)</label>
@@ -357,11 +369,26 @@ export default function DeliveryChallanForm() {
                     <input
                       type="text"
                       value={it.description}
-                      onChange={(e) => setItem(idx, "description", e.target.value)}
+                      onChange={(e) =>
+                        setItem(idx, "description", e.target.value)
+                      }
                       placeholder="Description of material"
                       className={inputClass + " min-w-0 sm:flex-1"}
                     />
                   </div>
+                  {/* Per-item remarks — the Royal template's items table has a
+                      dedicated Remarks column; Classic has no such column, so
+                      no field is offered there (per product decision). */}
+                  {template === "royal" && (
+                    <input
+                      type="text"
+                      value={it.remarks ?? ""}
+                      onChange={(e) => setItem(idx, "remarks", e.target.value)}
+                      placeholder="Remarks"
+                      maxLength={300}
+                      className={inputClass + " sm:flex-none sm:w-44"}
+                    />
+                  )}
                   <div className="flex items-center gap-2 pl-9 sm:pl-0">
                     <input
                       type="number"
@@ -393,7 +420,11 @@ export default function DeliveryChallanForm() {
               disabled={saving}
               className="flex items-center justify-center gap-2 px-5 py-2.5 bg-teal-600 text-white text-sm font-semibold rounded-lg hover:bg-teal-700 disabled:opacity-50 transition-all shadow-sm min-h-[44px]"
             >
-              {saving ? <LoadingDots className="text-white" /> : <Download className="w-4 h-4" />}
+              {saving ? (
+                <LoadingDots className="text-white" />
+              ) : (
+                <Download className="w-4 h-4" />
+              )}
               {saving ? "Creating…" : "Create & Download PDF"}
             </button>
             <button
@@ -422,11 +453,17 @@ export default function DeliveryChallanForm() {
                   <UserPlus className="w-4.5 h-4.5 text-teal-600" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="text-sm font-bold text-slate-900">New Customer</h3>
-                  <p className="text-xs text-slate-500">Created instantly & selected below</p>
+                  <h3 className="text-sm font-bold text-slate-900">
+                    New Customer
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Created instantly & selected below
+                  </p>
                 </div>
                 <button
-                  onClick={() => !creatingCustomer && setShowCustomerModal(false)}
+                  onClick={() =>
+                    !creatingCustomer && setShowCustomerModal(false)
+                  }
                   aria-label="Close"
                   className="p-2 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
                 >
@@ -440,7 +477,9 @@ export default function DeliveryChallanForm() {
                   <input
                     autoFocus
                     value={newCustomer.name}
-                    onChange={(e) => setNewCustomerField("name", e.target.value)}
+                    onChange={(e) =>
+                      setNewCustomerField("name", e.target.value)
+                    }
                     onKeyDown={(e) => {
                       if (e.key === "Enter") {
                         e.preventDefault();
@@ -461,7 +500,10 @@ export default function DeliveryChallanForm() {
                       onChange={(e) =>
                         setNewCustomerField(
                           "phone",
-                          e.target.value.replace(/\D/g, "").replace(/^0+/, "").slice(0, 10)
+                          e.target.value
+                            .replace(/\D/g, "")
+                            .replace(/^0+/, "")
+                            .slice(0, 10),
                         )
                       }
                       className={inputClass}
@@ -473,7 +515,9 @@ export default function DeliveryChallanForm() {
                     <input
                       type="email"
                       value={newCustomer.email}
-                      onChange={(e) => setNewCustomerField("email", e.target.value)}
+                      onChange={(e) =>
+                        setNewCustomerField("email", e.target.value)
+                      }
                       className={inputClass}
                       placeholder="name@example.com"
                     />
@@ -484,7 +528,9 @@ export default function DeliveryChallanForm() {
                   <input
                     type="text"
                     value={newCustomer.gstIn}
-                    onChange={(e) => setNewCustomerField("gstIn", e.target.value.toUpperCase())}
+                    onChange={(e) =>
+                      setNewCustomerField("gstIn", e.target.value.toUpperCase())
+                    }
                     className={inputClass}
                     placeholder="22AAAAA0000A1Z5"
                   />
@@ -494,7 +540,9 @@ export default function DeliveryChallanForm() {
                   <textarea
                     rows={2}
                     value={newCustomer.billingAddress}
-                    onChange={(e) => setNewCustomerField("billingAddress", e.target.value)}
+                    onChange={(e) =>
+                      setNewCustomerField("billingAddress", e.target.value)
+                    }
                     className={inputClass + " resize-none"}
                     placeholder="Street, city, state, PIN"
                   />

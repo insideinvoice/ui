@@ -660,7 +660,19 @@ function RoyalPage({ business, customer, challan, items }) {
               >
                 {fmtQty(item.quantity)}
               </div>
-              <div style={{ width: 150, fontSize: 10.5, padding: "0 6px" }} />
+              <div
+                style={{
+                  width: 150,
+                  display: "flex",
+                  alignItems: "center",
+                  padding: "0 6px",
+                  fontSize: 10.5,
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                }}
+              >
+                {clip(item.remarks, 25)}
+              </div>
             </div>
           ))}
           {/* filler: keeps column dividers running to the table's bottom line */}

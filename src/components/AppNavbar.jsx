@@ -401,14 +401,15 @@ export default memo(function AppNavbar() {
       <nav
         className="app-nav-fixed md:hidden bg-white border-b border-slate-200 px-3 sm:px-4 py-2 sm:py-3 sticky z-[99]"
         style={{
-          // Pin just BELOW the status-bar strip (#root reserves the inset at
-          // the top of the page; body::before in index.css paints it white).
-          // The navbar must never overlap that strip: iOS standalone PWAs
-          // rasterize layers extending under the status bar at the wrong
-          // scale, which blurred this navbar's text and icons — the browser
-          // and the bottom tab bar (which never touches the status bar)
-          // rendered sharp.
-          top: "env(safe-area-inset-top, 0px)",
+          // Pin just BELOW the painted status-bar strip (#root reserves the
+          // offset at the top of the page; body::before in index.css paints
+          // it, including the iOS 27 home-screen blur feather). The navbar
+          // must never overlap that zone: iOS standalone PWAs rasterize
+          // layers extending under the status bar at the wrong scale, and
+          // iOS 27's system blur fogs anything inside it — the browser and
+          // the bottom tab bar (which never touches the status bar) render
+          // sharp.
+          top: "var(--status-bar-offset, 0px)",
         }}
       >
         <div className="flex items-center justify-between max-w-full">
@@ -436,9 +437,9 @@ export default memo(function AppNavbar() {
           style={{
             // Sit below the status-bar strip for the same reason as the top
             // navbar: a layer spanning the under-status-bar region renders
-            // blurry in iOS standalone PWAs.
-            top: "env(safe-area-inset-top, 0px)",
-            height: "calc(100% - env(safe-area-inset-top, 0px))",
+            // blurry in iOS standalone PWAs (and inside iOS 27's blur feather).
+            top: "var(--status-bar-offset, 0px)",
+            height: "calc(100% - var(--status-bar-offset, 0px))",
           }}>
           <div className="bg-white border-b border-slate-100 shrink-0" style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
             <div className="flex items-center justify-between px-4 py-3">

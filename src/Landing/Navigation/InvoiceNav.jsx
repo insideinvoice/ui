@@ -24,11 +24,12 @@ export default function InvoiceNav({ scrolled, setIsMenuOpen, isMenuOpen }) {
       style={{
         // Pin below the status-bar strip (body::before in index.css) instead
         // of covering it: iOS standalone PWAs rasterize layers extending
-        // under the status bar at the wrong scale, which blurred this nav's
-        // icon and hamburger button in the installed app. The pt-3 keeps the
-        // icon and hamburger a comfortable margin below the status bar in
-        // the PWA (env() is 0 in the browser, where the strip is too).
-        top: "env(safe-area-inset-top, 0px)",
+        // under the status bar at the wrong scale, and iOS 27 adds a system
+        // blur feather (--status-bar-blur-gap) that fogs headers inside it —
+        // both blurred this nav's icon and hamburger in the installed app.
+        // The pt-3 keeps a comfortable margin below the strip in the PWA
+        // (offset is 0 in the browser, where the strip is too).
+        top: "var(--status-bar-offset, 0px)",
       }}
     >
       <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-10">

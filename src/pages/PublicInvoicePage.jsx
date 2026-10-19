@@ -46,6 +46,11 @@ function mapToTemplateProps(data, typeOverride) {
     // owner's localStorage, so the seal/stamp must come from the payload.
     sealEnabled: s.sealEnabled,
     sealType: s.sealType,
+    // Configurable jurisdiction footer (V31): rendered text is whichever
+    // city the business saved — the share page never assumes a city.
+    jurisdictionEnabled: s.jurisdictionEnabled,
+    jurisdictionRegion: s.jurisdictionRegion,
+    jurisdictionCity: s.jurisdictionCity,
   };
 
   const customer = {
@@ -377,8 +382,9 @@ export default function PublicInvoicePage() {
         style={{
           // Pin below the status-bar strip like the other top bars: a layer
           // spanning the under-status-bar region rasterizes blurry in iOS
-          // standalone PWAs.
-          top: "env(safe-area-inset-top, 0px)",
+          // standalone PWAs, and iOS 27's system blur feather extends past
+          // the strip into it.
+          top: "var(--status-bar-offset, 0px)",
         }}>
         <div className="max-w-[1200px] mx-auto px-3 sm:px-4 py-2.5 flex items-center justify-between gap-3">
           <div className="min-w-0">

@@ -16,9 +16,18 @@ html, body, #root {
 }
 
 :root {
+  /* Extra feather below the status bar for iOS 27 home-screen PWAs: the
+     system's own status-bar blur extends ~20px past the safe-area inset and
+     fogs header text there (set inline by index.html only when
+     navigator.standalone is true). Zero in browsers / older iOS / Android. */
+  --status-bar-blur-gap: 0px;
+  /* Single top offset shared by the painted strip (#root padding and
+     body::before) and every pinned top bar (nav, drawer, public header,
+     toasts) so nothing ever renders inside the status-bar/blur zone. */
+  --status-bar-offset: calc(env(safe-area-inset-top, 0px) + var(--status-bar-blur-gap));
   /* Real mobile top-nav height, injected by AppNavbar at runtime (varies with
      the device safe-area inset). Fallback covers pre-hydration paint. */
-  --app-nav-height: calc(env(safe-area-inset-top, 0px) + 61px);
+  --app-nav-height: calc(var(--status-bar-offset) + 61px);
   /* Color of the painted status-bar strip (body::before below). Defaults to
      the page background; AppNavbar overrides it to white while the app shell
      is mounted, and InvoiceNav switches it with its scrolled state. */
@@ -47,7 +56,7 @@ body {
   min-height: 100%;
   min-height: 100dvh;
   background-color: #f8fafc;
-  padding-top: env(safe-area-inset-top, 0px);
+  padding-top: var(--status-bar-offset);
   padding-left: env(safe-area-inset-left, 0px);
   padding-right: env(safe-area-inset-right, 0px);
   box-sizing: border-box;
@@ -56,25 +65,31 @@ body {
 /* Installed-PWA (standalone) status bar: `black-translucent` lets the page
    draw behind the iOS status bar. #root reserves that strip with padding;
    this fixed layer paints it so the clock/icons always sit on a solid
-   background and scrolled content never shows behind them. Zero-height
-   wherever the inset is 0 (Safari browser, Android, desktop). */
+   background and scrolled content never shows behind them. On iOS 27
+   home-screen apps the strip also extends past the system's own status-bar
+   blur feather (--status-bar-blur-gap), so that blur samples solid color
+   instead of fogging the nav just below it — the nav therefore paints
+   above the strip (z-99 vs z-100 would bury it; nav stays at z-99 below
+   modals but the strip never reaches its box). Zero-height wherever the
+   inset is 0 (Safari browser, Android, desktop). */
 body::before {
   content: "";
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
-  height: env(safe-area-inset-top, 0px);
+  height: var(--status-bar-offset);
   background-color: var(--status-bar-bg, #f8fafc);
-  z-index: 98;
+  z-index: 100;
   pointer-events: none;
 }
 
 /* iOS standalone PWAs rasterize layers that overlap the status-bar strip at
    the wrong scale, softening the whole top navbar. The navbar no longer
-   spans the strip (it pins below it via the inline `top` env() offset in
-   AppNavbar); it is also explicitly promoted so it rasterizes crisply at
-   device scale. */
+   spans the strip (it pins below it via --status-bar-offset in AppNavbar);
+   it is also explicitly promoted so it rasterizes crisply at device scale.
+   Removing translateZ(0) is itself a known cause of blurred text on
+   WebKit, so the promotion stays. */
 .app-nav-fixed {
   transform: translateZ(0);
   -webkit-transform: translateZ(0);
@@ -90,7 +105,7 @@ input, textarea, select {
 /* Toasts: sit just below the sticky mobile top navbar (hidden at md+) */
 @media (max-width: 767px) {
   [data-rht-toaster] {
-    top: calc(env(safe-area-inset-top, 0px) + 68px) !important;
+    top: calc(var(--status-bar-offset) + 68px) !important;
   }
 }
 

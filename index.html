@@ -27,7 +27,10 @@
     <meta name="twitter:description" content="Create professional GST invoices and streamline billing with Inside Invoice. Manage products, customers, payments, and business records in one web-based platform." />
     <meta name="twitter:image" content="https://www.insideinvoice.com/og-image.png" />
     <link rel="manifest" href="/manifest.json" />
-    <meta name="theme-color" content="#1e293b" />
+    <!-- iOS 27 tints the status-bar chrome from theme-color: match the light
+         app chrome (white strip/header) and keep a dark variant for dark OS. -->
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#1e293b" media="(prefers-color-scheme: dark)" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -68,6 +71,30 @@
           names.forEach(function (name) { caches.delete(name); });
         });
       }
+    </script>
+    <script>
+      // iOS 27 (installed home-screen apps only) paints a system
+      // backdrop-blur over the top of the PWA that feathers ~20px BELOW
+      // env(safe-area-inset-top), fogging any header text in that zone —
+      // Safari tabs and older iOS are unaffected. Extend the painted
+      // status-bar strip by this feather so the blur lands on solid color
+      // and all content starts below it. navigator.standalone is iOS-only,
+      // so browsers, Android and desktop PWAs keep a zero gap.
+      (function () {
+        var isIOS =
+          /iPhone|iPad|iPod/.test(navigator.userAgent) ||
+          (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+        var isStandalone =
+          navigator.standalone === true ||
+          (window.matchMedia &&
+            window.matchMedia("(display-mode: standalone)").matches);
+        if (isIOS && isStandalone) {
+          document.documentElement.style.setProperty(
+            "--status-bar-blur-gap",
+            "20px"
+          );
+        }
+      })();
     </script>
   </head>
   <body>

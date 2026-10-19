@@ -57,6 +57,21 @@ html {
   overscroll-behavior-x: none;
 }
 
+/* Document-viewer routes (public share pages, /i/<token>) release the
+   viewport-level overflow-x clip: a zoomed-in paper is wider than the layout
+   viewport, and WebKit refuses to pan a CLIPPED html element — the zoomed
+   page gets stuck and can't be moved left/right (long-standing Safari bug).
+   The clip stays on everywhere else as the lateral overflow guard. */
+html.public-docs-zoomable {
+  overflow-x: visible;
+}
+
+/* Drag-to-pan affordance on the document viewer (mouse pointers). Touch
+   devices scroll natively, so the cursor classes matter only on desktop. */
+.doc-pan { cursor: grab; }
+.doc-pan.is-grabbing { cursor: grabbing; }
+.doc-pan.is-grabbing * { cursor: grabbing; }
+
 body {
   margin: 0;
   padding: 0;
@@ -308,4 +323,34 @@ div:has(> label + input[type="date"]) {
 html {
   scrollbar-width: thin;
   scrollbar-color: rgba(100, 116, 139, 0.28) transparent;
+}
+
+/* ---- Public share page: native iOS printing -------------------------------------------- */
+/* iOS can only window.print() the CURRENT document inside the tap gesture (PDF
+   blob windows are popup-blocked after async generation, and home-screen web
+   apps cannot open them at all). The share page therefore drops a print-mode
+   class on <body> and prints the hidden UNSCALED renderer (pip-print-source)
+   that the PDF path already uses for rasterisation — only that node is laid
+   out, at natural A4 size, one page per sheet. */
+@page { size: A4; margin: 0; }
+
+@media print {
+  body.pip-printing { background: #fff; }
+  body.pip-printing #root { padding: 0 !important; background: #fff; }
+  /* only the dedicated unscaled document source survives print */
+  body.pip-printing #root > div > *:not(.pip-print-source) { display: none !important; }
+  body.pip-printing .pip-print-source {
+    position: static !important;
+    left: auto !important;
+    top: auto !important;
+    pointer-events: auto !important;
+    overflow: visible !important;
+    width: 794px !important;
+    max-width: 794px !important;
+  }
+  body.pip-printing .pip-print-source > div { overflow: visible !important; width: 100% !important; }
+  body.pip-printing .pip-print-source > div > div { width: 794px !important; max-width: 794px !important; margin: 0 auto !important; }
+  body.pip-printing .pip-print-source [id^="ent-page-"] { break-after: page; page-break-after: always; }
+  body.pip-printing .pip-print-source [id^="ent-page-"]:last-of-type { break-after: auto; page-break-after: auto; }
+  body.pip-printing * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
 }

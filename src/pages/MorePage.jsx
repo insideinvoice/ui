@@ -50,8 +50,10 @@ export default function MorePage() {
           <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
             {[
               { label: "View Invoices", icon: List, path: "/invoices" },
-              ...(canDeliveryChallan ? [{ label: "New Delivery Challan", icon: ClipboardList, path: "/delivery-challans/new" }] : []),
-              { label: "Delivery Challans", icon: List, path: "/delivery-challans" },
+              ...(canDeliveryChallan ? [
+                { label: "New Delivery Challan", icon: ClipboardList, path: "/delivery-challans/new" },
+                { label: "Delivery Challans", icon: List, path: "/delivery-challans" },
+              ] : []),
               { label: "View Customers", icon: Users, path: "/customers" },
               { label: "Product Items", icon: Package, path: "/products" },
               { label: "Payments", icon: CreditCard, path: "/payments" },

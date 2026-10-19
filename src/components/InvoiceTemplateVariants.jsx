@@ -182,6 +182,10 @@ const InvoiceTemplateVariants = React.memo(React.forwardRef(({ theme, business, 
           <tr key={row.key} style={{ height: compactMode ? "20px" : t.compact ? "22px" : "25px" }}>
             <td style={{
               width: compactMode ? "35%" : "52%",
+              // NOTE: the outer vertical lines for this block come from the
+              // container cell that wraps metadataBlock (each layout provides
+              // borderLeft/borderRight on that wrapper), so these cells must NOT
+              // add their own edge borders — they would double up with it.
               borderBottom: idx < rightRows.length - 1 ? S.border : 0,
               borderRight: S.border,
               padding: compactMode ? "2px 4px" : t.compact ? "3px 4px" : "5px 6px",
@@ -985,7 +989,7 @@ const InvoiceTemplateVariants = React.memo(React.forwardRef(({ theme, business, 
             <>
           {/* PROFORMA ESTIMATED TOTALS */}
           <tr id="section-subtotals">
-            <td colSpan={2} style={{ borderBottom: S.border, padding: 0 }}>
+            <td colSpan={2} style={{ borderLeft: S.border, borderRight: S.border, borderBottom: S.border, padding: 0 }}>
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <tbody>
                   <tr>
@@ -1011,7 +1015,7 @@ const InvoiceTemplateVariants = React.memo(React.forwardRef(({ theme, business, 
 
           {/* PROFORMA AMOUNT IN WORDS + TOTAL */}
           <tr id="section-amount-words">
-            <td colSpan={2} style={{ borderBottom: S.border, padding: 0 }}>
+            <td colSpan={2} style={{ borderLeft: S.border, borderRight: S.border, borderBottom: S.border, padding: 0 }}>
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <tbody>
                   <tr>
@@ -1049,7 +1053,7 @@ const InvoiceTemplateVariants = React.memo(React.forwardRef(({ theme, business, 
             <>
           {/* GST SUMMARY */}
           <tr id="section-subtotals">
-            <td colSpan={2} style={{ borderBottom: S.border, padding: 0 }}>
+            <td colSpan={2} style={{ borderLeft: S.border, borderRight: S.border, borderBottom: S.border, padding: 0 }}>
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <tbody>
                   <tr>
@@ -1079,7 +1083,7 @@ const InvoiceTemplateVariants = React.memo(React.forwardRef(({ theme, business, 
 
           {/* AMOUNT IN WORDS + TOTAL */}
           <tr id="section-amount-words">
-            <td colSpan={2} style={{ borderBottom: S.border, padding: 0 }}>
+            <td colSpan={2} style={{ borderLeft: S.border, borderRight: S.border, borderBottom: S.border, padding: 0 }}>
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <tbody>
                   <tr>
@@ -1115,7 +1119,7 @@ const InvoiceTemplateVariants = React.memo(React.forwardRef(({ theme, business, 
 
           {/* TAX BREAKUP TABLE */}
           <tr>
-            <td colSpan={2} style={{ borderBottom: S.border, padding: 0 }}>
+            <td colSpan={2} style={{ borderLeft: S.border, borderRight: S.border, borderBottom: S.border, padding: 0 }}>
               <table style={tStyleSep}>
                 <thead id="section-hsn-header">
                   <tr style={{ height: t.compact ? "24px" : "28px" }}>
@@ -1172,7 +1176,9 @@ const InvoiceTemplateVariants = React.memo(React.forwardRef(({ theme, business, 
 
           {/* TAX AMOUNT WORDS */}
           <tr id="section-hsn-words">
-            <td colSpan={2} style={{ borderLeft: S.border, borderRight: S.border, borderBottom: S.border, padding: "5px 10px" }}>
+            {/* Left padding matches the Tax-Breakup/Amt-in-words rows (basePad's
+                6px) so this label lines up with the section directly above it. */}
+            <td colSpan={2} style={{ borderLeft: S.border, borderRight: S.border, borderBottom: S.border, padding: "5px 6px" }}>
               <span style={{ fontSize: baseFS, fontWeight: "bold", color: t.primary }}>Tax Amount (in words): </span>
               <span style={{ fontSize: baseFS, fontWeight: "bold" }}>
                  {calcTaxAmount > 0 ? numberToWords(calcTaxAmount) : "Nil"}
@@ -1185,7 +1191,7 @@ const InvoiceTemplateVariants = React.memo(React.forwardRef(({ theme, business, 
 
           {/* BOTTOM SECTION */}
           <tr id="section-footer">
-            <td colSpan={2} style={{ borderBottom: S.border, padding: 0 }}>
+            <td colSpan={2} style={{ borderLeft: S.border, borderRight: S.border, borderBottom: S.border, padding: 0 }}>
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <tbody>
                   <tr style={{ height: t.compact ? "120px" : "140px" }}>
@@ -1249,7 +1255,7 @@ const InvoiceTemplateVariants = React.memo(React.forwardRef(({ theme, business, 
 
           {/* FOOTER */}
           <tr id="section-bottom-note">
-            <td colSpan={2} style={{ padding: "6px 10px" }}>
+            <td colSpan={2} style={{ borderLeft: S.border, borderRight: S.border, padding: "6px 10px" }}>
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <tbody>
                   <tr>

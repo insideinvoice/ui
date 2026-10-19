@@ -108,7 +108,8 @@ export async function createInvoicePdfFile(element, paperSizeId, filename) {
     const blob = await (await fetch(url)).blob();
     URL.revokeObjectURL(url);
     return new File([blob], filename, { type: "application/pdf" });
-  } catch {
+  } catch (err) {
+    console.error("createInvoicePdfFile failed:", err);
     return null;
   }
 }

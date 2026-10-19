@@ -78,13 +78,16 @@ const sections = (isAdmin, documentAccess) => {
       { label: "Product Items", icon: Package, path: "/products" },
     ],
   },
-  {
+  // Whole section follows the Labels pattern: industries whose profile
+  // disables delivery challans (professional services, telecom/IT,
+  // healthcare, education) see neither the header nor the list link.
+  ...(docs.deliveryChallan ? [{
     header: "Delivery Challan",
     items: [
-      ...(docs.deliveryChallan ? [{ label: "New Delivery Challan", icon: ClipboardList, path: "/delivery-challans/new" }] : []),
+      { label: "New Delivery Challan", icon: ClipboardList, path: "/delivery-challans/new" },
       { label: "Delivery Challans", icon: List, path: "/delivery-challans" },
     ],
-  },
+  }] : []),
   {
     header: "Customers",
     items: [

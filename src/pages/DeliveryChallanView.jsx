@@ -9,9 +9,17 @@ import { renderDeliveryChallanPdf } from "../components/DeliveryChallanDownload"
 import { chunkDcItems, DC_PAGE_W, DC_PAGE_H } from "../utils/deliveryChallanPdf";
 import { deliveryChallanAPI, businessAPI } from "../api/auth";
 import toast from "react-hot-toast";
-import { Download, Trash2, ClipboardList, ZoomIn, ZoomOut, Maximize2 } from "lucide-react";
+import { Download, Trash2, ClipboardList } from "lucide-react";
 
-const clampZoom = (z) => Math.min(3, Math.max(0.2, +z.toFixed(2)));
+// Scale the fixed-width challan page down so it fits the viewport on
+// phones/tablets. Capped at 1 so wide screens never upscale the document.
+// All interactive zoom (pinch, ctrl/cmd+scroll, double-tap) is left to the
+// native browser gestures, which work identically on every device.
+const computeFitScale = (pageWidthPx) => {
+  const padding = window.innerWidth < 640 ? 24 : 48;
+  const availableWidth = window.innerWidth - padding;
+  return Math.min(1, Math.max(0.2, availableWidth / pageWidthPx));
+};
 
 export default function DeliveryChallanView() {
   const navigate = useNavigate();
@@ -24,11 +32,8 @@ export default function DeliveryChallanView() {
 
   const containerRef = useRef(null);
   const wrapRef = useRef(null);
-  const [zoom, setZoom] = useState(1);
-  const [isPinching, setIsPinching] = useState(false);
+  const [fitScale, setFitScale] = useState(1);
   const [docHeight, setDocHeight] = useState(0);
-  const zoomRef = useRef(zoom);
-  zoomRef.current = zoom;
 
   const [template, setTemplate] = useState(
     () => localStorage.getItem("ii_dc_template") || "classic"
@@ -66,31 +71,18 @@ export default function DeliveryChallanView() {
     gstIn: dc?.customerGstIn,
   }), [dc]);
 
-  const computeFitZoom = () => {
-    const el = containerRef.current;
-    const avail = el ? el.clientWidth - 16 : DC_PAGE_W;
-    return clampZoom(avail / DC_PAGE_W);
-  };
-
-  // Fit-to-width on load and whenever the viewport rotates/resizes, so the
-  // whole page is always readable on a phone.
+  // Fit-to-width on load and when the screen rotates so the whole page is
+  // always readable on a phone. Deliberately NOT re-fitting on every resize:
+  // browser (ctrl/cmd) zoom fires resize and re-fitting then would cancel the
+  // user's zoom.
   useEffect(() => {
     if (!dc) return undefined;
-    const fit = () => setZoom(computeFitZoom());
-    fit();
-    let t;
-    const onResize = () => {
-      clearTimeout(t);
-      t = setTimeout(() => {
-        setZoom((prev) => (prev < 0.95 ? computeFitZoom() : prev));
-      }, 150);
-    };
-    window.addEventListener("resize", onResize);
-    return () => {
-      clearTimeout(t);
-      window.removeEventListener("resize", onResize);
-    };
-  }, [dc, template, chunks.length]);
+    setFitScale(computeFitScale(DC_PAGE_W));
+    const mq = window.matchMedia("(orientation: portrait)");
+    const onOrientationChange = () => setFitScale(computeFitScale(DC_PAGE_W));
+    mq.addEventListener("change", onOrientationChange);
+    return () => mq.removeEventListener("change", onOrientationChange);
+  }, [dc]);
 
   // Measure the unscaled document height so the scaled sizing wrapper can
   // reserve the correct scroll height (transform: scale does not affect layout).
@@ -106,68 +98,6 @@ export default function DeliveryChallanView() {
     if (ro) ro.observe(el);
     return () => ro && ro.disconnect();
   }, [dc, template, chunks.length, sealOn, sealType]);
-
-  // Two-finger pinch zoom + double-tap to toggle fit/100%.
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return undefined;
-    let startDist = 0;
-    let startZoom = 1;
-    let lastTap = 0;
-    const dist = (t) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
-    const onTouchStart = (e) => {
-      if (e.touches.length === 2) {
-        setIsPinching(true);
-        startDist = dist(e.touches);
-        startZoom = zoomRef.current;
-      } else if (e.touches.length === 1) {
-        const now = Date.now();
-        if (now - lastTap < 300) {
-          setZoom(zoomRef.current < 0.95 ? computeFitZoom() : 1);
-          lastTap = 0;
-        } else {
-          lastTap = now;
-        }
-      }
-    };
-    const onTouchMove = (e) => {
-      if (e.touches.length === 2 && startDist > 0) {
-        if (e.cancelable) e.preventDefault();
-        const d = dist(e.touches);
-        if (d > 0) setZoom(clampZoom(startZoom * (d / startDist)));
-      }
-    };
-    const onTouchEnd = (e) => {
-      if (e.touches.length < 2) {
-        startDist = 0;
-        setIsPinching(false);
-      }
-    };
-    el.addEventListener("touchstart", onTouchStart, { passive: true });
-    el.addEventListener("touchmove", onTouchMove, { passive: false });
-    el.addEventListener("touchend", onTouchEnd, { passive: true });
-    el.addEventListener("touchcancel", onTouchEnd, { passive: true });
-    return () => {
-      el.removeEventListener("touchstart", onTouchStart);
-      el.removeEventListener("touchmove", onTouchMove);
-      el.removeEventListener("touchend", onTouchEnd);
-      el.removeEventListener("touchcancel", onTouchEnd);
-    };
-  }, [dc]);
-
-  // Desktop ctrl/cmd + wheel zoom.
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return undefined;
-    const onWheel = (e) => {
-      if (e.ctrlKey || e.metaKey) {
-        e.preventDefault();
-        setZoom((z) => clampZoom(z + (e.deltaY < 0 ? 0.08 : -0.08)));
-      }
-    };
-    el.addEventListener("wheel", onWheel, { passive: false });
-    return () => el.removeEventListener("wheel", onWheel);
-  }, []);
 
   const handleDownload = async () => {
     if (!dc || !business) return;
@@ -301,12 +231,12 @@ export default function DeliveryChallanView() {
           </div>
         </div>
 
-        {/* Scrollable, pinch-zoomable document viewer — the fixed 714px page is
-            scaled to fit so it is readable and scrollable on phones instead of
-            overflowing off-screen. */}
+        {/* Scrollable document viewer — the fixed 714px page is scaled to fit
+            so it is readable and scrollable on phones instead of overflowing
+            off-screen. Pinch / ctrl+scroll zoom are left to the browser. */}
         <div
           ref={containerRef}
-          className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-auto relative select-none touch-pan-x touch-pan-y"
+          className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-auto relative select-none"
           style={{
             minHeight: "50vh",
             WebkitOverflowScrolling: "touch",
@@ -316,12 +246,11 @@ export default function DeliveryChallanView() {
           <div className="min-w-full min-h-full flex justify-center items-start p-2 sm:p-4">
             <div
               style={{
-                width: `${Math.round(DC_PAGE_W * zoom)}px`,
-                height: docHeight > 0 ? `${Math.round(docHeight * zoom)}px` : "auto",
+                width: `${Math.round(DC_PAGE_W * fitScale)}px`,
+                height: docHeight > 0 ? `${Math.round(docHeight * fitScale)}px` : "auto",
                 position: "relative",
                 margin: "0 auto",
                 flexShrink: 0,
-                transition: isPinching ? "none" : "width 0.15s ease-out, height 0.15s ease-out",
               }}
             >
               <div
@@ -331,9 +260,8 @@ export default function DeliveryChallanView() {
                   top: 0,
                   left: 0,
                   width: `${DC_PAGE_W}px`,
-                  transform: `scale(${zoom})`,
+                  transform: `scale(${fitScale})`,
                   transformOrigin: "top left",
-                  transition: isPinching ? "none" : "transform 0.15s ease-out",
                 }}
               >
                 {chunks.map((chunk, i) => (
@@ -361,45 +289,7 @@ export default function DeliveryChallanView() {
           </div>
         </div>
 
-        {/* Floating mobile-friendly zoom controls */}
-        <div className="fixed bottom-20 sm:bottom-6 right-4 z-40 flex items-center gap-1 rounded-full bg-white/95 shadow-xl border border-slate-200 px-2.5 py-1.5 backdrop-blur">
-          <button
-            type="button"
-            aria-label="Zoom out"
-            title="Zoom out"
-            onClick={() => setZoom((z) => clampZoom(z - 0.15))}
-            className="p-2 rounded-full text-slate-600 hover:bg-slate-100 active:bg-slate-200 transition-colors min-h-[40px] min-w-[40px] flex items-center justify-center"
-          >
-            <ZoomOut className="w-4 h-4" />
-          </button>
-          <button
-            type="button"
-            onClick={() => setZoom(1)}
-            className="text-xs font-mono text-slate-700 px-1.5 min-w-[2.8rem] text-center font-medium hover:text-teal-600 transition-colors"
-            title="Reset zoom to 100%"
-          >
-            {Math.round(zoom * 100)}%
-          </button>
-          <button
-            type="button"
-            aria-label="Zoom in"
-            title="Zoom in"
-            onClick={() => setZoom((z) => clampZoom(z + 0.15))}
-            className="p-2 rounded-full text-slate-600 hover:bg-slate-100 active:bg-slate-200 transition-colors min-h-[40px] min-w-[40px] flex items-center justify-center"
-          >
-            <ZoomIn className="w-4 h-4" />
-          </button>
-          <button
-            type="button"
-            aria-label="Fit to screen width"
-            title="Fit to screen width"
-            onClick={() => setZoom(computeFitZoom())}
-            className="p-2 rounded-full text-slate-600 hover:bg-slate-100 active:bg-slate-200 transition-colors min-h-[40px] min-w-[40px] flex items-center justify-center"
-          >
-            <Maximize2 className="w-4 h-4" />
-          </button>
-        </div>
-
+        {/* Clear the fixed mobile bottom navigation */}
         <div className="h-16 sm:h-4" aria-hidden="true" />
 
         <ConfirmModal

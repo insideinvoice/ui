@@ -17,7 +17,7 @@ import { renderDeliveryChallanPdf } from "../components/DeliveryChallanDownload"
 import WhatsAppIcon from "../components/WhatsAppIcon";
 import { processQueue } from "../utils/retryQueue";
 import { processPrint } from "../utils/printInvoice";
-import { buildInvoiceWhatsAppMessage, openWhatsAppChat } from "../utils/whatsapp";
+import { buildInvoiceWhatsAppMessage, openWhatsAppChat, createInvoicePdfFile } from "../utils/whatsapp";
 import { getPrintSettings, getInvoiceTemplate } from "../constants/paperSizes";
 import { computeInvoiceTotals, round2 } from "../utils/invoiceTotals";
 import { formatInvoiceNumber } from "../utils/invoiceConvention";
@@ -317,7 +317,10 @@ export default function InvoiceForm() {
   const shareUrl = shareToken ? `${window.location.origin}/i/${shareToken}` : "";
   const [customInvoiceNumber, setCustomInvoiceNumber] = useState("");
   const ghostMode = localStorage.getItem("ghost_mode") === "true";
-  const [sealType, setSealType] = useState(localStorage.getItem("seal_type") || "");
+  // With the company seal enabled and no stored choice, default to the ROUND
+  // seal (the same fallback resolveSeal and the delivery-challan flow use) so
+  // Share/WhatsApp/Proforma aren't blocked waiting for a manual pick.
+  const [sealType, setSealType] = useState(localStorage.getItem("seal_type") || "round");
   const sealEnabled = localStorage.getItem("show_seal") === "true";
   const sealRequired = sealEnabled && !sealType;
   const [discountPercent, setDiscountPercent] = useState("");
@@ -770,6 +773,37 @@ export default function InvoiceForm() {
     return res;
   };
 
+  // Renders the SAME PDF the Download button produces (it reads the seal/stamp
+  // preference from localStorage) and returns it as an uploadable File, so the
+  // emailed document is identical to the one the user would download. The
+  // attachment is best-effort — a render failure returns null and the email
+  // still sends with the share link.
+  const buildTaxInvoicePdfFile = async (invNo) => {
+    try {
+      setCaptureType("TAX_INVOICE");
+      await mountPdfPreview();
+      // Let the hidden capture paint fully before html2canvas reads it.
+      await new Promise((r) => setTimeout(r, 100));
+      const ps = (getPrintSettings()["TAX_INVOICE"] || {}).paperSize || "A4_PORTRAIT";
+      const filename = `Tax_Invoice_${invNo || form.invoiceDate || today}.pdf`;
+      if (!invoiceRef.current) {
+        console.error("Invoice email attachment skipped: hidden invoice capture never mounted");
+        return null;
+      }
+      const file = await createInvoicePdfFile(invoiceRef.current, ps, filename);
+      if (!file) {
+        console.error("Invoice email attachment skipped: PDF render returned no file");
+      }
+      return file;
+    } catch (err) {
+      console.error("Invoice email attachment render failed:", err);
+      return null;
+    } finally {
+      setShowPdfPreview(false);
+      setCaptureType(null);
+    }
+  };
+
   // Generate Tax Invoice — one action that saves the invoice to the DB
   // (create or update) and emails it to the customer's registered email with
   // its share link. Afterwards the button turns into "Download Tax Invoice
@@ -798,6 +832,7 @@ export default function InvoiceForm() {
     }
 
     let emailed = false;
+    let lastPdfBytes = 0;
     if (customer.email?.trim()) {
       try {
         // The email carries the same public link the Share Link panel shows;
@@ -807,8 +842,15 @@ export default function InvoiceForm() {
           const token = shareRes.data?.data?.token;
           if (token) setShareToken(token);
         }
-        await invoiceAPI.sendInvoiceEmail(invoiceId, window.location.origin);
+        // Attach the SAME PDF the Download button produces (seal/stamp
+        // included) so the emailed document matches the download exactly.
+        const pdfFile = await buildTaxInvoicePdfFile(invNo);
+        lastPdfBytes = pdfFile ? pdfFile.size : 0;
+        await invoiceAPI.sendInvoiceEmail(invoiceId, window.location.origin, pdfFile);
         emailed = true;
+        if (!pdfFile) {
+          toast("Invoice emailed WITHOUT the PDF attachment — check the browser console for the render error", { icon: "⚠️" });
+        }
       } catch (err) {
         toast.error(err.response?.data?.message || "Invoice saved, but the email could not be sent — retry with Send Email below");
       }
@@ -818,7 +860,8 @@ export default function InvoiceForm() {
     setGenerating(false);
     setSaving(false);
     if (emailed) {
-      toast.success(`Tax Invoice ${invNo} saved & emailed to ${customer.email.trim()}`);
+      const attachNote = lastPdfBytes ? ` — PDF attached (${Math.round(lastPdfBytes / 1024)} KB)` : "";
+      toast.success(`Tax Invoice ${invNo} saved & emailed to ${customer.email.trim()}${attachNote}`);
     } else if (!customer.email?.trim()) {
       toast.success(`Tax Invoice ${invNo} saved`);
       toast("Customer has no email on record — add one to email the invoice", { icon: "📧" });
@@ -1035,7 +1078,10 @@ export default function InvoiceForm() {
         const token = res.data?.data?.token;
         if (token) setShareToken(token);
       }
-      const res = await invoiceAPI.sendInvoiceEmail(savedInvoiceId, window.location.origin);
+      // Same client-rendered PDF as the Download button, attached so the
+      // emailed document matches the download exactly (best-effort).
+      const pdfFile = await buildTaxInvoicePdfFile(savedInvoiceNumber);
+      const res = await invoiceAPI.sendInvoiceEmail(savedInvoiceId, window.location.origin, pdfFile);
       toast.success(res.data?.message || "Invoice emailed to the customer");
     } catch (err) {
       toast.error(err.response?.data?.message || "Could not send the invoice email");
@@ -1054,19 +1100,51 @@ export default function InvoiceForm() {
 
   const actionsCard = (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 sticky top-6">
-      <h2 className="text-sm font-bold text-slate-800 mb-4 pb-3 border-b border-slate-100">Actions</h2>
+      <h2 className="text-sm font-bold text-slate-800 mb-4 pb-3 border-b border-slate-100">
+        Actions
+      </h2>
       <div className="space-y-3">
-        {/* Row 1: Share + WhatsApp — equal width. Saving happens automatically
-            through Generate Tax Invoice, Share, WhatsApp and Proforma. */}
+        {/* Row 1: Delivery (icon-only) + Share + WhatsApp. Saving happens
+            automatically through Generate Tax Invoice, Share, WhatsApp and
+            Proforma. */}
         <div className="flex items-stretch gap-2">
+          {canCreateDeliveryChallan && (
+            <span className="relative group flex-1 flex">
+              <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-20 whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-[11px] font-medium text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100">
+                Delivery Challan
+              </span>
+              <button
+                onClick={generateDeliveryChallanPdf}
+                disabled={
+                  saving ||
+                  !customer.name?.trim() ||
+                  !(items || []).some(
+                    (i) => (i.itemName || "").trim() && parseFloat(i.qty) > 0,
+                  )
+                }
+                aria-label="Delivery challan"
+                className="w-full flex items-center justify-center px-2 py-2.5 border border-teal-300 text-teal-700 rounded-lg hover:bg-teal-50 disabled:opacity-50 transition-all min-h-[44px]"
+              >
+                <Truck className="w-4 h-4 shrink-0" />
+              </button>
+            </span>
+          )}
+
           <span className="relative group flex-1 flex">
             <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-20 whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-[11px] font-medium text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100">
               Share Invoice Link
             </span>
-            <button onClick={handleShare} aria-label="Share invoice link"
+            <button
+              onClick={handleShare}
+              aria-label="Share invoice link"
               disabled={linkSharing || sealRequired || totals.grandTotal <= 0}
-              className="w-full flex items-center justify-center px-2 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-all shadow-sm min-h-[44px]">
-              {linkSharing ? <Spinner size={16} className="text-white shrink-0" /> : <Share2 className="w-4 h-4 shrink-0" />}
+              className="w-full flex items-center justify-center px-2 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-all shadow-sm min-h-[44px]"
+            >
+              {linkSharing ? (
+                <Spinner size={16} className="text-white shrink-0" />
+              ) : (
+                <Share2 className="w-4 h-4 shrink-0" />
+              )}
             </button>
           </span>
 
@@ -1074,51 +1152,70 @@ export default function InvoiceForm() {
             <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-20 whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-[11px] font-medium text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100">
               Share on WhatsApp
             </span>
-            <button type="button" onClick={shareViaWhatsApp}
+            <button
+              type="button"
+              onClick={shareViaWhatsApp}
               aria-label="Share on WhatsApp"
               disabled={sharing || sealRequired || totals.grandTotal <= 0}
-              className="w-full flex items-center justify-center px-2 py-2.5 bg-[#25D366] text-white rounded-lg hover:bg-[#1ebe5b] disabled:opacity-50 transition-all shadow-sm min-h-[44px]">
-              {sharing ? <Spinner size={18} /> : <WhatsAppIcon className="w-5 h-5" />}
+              className="w-full flex items-center justify-center px-2 py-2.5 bg-[#25D366] text-white rounded-lg hover:bg-[#1ebe5b] disabled:opacity-50 transition-all shadow-sm min-h-[44px]"
+            >
+              {sharing ? (
+                <Spinner size={18} />
+              ) : (
+                <WhatsAppIcon className="w-5 h-5" />
+              )}
             </button>
           </span>
         </div>
 
-        {/* Delivery + Proforma — one row, equal width */}
-        <div className="flex gap-2">
-          {canCreateDeliveryChallan && (
-          <button onClick={generateDeliveryChallanPdf}
-            disabled={saving || !customer.name?.trim() || !(items || []).some((i) => (i.itemName || "").trim() && parseFloat(i.qty) > 0)}
-            className="flex-1 min-w-0 flex items-center justify-center gap-2 px-2 sm:px-3 py-2.5 border border-teal-300 text-teal-700 text-sm font-semibold rounded-lg hover:bg-teal-50 disabled:opacity-50 transition-all min-h-[44px] whitespace-nowrap">
-            <Truck className="w-4 h-4 shrink-0" /> Delivery
-          </button>
-          )}
-          <button onClick={() => generatePDF("PROFORMA_INVOICE")} disabled={saving || sealRequired || totals.grandTotal <= 0}
-            className={`${canCreateDeliveryChallan ? "flex-1" : "w-full"} min-w-0 flex items-center justify-center gap-2 px-2 sm:px-3 py-2.5 border border-emerald-300 text-emerald-700 text-sm font-semibold rounded-lg hover:bg-emerald-50 disabled:opacity-50 transition-all min-h-[44px] whitespace-nowrap`}>
-            <Download className="w-4 h-4 shrink-0" /> Proforma
-          </button>
-        </div>
+        {/* Proforma — full width */}
+        <button
+          onClick={() => generatePDF("PROFORMA_INVOICE")}
+          disabled={saving || sealRequired || totals.grandTotal <= 0}
+          className="w-full flex items-center justify-center gap-2 px-2 sm:px-3 py-2.5 border border-emerald-300 text-emerald-700 text-sm font-semibold rounded-lg hover:bg-emerald-50 disabled:opacity-50 transition-all min-h-[44px] whitespace-nowrap"
+        >
+          <Download className="w-4 h-4 shrink-0" /> Proforma Invoice
+        </button>
 
         {/* Tax Invoice — Generate (save + email) until it has been generated;
             then Download, until an edit brings Generate back. */}
         {taxInvoiceGenerated ? (
-          <button onClick={() => generatePDF("TAX_INVOICE")} disabled={saving || sealRequired || totals.grandTotal <= 0}
+          <button
+            onClick={() => generatePDF("TAX_INVOICE")}
+            disabled={saving || sealRequired || totals.grandTotal <= 0}
             title="Download the tax invoice PDF"
-            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 border border-indigo-300 text-indigo-700 text-sm font-semibold rounded-lg hover:bg-indigo-50 disabled:opacity-50 transition-all min-h-[44px]">
-            {saving ? <Spinner size={16} className="shrink-0" /> : <Download className="w-4 h-4 shrink-0" />} {saving ? "Preparing..." : "Download Tax Invoice PDF"}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 border border-indigo-300 text-indigo-700 text-sm font-semibold rounded-lg hover:bg-indigo-50 disabled:opacity-50 transition-all min-h-[44px]"
+          >
+            {saving ? (
+              <Spinner size={16} className="shrink-0" />
+            ) : (
+              <Download className="w-4 h-4 shrink-0" />
+            )}{" "}
+            {saving ? "Preparing..." : "Tax Invoice PDF"}
           </button>
         ) : (
-          <button onClick={handleGenerateTaxInvoice} disabled={saving || sealRequired || totals.grandTotal <= 0}
+          <button
+            onClick={handleGenerateTaxInvoice}
+            disabled={saving || sealRequired || totals.grandTotal <= 0}
             title="Save this invoice and email it to the customer"
-            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 border border-indigo-300 text-indigo-700 text-sm font-semibold rounded-lg hover:bg-indigo-50 disabled:opacity-50 transition-all min-h-[44px]">
-            {generating ? <Spinner size={16} className="shrink-0" /> : <Zap className="w-4 h-4 shrink-0" />} {generating ? "Generating..." : "Generate Tax Invoice"}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 border border-indigo-300 text-indigo-700 text-sm font-semibold rounded-lg hover:bg-indigo-50 disabled:opacity-50 transition-all min-h-[44px]"
+          >
+            {generating ? (
+              <Spinner size={16} className="shrink-0" />
+            ) : (
+              <Zap className="w-4 h-4 shrink-0" />
+            )}{" "}
+            {generating ? "Generating..." : "Generate Tax Invoice"}
           </button>
         )}
 
         {/* Share Link — same as View Invoice; unlocks once the invoice has been
             saved (Generate Tax Invoice, Share and WhatsApp all save) */}
         <div className="pt-3 border-t border-slate-100">
-          <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-1.5"
-            title="Send Email creates the link automatically. Anyone with it can view the invoice without logging in.">
+          <h3
+            className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-1.5"
+            title="Send Email creates the link automatically. Anyone with it can view the invoice without logging in."
+          >
             <Link2 className="w-3.5 h-3.5" /> Share Link
           </h3>
           {shareToken ? (
@@ -1132,15 +1229,29 @@ export default function InvoiceForm() {
                 aria-label="Public share link"
               />
               <div className="flex gap-2">
-                <button type="button" onClick={() => copyShareUrl(shareUrl)} disabled={!!shareBusy || !savedInvoiceId}
-                  className="min-w-0 flex-1 flex items-center justify-center gap-1.5 px-2 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 disabled:opacity-60 transition-all">
+                <button
+                  type="button"
+                  onClick={() => copyShareUrl(shareUrl)}
+                  disabled={!!shareBusy || !savedInvoiceId}
+                  className="min-w-0 flex-1 flex items-center justify-center gap-1.5 px-2 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 disabled:opacity-60 transition-all"
+                >
                   <Copy className="w-3.5 h-3.5 shrink-0" />
-                  <span className="text-[11px] sm:text-xs font-semibold whitespace-nowrap">Copy link</span>
+                  <span className="text-[11px] sm:text-xs font-semibold whitespace-nowrap">
+                    Copy link
+                  </span>
                 </button>
-                <button type="button" onClick={sendInvoiceEmailToCustomer} disabled={emailBusy || !savedInvoiceId}
+                <button
+                  type="button"
+                  onClick={sendInvoiceEmailToCustomer}
+                  disabled={emailBusy || !savedInvoiceId}
                   title="Email this invoice and its link to the customer"
-                  className="min-w-0 flex-1 flex items-center justify-center gap-1.5 px-2 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-60 transition-all shadow-sm">
-                  {emailBusy ? <Spinner size={14} className="shrink-0" /> : <Mail className="w-3.5 h-3.5 shrink-0" />}
+                  className="min-w-0 flex-1 flex items-center justify-center gap-1.5 px-2 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-60 transition-all shadow-sm"
+                >
+                  {emailBusy ? (
+                    <Spinner size={14} className="shrink-0" />
+                  ) : (
+                    <Mail className="w-3.5 h-3.5 shrink-0" />
+                  )}
                   <span className="text-[11px] sm:text-xs font-semibold whitespace-nowrap">
                     {emailBusy ? "Sending..." : "Send Email"}
                   </span>
@@ -1151,33 +1262,74 @@ export default function InvoiceForm() {
                   Anyone with this link can view the invoice without logging in.
                 </p>
                 <div className="flex items-center gap-1 shrink-0">
-                  <button type="button" onClick={() => handleShareLink("regenerate")} disabled={!!shareBusy || !savedInvoiceId}
+                  <button
+                    type="button"
+                    onClick={() => handleShareLink("regenerate")}
+                    disabled={!!shareBusy || !savedInvoiceId}
                     className="flex items-center gap-1 px-1.5 py-1 text-[11px] text-slate-500 hover:text-indigo-600 rounded disabled:opacity-60 transition-colors"
-                    title="Create a new link and disable the current one">
-                    {shareBusy === "regenerate" ? <Spinner size={12} /> : <RotateCw className="w-3 h-3" />} New
+                    title="Create a new link and disable the current one"
+                  >
+                    {shareBusy === "regenerate" ? (
+                      <Spinner size={12} />
+                    ) : (
+                      <RotateCw className="w-3 h-3" />
+                    )}{" "}
+                    New
                   </button>
-                  <button type="button" onClick={() => handleShareLink("revoke")} disabled={!!shareBusy || !savedInvoiceId}
+                  <button
+                    type="button"
+                    onClick={() => handleShareLink("revoke")}
+                    disabled={!!shareBusy || !savedInvoiceId}
                     className="flex items-center gap-1 px-1.5 py-1 text-[11px] text-slate-500 hover:text-red-600 rounded disabled:opacity-60 transition-colors"
-                    title="Revoke the link — recipients can no longer open it">
-                    {shareBusy === "revoke" ? <Spinner size={12} /> : <Unlink className="w-3 h-3" />} Revoke
+                    title="Revoke the link — recipients can no longer open it"
+                  >
+                    {shareBusy === "revoke" ? (
+                      <Spinner size={12} />
+                    ) : (
+                      <Unlink className="w-3 h-3" />
+                    )}{" "}
+                    Revoke
                   </button>
                 </div>
               </div>
             </div>
           ) : (
             <div className="space-y-2">
-              <div className="flex gap-2" title={!savedInvoiceId ? "Save the invoice first (Generate Tax Invoice, Share or WhatsApp) — Create link and Send Email unlock once it exists." : undefined}>
-                <button type="button" onClick={() => handleShareLink("create")} disabled={saving || !!shareBusy || !savedInvoiceId}
-                  className="min-w-0 flex-1 flex items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-2.5 border border-sky-300 text-sky-700 rounded-lg hover:bg-sky-50 disabled:opacity-60 transition-all">
-                  {shareBusy === "create" ? <Spinner size={14} className="shrink-0" /> : <Link2 className="w-3.5 h-3.5 shrink-0" />}
+              <div
+                className="flex gap-2"
+                title={
+                  !savedInvoiceId
+                    ? "Save the invoice first (Generate Tax Invoice, Share or WhatsApp) — Create link and Send Email unlock once it exists."
+                    : undefined
+                }
+              >
+                <button
+                  type="button"
+                  onClick={() => handleShareLink("create")}
+                  disabled={saving || !!shareBusy || !savedInvoiceId}
+                  className="min-w-0 flex-1 flex items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-2.5 border border-sky-300 text-sky-700 rounded-lg hover:bg-sky-50 disabled:opacity-60 transition-all"
+                >
+                  {shareBusy === "create" ? (
+                    <Spinner size={14} className="shrink-0" />
+                  ) : (
+                    <Link2 className="w-3.5 h-3.5 shrink-0" />
+                  )}
                   <span className="text-[11px] sm:text-xs font-semibold whitespace-nowrap">
                     {shareBusy === "create" ? "Creating..." : "Create link"}
                   </span>
                 </button>
-                <button type="button" onClick={sendInvoiceEmailToCustomer} disabled={saving || emailBusy || !savedInvoiceId}
+                <button
+                  type="button"
+                  onClick={sendInvoiceEmailToCustomer}
+                  disabled={saving || emailBusy || !savedInvoiceId}
                   title="Email this invoice and its link to the customer"
-                  className="min-w-0 flex-1 flex items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-60 transition-all shadow-sm">
-                  {emailBusy ? <Spinner size={14} className="shrink-0" /> : <Mail className="w-3.5 h-3.5 shrink-0" />}
+                  className="min-w-0 flex-1 flex items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-60 transition-all shadow-sm"
+                >
+                  {emailBusy ? (
+                    <Spinner size={14} className="shrink-0" />
+                  ) : (
+                    <Mail className="w-3.5 h-3.5 shrink-0" />
+                  )}
                   <span className="text-[11px] sm:text-xs font-semibold whitespace-nowrap">
                     {emailBusy ? "Sending..." : "Send Email"}
                   </span>
@@ -1189,45 +1341,95 @@ export default function InvoiceForm() {
       </div>
 
       <div className="mt-6 pt-4 border-t border-slate-100">
-        <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Summary</h3>
+        <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">
+          Summary
+        </h3>
         <div className="space-y-2 text-sm">
           <div className="flex justify-between gap-3">
             <span className="text-slate-500">Items:</span>
-            <span className="font-semibold text-slate-800">{validItemsCount}</span>
+            <span className="font-semibold text-slate-800">
+              {validItemsCount}
+            </span>
           </div>
           <div className="flex justify-between gap-3">
             <span className="text-slate-500">Subtotal:</span>
-            <span className="font-mono text-slate-700">Rs. {totals.subtotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+            <span className="font-mono text-slate-700">
+              Rs.{" "}
+              {totals.subtotal.toLocaleString("en-IN", {
+                minimumFractionDigits: 2,
+              })}
+            </span>
           </div>
           {discountEnabled && discountVal > 0 && (
             <div className="flex justify-between gap-3 text-emerald-600">
               <span>Discount ({discountVal}%):</span>
-              <span className="font-mono">-Rs. {totals.discountAmount.toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
+              <span className="font-mono">
+                -Rs.{" "}
+                {totals.discountAmount.toLocaleString("en-US", {
+                  minimumFractionDigits: 2,
+                })}
+              </span>
             </div>
           )}
           <div className="flex justify-between gap-3">
-            <span className="text-slate-500 whitespace-nowrap">Taxable Amount:</span>
-            <span className="font-mono text-slate-700">Rs. {totals.taxableAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+            <span className="text-slate-500 whitespace-nowrap">
+              Taxable Amount:
+            </span>
+            <span className="font-mono text-slate-700">
+              Rs.{" "}
+              {totals.taxableAmount.toLocaleString("en-IN", {
+                minimumFractionDigits: 2,
+              })}
+            </span>
           </div>
           <div className="flex justify-between gap-3">
             <span className="text-slate-500">Tax:</span>
-            <span className="font-mono text-slate-700">Rs. {totals.taxAmount.toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
+            <span className="font-mono text-slate-700">
+              Rs.{" "}
+              {totals.taxAmount.toLocaleString("en-US", {
+                minimumFractionDigits: 2,
+              })}
+            </span>
           </div>
           <div className="flex justify-between gap-3 font-bold text-slate-800 pt-2 border-t border-slate-200">
             <span>Total:</span>
-            <span className="font-mono">Rs. {totals.grandTotal.toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
+            <span className="font-mono">
+              Rs.{" "}
+              {totals.grandTotal.toLocaleString("en-US", {
+                minimumFractionDigits: 2,
+              })}
+            </span>
           </div>
         </div>
       </div>
 
       {business && (
         <div className="mt-6 pt-4 border-t border-slate-100">
-          <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Business</h3>
-          <p className="text-xs text-slate-600 font-medium">{business.businessName}</p>
-          {business.phone && <p className="text-xs text-slate-400">Phone: {business.phone}</p>}
-          {business.email && <p className="text-xs text-slate-400">Email: {business.email}</p>}
-          {business.addressLine1 && <p className="text-xs text-slate-400">{business.addressLine1}{business.city ? `, ${business.city}` : ""}{business.state ? `, ${business.state}` : ""}{business.pincode ? ` - ${business.pincode}` : ""}</p>}
-          {business.gstIn && <p className="text-xs text-slate-400 font-mono">GST: {business.gstIn}</p>}
+          <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
+            Business
+          </h3>
+          <p className="text-xs text-slate-600 font-medium">
+            {business.businessName}
+          </p>
+          {business.phone && (
+            <p className="text-xs text-slate-400">Phone: {business.phone}</p>
+          )}
+          {business.email && (
+            <p className="text-xs text-slate-400">Email: {business.email}</p>
+          )}
+          {business.addressLine1 && (
+            <p className="text-xs text-slate-400">
+              {business.addressLine1}
+              {business.city ? `, ${business.city}` : ""}
+              {business.state ? `, ${business.state}` : ""}
+              {business.pincode ? ` - ${business.pincode}` : ""}
+            </p>
+          )}
+          {business.gstIn && (
+            <p className="text-xs text-slate-400 font-mono">
+              GST: {business.gstIn}
+            </p>
+          )}
         </div>
       )}
     </div>

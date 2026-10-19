@@ -18,6 +18,7 @@ export const L = {
   "classic-formal": "classic-formal",
   "dark-modern": "dark-modern",
   retro: "retro",
+  enterprise: "enterprise",
 };
 
 export const TEMPLATE_THEMES = {
@@ -27,6 +28,14 @@ export const TEMPLATE_THEMES = {
     borderColor: "#000000", borderWidth: "2px", borderStyle: "solid", primary: "#000000",
     headerBg: "#ffffff", headerText: "#000000", accentBg: "#000000", accentText: "#ffffff",
     sectionTitleBorder: true, tableHeaderBg: "#d6d6d6", tableHeaderText: "#000000",
+    tableRowHeight: 26, compact: false, labelStyle: "normal",
+  },
+  "template-32": {
+    id: "template-32", label: "Enterprise", desc: "Black & white corporate invoice — logo letterhead, GST summary, lines that auto-close at every page edge",
+    layout: L.enterprise, font: "'Segoe UI', Arial, Helvetica, sans-serif", bodyBg: "#ffffff",
+    borderColor: "#111111", borderWidth: "1px", borderStyle: "solid", primary: "#111111",
+    headerBg: "#f1f1f1", headerText: "#111111", accentBg: "#111111", accentText: "#ffffff",
+    sectionTitleBorder: true, tableHeaderBg: "#f1f1f1", tableHeaderText: "#111111",
     tableRowHeight: 26, compact: false, labelStyle: "normal",
   },
   "template-3": {
@@ -124,14 +133,6 @@ export const TEMPLATE_THEMES = {
     headerBg: "#1e40af", headerText: "#ffffff", accentBg: "#1d4ed8", accentText: "#ffffff",
     sectionTitleBorder: true, tableHeaderBg: "#dbeafe", tableHeaderText: "#1e3a8a",
     tableRowHeight: 28, compact: false, labelStyle: "normal",
-  },
-  "template-29": {
-    id: "template-29", label: "Trade Command", desc: "Gunmetal three-column trade layout with gold accent — distribution & contracting",
-    layout: L.divided, font: "'Segoe UI', Arial, sans-serif", bodyBg: "#ffffff",
-    borderColor: "#a8a29e", borderWidth: "1px", borderStyle: "solid", primary: "#292524",
-    headerBg: "#292524", headerText: "#ffffff", accentBg: "#a16207", accentText: "#ffffff",
-    sectionTitleBorder: true, tableHeaderBg: "#292524", tableHeaderText: "#ffffff",
-    tableRowHeight: 28, compact: false, labelStyle: "uppercase-light",
   },
   "template-30": {
     id: "template-30", label: "Ledger Formal", desc: "Traditional double-rule ledger with oxblood accents — established merchants",

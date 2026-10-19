@@ -3,8 +3,10 @@ import CompanySeal from "./CompanySeal";
 import CompanyStamp from "./CompanyStamp";
 import { resolveSeal } from "../utils/seal";
 import InvoiceTemplateRetro from "./InvoiceTemplateRetro";
+import InvoiceTemplateEnterprise from "./InvoiceTemplateEnterprise";
 import { numberToWords, formatINR } from "../utils/invoiceFormat";
 import { computeInvoiceTotals } from "../utils/invoiceTotals";
+import { jurisdictionLine } from "../utils/jurisdiction";
 import { L, TEMPLATE_THEMES } from "../constants/templateThemes";
 import { getIndustryConfig, getTemplateRightRows, fieldLabel, isFieldHidden } from "../constants/industryConfig";
 
@@ -61,6 +63,22 @@ const InvoiceTemplateVariants = React.memo(React.forwardRef(({ theme, business, 
       />
     );
   }
+  // The enterprise (B&W) layout is also a self-contained fixed-page design —
+  // same rendering contract as Retro (props only, no shared skeleton).
+  if (t.layout === L.enterprise) {
+    return (
+      <InvoiceTemplateEnterprise
+        ref={ref}
+        business={business}
+        customer={customer}
+        form={form}
+        items={items}
+        discountPercent={discountPercent}
+        type={type}
+        invoiceNumber={invoiceNumber}
+      />
+    );
+  }
   const S = { border: `${t.borderWidth} ${t.borderStyle} ${t.borderColor}` };
   const displayInvNo = invoiceNumber || "DRAFT";
   const isProforma = type === "PROFORMA_INVOICE";
@@ -71,6 +89,10 @@ const InvoiceTemplateVariants = React.memo(React.forwardRef(({ theme, business, 
   // into Description / Taxable Value so every other column keeps its exact
   // position. Stored codes and GST maths are never touched.
   const showHnSac = !business || business.showHnSac !== false;
+  // Configurable jurisdiction footer (V31): the rendered text always comes
+  // from the business's persisted configuration — "" when the owner switched
+  // the line off or never set a city. Never a hardcoded default.
+  const jurLine = jurisdictionLine(business);
   const itemCols = showHnSac
     ? ITEM_COLS
     : ITEM_COLS.filter((c) => c.key !== "hsn").map((c) => (c.key === "desc" ? { ...c, w: c.w + 76 } : c));
@@ -1253,14 +1275,18 @@ const InvoiceTemplateVariants = React.memo(React.forwardRef(({ theme, business, 
             </td>
           </tr>
 
-          {/* FOOTER */}
+          {/* FOOTER — this is the last row of the document, so it must also
+              carry the bottom edge or the invoice frame is left open (the
+              vertical lines added above would dangle with nothing under them). */}
           <tr id="section-bottom-note">
-            <td colSpan={2} style={{ borderLeft: S.border, borderRight: S.border, padding: "6px 10px" }}>
+            <td colSpan={2} style={{ borderLeft: S.border, borderRight: S.border, borderBottom: S.border, padding: "6px 10px" }}>
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <tbody>
                   <tr>
                     <td style={{ textAlign: "center", padding: 0 }}>
-                      <div style={{ fontSize: baseFS, fontWeight: "bold" }}>SUBJECT TO BENGALURU JURISDICTION</div>
+                      {jurLine && (
+                        <div style={{ fontSize: baseFS, fontWeight: "bold" }}>{jurLine}</div>
+                      )}
                       <div style={{ fontSize: baseFS, marginTop: "1px" }}>{isProforma ? "This is a Computer Generated Proforma Invoice" : "This is a Computer Generated Invoice"}</div>
                     </td>
                   </tr>

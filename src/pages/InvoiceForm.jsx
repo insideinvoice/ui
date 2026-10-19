@@ -51,7 +51,7 @@ const EXTENDED_FALLBACK_LABELS = {
   referringDoctor: "Referring Doctor",
 };
 
-const FOCUS_ORDER = ["phone", "name", "email", "gstIn", "billingAddress", "invoiceType", "invoiceDate", "dueDate", "placeOfSupply", "destination", "paymentTerms", "paymentMode", "deliveryNote", "deliveryNoteDate", "referenceNumber", "dispatchDocNumber", "dispatchedThrough", "termsOfDelivery", "otherReferences", "notes"];
+const FOCUS_ORDER = ["phone", "name", "email", "gstIn", "billingAddress", "invoiceDate", "dueDate", "placeOfSupply", "destination", "paymentTerms", "paymentMode", "deliveryNote", "deliveryNoteDate", "referenceNumber", "dispatchDocNumber", "dispatchedThrough", "termsOfDelivery", "otherReferences", "notes"];
 
 const focusNext = (currentName) => {
   const i = FOCUS_ORDER.indexOf(currentName);
@@ -1091,9 +1091,17 @@ export default function InvoiceForm() {
   };
 
   if (loading) {
+    // Keep the app shell (sidebar/navbar) mounted while the business profile
+    // loads — only the center area shows the spinner, matching InvoicesList.
     return (
-      <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-gradient-to-br from-gray-50 via-slate-50 to-gray-100">
-        <Spinner size={32} />
+      <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-gray-100">
+        <AppNavbar />
+        <div
+          className="flex items-center justify-center"
+          style={{ minHeight: "calc(100dvh - 80px)" }}
+        >
+          <Spinner size={32} />
+        </div>
       </div>
     );
   }
@@ -1570,18 +1578,11 @@ export default function InvoiceForm() {
                 <h2 className="text-sm font-bold text-slate-800">Invoice Details</h2>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div>
-                  <label className={labelClass}>Type</label>
-                  <div className="relative">
-                    <select name="invoiceType" value={form.invoiceType} onChange={handleFieldChange}
-                      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); focusNext("invoiceType"); } }}
-                      className={selectClass}>
-                      <option value="TAX_INVOICE">Tax Invoice</option>
-                      <option value="PROFORMA_INVOICE">Proforma</option>
-                    </select>
-                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-                  </div>
-                </div>
+                {/* Type selector removed on purpose: every document saved from
+                    this form is a Tax Invoice (the default below), and Proforma
+                    has its own dedicated button in Actions — captureType
+                    drives the proforma PDF, so it never read this select.
+                    Existing PROFORMA invoices keep their type when edited. */}
                 {savedInvoiceNumber && (
                   <div>
                     <label className={labelClass}>Invoice No.</label>

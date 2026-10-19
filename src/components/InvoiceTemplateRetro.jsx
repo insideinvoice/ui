@@ -274,11 +274,14 @@ const ItemHead = ({ layout }) => {
 
 const ItemBox = ({ pageItems, startIndex, height = RETRO_PAGE_METRICS.body, layout }) => {
   const { cols, ruleX, showHnSac } = layout;
-  // Spread rows across the fixed body: tall-enough min heights so a short
-  // item list still covers the box (target >= 80%) instead of leaving a
-  // void before the totals block.
-  const count = Math.max(pageItems.length, 1);
-  const rowH = Math.max(ROW_H, Math.min(96, Math.floor((height - 4) / count)));
+  // Compact rows: natural height only (26px ≈ 5px below each line — no
+  // stretching to fill the box). Rows stack from the top of the fixed box
+  // and the leftover space stays as blank ruled area above the totals, like
+  // a written shop bill. The box keeps its fixed height, so PDF page cut
+  // points are unaffected; a wrapped name still grows its own row (td
+  // height acts as a minimum) and chunkRetroItems' EST_ROW estimate already
+  // budgets for that.
+  const rowH = ROW_H;
   const td = {
     padding: "4px 6px",
     fontSize: "12.5px",

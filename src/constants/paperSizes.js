@@ -54,6 +54,7 @@ export const PAPER_SIZE_LIST = Object.values(PAPER_SIZES);
 export const ALL_TEMPLATES = [
   { id: "template-1", label: "Original", desc: "Default classic black border layout" },
   { id: "template-31", label: "Retro", desc: "Fixed A4 page in classic shop-bill style — No / Particulars / Qty / Rate / Amount" },
+  { id: "template-32", label: "Enterprise", desc: "Black & white corporate invoice — logo letterhead, GST summary, lines that auto-close at every page edge" },
   { id: "template-3", label: "Corporate Blue", desc: "Professional navy blue accents" },
   { id: "template-5", label: "Minimalist", desc: "Borderless design with maximum whitespace" },
   { id: "template-8", label: "Premium Gold", desc: "Elegant navy and gold luxury style" },
@@ -66,7 +67,6 @@ export const ALL_TEMPLATES = [
   { id: "template-26", label: "Timber Line", desc: "Warm walnut serif styling — wood, plywood & furniture" },
   { id: "template-27", label: "Carbon Grid", desc: "Bold black grid with brand-red accent — hardware, tools & fasteners" },
   { id: "template-28", label: "Blueprint Pro", desc: "Engineering blue with light spec-sheet table — fabrication & industrial supply" },
-  { id: "template-29", label: "Trade Command", desc: "Gunmetal three-column trade layout with gold accent — distribution & contracting" },
   { id: "template-30", label: "Ledger Formal", desc: "Traditional double-rule ledger with oxblood accents — established merchants" },
 ];
 

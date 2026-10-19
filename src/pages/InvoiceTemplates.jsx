@@ -21,6 +21,19 @@ const ALL_TEMPLATES = [
   ...Object.values(TEMPLATE_THEMES),
 ];
 
+// Gallery sample logo — a plain B&W geometric mark (SVG data URI) so the
+// Enterprise template's letterhead shows a logo in previews without shipping
+// a binary asset. Real businesses upload their own from Settings.
+const SAMPLE_LOGO_SVG =
+  "<svg xmlns='http://www.w3.org/2000/svg' width='264' height='112' viewBox='0 0 264 112'>" +
+  "<rect width='264' height='112' rx='14' fill='#111111'/>" +
+  "<circle cx='56' cy='56' r='26' fill='none' stroke='#ffffff' stroke-width='7'/>" +
+  "<rect x='108' y='34' width='14' height='44' fill='#ffffff'/>" +
+  "<rect x='136' y='34' width='14' height='44' fill='#ffffff'/>" +
+  "<rect x='164' y='34' width='14' height='44' fill='#ffffff' opacity='0.85'/>" +
+  "</svg>";
+const SAMPLE_LOGO = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(SAMPLE_LOGO_SVG)}`;
+
 const sampleBusiness = {
   businessName: "Acme Enterprises",
   addressLine1: "42, Industrial Layout",
@@ -31,6 +44,7 @@ const sampleBusiness = {
   phone: "+91 98765 43210",
   email: "info@acme.in",
   gstIn: "29ABCDE1234F1Z5",
+  logo: SAMPLE_LOGO,
 };
 
 const sampleCustomer = {
@@ -240,7 +254,14 @@ function TemplatePreview({ templateId }) {
   const sample = sampleContentFor(industry);
 
   const commonProps = {
-    business: sample.business,
+    // Gallery previews are static sample businesses, so sample the line from
+    // the sample's own city (all samples bill from their own city). Real
+    // invoices always read the persisted configuration instead.
+    business: {
+      ...sample.business,
+      jurisdictionEnabled: true,
+      jurisdictionCity: sample.business.city || "",
+    },
     customer: sample.customer,
     form: sample.form,
     items: sample.items,

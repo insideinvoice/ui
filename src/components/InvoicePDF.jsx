@@ -5,6 +5,7 @@ import CompanyStamp from "./CompanyStamp";
 import { resolveSeal } from "../utils/seal";
 import { getSpecialistInLine } from "../utils/specialistIn";
 import { computeInvoiceTotals } from "../utils/invoiceTotals";
+import { jurisdictionLine } from "../utils/jurisdiction";
 import { getIndustryConfig, getTemplateRightRows, fieldLabel } from "../constants/industryConfig";
 
 const S = {
@@ -117,6 +118,10 @@ const InvoicePDF = React.memo(React.forwardRef(({ business, customer, form, item
   const itemDescLabel = fieldLabel(industryConfig, "itemName", "Description of Goods");
 
   const { sealVisible, sealType } = resolveSeal(business);
+  // Configurable jurisdiction footer (V31): text comes from the business's
+  // persisted configuration — "" when the owner switched the line off or no
+  // city is saved. Never a hardcoded default.
+  const jurLine = jurisdictionLine(business);
   const stampAddress1 = business?.addressLine1 || "";
   const stampAddress2 = [business?.addressLine2, business?.city, business?.state, business?.pincode ? "-" + business.pincode : ""].filter(Boolean).join(", ");
   const stampPhone = business?.phone ? `Ph: ${business.phone}` : "";
@@ -557,7 +562,9 @@ const InvoicePDF = React.memo(React.forwardRef(({ business, customer, form, item
                 <tbody>
                   <tr>
                     <td style={{ textAlign: "center", padding: 0 }}>
-                      <div style={{ fontSize: "10px", fontWeight: "bold" }}>SUBJECT TO BENGALURU JURISDICTION</div>
+                      {jurLine && (
+                        <div style={{ fontSize: "10px", fontWeight: "bold" }}>{jurLine}</div>
+                      )}
                       <div style={{ fontSize: "10px", marginTop: "1px" }}>{isProforma ? "This is a Computer Generated Proforma Invoice" : "This is a Computer Generated Invoice"}</div>
                     </td>
                   </tr>

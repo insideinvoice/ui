@@ -16,6 +16,10 @@ export const INVOICE_ROW_SELECTORS = [
   // Retro renders fixed repeat pages; cut between them and never inside one.
   '[id^="retro-page-"]',
   '[id^="retro-item-"]',
+  // Enterprise: same fixed-page contract — frames cut exactly, item rows keep
+  // each page's table lines closed before the cut point.
+  '[id^="ent-page-"]',
+  '[id^="ent-item-"]',
 ];
 
 // Measure every page-break anchor and the invoice box in one synchronous
@@ -24,7 +28,13 @@ export const INVOICE_ROW_SELECTORS = [
 // boundary ends up inside the seal or an item row.
 function collectGeometry(element) {
   const invoiceRect = element.getBoundingClientRect();
-  const rowEls = Array.from(element.querySelectorAll(INVOICE_ROW_SELECTORS.join(", ")));
+  // Enterprise frames ARE the pages: each ent-page-* frame is one logical
+  // invoice page with its own header/footer. Cutting anywhere else (item-row
+  // boundaries) would merge two frames onto one sheet or split a frame in
+  // half, so when frames exist they are the only anchors that count.
+  const hasEntFrames = element.querySelector('[id^="ent-page-"]') != null;
+  const selector = hasEntFrames ? '[id^="ent-page-"]' : INVOICE_ROW_SELECTORS.join(", ");
+  const rowEls = Array.from(element.querySelectorAll(selector));
   const rects = rowEls.map((el) => {
     const r = el.getBoundingClientRect();
     return {

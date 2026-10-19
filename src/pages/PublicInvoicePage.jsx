@@ -443,7 +443,7 @@ export default function PublicInvoicePage() {
             — no wrapping scroll container, so zooming/panning never gets
             trapped inside a box. */}
         <div
-          className="min-w-full flex items-start justify-center py-6 sm:py-10 px-2 sm:px-5"
+          className="min-w-full flex items-start justify-center pt-8 sm:pt-12 pb-6 sm:pb-10 px-2 sm:px-5"
         >
           <div
             style={{

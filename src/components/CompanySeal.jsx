@@ -18,20 +18,57 @@ export default function CompanySeal({
   const textR = 121;
   const font = "Arial, sans-serif";
 
-  const wrapped = useMemo(() => {
+  // Ring text: every glyph is placed INDIVIDUALLY around the full circle.
+  // The old approach stretched one <textPath> with textLength — Chromium
+  // applies that inconsistently, so short names rendered at natural width
+  // and bunched on one side of the stamp. Measuring each glyph and walking
+  // the arc makes ANY length cover the ENTIRE circle: short names simply
+  // get wider, evenly distributed gaps between the letters.
+  const ring = useMemo(() => {
     const name = companyName.toUpperCase().trim();
-    const base = `\u2736 ${name} \u2736`;
-    // keep the ring text within the circle's circumference so letter spacing
-    // never collapses on itself when stretched around the full circle
-    const maxChars = 47;
-    return base.length > maxChars ? `\u2736 ${name.slice(0, maxChars - 4).trimEnd()} \u2736` : base;
-  }, [companyName]);
+    const chars = `\u2736 ${name} \u2736`.split("");
 
-  const circleId = `seal-path-${uid}`;
+    const usable = 2 * Math.PI * textR; // full circumference
+    const hasDom = typeof document !== "undefined";
+    // Pre-render (SSG) has no DOM: fall back to average glyph widths.
+    const measure = (size2, ch) => {
+      if (!hasDom) return size2 * 0.66;
+      const canvas = measure._canvas || (measure._canvas = document.createElement("canvas"));
+      const ctx = canvas.getContext("2d");
+      ctx.font = `bold ${size2}px ${font}`;
+      return ctx.measureText(ch).width;
+    };
+
+    let fontSize = 26;
+    const MIN_GAP = 3; // minimum breathing room between glyphs
+    const totalWidth = (size2) => chars.reduce((sum, ch) => sum + measure(size2, ch), 0);
+    // Shrink the font until the glyphs + minimum gaps fit the whole circle.
+    while (totalWidth(fontSize) + MIN_GAP * (chars.length - 1) > usable && fontSize > 12) {
+      fontSize -= 1;
+    }
+    const widths = chars.map((ch) => measure(fontSize, ch));
+    const totalW = widths.reduce((a, b) => a + b, 0);
+    // Leftover arc, distributed evenly as gaps → the string spans exactly 360°.
+    const gap = chars.length > 1 ? (usable - totalW) / (chars.length - 1) : 0;
+
+    const glyphs = [];
+    let arc = 0; // current position along the unrolled circumference
+    for (let i = 0; i < chars.length; i++) {
+      const centerArc = arc + widths[i] / 2;
+      arc += widths[i] + gap;
+      // Center the string on 12 o'clock and read clockwise around the stamp.
+      const theta = ((centerArc - usable / 2) * 360) / usable - 90;
+      const rad = (theta * Math.PI) / 180;
+      const x = cx + textR * Math.cos(rad);
+      const y = cy + textR * Math.sin(rad);
+      // Glyph stays tangent to the ring (upright at the top, rotated at the sides).
+      const rot = theta + 90;
+      glyphs.push({ ch: chars[i], x, y, rot, fontSize });
+    }
+    return glyphs;
+  }, [companyName, cx, cy]);
+
   const clipId = `seal-clip-${uid}`;
-  const circlePath = `M ${cx},${cy - textR} A ${textR},${textR} 0 1,1 ${cx - 0.01},${cy - textR}`;
-  const circumference = 2 * Math.PI * textR;
-
   return (
     <svg
       width={size}
@@ -41,7 +78,6 @@ export default function CompanySeal({
       style={{ display: "block", overflow: "hidden" }}
     >
       <defs>
-        <path id={circleId} d={circlePath} />
         {/* words can never draw past the seal's outer ring */}
         <clipPath id={clipId}>
           <circle cx={cx} cy={cy} r={outerR - 2} />
@@ -53,18 +89,22 @@ export default function CompanySeal({
         <circle cx={cx} cy={cy} r={innerR} fill="none" stroke={color} strokeWidth={2} />
 
         <g clipPath={`url(#${clipId})`}>
-          <text
-            fontFamily={font}
-            fontSize={26}
-            fontWeight="bold"
-            fill={color}
-            textLength={circumference}
-            lengthAdjust="spacing"
-          >
-            <textPath href={`#${circleId}`} startOffset="0%" textAnchor="start">
-              {wrapped}
-            </textPath>
-          </text>
+          {ring.map((g, i) => (
+            <text
+              key={i}
+              x={g.x}
+              y={g.y}
+              transform={`rotate(${g.rot} ${g.x} ${g.y})`}
+              fontFamily={font}
+              fontSize={g.fontSize}
+              fontWeight="bold"
+              fill={color}
+              textAnchor="middle"
+              dominantBaseline="middle"
+            >
+              {g.ch}
+            </text>
+          ))}
         </g>
 
         <text

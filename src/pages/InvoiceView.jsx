@@ -133,7 +133,10 @@ export default function InvoiceView() {
   // running — keeping them permanently mounted meant every keystroke and every
   // busy-flag toggle re-rendered two full invoice documents.
   const [captureType, setCaptureType] = useState(null);
-  const [sealType, setSealType] = useState(localStorage.getItem("seal_type") || "");
+  // With the company seal enabled and no stored choice, default to the ROUND
+  // seal (the same fallback resolveSeal and the delivery-challan flow use) so
+  // the round seal is pre-selected instead of leaving the pick blank.
+  const [sealType, setSealType] = useState(localStorage.getItem("seal_type") || "round");
   const ghostMode = localStorage.getItem("ghost_mode") === "true";
   const [discountPercent, setDiscountPercent] = useState("");
   const [discountEnabled, setDiscountEnabled] = useState(false);

@@ -492,12 +492,17 @@ export default function InvoicesList() {
             {invoices.length > 0 && (
               <>
                 <div className="relative w-full sm:w-auto sm:min-w-[150px]">
-                  <select value={selectedPeriod} onChange={(e) => setSelectedPeriod(e.target.value)}
+                  <select
+                    value={selectedPeriod}
+                    onChange={(e) => setSelectedPeriod(e.target.value)}
                     aria-label="Filter by period"
-                    className="w-full pl-3 pr-8 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400/30 focus:border-indigo-400 bg-white appearance-none cursor-pointer text-slate-700 font-medium min-h-[40px]">
+                    className="w-full pl-3 pr-8 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400/30 focus:border-indigo-400 bg-white appearance-none cursor-pointer text-slate-700 font-medium min-h-[40px]"
+                  >
                     <option value="">All periods</option>
                     {availablePeriods.map((p) => (
-                      <option key={p.value} value={p.value}>{p.label}</option>
+                      <option key={p.value} value={p.value}>
+                        {p.label}
+                      </option>
                     ))}
                   </select>
                   <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
@@ -505,9 +510,13 @@ export default function InvoicesList() {
 
                 <div className="relative w-full sm:w-48 md:w-56">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
-                  <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search invoices…"
+                  <input
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Search"
                     aria-label="Search invoices"
-                    className="w-full pl-8 pr-8 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400/30 focus:border-indigo-400 bg-white text-slate-800 placeholder:text-slate-400 min-h-[40px]" />
+                    className="w-full pl-8 pr-8 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400/30 focus:border-indigo-400 bg-white text-slate-800 placeholder:text-slate-400 min-h-[40px]"
+                  />
                   {search && (
                     <button
                       onClick={() => setSearch("")}
@@ -525,7 +534,11 @@ export default function InvoicesList() {
                   disabled={exporting || invoices.length === 0}
                   className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-semibold bg-emerald-600 text-white hover:bg-emerald-700 active:scale-[0.98] transition-all shadow-sm disabled:opacity-60 disabled:cursor-not-allowed min-h-[40px] shrink-0"
                 >
-                  {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileSpreadsheet className="w-4 h-4" />}
+                  {exporting ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <FileSpreadsheet className="w-4 h-4" />
+                  )}
                   {exporting ? "Exporting…" : "Export Excel"}
                 </button>
               </>
@@ -536,10 +549,16 @@ export default function InvoicesList() {
               <div className="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-4">
                 <FileText className="w-8 h-8 text-slate-300" />
               </div>
-              <p className="text-sm font-semibold text-slate-700">No invoices yet</p>
-              <p className="text-xs text-slate-400 mt-1 mb-4">Create your first invoice to get started</p>
-              <button onClick={() => navigate("/invoice")}
-                className="inline-flex items-center gap-2 px-5 py-2.5 min-h-[44px] bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 transition-all shadow-sm">
+              <p className="text-sm font-semibold text-slate-700">
+                No invoices yet
+              </p>
+              <p className="text-xs text-slate-400 mt-1 mb-4">
+                Create your first invoice to get started
+              </p>
+              <button
+                onClick={() => navigate("/invoice")}
+                className="inline-flex items-center gap-2 px-5 py-2.5 min-h-[44px] bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 transition-all shadow-sm"
+              >
                 <PlusCircle className="w-4 h-4" /> Create Invoice
               </button>
             </div>
@@ -549,48 +568,104 @@ export default function InvoicesList() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="bg-slate-50 border-b border-slate-200">
-                      <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Invoice No.</th>
-                      <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Customer</th>
-                      <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Date</th>
-                      <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Type</th>
-                      <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Amount</th>
-                      <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Actions</th>
+                      <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                        Invoice No.
+                      </th>
+                      <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                        Customer
+                      </th>
+                      <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                        Date
+                      </th>
+                      <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                        Type
+                      </th>
+                      <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                        Amount
+                      </th>
+                      <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                        Actions
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
                     {paginatedInvoices.map((inv, i) => (
-                      <tr key={inv.id} className={`border-b border-slate-100 hover:bg-slate-100 transition-colors ${i % 2 === 1 ? "bg-slate-50/40" : ""}`}>
+                      <tr
+                        key={inv.id}
+                        className={`border-b border-slate-100 hover:bg-slate-100 transition-colors ${i % 2 === 1 ? "bg-slate-50/40" : ""}`}
+                      >
                         <td className="py-3 px-4">
-                          <button onClick={() => navigate(`/invoice/${inv.id}`)} className="inline-flex items-center font-mono text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1 rounded-md border border-indigo-200 hover:border-indigo-300 transition-all">
+                          <button
+                            onClick={() => navigate(`/invoice/${inv.id}`)}
+                            className="inline-flex items-center font-mono text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1 rounded-md border border-indigo-200 hover:border-indigo-300 transition-all"
+                          >
                             {inv.invoiceNumber}
                           </button>
                         </td>
-                        <td className="py-3 px-4 text-xs sm:text-sm text-slate-600">{inv.customerName}</td>
-                        <td className="py-3 px-4 text-xs sm:text-sm text-slate-600">{inv.invoiceDate}</td>
+                        <td className="py-3 px-4 text-xs sm:text-sm text-slate-600">
+                          {inv.customerName}
+                        </td>
+                        <td className="py-3 px-4 text-xs sm:text-sm text-slate-600">
+                          {inv.invoiceDate}
+                        </td>
                         <td className="py-3 px-4">
-                          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
-                            inv.invoiceType === "PROFORMA_INVOICE" ? "bg-emerald-100 text-emerald-700" : "bg-blue-100 text-blue-700"
-                          }`}>
-                            {inv.invoiceType === "PROFORMA_INVOICE" ? "Proforma" : "Tax"}
+                          <span
+                            className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                              inv.invoiceType === "PROFORMA_INVOICE"
+                                ? "bg-emerald-100 text-emerald-700"
+                                : "bg-blue-100 text-blue-700"
+                            }`}
+                          >
+                            {inv.invoiceType === "PROFORMA_INVOICE"
+                              ? "Proforma"
+                              : "Tax"}
                           </span>
                         </td>
                         <td className="py-3 px-4 text-right font-mono text-xs sm:text-sm font-semibold text-slate-800">
-                          Rs. {parseFloat(inv.grandTotal || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                          Rs.{" "}
+                          {parseFloat(inv.grandTotal || 0).toLocaleString(
+                            "en-IN",
+                            { minimumFractionDigits: 2 },
+                          )}
                         </td>
-<td className="py-3 px-4 text-right">
-                            <div className="flex items-center justify-end gap-1.5">
-                              <button onClick={() => downloadPDF(inv)} disabled={rowBusy(inv.id)}
-                                className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors disabled:opacity-60" title="Download PDF">
-                                {isBusy(inv.id, "pdf") ? <Spinner size={14} /> : <Download className="w-3.5 h-3.5" />} {isBusy(inv.id, "pdf") ? "Loading..." : "Download"}
-                              </button>
-                              <button onClick={() => openShareSheet(inv)} disabled={rowBusy(inv.id)}
-                                className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors disabled:opacity-60">
-                                {isBusy(inv.id, "share") ? <Spinner size={14} /> : <Share2 className="w-3.5 h-3.5" />} {isBusy(inv.id, "share") ? "Loading..." : "Share"}
-                              </button>
-                              {ghostMode && (
-                              <button onClick={() => openDeleteModal(inv)}
-                                className="min-h-[44px] min-w-[44px] flex items-center justify-center p-2 hover:bg-red-50 rounded-lg transition-colors text-slate-400 hover:text-red-600" title="Delete Invoice">
-                                <Trash2 className="w-4 h-4" />
+                        <td className="py-3 px-4 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              onClick={() => downloadPDF(inv)}
+                              disabled={rowBusy(inv.id)}
+                              className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors disabled:opacity-60"
+                              title="Download PDF"
+                            >
+                              {isBusy(inv.id, "pdf") ? (
+                                <Spinner size={14} />
+                              ) : (
+                                <Download className="w-3.5 h-3.5" />
+                              )}{" "}
+                              {isBusy(inv.id, "pdf")
+                                ? "Loading..."
+                                : "Download"}
+                            </button>
+                            <button
+                              onClick={() => openShareSheet(inv)}
+                              disabled={rowBusy(inv.id)}
+                              className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors disabled:opacity-60"
+                            >
+                              {isBusy(inv.id, "share") ? (
+                                <Spinner size={14} />
+                              ) : (
+                                <Share2 className="w-3.5 h-3.5" />
+                              )}{" "}
+                              {isBusy(inv.id, "share") ? "Loading..." : "Share"}
+                            </button>
+                            {ghostMode && (
+                              <button
+                                onClick={() => openDeleteModal(inv)}
+                                disabled={rowBusy(inv.id)}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 min-h-[40px] text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 hover:border-red-300 rounded-lg transition-all disabled:opacity-60"
+                                title="Delete Invoice"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                                Delete
                               </button>
                             )}
                           </div>
@@ -602,7 +677,11 @@ export default function InvoicesList() {
               </div>
               <div className="md:hidden space-y-3 p-3">
                 {paginatedInvoices.map((inv) => (
-                  <div key={inv.id} className="bg-white rounded-xl shadow-sm border border-slate-100 p-4 hover:bg-slate-50 transition-colors" onClick={() => goToInvoice(inv)}>
+                  <div
+                    key={inv.id}
+                    className="bg-white rounded-xl shadow-sm border border-slate-100 p-4 hover:bg-slate-50 transition-colors"
+                    onClick={() => goToInvoice(inv)}
+                  >
                     <div className="flex items-center justify-between mb-2">
                       <span className="inline-flex items-center font-mono text-xs font-bold text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded-md border border-indigo-200">
                         {inv.invoiceNumber}
@@ -610,37 +689,92 @@ export default function InvoicesList() {
                       {isBusy(inv.id, "view") ? (
                         <Spinner size={18} className="text-indigo-500" />
                       ) : (
-                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
-                          inv.invoiceType === "PROFORMA_INVOICE" ? "bg-emerald-100 text-emerald-700" : "bg-blue-100 text-blue-700"
-                        }`}>
-                          {inv.invoiceType === "PROFORMA_INVOICE" ? "Proforma" : "Tax"}
+                        <span
+                          className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                            inv.invoiceType === "PROFORMA_INVOICE"
+                              ? "bg-emerald-100 text-emerald-700"
+                              : "bg-blue-100 text-blue-700"
+                          }`}
+                        >
+                          {inv.invoiceType === "PROFORMA_INVOICE"
+                            ? "Proforma"
+                            : "Tax"}
                         </span>
                       )}
                     </div>
-                    <div className="text-sm font-medium text-slate-800 mb-2">{inv.customerName}</div>
+                    <div className="text-sm font-medium text-slate-800 mb-2">
+                      {inv.customerName}
+                    </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-xs text-slate-500">{inv.invoiceDate}</span>
+                      <span className="text-xs text-slate-500">
+                        {inv.invoiceDate}
+                      </span>
                       <span className="font-mono text-sm font-semibold text-slate-800">
-                        Rs. {parseFloat(inv.grandTotal || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                        Rs.{" "}
+                        {parseFloat(inv.grandTotal || 0).toLocaleString(
+                          "en-IN",
+                          { minimumFractionDigits: 2 },
+                        )}
                       </span>
                     </div>
                     <div className="flex items-center gap-2 mt-3 pt-2 border-t border-slate-100">
-                      <button onClick={(e) => { e.stopPropagation(); goToInvoice(inv); }} disabled={rowBusy(inv.id)}
-                        className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-xs font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors min-h-[44px] disabled:opacity-60">
-                        {isBusy(inv.id, "view") ? <Spinner size={14} /> : <Eye className="w-3.5 h-3.5" />} {isBusy(inv.id, "view") ? "Loading..." : "View"}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          goToInvoice(inv);
+                        }}
+                        disabled={rowBusy(inv.id)}
+                        className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-xs font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors min-h-[44px] disabled:opacity-60"
+                      >
+                        {isBusy(inv.id, "view") ? (
+                          <Spinner size={14} />
+                        ) : (
+                          <Eye className="w-3.5 h-3.5" />
+                        )}{" "}
+                        {isBusy(inv.id, "view") ? "Loading..." : "View"}
                       </button>
-                      <button onClick={(e) => { e.stopPropagation(); downloadPDF(inv); }} disabled={rowBusy(inv.id)}
-                        className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-xs font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors min-h-[44px] disabled:opacity-60">
-                        {isBusy(inv.id, "pdf") ? <Spinner size={14} /> : <Download className="w-3.5 h-3.5" />} {isBusy(inv.id, "pdf") ? "Loading..." : "Download"}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          downloadPDF(inv);
+                        }}
+                        disabled={rowBusy(inv.id)}
+                        className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-xs font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors min-h-[44px] disabled:opacity-60"
+                      >
+                        {isBusy(inv.id, "pdf") ? (
+                          <Spinner size={14} />
+                        ) : (
+                          <Download className="w-3.5 h-3.5" />
+                        )}{" "}
+                        {isBusy(inv.id, "pdf") ? "Loading..." : "Download"}
                       </button>
-                      <button onClick={(e) => { e.stopPropagation(); openShareSheet(inv); }} disabled={rowBusy(inv.id)}
-                        className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors min-h-[44px] disabled:opacity-60">
-                        {isBusy(inv.id, "share") ? <Spinner size={14} /> : <Share2 className="w-3.5 h-3.5" />} {isBusy(inv.id, "share") ? "Loading..." : "Share"}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openShareSheet(inv);
+                        }}
+                        disabled={rowBusy(inv.id)}
+                        className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors min-h-[44px] disabled:opacity-60"
+                      >
+                        {isBusy(inv.id, "share") ? (
+                          <Spinner size={14} />
+                        ) : (
+                          <Share2 className="w-3.5 h-3.5" />
+                        )}{" "}
+                        {isBusy(inv.id, "share") ? "Loading..." : "Share"}
                       </button>
                       {ghostMode && (
-                        <button onClick={(e) => { e.stopPropagation(); openDeleteModal(inv); }} disabled={rowBusy(inv.id)}
-                          className="flex items-center justify-center px-3 py-2 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors min-h-[44px] disabled:opacity-60" title="Delete Invoice">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openDeleteModal(inv);
+                          }}
+                          disabled={rowBusy(inv.id)}
+                          className="inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 hover:border-red-300 rounded-lg transition-colors min-h-[44px] shrink-0 disabled:opacity-60"
+                          title="Delete Invoice"
+                        >
                           <Trash2 className="w-3.5 h-3.5" />
+                          Delete
                         </button>
                       )}
                     </div>
@@ -667,9 +801,18 @@ export default function InvoicesList() {
                     </div>
                     <span className="text-slate-300">|</span>
                     <span>
-                      Showing <span className="font-semibold text-slate-800">{filtered.length === 0 ? 0 : startIndex + 1}</span>–
-                      <span className="font-semibold text-slate-800">{endIndex}</span> of{" "}
-                      <span className="font-semibold text-slate-800">{filtered.length}</span>
+                      Showing{" "}
+                      <span className="font-semibold text-slate-800">
+                        {filtered.length === 0 ? 0 : startIndex + 1}
+                      </span>
+                      –
+                      <span className="font-semibold text-slate-800">
+                        {endIndex}
+                      </span>{" "}
+                      of{" "}
+                      <span className="font-semibold text-slate-800">
+                        {filtered.length}
+                      </span>
                     </span>
                   </div>
 
@@ -684,7 +827,9 @@ export default function InvoicesList() {
                         <ChevronsLeft className="w-4 h-4" />
                       </button>
                       <button
-                        onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                        onClick={() =>
+                          setCurrentPage((p) => Math.max(1, p - 1))
+                        }
                         disabled={currentPage === 1}
                         className="p-1.5 rounded-md hover:bg-slate-200 disabled:opacity-40 disabled:hover:bg-transparent text-slate-600 transition-colors"
                         title="Previous page"
@@ -695,7 +840,9 @@ export default function InvoicesList() {
                         Page {currentPage} of {totalPages}
                       </span>
                       <button
-                        onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                        onClick={() =>
+                          setCurrentPage((p) => Math.min(totalPages, p + 1))
+                        }
                         disabled={currentPage === totalPages}
                         className="p-1.5 rounded-md hover:bg-slate-200 disabled:opacity-40 disabled:hover:bg-transparent text-slate-600 transition-colors"
                         title="Next page"
@@ -739,7 +886,10 @@ export default function InvoicesList() {
       />
 
       {shareSheetInvoice && (
-        <div className="fixed inset-0 z-[1100] bg-black/40 backdrop-blur-[2px] flex items-end sm:items-center justify-center" onClick={closeShareSheet}>
+        <div
+          className="fixed inset-0 z-[1100] bg-black/40 backdrop-blur-[2px] flex items-end sm:items-center justify-center"
+          onClick={closeShareSheet}
+        >
           <div
             className="w-full sm:max-w-md bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl border border-slate-200 pb-[max(env(safe-area-inset-bottom),16px)] sm:pb-4"
             onClick={(e) => e.stopPropagation()}
@@ -752,60 +902,114 @@ export default function InvoicesList() {
                 <h2 className="text-sm font-bold text-slate-800 flex items-center gap-2">
                   <Share2 className="w-4 h-4 text-indigo-600" /> Share invoice
                 </h2>
-                <p className="text-xs text-slate-400 mt-0.5 font-mono truncate">{shareSheetInvoice.invoiceNumber || "Draft"}</p>
+                <p className="text-xs text-slate-400 mt-0.5 font-mono truncate">
+                  {shareSheetInvoice.invoiceNumber || "Draft"}
+                </p>
               </div>
-              <button type="button" onClick={closeShareSheet} disabled={!!shareBusy}
+              <button
+                type="button"
+                onClick={closeShareSheet}
+                disabled={!!shareBusy}
                 aria-label="Close share sheet"
-                className="p-2 -mr-2 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 disabled:opacity-50 transition-colors">
+                className="p-2 -mr-2 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 disabled:opacity-50 transition-colors"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <div className="p-3 space-y-1">
-              <button type="button" onClick={copyLinkFromSheet} disabled={!!shareBusy}
-                className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-slate-50 disabled:opacity-60 transition-colors text-left">
+              <button
+                type="button"
+                onClick={copyLinkFromSheet}
+                disabled={!!shareBusy}
+                className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-slate-50 disabled:opacity-60 transition-colors text-left"
+              >
                 <span className="w-10 h-10 shrink-0 rounded-full bg-sky-50 text-sky-600 flex items-center justify-center">
-                  {shareBusy === "copy" ? <Spinner size={18} /> : <Link2 className="w-5 h-5" />}
+                  {shareBusy === "copy" ? (
+                    <Spinner size={18} />
+                  ) : (
+                    <Link2 className="w-5 h-5" />
+                  )}
                 </span>
                 <span className="min-w-0">
-                  <span className="block text-sm font-semibold text-slate-800">Invoice Link</span>
+                  <span className="block text-sm font-semibold text-slate-800">
+                    Invoice Link
+                  </span>
                   <span className="block text-xs text-slate-400 truncate">
-                    {sheetShareUrl ? "Link ready — anyone with it can view" : "Creates a view-only link"}
+                    {sheetShareUrl
+                      ? "Link ready — anyone with it can view"
+                      : "Creates a view-only link"}
                   </span>
                 </span>
               </button>
 
-              <button type="button" onClick={shareFromSheetWhatsApp} disabled={!!shareBusy}
-                className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-slate-50 disabled:opacity-60 transition-colors text-left">
+              <button
+                type="button"
+                onClick={shareFromSheetWhatsApp}
+                disabled={!!shareBusy}
+                className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-slate-50 disabled:opacity-60 transition-colors text-left"
+              >
                 <span className="w-10 h-10 shrink-0 rounded-full bg-[#25D366]/10 text-[#25D366] flex items-center justify-center">
-                  {shareBusy === "sheet-wa" ? <Spinner size={18} /> : <WhatsAppIcon className="w-5 h-5" />}
+                  {shareBusy === "sheet-wa" ? (
+                    <Spinner size={18} />
+                  ) : (
+                    <WhatsAppIcon className="w-5 h-5" />
+                  )}
                 </span>
                 <span className="min-w-0">
-                  <span className="block text-sm font-semibold text-slate-800">WhatsApp</span>
-                  <span className="block text-xs text-slate-400">Send the invoice link in a chat</span>
+                  <span className="block text-sm font-semibold text-slate-800">
+                    WhatsApp
+                  </span>
+                  <span className="block text-xs text-slate-400">
+                    Send the invoice link in a chat
+                  </span>
                 </span>
               </button>
 
-              <button type="button" onClick={shareProformaFromSheet} disabled={!!shareBusy}
-                className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-slate-50 disabled:opacity-60 transition-colors text-left">
+              <button
+                type="button"
+                onClick={shareProformaFromSheet}
+                disabled={!!shareBusy}
+                className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-slate-50 disabled:opacity-60 transition-colors text-left"
+              >
                 <span className="w-10 h-10 shrink-0 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center">
-                  {shareBusy === "proforma" ? <Spinner size={18} /> : <FileText className="w-5 h-5" />}
+                  {shareBusy === "proforma" ? (
+                    <Spinner size={18} />
+                  ) : (
+                    <FileText className="w-5 h-5" />
+                  )}
                 </span>
                 <span className="min-w-0">
-                  <span className="block text-sm font-semibold text-slate-800">Share Proforma Invoice</span>
-                  <span className="block text-xs text-slate-400">Send the proforma invoice link</span>
+                  <span className="block text-sm font-semibold text-slate-800">
+                    Share Proforma Invoice
+                  </span>
+                  <span className="block text-xs text-slate-400">
+                    Send the proforma invoice link
+                  </span>
                 </span>
               </button>
 
               {canNativeShare && (
-                <button type="button" onClick={nativeShareFromSheet} disabled={!!shareBusy}
-                  className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-slate-50 disabled:opacity-60 transition-colors text-left">
+                <button
+                  type="button"
+                  onClick={nativeShareFromSheet}
+                  disabled={!!shareBusy}
+                  className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-slate-50 disabled:opacity-60 transition-colors text-left"
+                >
                   <span className="w-10 h-10 shrink-0 rounded-full bg-violet-50 text-violet-600 flex items-center justify-center">
-                    {shareBusy === "native" ? <Spinner size={18} /> : <Share2 className="w-5 h-5" />}
+                    {shareBusy === "native" ? (
+                      <Spinner size={18} />
+                    ) : (
+                      <Share2 className="w-5 h-5" />
+                    )}
                   </span>
                   <span className="min-w-0">
-                    <span className="block text-sm font-semibold text-slate-800">More apps</span>
-                    <span className="block text-xs text-slate-400">Open your device's share menu</span>
+                    <span className="block text-sm font-semibold text-slate-800">
+                      More apps
+                    </span>
+                    <span className="block text-xs text-slate-400">
+                      Open your device's share menu
+                    </span>
                   </span>
                 </button>
               )}

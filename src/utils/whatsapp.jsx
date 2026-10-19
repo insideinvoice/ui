@@ -1,84 +1,50 @@
 import toast from "react-hot-toast";
+import { whatsappShareTargets } from "./whatsappTargets";
 
-export function buildInvoiceWhatsAppMessage({ customerName, invoiceNumber, invoiceType, total, businessName, shareUrl }) {
-  const name = customerName?.trim() || "";
-  const label = invoiceType === "PROFORMA_INVOICE" ? "Proforma Invoice" : "Tax Invoice";
-  const invNo = invoiceNumber?.trim() || "";
-  const amount = parseFloat(total);
-  const totalStr = !isNaN(amount) && amount >= 0
-    ? `Rs. ${amount.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-    : "";
-  const biz = businessName?.trim() || "";
+export { buildInvoiceWhatsAppMessage } from "./whatsappTargets";
 
-  const lines = [];
-  if (name) {
-    lines.push(`Hi ${name},`, "");
-  } else {
-    lines.push("Hello,", "");
-  }
-  if (biz) {
-    lines.push(`Thank you for shopping with ${biz}!`, "");
-  } else {
-    lines.push("Thank you for shopping with us!", "");
-  }
-  const invLine = invNo ? `${label} ${invNo}` : label;
-  lines.push(invLine);
-  if (totalStr) {
-    lines.push(`Total Bill: ${totalStr}`);
-  }
-  if (shareUrl) {
-    lines.push("", `View invoice online:`, shareUrl);
-  }
-  return lines.join("\n");
-}
-
-// Opens WhatsApp with a prefilled message and opens the contact-picker ("send
-// to…") screen. Callers reach this only AFTER async work (save + share-token
-// fetch), so the browser's "transient activation" for navigator.share() has often
-// already expired — share() then rejects and the old wa.me fallback landed on
-// WhatsApp's chat list with the text dropped. To make that impossible:
-//   1. the message is always copied to the clipboard first (paste as a fallback),
-//   2. navigator.share({ text }) is tried so picking WhatsApp opens its contact
-//      picker with the message filled in,
-//   3. otherwise we deep-link to api.whatsapp.com/send?text= via a fresh
-//      navigation (anchor click), which carries the prefilled text reliably on
-//      both iOS and Android.
+// Opens WHATSAPP ITSELF — never the OS share sheet — straight onto the app's
+// own recipient-picker ("send to…") screen with the message attached:
+//   • Android/iOS → `whatsapp://send?text=` deep-links into the installed app,
+//     landing directly on its pick-a-contact screen (select contact → send).
+//   • Desktop     → WhatsApp Web's share screen in a new tab, same message.
+// The message MUST survive every hop, so:
+//   1. the whole text is encodeURIComponent-ed — the invoice link can never
+//      be cut apart by &, # or spaces on any browser,
+//   2. NOTHING is awaited before navigating: the old clipboard-only await
+//      borrowed time from the tap's user-gesture window and got the popup
+//      blocked ("WhatsApp never opens"). The clipboard copy now runs detached
+//      as a silent paste-fallback,
+//   3. when the app is missing the scheme does nothing, so the universal
+//      api.whatsapp.com link fires after a short still-visible check.
 export async function openWhatsAppChat(text) {
   const message = text || "";
-  const encoded = encodeURIComponent(message);
-  const isMobile = /Android|iPhone|iPad|iPod|Mobile|Silk/i.test(navigator.userAgent);
+  const targets = whatsappShareTargets({
+    text: message,
+    userAgent: navigator.userAgent,
+    maxTouchPoints: navigator.maxTouchPoints || 0,
+  });
 
-  // 1. Always copy the message so it survives even if every opener below is
-  //    blocked or WhatsApp drops it.
   if (message && navigator.clipboard?.writeText) {
-    try {
-      await navigator.clipboard.writeText(message);
-    } catch {
-      /* clipboard unavailable (insecure context / permission) — ignore */
-    }
+    Promise.resolve(navigator.clipboard.writeText(message)).catch(() => {
+      /* insecure context / permission denied — the deep link still carries the text */
+    });
   }
 
-  // 2. Prefer the OS share sheet: choosing WhatsApp there opens its
-  //    contact-picker with the message already filled in.
-  if (isMobile && navigator.share) {
-    try {
-      await navigator.share({ text: message, title: "Invoice" });
-      return;
-    } catch (err) {
-      if (err && err.name === "AbortError") return; // user closed the sheet — do nothing
-      // Share blocked / activation expired → fall through to the deep link.
-    }
+  if (targets.isMobile) {
+    window.location.href = targets.primary;
+    setTimeout(() => {
+      // document.hidden = the app took over (or the tab already navigated) —
+      // never hijack it back to the web flow in that case.
+      if (!document.hidden && targets.fallback) window.location.href = targets.fallback;
+    }, targets.fallbackDelayMs);
+    return;
   }
 
-  // 3. Reliable deep link: api.whatsapp.com/send?text= opens the app with the
-  //    message prefilled (contact picker on mobile, direct chat on desktop).
-  const url = message
-    ? `https://api.whatsapp.com/send?text=${encoded}`
-    : "https://api.whatsapp.com/";
-  const opened = window.open(url, "_blank");
+  const opened = window.open(targets.primary, "_blank", "noopener,noreferrer");
   if (!opened) {
-    // Popup blocked — navigate this tab instead.
-    window.location.href = url;
+    // Popup blocked — same-tab navigation cannot be blocked.
+    window.location.href = targets.primary;
   }
 }
 

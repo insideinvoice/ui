@@ -15,7 +15,15 @@ export default function CompanySeal({
   const cy = vw / 2;
   const outerR = 148;
   const innerR = 112;
-  const textR = 121;
+  // Baseline radius of the ring text. The annulus between the two ring
+  // strokes is r∈[113, 146.25] — 33px of usable band — and an all-caps glyph
+  // of this size is ~18.6px tall (Arial cap height). Anchoring the BASELINE
+  // on the ring (default alphabetic baseline, not "middle") puts the ink at
+  // r∈[textR, textR+18.6]; textR=120 → ink 120…138.6 → 7px of air above the
+  // letters and ~7.6px below them: dead-centre in the band, and it no longer
+  // crowds the outer circle (a "middle" baseline pushed the caps ~12px
+  // outwards, straight into the outer ring).
+  const textR = 120;
   const font = "Arial, sans-serif";
 
   // Ring text: every glyph is placed INDIVIDUALLY around the full circle.
@@ -100,16 +108,26 @@ export default function CompanySeal({
               fontWeight="bold"
               fill={color}
               textAnchor="middle"
-              dominantBaseline="middle"
             >
               {g.ch}
             </text>
           ))}
         </g>
 
+        {/* Middle text: optically centered on BOTH axes.
+            - The −8° stamp tilt swings offset points sideways (upper text
+              drifts left, lower text right by offset·sin8° ≈ 2.5); each x is
+              pre-compensated so both lines land on the center axis after
+              rotation. (letterSpacing does NOT shift the middle anchor in
+              Chromium's SVG engine — measured; no trailing-space offset.)
+            - Both lines sit symmetrically around cy ∓ 18 so the pair's ink block
+              is centered inside the inner ring; the extra 3-unit drop below
+              compensates the cap-height bias of dominant-baseline "middle"
+              (Chromium hangs the ink above the y coordinate), so the pair
+              reads dead-centre in the circle. */}
         <text
-          x={cx}
-          y={cy - 8}
+          x={cx + 2.5}
+          y={cy - 15}
           textAnchor="middle"
           dominantBaseline="middle"
           fontFamily={font}
@@ -122,8 +140,8 @@ export default function CompanySeal({
         </text>
 
         <text
-          x={cx}
-          y={cy + 27}
+          x={cx - 2.5}
+          y={cy + 21}
           textAnchor="middle"
           dominantBaseline="middle"
           fontFamily={font}

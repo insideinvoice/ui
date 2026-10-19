@@ -270,7 +270,7 @@ const InvoicePDF = React.memo(React.forwardRef(({ business, customer, form, item
                       { key: "desc", a: "left", v: item.itemName, w: showHnSac ? 262 : 338 },
                       ...(showHnSac ? [{ key: "hsn", a: "center", v: item.hsn || "-", w: 76 }] : []),
                       { key: "gst", a: "center", v: (parseFloat(item.gstPercentage) || 0).toFixed(1) + "%", w: 62 },
-                      { key: "qty", a: "center", v: parseFloat(item.qty).toFixed(2), w: 72 },
+                      { key: "qty", a: "center", v: parseFloat(item.qty) || "", w: 72 },
                       { key: "rate", a: "center", v: formatINR(item.rate), w: 76 },
                       { key: "per", a: "center", v: item.unit || "Piece", w: 42 },
                       { key: "amt", a: "right", v: formatINR(iTotal), w: 72 },

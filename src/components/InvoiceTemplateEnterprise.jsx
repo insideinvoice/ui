@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import CompanySeal from "./CompanySeal";
 import CompanyStamp from "./CompanyStamp";
 import { resolveSeal } from "../utils/seal";
@@ -22,9 +22,10 @@ import {
  * table's lines CLOSE at every page edge (the PDF slicer cuts precisely
  * on the "ent-page-*" frame boundaries — nothing is ever sliced open).
  *
- * Page 1 carries a letterhead with the business logo in a fixed 132×56
- * top-left box (upload from Settings → Business Logo; falls back to a
- * monogram tile). Page furniture: seller | bill-to | invoice-details
+ * Page 1 carries a letterhead with the business logo in a fixed 75×75
+ * square top-left box (upload from Settings → Business Logo; no upload
+ * → the company block alone sits at the left margin). Page furniture:
+ * seller | bill-to | invoice-details
  * strip, items grid, per-product tax breakup + totals + amount-in-words
  * and a bank/declaration/signature band on the FINAL page only,
  * jurisdiction /page-number footer on every page. Page frames are
@@ -60,10 +61,47 @@ const nowrap = { whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellips
 
 /* --------------------------------------------------------------- logo */
 
-// Fixed box: 132×56 — the only permitted logo size on this template, so a
-// round/landscape/square upload always prints identically (object-fit contain).
-const LOGO_BOX_W = 132;
-const LOGO_BOX_H = 56;
+// Fixed SQUARE box: 75×75 — the only permitted logo box on this template, so a
+// round/landscape/square upload always prints identically (object-fit contain
+// letterboxes a non-square image inside the square frame). Sized to sit
+// comfortably inside the 120px letterhead, and shared by EVERY invoice that
+// uses this template (preview, PDF, e-mail, public share page).
+const LOGO_BOX_W = 75;
+const LOGO_BOX_H = 75;
+
+/* html2canvas — the PDF engine — ignores `object-fit`, so a non-square upload
+   stretched to its frame printed as a distorted rectangle in the PDF while
+   looking fine on screen. Measuring the natural size and setting the
+   CONTAIN-FIT dimensions explicitly makes screen and paper identical: a
+   square logo stays square (and round stays round), centered in its box. */
+const FitLogo = ({ src }) => {
+  const [fit, setFit] = useState(null);
+  const onLoad = (e) => {
+    const nw = e.currentTarget.naturalWidth;
+    const nh = e.currentTarget.naturalHeight;
+    if (!nw || !nh || fit) return;
+    const s = Math.min(LOGO_BOX_W / nw, LOGO_BOX_H / nh);
+    setFit({ w: Math.round(nw * s), h: Math.round(nh * s) });
+  };
+  return (
+    <div style={{
+      width: `${LOGO_BOX_W}px`, height: `${LOGO_BOX_H}px`,
+      /* NO frame/border: the upload prints exactly as the user supplied it */
+      overflow: "hidden", background: "#ffffff", flexShrink: 0,
+      marginRight: "18px",
+      display: "flex", alignItems: "center", justifyContent: "center",
+    }}>
+      <img
+        src={src}
+        alt="logo"
+        onLoad={onLoad}
+        style={fit
+          ? { width: `${fit.w}px`, height: `${fit.h}px`, display: "block" }
+          : { maxWidth: "100%", maxHeight: "100%", objectFit: "contain", display: "block" }}
+      />
+    </div>
+  );
+};
 
 /* ----------------------------------------------------------- header */
 
@@ -85,45 +123,38 @@ const Letterhead = ({ business, title, subNote, headH }) => {
       display: "flex", alignItems: "center", justifyContent: "space-between",
       position: "relative",
     }}>
-      {/* left cluster: logo + company block, vertically centred inside the
-          letterhead so nothing hugs the page edges. No logo uploaded → no
-          placeholder box; the company block alone sits at the left margin. */}
-      <div style={{ display: "flex", alignItems: "center", minWidth: 0 }}>
+      {/* left cluster: logo + company block. The company text occupies the
+          REMAINING space up to the title — a fixed slot, not a flexible one —
+          so a long name/address wraps inside the block instead of shoving
+          sideways over/under the TAX INVOICE label. */}
+      <div style={{ display: "flex", alignItems: "center", flex: "1 1 0", minWidth: 0, overflow: "hidden" }}>
         {logoSrc && (
-          /* logo — fixed box, generous margins; never flush with the corner */
-          <div style={{
-            width: `${LOGO_BOX_W}px`, height: `${LOGO_BOX_H}px`,
-            border: "1px solid #d6d6d6", borderRadius: "4px",
-            overflow: "hidden", background: "#ffffff", flexShrink: 0,
-            marginRight: "18px",
-          }}>
-            <img
-              src={logoSrc}
-              alt="logo"
-              style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }}
-            />
-          </div>
+          /* logo — fixed square box; FitLogo sets explicit contain-fit
+             dimensions so the PDF engine (html2canvas, which ignores
+             object-fit) can't stretch a landscape or round upload */
+          <FitLogo src={logoSrc} />
         )}
-        <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: "16px", fontWeight: 700, letterSpacing: "0.2px", lineHeight: "20px", ...nowrap }}>
+        <div style={{ minWidth: 0, maxWidth: "100%" }}>
+          <div style={{ fontSize: "16px", fontWeight: 700, letterSpacing: "0.2px", lineHeight: "20px", wordBreak: "break-word", overflowWrap: "anywhere" }}>
             {business?.businessName || "Business Name"}
           </div>
-          <div style={{ fontSize: "9.5px", color: MUTED, lineHeight: "13px", marginTop: "2px", ...nowrap }}>{addr1}</div>
-          <div style={{ fontSize: "9.5px", color: MUTED, lineHeight: "13px", ...nowrap }}>{addr2}</div>
+          {[addr1, addr2].filter(Boolean).map((line, i) => (
+            <div key={i} style={{ fontSize: "9.5px", color: MUTED, lineHeight: "13px", marginTop: i === 0 ? "2px" : 0, overflowWrap: "anywhere", wordBreak: "break-word" }}>{line}</div>
+          ))}
           {contact && (
-            <div style={{ fontSize: "9.5px", color: MUTED, lineHeight: "13px", ...nowrap }}>{contact}</div>
+            <div style={{ fontSize: "9.5px", color: MUTED, lineHeight: "13px", overflowWrap: "anywhere", wordBreak: "break-word" }}>{contact}</div>
           )}
           {business?.email && (
-            <div style={{ fontSize: "9.5px", color: MUTED, lineHeight: "13px", ...nowrap }}>{business.email}</div>
+            <div style={{ fontSize: "9.5px", color: MUTED, lineHeight: "13px", overflowWrap: "anywhere", wordBreak: "break-word" }}>{business.email}</div>
           )}
           {specialist && (
-            <div style={{ fontSize: "9px", fontWeight: 700, letterSpacing: "0.8px", lineHeight: "12px", marginTop: "2px", ...nowrap }}>
+            <div style={{ fontSize: "9px", fontWeight: 700, letterSpacing: "0.8px", lineHeight: "12px", marginTop: "2px", overflowWrap: "anywhere", wordBreak: "break-word" }}>
               SPECIALIST IN: {specialist}
             </div>
           )}
         </div>
       </div>
-      <div style={{ textAlign: "right", flexShrink: 0 }}>
+      <div style={{ textAlign: "right", flexShrink: 0, marginLeft: "18px" }}>
         <div style={{ fontSize: "19px", fontWeight: 700, letterSpacing: "3px", color: INK, lineHeight: 1.1 }}>
           {title}
         </div>
@@ -261,7 +292,7 @@ const asDataUri = (value) => {
   return v.startsWith("data:") ? v : `data:image/png;base64,${v}`;
 };
 
-const ItemsTable = ({ cols, rowHeights, items, startIndex, descLabel }) => {
+const ItemsTable = ({ cols, rowHeights, items, startIndex, descLabel, closesGrid = true }) => {
   return (
     <div style={{
       // No left/right borders here: the page frame already draws the outer
@@ -279,7 +310,11 @@ const ItemsTable = ({ cols, rowHeights, items, startIndex, descLabel }) => {
           <tr style={{ height: `${M.thead}px` }}>
             {cols.map((c, i) => (
               <th key={i} style={{
-                background: PANEL, borderBottom: `1px solid ${INK}`,
+                background: PANEL,
+                // No top rule here: the PartyRow strip's bottom border already
+                // draws the single line above the header (an extra one here
+                // printed as a doubled rule over Sl No / Description).
+                borderBottom: `1px solid ${INK}`,
                 borderRight: i < cols.length - 1 ? `1px solid ${GRID}` : "none",
                 fontSize: "9.5px", fontWeight: 700, letterSpacing: "0.4px", color: INK,
                 textAlign: c.align, verticalAlign: "middle", padding: "0 8px",
@@ -296,7 +331,7 @@ const ItemsTable = ({ cols, rowHeights, items, startIndex, descLabel }) => {
             const globalIdx = startIndex + i;
             const desc = item.itemName;
             const qty = parseFloat(item.qty);
-            const qtyText = `${Number.isFinite(qty) ? qty.toFixed(2) : ""}${item.unit ? " " + item.unit : ""}`;
+            const qtyText = `${Number.isFinite(qty) ? String(qty) : ""}${item.unit ? " " + item.unit : ""}`;
             const cells = {
               sl: globalIdx + 1,
               desc,
@@ -310,7 +345,14 @@ const ItemsTable = ({ cols, rowHeights, items, startIndex, descLabel }) => {
               <tr key={i} id={`ent-item-${globalIdx}`} style={{ height: `${h}px` }}>
                 {cols.map((c, ci) => (
                   <td key={ci} style={{
-                    borderBottom: i === rowHeights.length - 1 ? `1px solid ${INK}` : `1px solid ${LINE}`,
+                    // Last row closes the grid with an INK rule — unless the
+                    // tax breakup follows directly on this page, where the
+                    // breakup header owns the junction rule instead (a border
+                    // here would print in html2canvas but hide under the
+                    // header's background on screen: two renderers, two truths).
+                    borderBottom: i === rowHeights.length - 1
+                      ? (closesGrid ? `1px solid ${INK}` : "none")
+                      : `1px solid ${LINE}`,
                     borderRight: ci < cols.length - 1 ? `1px solid ${GRID}` : "none",
                     fontSize: "10px", padding: "0 8px", verticalAlign: "middle",
                     textAlign: c.align, overflow: "hidden",
@@ -336,8 +378,12 @@ const ItemsTable = ({ cols, rowHeights, items, startIndex, descLabel }) => {
    GST invoice carries. One chunk at a time: when the rows outlive the page
    the packer splits them across pages and each continuation repeats this
    header, with the Total foot row only on the final chunk. Hidden entirely
-   for proforma (showTax off). No top border here — the items table's last
-   row or the continuation header already draws that single rule. */
+   for proforma (showTax off). When the items table sits directly above, THIS
+   header draws the single junction rule itself (topRule): the item row's
+   collapsed outer border is painted over by this header's background on
+   screen yet still shows in html2canvas — owning the line here keeps screen
+   and PDF identical, one rule either way. Continuation pages skip it:
+   ContHead's bottom rule already closes the grid. */
 const GST_SUMMARY_COLS = [
   { w: "13%", label: "HSN/SAC", align: "center" },
   { w: "23%", label: "Taxable Value", align: "right" },
@@ -351,7 +397,7 @@ const GST_SUMMARY_COLS = [
 const gstSummaryHeight = (rowCount) =>
   M.summaryHead + M.summarySubHead + M.summaryFoot + rowCount * M.summaryRow;
 
-const GstSummary = ({ rows, firstLabel, showTax, totals, withTotal = true, endsAtFooter = false }) => {
+const GstSummary = ({ rows, firstLabel, showTax, totals, withTotal = true, endsAtFooter = false, topRule = false }) => {
   // Proforma carries no tax breakup at all.
   if (!showTax) return null;
 
@@ -370,26 +416,33 @@ const GstSummary = ({ rows, firstLabel, showTax, totals, withTotal = true, endsA
         <tr style={{ height: `${M.summaryHead}px` }}>
           <th rowSpan={2} style={{
             ...thBase, textAlign: GST_SUMMARY_COLS[0].align,
-            // No top border: the items table's last row (or the continuation
-            // header) already draws the single rule this grid hangs from.
+            // Junction rule (topRule): see note above — drawn here so the
+            // screen and the PDF agree on a single line.
+            borderTop: topRule ? `1px solid ${INK}` : "none",
             borderBottom: `1px solid ${INK}`,
             borderRight: `1px solid ${GRID}`,
           }}>{firstLabel}</th>
           <th rowSpan={2} style={{
             ...thBase, textAlign: GST_SUMMARY_COLS[1].align,
+            borderTop: topRule ? `1px solid ${INK}` : "none",
             borderBottom: `1px solid ${INK}`,
             borderRight: `1px solid ${GRID}`,
           }}>{GST_SUMMARY_COLS[1].label}</th>
           <th colSpan={2} style={{
-            ...thBase, borderBottom: `1px solid ${INK}`,
+            ...thBase,
+            borderTop: topRule ? `1px solid ${INK}` : "none",
+            borderBottom: `1px solid ${INK}`,
             borderRight: `1px solid ${GRID}`,
           }}>CGST</th>
           <th colSpan={2} style={{
-            ...thBase, borderBottom: `1px solid ${INK}`,
+            ...thBase,
+            borderTop: topRule ? `1px solid ${INK}` : "none",
+            borderBottom: `1px solid ${INK}`,
             borderRight: `1px solid ${GRID}`,
           }}>SGST/UTGST</th>
           <th rowSpan={2} style={{
             ...thBase, textAlign: GST_SUMMARY_COLS[6].align,
+            borderTop: topRule ? `1px solid ${INK}` : "none",
             borderBottom: `1px solid ${INK}`,
           }}>{GST_SUMMARY_COLS[6].label}</th>
         </tr>
@@ -612,14 +665,14 @@ const BankBand = ({ business, sigSrc, sealVisible, sealType, isProforma }) => (
           on top), the way a rubber stamp lands on a signed copy — blue like
           every other template's stamp */}
       {sealVisible && sealType === "stamp" && (
-        <div style={{ position: "absolute", right: "6px", top: "24px", zIndex: 2 }}>
+        <div style={{ position: "absolute", right: "6px", top: "26px", zIndex: 2 }}>
           <CompanyStamp
             companyName={business?.businessName || "COMPANY NAME"}
             addressLine1={business?.addressLine1 || ""}
             addressLine2={[business?.addressLine2, business?.city, business?.state].filter(Boolean).join(", ")}
             phone={business?.phone ? `Ph: ${business.phone}` : ""}
             email={business?.email || ""}
-            width={132}
+            width={160}
             color={STAMP_BLUE}
           />
         </div>
@@ -696,7 +749,8 @@ const EntPage = ({ pageId, showItems, sumRows, sumWithTotal, closing, chunkItems
       )}
 
       {/* items table — every page repeats the header row; the last rendered row
-          closes the grid so lines never run open across a page break */}
+          closes the grid so lines never run open across a page break. The line
+          above the header comes from the PartyRow strip's bottom border. */}
       {showItems && (
         <ItemsTable
           cols={cols}
@@ -704,12 +758,14 @@ const EntPage = ({ pageId, showItems, sumRows, sumWithTotal, closing, chunkItems
           items={chunkItems}
           startIndex={startIndex}
           descLabel={descLabel}
+          closesGrid={!(shared.showTax && sumRows.length > 0)}
         />
       )}
 
       {/* per-product tax breakup — the chunk this page carries (the full list
           may span pages; continuations repeat the table header and the Total
-          row travels only with the final chunk). */}
+          row travels only with the final chunk). topRule: the header owns the
+          junction line whenever the items table sits directly above it. */}
       {sumRows.length > 0 && (
         <GstSummary
           rows={sumRows}
@@ -718,6 +774,7 @@ const EntPage = ({ pageId, showItems, sumRows, sumWithTotal, closing, chunkItems
           totals={shared.calc}
           withTotal={sumWithTotal}
           endsAtFooter={!closing}
+          topRule={showItems}
         />
       )}
 

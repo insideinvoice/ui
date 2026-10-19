@@ -122,7 +122,7 @@ const Letterhead = ({ business, title, subNote, headH }) => {
 
   return (
     <div style={{
-      height: headH, boxSizing: "border-box", borderBottom: `1px solid ${INK}`,
+      height: headH, boxSizing: "border-box", borderBottom: `1.5px solid ${INK}`,
       padding: "0 22px", overflow: "hidden", background: "#ffffff",
       display: "flex", alignItems: "center", justifyContent: "space-between",
       position: "relative",
@@ -172,7 +172,7 @@ const Letterhead = ({ business, title, subNote, headH }) => {
 
 const ContHead = ({ business, title, pageNo, totalPages }) => (
   <div style={{
-    height: M.contHead, boxSizing: "border-box", borderBottom: `1px solid ${INK}`,
+    height: M.contHead, boxSizing: "border-box", borderBottom: `1.5px solid ${INK}`,
     background: "#f7f7f7", padding: "8px 14px", display: "flex",
     justifyContent: "space-between", alignItems: "center", overflow: "hidden",
   }}>
@@ -221,7 +221,7 @@ const PartyRow = ({
   return (
     <div style={{
       height: M.partyRow, boxSizing: "border-box", display: "flex",
-      borderBottom: `1px solid ${INK}`, overflow: "hidden",
+      borderBottom: `1.5px solid ${INK}`, overflow: "hidden",
     }}>
       {/* Seller */}
       <PartyCell label="SELLER">
@@ -318,7 +318,7 @@ const ItemsTable = ({ cols, rowMeta, items, startIndex, descLabel, closesGrid = 
                 // No top rule here: the PartyRow strip's bottom border already
                 // draws the single line above the header (an extra one here
                 // printed as a doubled rule over Sl No / Description).
-                borderBottom: `1px solid ${INK}`,
+                borderBottom: `1.5px solid ${INK}`,
                 borderRight: i < cols.length - 1 ? `1.5px solid ${GRID}` : "none",
                 fontSize: "9.5px", fontWeight: 700, letterSpacing: "0.4px", color: INK,
                 textAlign: c.align, verticalAlign: "middle", padding: "0 8px",
@@ -357,7 +357,7 @@ const ItemsTable = ({ cols, rowMeta, items, startIndex, descLabel, closesGrid = 
                     // here would print in html2canvas but hide under the
                     // header's background on screen: two renderers, two truths).
                     borderBottom: i === rowMeta.length - 1
-                      ? (closesGrid ? `1px solid ${INK}` : "none")
+                      ? (closesGrid ? `1.5px solid ${INK}` : "none")
                       : `1.5px solid ${LINE}`,
                     borderRight: ci < cols.length - 1 ? `1.5px solid ${GRID}` : "none",
                     fontSize: c.key === "desc" ? `${meta.fontSize}px` : "10px",
@@ -427,39 +427,39 @@ const GstSummary = ({ rows, firstLabel, showTax, totals, withTotal = true, endsA
             ...thBase, textAlign: GST_SUMMARY_COLS[0].align,
             // Junction rule (topRule): see note above — drawn here so the
             // screen and the PDF agree on a single line.
-            borderTop: topRule ? `1px solid ${INK}` : "none",
-            borderBottom: `1px solid ${INK}`,
+            borderTop: topRule ? `1.5px solid ${INK}` : "none",
+            borderBottom: `1.5px solid ${INK}`,
             borderRight: `1.5px solid ${GRID}`,
           }}>{firstLabel}</th>
           <th rowSpan={2} style={{
             ...thBase, textAlign: GST_SUMMARY_COLS[1].align,
-            borderTop: topRule ? `1px solid ${INK}` : "none",
-            borderBottom: `1px solid ${INK}`,
+            borderTop: topRule ? `1.5px solid ${INK}` : "none",
+            borderBottom: `1.5px solid ${INK}`,
             borderRight: `1.5px solid ${GRID}`,
           }}>{GST_SUMMARY_COLS[1].label}</th>
           <th colSpan={2} style={{
             ...thBase,
-            borderTop: topRule ? `1px solid ${INK}` : "none",
-            borderBottom: `1px solid ${INK}`,
+            borderTop: topRule ? `1.5px solid ${INK}` : "none",
+            borderBottom: `1.5px solid ${INK}`,
             borderRight: `1.5px solid ${GRID}`,
           }}>CGST</th>
           <th colSpan={2} style={{
             ...thBase,
-            borderTop: topRule ? `1px solid ${INK}` : "none",
-            borderBottom: `1px solid ${INK}`,
+            borderTop: topRule ? `1.5px solid ${INK}` : "none",
+            borderBottom: `1.5px solid ${INK}`,
             borderRight: `1.5px solid ${GRID}`,
           }}>SGST/UTGST</th>
           <th rowSpan={2} style={{
             ...thBase, textAlign: GST_SUMMARY_COLS[6].align,
-            borderTop: topRule ? `1px solid ${INK}` : "none",
-            borderBottom: `1px solid ${INK}`,
+            borderTop: topRule ? `1.5px solid ${INK}` : "none",
+            borderBottom: `1.5px solid ${INK}`,
           }}>{GST_SUMMARY_COLS[6].label}</th>
         </tr>
         {/* Row 2: the four rate/amount sub-headers. */}
         <tr style={{ height: `${M.summarySubHead}px` }}>
           {["Rate", "Amount", "Rate", "Amount"].map((lbl, i) => (
             <th key={i} style={{
-              ...thBase, borderBottom: `1px solid ${INK}`,
+              ...thBase, borderBottom: `1.5px solid ${INK}`,
               borderRight: `1.5px solid ${GRID}`,
               textAlign: GST_SUMMARY_COLS[i + 2].align,
             }}>{lbl}</th>
@@ -519,7 +519,7 @@ const GstSummary = ({ rows, firstLabel, showTax, totals, withTotal = true, endsA
             ].map((v, i) => (
               <td key={i} style={{
                 background: TOTAL_BG, fontWeight: 700, fontSize: "9.5px",
-                borderBottom: `1px solid ${INK}`,
+                borderBottom: `1.5px solid ${INK}`,
                 borderRight: i < GST_SUMMARY_COLS.length - 1 ? `1.5px solid ${GRID}` : "none",
                 textAlign: i === 0 ? "center" : "right", verticalAlign: "middle", padding: "0 8px",
               }}>{v}</td>
@@ -583,7 +583,7 @@ const WordsStrip = ({ isProforma, words, showTax, taxAmount }) => {
   return (
     <div style={{
       height: M.words + (withTax ? 22 : 0), boxSizing: "border-box", display: "flex", gap: "12px",
-      padding: "7px 12px 6px", borderBottom: `1px solid ${INK}`, overflow: "hidden",
+      padding: "7px 12px 6px", borderBottom: `1.5px solid ${INK}`, overflow: "hidden",
     }}>
       <div style={{ flex: 1.2, minWidth: 0 }}>
         <div style={{ fontSize: "8px", fontWeight: 700, letterSpacing: "1.2px", color: FAINT, marginBottom: "2px" }}>
@@ -704,7 +704,7 @@ const BankBand = ({ business, sigSrc, sealVisible, sealType, isProforma }) => (
 
 const PageFooter = ({ jurLine, isLast, isProforma, pageNo, totalPages }) => (
   <div style={{
-    height: M.footer, boxSizing: "border-box", borderTop: `1px solid ${INK}`,
+    height: M.footer, boxSizing: "border-box", borderTop: `1.5px solid ${INK}`,
     display: "flex", alignItems: "center", justifyContent: "space-between",
     padding: "0 12px", overflow: "hidden",
   }}>
@@ -738,7 +738,7 @@ const EntPage = ({ pageId, showItems, sumRows, sumWithTotal, closing, chunkItems
         // right after the footer instead of pinning it to a fixed A4 height.
         // The packer budgets each page so no frame ever exceeds M.pageH, and
         // the PDF slicer cuts on the ent-page boundaries either way.
-        border: `1px solid ${INK}`, background: "#ffffff", color: INK,
+        border: `1.5px solid ${INK}`, background: "#ffffff", color: INK,
         fontFamily: FONT, position: "relative", overflow: "hidden",
         display: "flex", flexDirection: "column",
       }}

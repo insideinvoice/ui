@@ -2,11 +2,12 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { adminAPI, invoiceAPI, customerAPI } from "../api/auth";
-import { FileText, Users, Package, Building2, PlusCircle, List, BarChart3, DollarSign, TrendingUp, Calendar, UserPlus, Settings } from "lucide-react";
+import { FileText, Users, Package, Building2, PlusCircle, List, BarChart3, DollarSign, TrendingUp, Calendar, UserPlus, Settings, UserCheck, IndianRupee } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from "recharts";
 
 import AppNavbar from "../components/AppNavbar";
 import { getCache, setCache } from "../utils/cache";
+import { formatAxisMoney } from "../utils/chartFormat";
 
 const PAYMENT_COLORS = { UPI: "#6366f1", CASH: "#10b981", CARD: "#f59e0b", CHEQUE: "#8b5cf6", NEFT: "#3b82f6", IMPS: "#ec4899", OTHER: "#94a3b8" };
 const STATUS_COLORS = { PAID: "#10b981", PENDING: "#f59e0b", SENT: "#3b82f6", OVERDUE: "#ef4444", DRAFT: "#94a3b8", CANCELLED: "#64748b" };
@@ -46,14 +47,17 @@ export default function Dashboard() {
   const navigate = useNavigate();
 
   // Storage-backed cache: renders instantly from localStorage, revalidates in background
-  const cacheKey = `dashboard:${user?.userId ?? user?.id ?? "anon"}:${isAdmin ? "admin" : "user"}`;
+  // "v3": admin charts switched to platform-wide "All ..." data — invalidate old caches once
+  const cacheKey = `dashboard-v3:${user?.userId ?? user?.id ?? "anon"}:${isAdmin ? "admin" : "user"}`;
   const [cached] = useState(() => getCache(cacheKey, CACHE_TTL));
 
   const [stats, setStats] = useState(cached?.data?.stats ?? null);
   const [invoices, setInvoices] = useState(cached?.data?.invoices ?? []);
+  const [allInvoices, setAllInvoices] = useState(cached?.data?.allInvoices ?? []);
   const [customerCount, setCustomerCount] = useState(cached?.data?.customerCount ?? 0);
   const [loadingStats, setLoadingStats] = useState(!cached);
   const [loadingInvoices, setLoadingInvoices] = useState(!cached);
+  const [loadingAll, setLoadingAll] = useState(!cached);
   const [loadingCustomers, setLoadingCustomers] = useState(!cached && !isAdmin);
 
   // Redirect if business setup not complete
@@ -63,17 +67,24 @@ export default function Dashboard() {
     }
   }, [isBusinessSetupComplete, navigate, isAdmin]);
 
-  // Fetch admin data (only what the top KPI row needs — no graphs)
+  // Fetch admin data: KPI stats + the platform-wide invoice list that powers the
+  // admin-only "All ..." sales charts (merchants never get this list — isolation).
   const fetchAdminData = useCallback(async () => {
     setLoadingStats(true);
-    try {
-      const statsRes = await adminAPI.getStats();
-      setStats(statsRes.data.data);
-    } catch (err) {
-      console.error("Admin stats fetch failed:", err.response?.status, err.message);
-    } finally {
-      setLoadingStats(false);
+    setLoadingAll(true);
+    const [statsRes, allRes] = await Promise.allSettled([adminAPI.getStats(), adminAPI.getAllInvoices()]);
+    if (statsRes.status === "fulfilled") {
+      setStats(statsRes.value.data.data);
+    } else {
+      console.error("Admin stats fetch failed:", statsRes.reason?.response?.status, statsRes.reason?.message);
     }
+    setLoadingStats(false);
+    if (allRes.status === "fulfilled") {
+      const raw = allRes.value.data?.data;
+      const list = Array.isArray(raw) ? raw : Array.isArray(raw?.content) ? raw.content : [];
+      setAllInvoices(list);
+    }
+    setLoadingAll(false);
   }, []);
 
   // Fetch customer count for non-admin
@@ -91,12 +102,13 @@ export default function Dashboard() {
     }
   }, []);
 
-  // Fetch invoices
+  // Fetch invoices — ALWAYS the authenticated user's own business (JWT-scoped).
+  // For the admin this means THEIR OWN store's sales/earnings, not the platform
+  // total: platform-wide views live in /admin and the admin-only KPI/graphs.
   const fetchInvoices = useCallback(async () => {
     setLoadingInvoices(true);
     try {
-      const fetch = isAdmin ? adminAPI.getAllInvoices() : invoiceAPI.getAll({ size: 1000 });
-      const res = await fetch;
+      const res = await invoiceAPI.getAll({ size: 1000 });
       const raw = res.data?.data;
       const list = Array.isArray(raw) ? raw : Array.isArray(raw?.content) ? raw.content : [];
       setInvoices(list);
@@ -105,7 +117,7 @@ export default function Dashboard() {
     } finally {
       setLoadingInvoices(false);
     }
-  }, [isAdmin]);
+  }, []);
 
   // Main data loading effect — skip network only when storage cache is fresh
   useEffect(() => {
@@ -134,18 +146,18 @@ export default function Dashboard() {
     if (hadFreshCache || loadingStats || loadingInvoices) return undefined;
     if (!stats && invoices.length === 0) return undefined;
     const timer = setTimeout(() => {
-      setCache(cacheKey, { stats, invoices, customerCount });
+      setCache(cacheKey, { stats, invoices, customerCount, allInvoices });
     }, 400);
     return () => clearTimeout(timer);
-  }, [stats, invoices, customerCount, loadingStats, loadingInvoices, cacheKey, hadFreshCache]);
+  }, [stats, invoices, customerCount, allInvoices, loadingStats, loadingInvoices, cacheKey, hadFreshCache]);
 
-  const invoiceAnalytics = useMemo(() => {
-    const valid = invoices;
+  const buildInvoiceAnalytics = (valid) => {
     const totalGrand = round2(valid.reduce((s, inv) => s + (parseFloat(inv.grandTotal) || 0), 0));
 
     const salesByMonth = {};
     const salesByPayment = {};
     const last7 = {};
+    const countByMonth = {};
     const today = new Date();
     const sevenDaysAgo = new Date(today);
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
@@ -157,6 +169,7 @@ export default function Dashboard() {
       const amt = parseFloat(inv.grandTotal) || 0;
 
       salesByMonth[monthKey] = round2((salesByMonth[monthKey] || 0) + amt);
+      countByMonth[monthKey] = (countByMonth[monthKey] || 0) + 1;
 
       const pm = inv.paymentMode || "OTHER";
       salesByPayment[pm] = round2((salesByPayment[pm] || 0) + amt);
@@ -173,9 +186,18 @@ export default function Dashboard() {
       return yA !== yB ? yA - yB : monthNames.indexOf(mA) - monthNames.indexOf(mB);
     });
 
+    // The current calendar month is ALWAYS present (even at ₹0 / 0 invoices)
+    // so the "This Month" KPI can never fall back to last month's number.
+    const currentMonthKey = `${monthNames[today.getMonth()]} ${today.getFullYear()}`;
+    if (!salesByMonth[currentMonthKey]) {
+      salesByMonth[currentMonthKey] = 0;
+      countByMonth[currentMonthKey] = 0;
+      months.push(currentMonthKey);
+    }
+
     return {
       totalSales: totalGrand,
-      salesByMonth: months.map((m) => ({ month: m, sales: salesByMonth[m] })),
+      salesByMonth: months.map((m) => ({ month: m, sales: salesByMonth[m], count: countByMonth[m] || 0 })),
       last7Days: Object.entries(last7).sort((a, b) => {
         const parseDay = (s) => { const [d, m] = s.split(" "); return new Date(`${m} ${d}, ${today.getFullYear()}`); };
         return parseDay(a[0]) - parseDay(b[0]);
@@ -183,12 +205,79 @@ export default function Dashboard() {
       salesByPayment: Object.entries(salesByPayment).map(([mode, amount]) => ({ mode, amount })),
       invoiceCount: valid.length,
     };
-  }, [invoices]);
+  };
+
+  // Own-business analytics → Sales / This Month KPIs (and merchant charts).
+  const invoiceAnalytics = useMemo(() => buildInvoiceAnalytics(invoices), [invoices]);
+  // Platform-wide analytics (admin only) → the "All ..." charts below the KPIs.
+  const allInvoiceAnalytics = useMemo(() => buildInvoiceAnalytics(allInvoices), [allInvoices]);
+  const chartAnalytics = isAdmin ? allInvoiceAnalytics : invoiceAnalytics;
+  const chartsLoading = isAdmin
+    ? (loadingAll && allInvoices.length === 0)
+    : (loadingInvoices && invoices.length === 0);
+
+  // Current calendar-month figures for the "This Month" KPI (₹ + invoice count).
+  const thisMonth = invoiceAnalytics.salesByMonth.length > 0
+    ? invoiceAnalytics.salesByMonth[invoiceAnalytics.salesByMonth.length - 1]
+    : null;
+  const thisMonthSales = thisMonth?.sales || 0;
+  const thisMonthCount = thisMonth?.count || 0;
 
   const statsLoading =
     (loadingInvoices && invoices.length === 0) ||
     (!isAdmin && loadingCustomers && !customerCount) ||
     (isAdmin && loadingStats && !stats);
+
+  const monthLabel = (ym) => {
+    const dt = new Date(`${ym}-01T00:00:00`);
+    return `${dt.toLocaleString("en", { month: "short" })} '${ym.slice(2, 4)}`;
+  };
+
+  // Admin chart series — ALWAYS full-length (flat zero when the backend has no
+  // data yet) so the axes, day/month labels and Y tick values render even when
+  // there is literally nothing to plot, instead of an empty gray box.
+  const activitySeries = useMemo(() => {
+    if (stats?.dailyActivity?.length) {
+      return stats.dailyActivity.map((d) => ({ ...d, day: d.date.slice(5) }));
+    }
+    const out = [];
+    const now = new Date();
+    for (let i = 29; i >= 0; i--) {
+      const dt = new Date(now);
+      dt.setDate(dt.getDate() - i);
+      const iso = dt.toISOString().slice(0, 10);
+      out.push({ date: iso, day: iso.slice(5), invoices: 0, activeUsers: 0 });
+    }
+    return out;
+  }, [stats?.dailyActivity]);
+
+  const newUsersSeries = useMemo(() => {
+    if (stats?.newUsersByMonth?.length) {
+      return stats.newUsersByMonth.map((m) => ({ ...m, label: monthLabel(m.month) }));
+    }
+    const out = [];
+    const now = new Date();
+    for (let i = 5; i >= 0; i--) {
+      const dt = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const ym = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}`;
+      out.push({ month: ym, label: monthLabel(ym), count: 0 });
+    }
+    return out;
+  }, [stats?.newUsersByMonth]);
+
+  const ownInvoicesSeries = useMemo(() => {
+    if (stats?.ownInvoicesByMonth?.length) {
+      return stats.ownInvoicesByMonth.map((m) => ({ ...m, label: monthLabel(m.month) }));
+    }
+    const out = [];
+    const now = new Date();
+    for (let i = 11; i >= 0; i--) {
+      const dt = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const ym = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}`;
+      out.push({ month: ym, label: monthLabel(ym), count: 0 });
+    }
+    return out;
+  }, [stats?.ownInvoicesByMonth]);
 
   const handleMonthClick = (monthKey) => {
     // monthKey format: "Jul 2026" -> navigate to invoices with filter
@@ -220,9 +309,9 @@ export default function Dashboard() {
             {(isAdmin ? [
               { label: "Add User", icon: UserPlus, path: "/admin/users", iconBg: "bg-emerald-50", iconColor: "text-emerald-600", border: "border-emerald-100 hover:border-emerald-200" },
               { label: "All Users", icon: Users, path: "/admin/users-list", iconBg: "bg-indigo-50", iconColor: "text-indigo-600", border: "border-indigo-100 hover:border-indigo-200", count: Number(stats?.totalUsers) || 0 },
-              { label: "All Invoices", icon: FileText, path: "/admin/invoices", iconBg: "bg-blue-50", iconColor: "text-blue-600", border: "border-blue-100 hover:border-blue-200", count: invoiceAnalytics.invoiceCount },
-              { label: "All Businesses", icon: Building2, path: "/admin/businesses", iconBg: "bg-amber-50", iconColor: "text-amber-600", border: "border-amber-100 hover:border-amber-200", count: Number(stats?.totalBusinesses) || 0 },
-              { label: "Settings", icon: Settings, path: "/settings", iconBg: "bg-slate-100", iconColor: "text-slate-600", border: "border-slate-200 hover:border-slate-300" },
+              { label: "All Invoices", icon: FileText, path: "/admin/invoices", iconBg: "bg-blue-50", iconColor: "text-blue-600", border: "border-blue-100 hover:border-blue-200", count: allInvoiceAnalytics.invoiceCount },
+              { label: "All Customers", icon: Users, path: "/customers", iconBg: "bg-indigo-50", iconColor: "text-indigo-600", border: "border-indigo-100 hover:border-indigo-200", count: Number(stats?.totalCustomers) || 0 },
+              { label: "All Businesses", icon: Building2, path: "/admin/businesses", iconBg: "bg-violet-50", iconColor: "text-violet-600", border: "border-violet-100 hover:border-violet-200", count: Number(stats?.totalBusinesses) || 0 },
             ] : [
               { label: "New Invoice", icon: PlusCircle, path: "/invoice", iconBg: "bg-blue-50", iconColor: "text-blue-600", border: "border-blue-100 hover:border-blue-200" },
               { label: "View Invoices", icon: List, path: "/invoices", iconBg: "bg-indigo-50", iconColor: "text-indigo-600", border: "border-indigo-100 hover:border-indigo-200" },
@@ -244,22 +333,30 @@ export default function Dashboard() {
             ))}
           </div>
 
-          {/* Stats Row - 2-col grid on mobile, 4-col on desktop */}
-          <div className={`grid grid-cols-2 gap-3 sm:gap-4 mb-4 sm:mb-6 ${isAdmin ? "lg:grid-cols-3" : "lg:grid-cols-4"}`}>
+          {/* Stats Row - 2-col on mobile, 5-col for admin / 4-col for merchants */}
+          <div className={`grid grid-cols-2 gap-3 sm:gap-4 mb-4 sm:mb-6 ${isAdmin ? "lg:grid-cols-5" : "lg:grid-cols-4"}`}>
             {statsLoading ? (
-              [0, 1, 2, 3].map((i) => <StatSkeleton key={i} />)
+              Array.from({ length: isAdmin ? 5 : 4 }, (_, i) => <StatSkeleton key={i} />)
             ) : (
             [
-              { label: "Sales", value: `₹ ${invoiceAnalytics.totalSales.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`, icon: DollarSign, gradient: "from-emerald-500 to-emerald-600", path: isAdmin ? "/admin/invoices" : "/invoices" },
+              // Sales = the signed-in user's OWN net sales (₹) + how many
+              // invoices they generated in total.
+              { label: "Sales", value: `₹ ${invoiceAnalytics.totalSales.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`, icon: DollarSign, gradient: "from-emerald-500 to-emerald-600", path: "/invoices", sub: `${invoiceAnalytics.invoiceCount} invoices generated` },
               ...(isAdmin
                 ? [
-                    { label: "This Month", value: `₹ ${(invoiceAnalytics.salesByMonth.length > 0 ? invoiceAnalytics.salesByMonth[invoiceAnalytics.salesByMonth.length - 1].sales : 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`, icon: Calendar, gradient: "from-amber-500 to-amber-600", path: "/admin/invoices" },
-                    { label: "Products", value: Number(stats?.totalProducts) || 0, icon: Package, gradient: "from-violet-500 to-violet-600", path: "/admin/products" },
+                    { label: "This Month", value: `₹ ${thisMonthSales.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`, icon: Calendar, gradient: "from-amber-500 to-amber-600", path: "/invoices", sub: `${thisMonthCount} invoices this month` },
+                    // Total Sales: the ₹ SUM of ALL invoices generated by ALL
+                    // users app-wide (the ~230-invoice grand total).
+                    { label: "Total Sales", value: `₹ ${allInvoiceAnalytics.totalSales.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`, icon: IndianRupee, gradient: "from-violet-500 to-violet-600", path: "/admin/invoices", sub: "net sales, all users" },
+                    // Platform-wide invoices generated: every invoice from ALL
+                    // users/businesses across the app (admin-only view).
+                    { label: "Total Invoices Generated", value: allInvoiceAnalytics.invoiceCount, icon: FileText, gradient: "from-blue-500 to-blue-600", path: "/admin/invoices", sub: "by all users" },
+                    { label: "Settings", value: "Manage", icon: Settings, gradient: "from-slate-500 to-slate-600", path: "/settings" },
                   ]
                 : [
                     { label: "Invoices", value: invoiceAnalytics.invoiceCount, icon: FileText, gradient: "from-blue-500 to-blue-600", path: "/invoices" },
                     { label: "Customers", value: customerCount, icon: Users, gradient: "from-indigo-500 to-indigo-600", path: "/customers" },
-                    { label: "This Month", value: `₹ ${(invoiceAnalytics.salesByMonth.length > 0 ? invoiceAnalytics.salesByMonth[invoiceAnalytics.salesByMonth.length - 1].sales : 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`, icon: Calendar, gradient: "from-amber-500 to-amber-600", path: "/invoices" },
+                    { label: "This Month", value: `₹ ${thisMonthSales.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`, icon: Calendar, gradient: "from-amber-500 to-amber-600", path: "/invoices", sub: `${thisMonthCount} invoices this month` },
                   ]),
             ].map((stat) => (
               <div key={stat.label} onClick={() => navigate(stat.path)} className="bg-white rounded-xl border border-slate-200 p-3 sm:p-4 shadow-sm cursor-pointer active:scale-[0.97] transition-all hover:shadow-md">
@@ -270,6 +367,7 @@ export default function Dashboard() {
                   <span className="text-[10px] sm:text-[11px] font-semibold text-slate-500 uppercase tracking-wider">{stat.label}</span>
                 </div>
                 <div className="text-base sm:text-lg font-bold text-slate-900 truncate">{stat.value}</div>
+                {stat.sub && <div className="text-[10px] text-slate-400 mt-0.5 truncate">{stat.sub}</div>}
               </div>
             ))
             )}
@@ -277,23 +375,127 @@ export default function Dashboard() {
 
           {/* Charts */}
           <div className="space-y-4 sm:space-y-6">
+            {/* Last-30-days activity (Admin only): Active Users + Invoices Generated */}
+            {isAdmin && (
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-3 sm:gap-4 items-start">
+                {/* Active Users: generated at least one invoice that day */}
+                <div className="bg-white rounded-xl border border-slate-200 p-3 sm:p-4 shadow-sm">
+                  <div className="flex items-center gap-2 mb-3">
+                    <UserCheck className="w-4 h-4 text-teal-600" />
+                    <h2 className="text-sm font-semibold text-slate-900">Active Users</h2>
+                    <span className="text-[10px] text-slate-400 ml-auto">who generated an invoice, last 30 days</span>
+                  </div>
+                  {loadingStats && !stats ? (
+                    <ChartSkeleton />
+                  ) : (
+                    <div className="h-40 sm:h-48">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={activitySeries} margin={{ top: 5, right: 10, left: 8, bottom: 5 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                          <XAxis dataKey="day" tick={{ fontSize: 9, fill: '#94a3b8' }} interval={4} />
+                          <YAxis width={30} tick={{ fontSize: 10, fill: '#64748b' }} allowDecimals={false} domain={[0, (dataMax) => Math.max(dataMax, 4)]} />
+                          <Tooltip formatter={(v, n) => [v, n === "activeUsers" ? "Users" : ""]} contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '11px' }} cursor={{ fill: '#f0fdfa' }} />
+                          <Bar dataKey="activeUsers" fill="#14b8a6" radius={[3, 3, 0, 0]} maxBarSize={8} name="Users" />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+                </div>
+
+                {/* Invoices Generated across ALL users, per day, last 30 days */}
+                <div className="bg-white rounded-xl border border-slate-200 p-3 sm:p-4 shadow-sm">
+                  <div className="flex items-center gap-2 mb-3">
+                    <FileText className="w-4 h-4 text-indigo-600" />
+                    <h2 className="text-sm font-semibold text-slate-900">Invoices Generated</h2>
+                    <span className="text-[10px] text-slate-400 ml-auto">{Number(stats?.invoicesLast30Days) || 0} in last 30 days</span>
+                  </div>
+                  {loadingStats && !stats ? (
+                    <ChartSkeleton />
+                  ) : (
+                    <div className="h-40 sm:h-48">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={activitySeries} margin={{ top: 5, right: 10, left: 8, bottom: 5 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                          <XAxis dataKey="day" tick={{ fontSize: 9, fill: '#94a3b8' }} interval={4} />
+                          <YAxis width={30} tick={{ fontSize: 10, fill: '#64748b' }} allowDecimals={false} domain={[0, (dataMax) => Math.max(dataMax, 4)]} />
+                          <Tooltip formatter={(v, n) => [v, n === "invoices" ? "Invoices" : ""]} contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '11px' }} cursor={{ fill: '#eef2ff' }} />
+                          <Bar dataKey="invoices" fill="#6366f1" radius={[3, 3, 0, 0]} maxBarSize={8} name="Invoices" />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Growth (Admin only): New users last 6 months + My invoices last 12 months */}
+            {isAdmin && (
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-3 sm:gap-4 items-start">
+                <div className="bg-white rounded-xl border border-slate-200 p-3 sm:p-4 shadow-sm">
+                  <div className="flex items-center gap-2 mb-3">
+                    <UserPlus className="w-4 h-4 text-violet-600" />
+                    <h2 className="text-sm font-semibold text-slate-900">New Users</h2>
+                    <span className="text-[10px] text-slate-400 ml-auto">signups, last 6 months</span>
+                  </div>
+                  {loadingStats && !stats ? (
+                    <ChartSkeleton />
+                  ) : (
+                    <div className="h-40 sm:h-48">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={newUsersSeries} margin={{ top: 5, right: 10, left: 8, bottom: 5 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                          <XAxis dataKey="label" tick={{ fontSize: 9, fill: '#94a3b8' }} />
+                          <YAxis width={30} tick={{ fontSize: 10, fill: '#64748b' }} allowDecimals={false} domain={[0, (dataMax) => Math.max(dataMax, 4)]} />
+                          <Tooltip formatter={(v) => [v, "New users"]} contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '11px' }} cursor={{ fill: '#f5f3ff' }} />
+                          <Bar dataKey="count" fill="#8b5cf6" radius={[4, 4, 0, 0]} maxBarSize={28} name="New users" />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+                </div>
+
+                <div className="bg-white rounded-xl border border-slate-200 p-3 sm:p-4 shadow-sm">
+                  <div className="flex items-center gap-2 mb-3">
+                    <FileText className="w-4 h-4 text-emerald-600" />
+                    <h2 className="text-sm font-semibold text-slate-900">My Invoices</h2>
+                    <span className="text-[10px] text-slate-400 ml-auto">your business, last 12 months</span>
+                  </div>
+                  {loadingStats && !stats ? (
+                    <ChartSkeleton />
+                  ) : (
+                    <div className="h-40 sm:h-48">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={ownInvoicesSeries} margin={{ top: 5, right: 10, left: 8, bottom: 5 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                          <XAxis dataKey="label" tick={{ fontSize: 9, fill: '#94a3b8' }} interval={1} />
+                          <YAxis width={30} tick={{ fontSize: 10, fill: '#64748b' }} allowDecimals={false} domain={[0, (dataMax) => Math.max(dataMax, 4)]} />
+                          <Tooltip formatter={(v) => [v, "Invoices"]} contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '11px' }} cursor={{ fill: '#ecfdf5' }} />
+                          <Bar dataKey="count" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={28} name="Invoices" />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Sales trend + last 7 days: side by side on desktop, stacked on mobile */}
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-3 sm:gap-4 items-start">
             {/* Sales vs Months */}
             <div className="bg-white rounded-xl border border-slate-200 p-3 sm:p-4 shadow-sm">
               <div className="flex items-center gap-2 mb-3">
                 <TrendingUp className="w-4 h-4 text-emerald-600" />
-                <h2 className="text-sm font-semibold text-slate-900">Sales Trend</h2>
+                <h2 className="text-sm font-semibold text-slate-900">{isAdmin ? "All Sales Trend" : "Sales Trend"}</h2>
               </div>
-              {loadingInvoices && invoices.length === 0 ? (
+              {chartsLoading ? (
                 <ChartSkeleton />
-              ) : invoiceAnalytics.salesByMonth.length > 0 ? (
+              ) : chartAnalytics.salesByMonth.length > 0 ? (
                 <div className="h-44 sm:h-56">
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={invoiceAnalytics.salesByMonth} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
+                    <LineChart data={chartAnalytics.salesByMonth} margin={{ top: 5, right: 10, left: 8, bottom: 5 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                       <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#64748b' }} />
-                      <YAxis tick={{ fontSize: 10, fill: '#64748b' }} />
+                      <YAxis width={70} tick={{ fontSize: 10, fill: '#64748b' }} tickFormatter={formatAxisMoney} />
                       <Tooltip formatter={(v) => money(v)} contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '11px' }} />
                       <Line type="monotone" dataKey="sales" stroke="#10b981" strokeWidth={2} dot={{ r: 3, fill: "#10b981" }} name="Sales (₹)" />
                     </LineChart>
@@ -308,17 +510,17 @@ export default function Dashboard() {
             <div className="bg-white rounded-xl border border-slate-200 p-3 sm:p-4 shadow-sm">
               <div className="flex items-center gap-2 mb-3">
                 <BarChart3 className="w-4 h-4 text-indigo-600" />
-                <h2 className="text-sm font-semibold text-slate-900">Last 7 Days</h2>
+                <h2 className="text-sm font-semibold text-slate-900">{isAdmin ? "All Last 7 Days" : "Last 7 Days"}</h2>
               </div>
-              {loadingInvoices && invoices.length === 0 ? (
+              {chartsLoading ? (
                 <ChartSkeleton />
-              ) : invoiceAnalytics.last7Days.length > 0 ? (
+              ) : chartAnalytics.last7Days.length > 0 ? (
                 <div className="h-44 sm:h-56">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={invoiceAnalytics.last7Days} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
+                    <BarChart data={chartAnalytics.last7Days} margin={{ top: 5, right: 10, left: 8, bottom: 5 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                       <XAxis dataKey="day" tick={{ fontSize: 10, fill: '#64748b' }} />
-                      <YAxis tick={{ fontSize: 10, fill: '#64748b' }} />
+                      <YAxis width={70} tick={{ fontSize: 10, fill: '#64748b' }} tickFormatter={formatAxisMoney} />
                       <Tooltip formatter={(v) => money(v)} contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '11px' }} cursor={{ fill: '#f8fafc' }} />
                       <Bar dataKey="sales" fill="#6366f1" radius={[4, 4, 0, 0]} maxBarSize={40} name="Sales (₹)" />
                     </BarChart>
@@ -334,18 +536,18 @@ export default function Dashboard() {
             <div className="bg-white rounded-xl border border-slate-200 p-3 sm:p-4 shadow-sm">
               <div className="flex items-center gap-2 mb-3">
                 <DollarSign className="w-4 h-4 text-emerald-600" />
-                <h2 className="text-sm font-semibold text-slate-900">Monthly Sales</h2>
+                <h2 className="text-sm font-semibold text-slate-900">{isAdmin ? "All Monthly Sales" : "Monthly Sales"}</h2>
                 <span className="text-[10px] text-slate-400 ml-auto">Click month to view invoices</span>
               </div>
-              {loadingInvoices && invoices.length === 0 ? (
+              {chartsLoading ? (
                 <ChartSkeleton />
-              ) : invoiceAnalytics.salesByMonth.length > 0 ? (
+              ) : chartAnalytics.salesByMonth.length > 0 ? (
                 <div className="h-44 sm:h-56">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={invoiceAnalytics.salesByMonth} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
+                    <BarChart data={chartAnalytics.salesByMonth} margin={{ top: 5, right: 10, left: 8, bottom: 5 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                       <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#64748b' }} />
-                      <YAxis tick={{ fontSize: 10, fill: '#64748b' }} />
+                      <YAxis width={70} tick={{ fontSize: 10, fill: '#64748b' }} tickFormatter={formatAxisMoney} />
                       <Tooltip formatter={(v) => money(v)} contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '11px' }} cursor={{ fill: '#f8fafc' }} />
                       <Bar dataKey="sales" fill="#6366f1" radius={[4, 4, 0, 0]} maxBarSize={40} name="Sales (₹)" cursor="pointer" onClick={(data) => { const m = data?.month || data?.activePayload?.[0]?.payload?.month; if (m) handleMonthClick(m); }} />
                     </BarChart>
@@ -354,7 +556,7 @@ export default function Dashboard() {
               ) : (
                 <p className="text-xs text-slate-400 text-center py-10">No sales data yet</p>
               )}
-              {invoiceAnalytics.salesByMonth.length > 0 && (
+              {chartAnalytics.salesByMonth.length > 0 && (
                 <div className="mt-3 border-t border-slate-100 pt-3 overflow-x-auto -mx-1 px-1">
                   <table className="w-full text-xs">
                     <thead>
@@ -364,7 +566,7 @@ export default function Dashboard() {
                       </tr>
                     </thead>
                     <tbody>
-                      {invoiceAnalytics.salesByMonth.slice().reverse().map((row, i) => (
+                      {chartAnalytics.salesByMonth.slice().reverse().map((row, i) => (
                         <tr key={row.month} onClick={() => handleMonthClick(row.month)}
                           className={`border-b border-slate-50 cursor-pointer transition-colors hover:bg-indigo-50/50 ${i % 2 === 1 ? "bg-slate-50/50" : ""}`}>
                           <td className="py-1.5 font-medium text-slate-700">{row.month}</td>

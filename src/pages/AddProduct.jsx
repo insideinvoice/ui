@@ -1,11 +1,10 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import LoadingDots from "../components/LoadingDots";
-import AppNavbar from "../components/AppNavbar";
 import PageHeader from "../components/PageHeader";
 import { productAPI } from "../api/auth";
 import toast from "react-hot-toast";
-import { Package, Hash, IndianRupee, Percent, Save, X } from "lucide-react";
+import { Package, Hash, IndianRupee, Percent, Save, X, AlertCircle } from "lucide-react";
 
 export default function AddProduct() {
   const navigate = useNavigate();
@@ -124,7 +123,6 @@ export default function AddProduct() {
   if (loading) {
     return (
       <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-gray-100">
-        <AppNavbar />
         <div className="flex items-center justify-center" style={{ minHeight: "calc(100dvh - 80px)" }}>
           <LoadingDots className="text-slate-400" />
         </div>
@@ -135,14 +133,13 @@ export default function AddProduct() {
   if (loadError) {
     return (
       <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-gray-100">
-        <AppNavbar />
         <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 max-w-3xl mx-auto">
           <PageHeader title="Edit Product" />
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-10 text-center">
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8 text-center">
             <p className="text-sm font-semibold text-slate-700">{loadError}</p>
             <button
               onClick={() => navigate("/products")}
-              className="mt-5 inline-flex items-center gap-2 px-5 py-3 min-h-[48px] text-sm font-medium text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 rounded-xl transition-all shadow-sm"
+              className="mt-5 inline-flex items-center gap-2 px-4 py-2.5 min-h-[40px] text-sm font-medium text-slate-600 bg-white border border-slate-300 hover:bg-slate-50 rounded-lg transition-all"
             >
               <X className="w-4 h-4" /> Back to Products
             </button>
@@ -153,9 +150,11 @@ export default function AddProduct() {
   }
 
   // Shared form tokens — one source of truth for every field on the page.
-  const labelClass = "flex items-baseline justify-between mb-2";
+  // Medium scale (40px controls) with exactly ONE border per element: the card
+  // owns the outer border, inputs/buttons draw theirs, nothing is doubled.
+  const labelClass = "flex items-baseline justify-between mb-1.5";
   const labelText = "block text-xs font-semibold uppercase tracking-wider text-slate-500";
-  const inputClass = "w-full h-12 pl-11 pr-4 text-sm text-slate-900 placeholder:text-slate-400/80 bg-slate-50/50 border border-slate-200 rounded-xl hover:border-slate-300 focus:bg-white focus:outline-none focus:border-violet-400 focus:ring-4 focus:ring-violet-500/10 transition-all duration-200";
+  const inputClass = "w-full h-10 pl-10 pr-3.5 text-sm text-slate-900 placeholder:text-slate-400/80 bg-white border border-slate-300 rounded-lg hover:border-slate-400 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/15 transition-all duration-200";
   const fieldRow = (label, required, helper) => (
     <label className={labelClass}>
       <span className={labelText}>
@@ -168,29 +167,24 @@ export default function AddProduct() {
 
   return (
     <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 via-slate-50 to-violet-50/40">
-      <AppNavbar />
-      <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 max-w-3xl mx-auto">
+      <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 max-w-2xl mx-auto">
         <PageHeader title={isEdit ? "Edit Product" : "Add New Product"} />
 
-        <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-sm shadow-slate-200/60 border border-slate-200/80 overflow-hidden">
-          {/* Accent bar */}
-          <div className="h-1 bg-gradient-to-r from-violet-500 via-indigo-500 to-violet-500" aria-hidden="true" />
-
+        {/* One card, one border — no accent bar, no nested bordered tiles. */}
+        <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
           {/* Form Header */}
-          <div className="px-6 sm:px-8 pt-6 sm:pt-7 pb-5 border-b border-slate-100 flex items-start sm:items-center gap-3.5">
-            <div className="w-10 h-10 rounded-xl bg-violet-50 border border-violet-100 shadow-sm shadow-violet-500/5 flex items-center justify-center shrink-0">
-              <Package className="w-5 h-5 text-violet-600" />
-            </div>
+          <div className="px-5 sm:px-6 pt-5 pb-4 flex items-center gap-2.5">
+            <Package className="w-4 h-4 text-violet-600 shrink-0" />
             <div className="min-w-0">
-              <h2 className="text-base sm:text-lg font-semibold tracking-tight text-slate-900">Product Information</h2>
-              <p className="text-[13px] text-slate-500 mt-0.5">
+              <h2 className="text-sm sm:text-base font-semibold tracking-tight text-slate-900">Product Information</h2>
+              <p className="text-xs text-slate-500 mt-0.5">
                 {isEdit ? "Update the product details below" : "Catalogue entry — appears in your invoice item picker"}
               </p>
             </div>
           </div>
 
           {/* Form Body */}
-          <div className="px-6 sm:px-8 py-6 sm:py-8 space-y-6">
+          <div className="px-5 sm:px-6 pb-5 space-y-4">
             {/* Product Name */}
             <div>
               {fieldRow("Product Name", true)}
@@ -231,7 +225,7 @@ export default function AddProduct() {
             </div>
 
             {/* Rate & GST Row */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 {fieldRow("Rate (Rs.)", true)}
                 <div className="relative">
@@ -269,12 +263,12 @@ export default function AddProduct() {
             </div>
           </div>
 
-          {/* Form Footer */}
-          <div className="px-6 sm:px-8 py-5 bg-slate-50/50 border-t border-slate-100 flex flex-col sm:flex-row gap-3 justify-end">
+          {/* Form Footer — flat, no band or divider line */}
+          <div className="px-5 sm:px-6 pb-5 flex flex-col sm:flex-row gap-2.5 justify-end">
             <button
               type="button"
               onClick={() => navigate("/products")}
-              className="inline-flex items-center justify-center gap-2 px-5 py-3 min-h-[48px] text-sm font-medium text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 hover:text-slate-700 rounded-xl transition-all duration-150 shadow-sm"
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 min-h-[40px] text-sm font-medium text-slate-600 bg-white border border-slate-300 hover:bg-slate-50 hover:text-slate-700 rounded-lg transition-all duration-150"
             >
               <X className="w-4 h-4" />
               Cancel
@@ -282,7 +276,7 @@ export default function AddProduct() {
             <button
               type="submit"
               disabled={saving || !form.name.trim() || !form.rate}
-              className="inline-flex items-center justify-center gap-2 px-6 py-3 min-h-[48px] text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl transition-all duration-150 shadow-sm shadow-indigo-600/25 hover:shadow-indigo-600/40 active:scale-[0.98]"
+              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 min-h-[40px] text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-all duration-150"
             >
               {saving ? <LoadingDots className="text-white" /> : <Save className="w-4 h-4" />}
               {saving ? "Saving..." : isEdit ? "Update Product" : "Save Product"}

@@ -136,19 +136,6 @@ function StatusCard({ icon, title, body, action }) {
   );
 }
 
-const PAPER_WIDTH = { A4_PORTRAIT: 794, A4_LANDSCAPE: 1123, A5: 559, LETTER: 816 };
-
-// Scale the fixed-width paper down so it fits the viewport on phones/tablets.
-// Capped at 1 so wide screens never upscale the document. All interactive
-// zoom (pinch, ctrl/cmd+scroll, double-tap) is left to the native browser
-// gestures, which work identically on every device.
-const computeFitScale = (widthPx) => {
-  if (typeof window === "undefined") return 1;
-  const padding = window.innerWidth < 640 ? 24 : 48;
-  const availableWidth = window.innerWidth - padding;
-  return Math.min(1, Math.max(0.2, availableWidth / widthPx));
-};
-
 export default function PublicInvoicePage() {
   const { shareToken } = useParams();
   // ?type=PROFORMA_INVOICE (or TAX_INVOICE) renders the other document from the same
@@ -164,8 +151,6 @@ export default function PublicInvoicePage() {
   const [actionBusy, setActionBusy] = useState("");
   
   const pdfCaptureRef = useRef(null);
-
-  const [fitScale, setFitScale] = useState(1);
 
   const load = useCallback(async () => {
     setStatus("loading");
@@ -196,24 +181,6 @@ export default function PublicInvoicePage() {
   }, []);
 
   const paperSize = data?.paperSize || "A4_PORTRAIT";
-  const widthPx = PAPER_WIDTH[paperSize] || 794;
-
-  // Fit-to-width when the document loads and when the screen rotates so the
-  // paper is always readable on phones/tablets. Deliberately NOT re-fitting on
-  // every window resize: browser (ctrl/cmd) zoom fires resize, and re-fitting
-  // then would cancel the user's zoom.
-  useEffect(() => {
-    if (!data) return undefined;
-    const applyFit = () => {
-      const s = computeFitScale(widthPx);
-      setFitScale(s);
-    };
-    applyFit();
-    const mq = window.matchMedia("(orientation: portrait)");
-    const onOrientationChange = () => applyFit();
-    mq.addEventListener("change", onOrientationChange);
-    return () => mq.removeEventListener("change", onOrientationChange);
-  }, [data, widthPx]);
 
   const buildPdf = async () => {
     const el = pdfCaptureRef.current;
@@ -437,40 +404,19 @@ export default function PublicInvoicePage() {
         )}
       </header>
 
-      <main className="flex-1 max-w-[1200px] w-full mx-auto px-2 sm:px-4 py-3 sm:py-6">
-        {/* Native-zoom viewer: the document is fitted to the screen with CSS
-            `zoom` and the browser's own pinch/pan/double-tap handle the rest
-            — no wrapping scroll container, so zooming/panning never gets
-            trapped inside a box. */}
-        <div
-          className="min-w-full flex items-start justify-center pt-8 sm:pt-12 pb-6 sm:pb-10 px-2 sm:px-5"
-        >
-          <div
-            style={{
-              width: `${widthPx}px`,
-              zoom: fitScale,
-              background: "#ffffff",
-              boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -2px rgba(0, 0, 0, 0.06)",
-            }}
-          >
-            <InvoiceTemplateRenderer
-              business={templateProps.business}
-              customer={templateProps.customer}
-              form={templateProps.form}
-              items={templateProps.items}
-              totals={templateProps.totals}
-              discountPercent={data.discountPercent != null ? String(data.discountPercent) : "0"}
-              type={renderType}
-              invoiceNumber={data.invoiceNumber}
-              paperSize={paperSize}
-              template={data.template || undefined}
-            />
-          </div>
+      <main className="flex-1 w-full mx-auto py-3 sm:py-6">
+        {/* Native PDF viewer: the browser's own PDF engine handles pinch-zoom,
+            scroll and double-tap smoothly on every device — no custom JS. */}
+        <div className="w-full" style={{ height: "calc(100dvh - 110px)" }}>
+          <iframe
+            src={`/api/public/invoices/${shareToken}/pdf?type=${renderType}`}
+            title="Invoice"
+            className="w-full h-full border-0 bg-white"
+          />
         </div>
 
         <p className="text-center text-xs text-slate-400 mt-3 sm:mt-4">
           Computer-generated copy of a shared invoice &middot; Powered by Inside Invoice
-          <span className="block mt-1 text-[10px] text-slate-300">Pinch to zoom · double-tap to fit</span>
         </p>
       </main>
     </div>

@@ -229,8 +229,8 @@ export const INDUSTRY_PROFILES = {
   },
   EDUCATION: {
     id: "EDUCATION",
-    name: "Education & Training",
-    description: "Training centres, tutors and educational service providers.",
+    name: "Training",
+    description: "Training centres, tutors and training service providers.",
     hiddenFields: SERVICE_HIDDEN_FIELDS,
     labels: {
       referenceNumber: "Course / Batch Ref.",

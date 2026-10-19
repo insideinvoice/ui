@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import PageHeader from "../components/PageHeader";
 import ConfirmModal from "../components/ConfirmModal";
@@ -56,13 +56,10 @@ export default function DeliveryChallanView() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
 
-  const containerRef = useRef(null);
-  const wrapRef = useRef(null);
   const [fitScale, setFitScale] = useState(1);
   // Applied scale = what the +/- toolbar controls; defaults to fit-to-width
   // and is re-fitted on load and rotation.
   const [scale, setScale] = useState(1);
-  const [docHeight, setDocHeight] = useState(0);
 
   const [template, setTemplate] = useState(
     () => localStorage.getItem("ii_dc_template") || "classic"
@@ -127,21 +124,6 @@ export default function DeliveryChallanView() {
           : [...ZOOM_LEVELS].reverse().find((l) => l < s - 0.001);
       return next ?? s;
     });
-
-  // Measure the unscaled document height so the scaled sizing wrapper can
-  // reserve the correct scroll height (transform: scale does not affect layout).
-  useEffect(() => {
-    const el = wrapRef.current;
-    if (!el) return undefined;
-    const measure = () => {
-      const h = el.offsetHeight || el.scrollHeight;
-      if (h > 0) setDocHeight(h);
-    };
-    measure();
-    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(measure) : null;
-    if (ro) ro.observe(el);
-    return () => ro && ro.disconnect();
-  }, [dc, template, chunks.length, sealOn, sealType]);
 
   const handleDownload = async () => {
     if (!dc || !business) return;
@@ -345,58 +327,33 @@ export default function DeliveryChallanView() {
             </div>
           </div>
 
-          <div
-            ref={containerRef}
-            className="overflow-auto relative select-none"
-            style={{
-              minHeight: "50vh",
-              WebkitOverflowScrolling: "touch",
-              overscrollBehavior: "contain",
-            }}
-          >
-            <div className="min-w-full min-h-full flex items-start p-2 sm:p-4">
-              <div
-                style={{
-                  width: `${Math.round(DC_PAGE_W * scale)}px`,
-                  height: docHeight > 0 ? `${Math.round(docHeight * scale)}px` : "auto",
-                  position: "relative",
-                  margin: "0 auto",
-                  flexShrink: 0,
-                }}
-              >
+          <div className="min-w-full flex items-start justify-center p-2 sm:p-4">
+            <div
+              style={{
+                width: `${DC_PAGE_W}px`,
+                zoom: scale,
+              }}
+            >
+              {chunks.map((chunk, i) => (
                 <div
-                  ref={wrapRef}
-                  style={{
-                    position: "absolute",
-                    top: 0,
-                    left: 0,
-                    width: `${DC_PAGE_W}px`,
-                    transform: `scale(${scale})`,
-                    transformOrigin: "top left",
-                  }}
+                  key={i}
+                  className="shadow-[0_4px_24px_rgba(0,0,0,0.12)] border border-slate-200 bg-white"
+                  style={{ marginTop: i === 0 ? 0 : 16 }}
                 >
-                  {chunks.map((chunk, i) => (
-                    <div
-                      key={i}
-                      className="shadow-[0_4px_24px_rgba(0,0,0,0.12)] border border-slate-200 bg-white"
-                      style={{ marginTop: i === 0 ? 0 : 16 }}
-                    >
-                      <DeliveryChallanDoc
-                        variant={template}
-                        business={business}
-                        customer={previewCustomer}
-                        challanNumber={dc.challanNumber}
-                        challanDate={dc.challanDate}
-                        poNumber={dc.poNumber}
-                        poDate={dc.poDate}
-                        items={chunk}
-                        showSeal={sealOn}
-                        sealType={sealType}
-                      />
-                    </div>
-                  ))}
+                  <DeliveryChallanDoc
+                    variant={template}
+                    business={business}
+                    customer={previewCustomer}
+                    challanNumber={dc.challanNumber}
+                    challanDate={dc.challanDate}
+                    poNumber={dc.poNumber}
+                    poDate={dc.poDate}
+                    items={chunk}
+                    showSeal={sealOn}
+                    sealType={sealType}
+                  />
                 </div>
-              </div>
+              ))}
             </div>
           </div>
         </div>

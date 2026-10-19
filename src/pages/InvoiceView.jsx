@@ -2,7 +2,6 @@ import { useState, useEffect, useRef, useMemo, useCallback, memo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import LoadingDots from "../components/LoadingDots";
 import Spinner from "../components/Spinner";
-import AppNavbar from "../components/AppNavbar";
 import PageHeader from "../components/PageHeader";
 import { invoiceAPI, businessAPI, customerAPI } from "../api/auth";
 import toast from "react-hot-toast";
@@ -742,12 +741,26 @@ export default function InvoiceView() {
   const printPreviewPdf = () => {
     if (!pdfPreviewUrl) return;
     const url = pdfPreviewUrl.split("#")[0];
-    // iOS/Safari can't script-print a hidden-iframe PDF (it prints the whole
-    // page). Open it in the native viewer instead so only the PDF is shown.
     const isIOS =
       /iPad|iPhone|iPod/.test(navigator.userAgent) ||
       (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
     if (isIOS) {
+      const isStandalone =
+        navigator.standalone === true ||
+        (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches);
+      if (isStandalone) {
+        // blob: URLs don't survive the jump into Safari from a home-screen app;
+        // convert to a self-contained data: URL first.
+        fetch(url)
+          .then((r) => r.blob())
+          .then((blob) => {
+            const reader = new FileReader();
+            reader.onload = () => { window.location.href = reader.result; };
+            reader.readAsDataURL(blob);
+          })
+          .catch(() => { window.location.href = url; });
+        return;
+      }
       if (!window.open(url, "_blank")) window.location.href = url;
       return;
     }
@@ -775,7 +788,6 @@ export default function InvoiceView() {
     // loading state (same pattern as InvoicesList).
     return (
       <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-gray-100">
-        <AppNavbar />
         <div
           className="flex items-center justify-center"
           style={{ minHeight: "calc(100dvh - 80px)" }}
@@ -789,7 +801,6 @@ export default function InvoiceView() {
   if (error) {
     return (
       <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-gray-100">
-        <AppNavbar />
         <div className="px-6 py-12 text-center">
           <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-3" />
           <p className="text-slate-600">{error}</p>
@@ -801,7 +812,6 @@ export default function InvoiceView() {
 
   return (
     <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-gray-100">
-      <AppNavbar />
       {/* Hidden Invoice PDF for capture — mounted only while a PDF action runs */}
       {captureType && captureType !== "PROFORMA_INVOICE" && (
         <div style={{ position: "absolute", left: "-9999px", top: 0, pointerEvents: "none" }}>

@@ -3,7 +3,6 @@ import { createRoot } from "react-dom/client";
 import { useNavigate, useLocation } from "react-router-dom";
 import LoadingDots from "../components/LoadingDots";
 import Spinner from "../components/Spinner";
-import AppNavbar from "../components/AppNavbar";
 import PageHeader from "../components/PageHeader";
 import ConfirmModal from "../components/ConfirmModal";
 import { invoiceAPI } from "../api/auth";
@@ -460,7 +459,6 @@ export default function InvoicesList() {
   if (loading) {
     return (
       <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-gray-100">
-        <AppNavbar />
         <div className="flex items-center justify-center" style={{ minHeight: "calc(100dvh - 80px)" }}>
           <LoadingDots className="text-slate-400" />
         </div>
@@ -470,7 +468,6 @@ export default function InvoicesList() {
 
   return (
     <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-gray-100">
-      <AppNavbar />
       <div className="px-4 sm:px-5 lg:px-6 py-3 sm:py-4 lg:py-5 max-w-[1900px] mx-auto">
         <PageHeader title="View Invoices" />
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
@@ -633,39 +630,38 @@ export default function InvoicesList() {
                             <button
                               onClick={() => downloadPDF(inv)}
                               disabled={rowBusy(inv.id)}
-                              className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors disabled:opacity-60"
+                              className="inline-flex items-center justify-center p-2 rounded-lg text-indigo-600 bg-indigo-50 hover:bg-indigo-100 transition-colors disabled:opacity-60"
                               title="Download PDF"
+                              aria-label="Download PDF"
                             >
                               {isBusy(inv.id, "pdf") ? (
                                 <Spinner size={14} />
                               ) : (
-                                <Download className="w-3.5 h-3.5" />
-                              )}{" "}
-                              {isBusy(inv.id, "pdf")
-                                ? "Loading..."
-                                : "Download"}
+                                <Download className="w-4 h-4" />
+                              )}
                             </button>
                             <button
                               onClick={() => openShareSheet(inv)}
                               disabled={rowBusy(inv.id)}
-                              className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors disabled:opacity-60"
+                              className="inline-flex items-center justify-center p-2 rounded-lg text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors disabled:opacity-60"
+                              title="Share"
+                              aria-label="Share invoice"
                             >
                               {isBusy(inv.id, "share") ? (
                                 <Spinner size={14} />
                               ) : (
-                                <Share2 className="w-3.5 h-3.5" />
-                              )}{" "}
-                              {isBusy(inv.id, "share") ? "Loading..." : "Share"}
+                                <Share2 className="w-4 h-4" />
+                              )}
                             </button>
                             {ghostMode && (
                               <button
                                 onClick={() => openDeleteModal(inv)}
                                 disabled={rowBusy(inv.id)}
-                                className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors disabled:opacity-60"
+                                className="inline-flex items-center justify-center p-2 rounded-lg text-red-600 bg-red-50 hover:bg-red-100 transition-colors disabled:opacity-60"
                                 title="Delete Invoice"
+                                aria-label="Delete invoice"
                               >
-                                <Trash2 className="w-3.5 h-3.5" />
-                                Delete
+                                <Trash2 className="w-4 h-4" />
                               </button>
                             )}
                           </div>
@@ -724,14 +720,15 @@ export default function InvoicesList() {
                           goToInvoice(inv);
                         }}
                         disabled={rowBusy(inv.id)}
-                        className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-xs font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors min-h-[44px] disabled:opacity-60"
+                        className="flex-1 flex items-center justify-center p-2 rounded-lg text-indigo-600 bg-indigo-50 hover:bg-indigo-100 transition-colors min-h-[44px] disabled:opacity-60"
+                        title="View"
+                        aria-label="View invoice"
                       >
                         {isBusy(inv.id, "view") ? (
                           <Spinner size={14} />
                         ) : (
-                          <Eye className="w-3.5 h-3.5" />
-                        )}{" "}
-                        {isBusy(inv.id, "view") ? "Loading..." : "View"}
+                          <Eye className="w-4 h-4" />
+                        )}
                       </button>
                       <button
                         onClick={(e) => {
@@ -739,14 +736,15 @@ export default function InvoicesList() {
                           downloadPDF(inv);
                         }}
                         disabled={rowBusy(inv.id)}
-                        className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-xs font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors min-h-[44px] disabled:opacity-60"
+                        className="flex-1 flex items-center justify-center p-2 rounded-lg text-indigo-600 bg-indigo-50 hover:bg-indigo-100 transition-colors min-h-[44px] disabled:opacity-60"
+                        title="Download PDF"
+                        aria-label="Download PDF"
                       >
                         {isBusy(inv.id, "pdf") ? (
                           <Spinner size={14} />
                         ) : (
-                          <Download className="w-3.5 h-3.5" />
-                        )}{" "}
-                        {isBusy(inv.id, "pdf") ? "Loading..." : "Download"}
+                          <Download className="w-4 h-4" />
+                        )}
                       </button>
                       <button
                         onClick={(e) => {
@@ -754,14 +752,15 @@ export default function InvoicesList() {
                           openShareSheet(inv);
                         }}
                         disabled={rowBusy(inv.id)}
-                        className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors min-h-[44px] disabled:opacity-60"
+                        className="flex-1 flex items-center justify-center p-2 rounded-lg text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors min-h-[44px] disabled:opacity-60"
+                        title="Share"
+                        aria-label="Share invoice"
                       >
                         {isBusy(inv.id, "share") ? (
                           <Spinner size={14} />
                         ) : (
-                          <Share2 className="w-3.5 h-3.5" />
-                        )}{" "}
-                        {isBusy(inv.id, "share") ? "Loading..." : "Share"}
+                          <Share2 className="w-4 h-4" />
+                        )}
                       </button>
                       {ghostMode && (
                         <button
@@ -770,11 +769,11 @@ export default function InvoicesList() {
                             openDeleteModal(inv);
                           }}
                           disabled={rowBusy(inv.id)}
-                          className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors min-h-[44px] disabled:opacity-60"
+                          className="flex-1 flex items-center justify-center p-2 rounded-lg text-red-600 bg-red-50 hover:bg-red-100 transition-colors min-h-[44px] disabled:opacity-60"
                           title="Delete Invoice"
+                          aria-label="Delete invoice"
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
-                          Delete
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       )}
                     </div>

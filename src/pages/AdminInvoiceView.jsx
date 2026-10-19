@@ -181,9 +181,17 @@ export default function AdminInvoiceView() {
   };
 
   if (loading) {
+    // Keep the sidebar mounted during load — only the center area shows the
+    // loading state (same pattern as InvoicesList).
     return (
-      <div className="fixed inset-0 z-[9999] bg-gradient-to-br from-gray-50 via-slate-50 to-gray-100 flex items-center justify-center">
-        <LoadingDots className="text-slate-400" />
+      <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-gray-100">
+        <AppNavbar />
+        <div
+          className="flex items-center justify-center"
+          style={{ minHeight: "calc(100dvh - 80px)" }}
+        >
+          <LoadingDots className="text-slate-400" />
+        </div>
       </div>
     );
   }

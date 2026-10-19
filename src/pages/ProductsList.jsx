@@ -6,7 +6,7 @@ import PageHeader from "../components/PageHeader";
 import ConfirmModal from "../components/ConfirmModal";
 import { productAPI } from "../api/auth";
 import toast from "react-hot-toast";
-import { ArrowLeft, Package, Hash, IndianRupee, Percent, Search, Trash2 } from "lucide-react";
+import { ArrowLeft, Package, Hash, IndianRupee, Percent, Search, Trash2, Pencil } from "lucide-react";
 
 export default function ProductsList() {
   const navigate = useNavigate();
@@ -133,13 +133,22 @@ export default function ProductsList() {
                       <span className="text-xs font-semibold text-slate-600">{p.gstPercentage || 0}%</span>
                     </td>
                     <td className="py-3 px-4 text-right">
-                      <button
-                        onClick={() => askDelete(p)}
-                        className="p-1.5 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors"
-                        title="Delete product"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      <div className="inline-flex items-center gap-2">
+                        <button
+                          onClick={() => navigate(`/products/${p.id}/edit`)}
+                          className="p-1.5 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-colors"
+                          title="Edit product"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => askDelete(p)}
+                          className="p-1.5 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors"
+                          title="Delete product"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -155,13 +164,22 @@ export default function ProductsList() {
                     <Package className="w-4 h-4 text-slate-400 shrink-0" />
                     <span className="text-sm font-semibold text-slate-800 truncate">{p.name}</span>
                   </div>
-                  <button
-                    onClick={() => askDelete(p)}
-                    className="p-1.5 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors shrink-0"
-                    title="Delete product"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      onClick={() => navigate(`/products/${p.id}/edit`)}
+                      className="p-1.5 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-colors"
+                      title="Edit product"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => askDelete(p)}
+                      className="p-1.5 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors"
+                      title="Delete product"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
                 <div className="space-y-0.5 text-xs text-slate-500">
                   <div className="font-mono">HSN/SAC: {p.hsn || "-"}</div>

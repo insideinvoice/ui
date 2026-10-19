@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import LoadingDots from "../components/LoadingDots";
 import AppNavbar from "../components/AppNavbar";
 import PageHeader from "../components/PageHeader";
@@ -9,14 +9,43 @@ import { Package, Hash, IndianRupee, Percent, Save, X } from "lucide-react";
 
 export default function AddProduct() {
   const navigate = useNavigate();
+  const { id: editId } = useParams();
+  const isEdit = Boolean(editId);
   const hsnRef = useRef(null);
   const [form, setForm] = useState({ name: "", hsn: "", rate: "", gstPercentage: "18" });
   const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(isEdit);
+  const [loadError, setLoadError] = useState("");
   const [hsnError, setHsnError] = useState("");
 
   useEffect(() => {
-    hsnRef.current?.focus();
-  }, []);
+    if (!isEdit) hsnRef.current?.focus();
+  }, [isEdit]);
+
+  // Edit mode: prefill the form from the existing product
+  useEffect(() => {
+    if (!isEdit) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await productAPI.getById(editId);
+        const p = res.data?.data;
+        if (!p) throw new Error("not found");
+        if (cancelled) return;
+        setForm({
+          name: p.name || "",
+          hsn: p.hsn || "",
+          rate: p.rate != null ? String(p.rate) : "",
+          gstPercentage: p.gstPercentage != null ? String(p.gstPercentage) : "18",
+        });
+      } catch {
+        if (!cancelled) setLoadError("Could not load this product — it may have been deleted.");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [isEdit, editId]);
 
   const handleChange = (e) => {
     setForm((p) => ({ ...p, [e.target.name]: e.target.value }));
@@ -30,7 +59,8 @@ export default function AddProduct() {
     try {
       const res = await productAPI.findByHsn(hsn);
       const existing = res.data?.data;
-      if (existing) {
+      // In edit mode the match may be this very product — that's not a conflict.
+      if (existing && String(existing.id) !== String(editId)) {
         setHsnError(`HSN/SAC "${hsn}" is already used by "${existing.name}"`);
         return false;
       }
@@ -63,16 +93,27 @@ export default function AddProduct() {
     if (!hsnOk) { hsnRef.current?.focus(); return; }
     setSaving(true);
     try {
-      await productAPI.create({
-        name: form.name.trim(), hsn: form.hsn || undefined,
-        rate: parseFloat(form.rate), gstPercentage: parseFloat(form.gstPercentage) || 0,
-      });
+      const payload = {
+        name: form.name.trim(),
+        // Edit mode sends "" instead of undefined so a cleared HSN actually
+        // persists (the backend mapper skips null fields).
+        hsn: isEdit ? (form.hsn || "") : (form.hsn || undefined),
+        rate: parseFloat(form.rate),
+        gstPercentage: parseFloat(form.gstPercentage) || 0,
+      };
+      if (isEdit) {
+        await productAPI.update(editId, payload);
+        toast.success("Product updated successfully");
+        navigate("/products");
+        return;
+      }
+      await productAPI.create(payload);
       toast.success("Product created successfully");
       setForm({ name: "", hsn: "", rate: "", gstPercentage: "18" });
       setHsnError("");
       hsnRef.current?.focus();
     } catch (err) {
-      const msg = err.response?.data?.message || "Failed to create product";
+      const msg = err.response?.data?.message || (isEdit ? "Failed to update product" : "Failed to create product");
       if (msg.toLowerCase().includes("hsn")) setHsnError(msg);
       toast.error(msg);
     } finally {
@@ -80,44 +121,87 @@ export default function AddProduct() {
     }
   };
 
-  const inputClass = "w-full px-4 py-3 border border-slate-200 rounded-xl text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 bg-white transition-all duration-150";
-  const labelClass = "block text-sm font-medium text-slate-700 mb-2";
+  if (loading) {
+    return (
+      <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-gray-100">
+        <AppNavbar />
+        <div className="flex items-center justify-center" style={{ minHeight: "calc(100dvh - 80px)" }}>
+          <LoadingDots className="text-slate-400" />
+        </div>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-gray-100">
+        <AppNavbar />
+        <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 max-w-3xl mx-auto">
+          <PageHeader title="Edit Product" />
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-10 text-center">
+            <p className="text-sm font-semibold text-slate-700">{loadError}</p>
+            <button
+              onClick={() => navigate("/products")}
+              className="mt-5 inline-flex items-center gap-2 px-5 py-3 min-h-[48px] text-sm font-medium text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 rounded-xl transition-all shadow-sm"
+            >
+              <X className="w-4 h-4" /> Back to Products
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Shared form tokens — one source of truth for every field on the page.
+  const labelClass = "flex items-baseline justify-between mb-2";
+  const labelText = "block text-xs font-semibold uppercase tracking-wider text-slate-500";
+  const inputClass = "w-full h-12 pl-11 pr-4 text-sm text-slate-900 placeholder:text-slate-400/80 bg-slate-50/50 border border-slate-200 rounded-xl hover:border-slate-300 focus:bg-white focus:outline-none focus:border-violet-400 focus:ring-4 focus:ring-violet-500/10 transition-all duration-200";
+  const fieldRow = (label, required, helper) => (
+    <label className={labelClass}>
+      <span className={labelText}>
+        {label} {required && <span className="text-rose-500">*</span>}
+      </span>
+      {helper && <span className="text-[11px] font-medium text-slate-400">{helper}</span>}
+    </label>
+  );
+  const errorText = "mt-1.5 flex items-center gap-1.5 text-xs font-medium text-rose-600";
 
   return (
-    <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-gray-100">
+    <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 via-slate-50 to-violet-50/40">
       <AppNavbar />
-      <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 max-w-2xl mx-auto">
-        <PageHeader title="Add New Product" />
+      <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 max-w-3xl mx-auto">
+        <PageHeader title={isEdit ? "Edit Product" : "Add New Product"} />
 
-        <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+        <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-sm shadow-slate-200/60 border border-slate-200/80 overflow-hidden">
+          {/* Accent bar */}
+          <div className="h-1 bg-gradient-to-r from-violet-500 via-indigo-500 to-violet-500" aria-hidden="true" />
+
           {/* Form Header */}
-          <div className="px-6 sm:px-8 pt-6 sm:pt-8 pb-4 border-b border-slate-100">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-violet-50 border border-violet-100 flex items-center justify-center">
-                <Package className="w-5 h-5 text-violet-600" />
-              </div>
-              <div>
-                <h2 className="text-lg font-semibold text-slate-900">Product Information</h2>
-                <p className="text-sm text-slate-500">Enter the product details below</p>
-              </div>
+          <div className="px-6 sm:px-8 pt-6 sm:pt-7 pb-5 border-b border-slate-100 flex items-start sm:items-center gap-3.5">
+            <div className="w-10 h-10 rounded-xl bg-violet-50 border border-violet-100 shadow-sm shadow-violet-500/5 flex items-center justify-center shrink-0">
+              <Package className="w-5 h-5 text-violet-600" />
+            </div>
+            <div className="min-w-0">
+              <h2 className="text-base sm:text-lg font-semibold tracking-tight text-slate-900">Product Information</h2>
+              <p className="text-[13px] text-slate-500 mt-0.5">
+                {isEdit ? "Update the product details below" : "Catalogue entry — appears in your invoice item picker"}
+              </p>
             </div>
           </div>
 
           {/* Form Body */}
-          <div className="px-6 sm:px-8 py-6 space-y-6">
+          <div className="px-6 sm:px-8 py-6 sm:py-8 space-y-6">
             {/* Product Name */}
             <div>
-              <label className={labelClass}>
-                Product Name <span className="text-red-500">*</span>
-              </label>
+              {fieldRow("Product Name", true)}
               <div className="relative">
-                <Package className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+                <Package className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4 pointer-events-none" />
                 <input
                   name="name"
                   value={form.name}
                   onChange={handleChange}
                   onKeyDown={handleNameKeyDown}
-                  className={inputClass + " pl-11"}
+                  className={inputClass}
                   placeholder="e.g. Service Fee"
                 />
               </div>
@@ -125,11 +209,9 @@ export default function AddProduct() {
 
             {/* HSN/SAC */}
             <div>
-              <label className={labelClass}>
-                HSN/SAC <span className="text-xs text-slate-400 font-normal">(scan barcode)</span>
-              </label>
+              {fieldRow("HSN/SAC", false, "Barcode scan & Enter to verify")}
               <div className="relative">
-                <Hash className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+                <Hash className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4 pointer-events-none" />
                 <input
                   ref={hsnRef}
                   name="hsn"
@@ -137,24 +219,23 @@ export default function AddProduct() {
                   onChange={handleChange}
                   onKeyDown={handleHsnKeyDown}
                   onBlur={() => checkHsnUnique(form.hsn)}
-                  className={inputClass + " pl-11 font-mono uppercase tracking-wider" + (hsnError ? " border-red-400 focus:border-red-500 focus:ring-red-500/20" : "")}
+                  className={inputClass + " font-mono uppercase tracking-widest placeholder:tracking-normal"
+                    + (hsnError ? " border-rose-400 bg-rose-50/40 focus:border-rose-500 focus:ring-rose-500/10" : "")}
                   placeholder="e.g. 9983"
                   autoComplete="off"
                 />
               </div>
               {hsnError && (
-                <p className="mt-2 text-xs font-medium text-red-500">{hsnError}</p>
+                <p className={errorText}><AlertCircle className="w-3.5 h-3.5 shrink-0" />{hsnError}</p>
               )}
             </div>
 
             {/* Rate & GST Row */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
               <div>
-                <label className={labelClass}>
-                  Rate (Rs.) <span className="text-red-500">*</span>
-                </label>
+                {fieldRow("Rate (Rs.)", true)}
                 <div className="relative">
-                  <IndianRupee className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+                  <IndianRupee className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4 pointer-events-none" />
                   <input
                     type="number"
                     step="0.01"
@@ -163,15 +244,15 @@ export default function AddProduct() {
                     value={form.rate}
                     onChange={handleChange}
                     inputMode="decimal"
-                    className={inputClass + " pl-11"}
+                    className={inputClass + " tabular-nums [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"}
                     placeholder="e.g. 1000"
                   />
                 </div>
               </div>
               <div>
-                <label className={labelClass}>GST %</label>
+                {fieldRow("GST %", false, "Applied per line item")}
                 <div className="relative">
-                  <Percent className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+                  <Percent className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4 pointer-events-none" />
                   <input
                     type="number"
                     step="0.01"
@@ -181,7 +262,7 @@ export default function AddProduct() {
                     value={form.gstPercentage}
                     onChange={handleChange}
                     inputMode="decimal"
-                    className={inputClass + " pl-11"}
+                    className={inputClass + " tabular-nums [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"}
                   />
                 </div>
               </div>
@@ -204,7 +285,7 @@ export default function AddProduct() {
               className="inline-flex items-center justify-center gap-2 px-6 py-3 min-h-[48px] text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl transition-all duration-150 shadow-sm shadow-indigo-600/25 hover:shadow-indigo-600/40 active:scale-[0.98]"
             >
               {saving ? <LoadingDots className="text-white" /> : <Save className="w-4 h-4" />}
-              {saving ? "Saving..." : "Save Product"}
+              {saving ? "Saving..." : isEdit ? "Update Product" : "Save Product"}
             </button>
           </div>
         </form>

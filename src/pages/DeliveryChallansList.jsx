@@ -148,7 +148,9 @@ export default function DeliveryChallansList() {
                 All Delivery Challans
               </h1>
               <p className="text-xs text-slate-500">
-                {query ? `${filtered.length} of ${challans.length} shown` : `${challans.length} total`}
+                {query
+                  ? `${filtered.length} of ${challans.length} shown`
+                  : `${challans.length} total`}
               </p>
             </div>
             {challans.length > 0 && (
@@ -157,7 +159,7 @@ export default function DeliveryChallansList() {
                 <input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search challans…"
+                  placeholder="Search"
                   aria-label="Search delivery challans"
                   className="w-full pl-8 pr-8 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-400/30 focus:border-teal-400 bg-white text-slate-800 placeholder:text-slate-400 min-h-[40px]"
                 />
@@ -194,12 +196,12 @@ export default function DeliveryChallansList() {
                 Create your first delivery challan — the PDF downloads instantly
               </p>
               {canCreate && (
-              <button
-                onClick={() => navigate("/delivery-challans/new")}
-                className="mt-4 px-4 py-2 bg-teal-600 text-white text-sm font-semibold rounded-lg hover:bg-teal-700 transition-all"
-              >
-                New Delivery Challan
-              </button>
+                <button
+                  onClick={() => navigate("/delivery-challans/new")}
+                  className="mt-4 px-4 py-2 bg-teal-600 text-white text-sm font-semibold rounded-lg hover:bg-teal-700 transition-all"
+                >
+                  New Delivery Challan
+                </button>
               )}
             </div>
           ) : filtered.length === 0 ? (
@@ -207,7 +209,9 @@ export default function DeliveryChallansList() {
               <div className="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-4">
                 <Search className="w-8 h-8 text-slate-400" />
               </div>
-              <p className="text-sm font-semibold text-slate-700">No challans found</p>
+              <p className="text-sm font-semibold text-slate-700">
+                No challans found
+              </p>
               <p className="text-xs text-slate-500 mt-1">
                 No delivery challan matches “{search.trim()}”
               </p>
@@ -254,7 +258,9 @@ export default function DeliveryChallansList() {
                       >
                         <td className="py-3 px-4">
                           <button
-                            onClick={() => navigate(`/delivery-challans/${dc.id}`)}
+                            onClick={() =>
+                              navigate(`/delivery-challans/${dc.id}`)
+                            }
                             className="inline-flex items-center font-mono text-xs font-bold text-teal-700 bg-teal-50 hover:bg-teal-100 px-2.5 py-1 rounded-md border border-teal-200 hover:border-teal-300 transition-all"
                           >
                             {dc.challanNumber}
@@ -267,7 +273,9 @@ export default function DeliveryChallansList() {
                           {dc.customerName}
                         </td>
                         <td className="py-3 px-4 text-sm text-slate-600">
-                          {dc.poNumber || <span className="text-slate-300">—</span>}
+                          {dc.poNumber || (
+                            <span className="text-slate-300">—</span>
+                          )}
                         </td>
                         <td className="py-3 px-4 text-center">
                           <span className="inline-flex items-center justify-center min-w-[24px] text-[11px] font-semibold px-2 py-0.5 rounded-full bg-teal-50 text-teal-700 border border-teal-100">
@@ -277,7 +285,9 @@ export default function DeliveryChallansList() {
                         <td className="py-3 px-4">
                           <div className="flex items-center justify-end gap-1">
                             <button
-                              onClick={() => navigate(`/delivery-challans/${dc.id}`)}
+                              onClick={() =>
+                                navigate(`/delivery-challans/${dc.id}`)
+                              }
                               className="p-2 rounded-lg text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
                               title="View"
                             >
@@ -309,7 +319,10 @@ export default function DeliveryChallansList() {
               {/* Mobile cards */}
               <div className="md:hidden space-y-3 p-3">
                 {filtered.map((dc) => (
-                  <div key={dc.id} className="bg-white rounded-xl shadow-sm border border-slate-100 p-4 hover:bg-slate-50 transition-colors">
+                  <div
+                    key={dc.id}
+                    className="bg-white rounded-xl shadow-sm border border-slate-100 p-4 hover:bg-slate-50 transition-colors"
+                  >
                     <div className="flex items-center justify-between mb-2">
                       <button
                         onClick={() => navigate(`/delivery-challans/${dc.id}`)}
@@ -317,13 +330,16 @@ export default function DeliveryChallansList() {
                       >
                         {dc.challanNumber}
                       </button>
-                      <span className="text-xs text-slate-500">{formatDate(dc.challanDate)}</span>
+                      <span className="text-xs text-slate-500">
+                        {formatDate(dc.challanDate)}
+                      </span>
                     </div>
                     <p className="text-sm font-medium text-slate-800">
                       {dc.customerName}
                     </p>
                     <p className="text-xs text-slate-500 mt-0.5">
-                      {dc.items?.length || 0} item{dc.items?.length === 1 ? "" : "s"}
+                      {dc.items?.length || 0} item
+                      {dc.items?.length === 1 ? "" : "s"}
                       {dc.poNumber ? ` · PO ${dc.poNumber}` : ""}
                     </p>
                     <div className="flex items-center gap-2 mt-3 pt-3 border-t border-slate-100">

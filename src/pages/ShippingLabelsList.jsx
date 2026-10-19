@@ -43,26 +43,29 @@ export default function ShippingLabelsList() {
       <div className="px-4 sm:px-5 lg:px-6 py-3 sm:py-4 lg:py-5 max-w-[1900px] mx-auto">
         <PageHeader title="Shipping Labels" />
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-          <div className="p-4 sm:p-6 border-b border-slate-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-            <h1 className="text-base sm:text-lg font-semibold text-slate-900">Shipping Labels</h1>
-            <div className="flex w-full sm:w-auto items-center gap-2">
-              <div className="relative flex-1 sm:flex-none">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search"
-                  className="w-full md:w-56 pl-9 pr-3 py-2 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-400/30 bg-white" />
+            <div className="p-4 sm:p-6 border-b border-slate-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div>
+                <h1 className="text-base sm:text-lg font-semibold text-slate-900">Shipping Labels</h1>
+                <p className="text-xs text-slate-500 mt-0.5">Print-ready dispatch labels · synced with your addresses</p>
               </div>
-              <select value={status} onChange={(e) => setStatus(e.target.value)}
-                className="border border-slate-300 rounded-lg text-xs px-2 py-2 bg-white">
-                {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s || "Status"}</option>)}
-              </select>
-              {canCreate && (
-              <button onClick={() => navigate("/labels/shipping/new")}
-                className="inline-flex items-center gap-2 px-4 py-2.5 min-h-[44px] bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 transition-all shadow-sm whitespace-nowrap">
-                <Plus className="w-4 h-4" /> New
-              </button>
-              )}
+              <div className="flex w-full sm:w-auto items-center gap-2.5">
+                <div className="relative flex-1 sm:flex-none">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                  <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search labels"
+                    className="w-full md:w-60 h-10 pl-9 pr-3 border border-slate-200 rounded-lg text-sm placeholder:text-slate-400 hover:border-slate-300 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-400 bg-white transition-all" />
+                </div>
+                <select value={status} onChange={(e) => setStatus(e.target.value)}
+                  className="h-10 min-w-[110px] border border-slate-200 rounded-lg text-xs font-medium text-slate-600 pl-3 pr-8 bg-white cursor-pointer hover:border-slate-300 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-400 transition-all">
+                  {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s || "Status"}</option>)}
+                </select>
+                {canCreate && (
+                <button onClick={() => navigate("/labels/shipping/new")}
+                  className="h-10 shrink-0 inline-flex items-center gap-1.5 px-4 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 active:scale-[0.98] transition-all shadow-sm shadow-indigo-600/25 hover:shadow-indigo-600/40 whitespace-nowrap">
+                  <Plus className="w-4 h-4" /> New Label
+                </button>
+                )}
+              </div>
             </div>
-          </div>
           {loading ? (
             <div className="p-16 flex items-center justify-center"><LoadingDots className="text-slate-400" /></div>
           ) : labels.length === 0 ? (
@@ -74,7 +77,7 @@ export default function ShippingLabelsList() {
               <p className="text-xs text-slate-400 mt-1 mb-4">Create your first shipping label</p>
               {canCreate && (
               <button onClick={() => navigate("/labels/shipping/new")}
-                className="inline-flex items-center gap-2 px-5 py-2.5 min-h-[44px] bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 transition-all shadow-sm whitespace-nowrap">
+                className="inline-flex items-center gap-2 px-5 py-2.5 min-h-[44px] bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 active:scale-[0.98] transition-all shadow-sm shadow-indigo-600/25 hover:shadow-indigo-600/40 whitespace-nowrap">
                 Create Label
               </button>
               )}

@@ -926,8 +926,19 @@ const InvoiceTemplateEnterprise = React.forwardRef(
         ),
         1
       );
+      // Continuation pages fill to their capacity FIRST; the final page —
+      // the one that also carries the closing block — keeps only what is
+      // left over (always at least one row, so the breakup table still shows
+      // its Total row).
+      //
+      // The old rule handed the continuation page just the rows the final
+      // page could NOT take (take = remaining - finalRows), which left it a
+      // third full while the last page ran to the brim: the slack belongs on
+      // the closing page, never in the middle of the document. The page COUNT
+      // is unchanged by this (same number of continuation pages).
       while (remaining > finalRows) {
-        const take = Math.min(fullCap, remaining - finalRows);
+        const take = Math.min(fullCap, remaining - 1);
+        if (take <= 0) break;
         plan.pages.push({ rows: take, isFinal: false });
         remaining -= take;
       }

@@ -625,11 +625,11 @@ const BankBand = ({ business, sigSrc, sealVisible, sealType, isProforma }) => (
         </div>
       )}
       {sealVisible && sealType !== "stamp" && (
-        <div style={{ position: "absolute", right: "12px", top: "18px", zIndex: 2 }}>
+        <div style={{ position: "absolute", right: "12px", top: "16px", zIndex: 2 }}>
           <CompanySeal
             companyName={business?.businessName || "COMPANY NAME"}
             year={new Date().getFullYear()}
-            size={66}
+            size={80}
             color={STAMP_BLUE}
           />
         </div>

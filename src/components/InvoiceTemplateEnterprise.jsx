@@ -71,7 +71,7 @@ const nowrap = { whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellips
 // comfortably inside the 120px letterhead, and shared by EVERY invoice that
 // uses this template (preview, PDF, e-mail, public share page).
 const LOGO_BOX_W = 75;
-const LOGO_BOX_H = 75;
+const LOGO_BOX_H = 80;
 
 /* html2canvas — the PDF engine — ignores `object-fit`, so a non-square upload
    stretched to its frame printed as a distorted rectangle in the PDF while

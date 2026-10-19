@@ -79,11 +79,9 @@
       // Safari tabs, browsers, Android and desktop PWAs are unaffected.
       // The blur feather is a constant extension past the safe-area inset,
       // so the answer is simply "inset + feather" — no measurement needed.
-      // A probe that reads env(...) then bakes the total into the gap is
-      // WRONG here: inside a standalone WebKit the probe has historically
-      // returned 0, so gap became the full 80px strip and the CSS
-      // "env(safe-area-inset-top) + gap" DOUBLE-counted the inset (~140px
-      // of dead space at the top of every screen in the PWA).
+      // (Older probe-based approach double-counted the inset: ~140px of
+      // dead space.) 10px keeps the top tight while still sampling solid
+      // color; raise it (e.g. 20–24px) if the iOS blur ever fogs the nav.
       (function () {
         var isIOS =
           /iPhone|iPad|iPod/.test(navigator.userAgent) ||
@@ -95,7 +93,7 @@
         if (!isIOS || !isStandalone) return;
         document.documentElement.style.setProperty(
           "--status-bar-blur-gap",
-          "24px"
+          "10px"
         );
       })();
     </script>

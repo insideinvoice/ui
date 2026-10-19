@@ -19,7 +19,11 @@ html, body, #root {
   /* Extra feather below the status bar for iOS 27 home-screen PWAs: the
      system's own status-bar blur extends ~20px past the safe-area inset and
      fogs header text there (set inline by index.html only when
-     navigator.standalone is true). Zero in browsers / older iOS / Android. */
+     navigator.standalone is true). Zero in browsers / older iOS / Android.
+     index.html writes a CONSTANT here (24px) — the strip total is therefore
+     "inset + feather" computed entirely by the calc() below, never a
+     JS-measured number (a standalone probe has been seen reading env() as 0,
+     which double-counted the inset and blew up every top offset). */
   --status-bar-blur-gap: 0px;
   /* Single top offset shared by the painted strip (#root padding and
      body::before) and every pinned top bar (nav, drawer, public header,

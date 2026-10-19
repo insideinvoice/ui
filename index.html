@@ -74,14 +74,16 @@
     </script>
     <script>
       // iOS 27 (installed home-screen apps only) paints a system
-      // backdrop-blur over the top of the PWA that feathers well BELOW
-      // env(safe-area-inset-top) — worst on non-notch phones where the inset
-      // is only ~20px — fogging any header text in that zone. Safari tabs
-      // and older iOS are unaffected. Extend the painted status-bar strip so
-      // it always reaches at least 80px from the screen top and start all
-      // content below it: the blur then samples solid color and never
-      // touches the nav. navigator.standalone is iOS-only, so browsers,
-      // Android and desktop PWAs keep a zero gap.
+      // backdrop-blur over the top of the PWA that feathers ~20px BELOW
+      // env(safe-area-inset-top), fogging any header text in that zone.
+      // Safari tabs, browsers, Android and desktop PWAs are unaffected.
+      // The blur feather is a constant extension past the safe-area inset,
+      // so the answer is simply "inset + feather" — no measurement needed.
+      // A probe that reads env(...) then bakes the total into the gap is
+      // WRONG here: inside a standalone WebKit the probe has historically
+      // returned 0, so gap became the full 80px strip and the CSS
+      // "env(safe-area-inset-top) + gap" DOUBLE-counted the inset (~140px
+      // of dead space at the top of every screen in the PWA).
       (function () {
         var isIOS =
           /iPhone|iPad|iPod/.test(navigator.userAgent) ||
@@ -91,18 +93,9 @@
           (window.matchMedia &&
             window.matchMedia("(display-mode: standalone)").matches);
         if (!isIOS || !isStandalone) return;
-        // Measure env(safe-area-inset-top) with a probe element so the gap
-        // becomes a plain pixel number on every iOS version.
-        var probe = document.createElement("div");
-        probe.style.cssText =
-          "position:fixed;top:env(safe-area-inset-top,0px);height:0;visibility:hidden;pointer-events:none";
-        document.documentElement.appendChild(probe);
-        var inset = probe.getBoundingClientRect().top;
-        probe.parentNode.removeChild(probe);
-        var gap = Math.max(20, 80 - inset);
         document.documentElement.style.setProperty(
           "--status-bar-blur-gap",
-          gap + "px"
+          "24px"
         );
       })();
     </script>

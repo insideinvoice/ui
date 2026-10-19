@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import CompanySeal from "./CompanySeal";
 import CompanyStamp from "./CompanyStamp";
 import { resolveSeal } from "../utils/seal";
@@ -9,8 +9,12 @@ import { getSpecialistInLine, SPECIALIST_IN_EXTRA_H } from "../utils/specialistI
 import {
   ENT_PAGE_METRICS as M,
   entCols,
-  estimateEntRow,
+  distributeBreakupRows,
+  ENT_DESC_FONT_SIZE,
+  ENT_FONT_STACK,
+  groupTaxSummaryRows,
   packEntPages,
+  resolveEntRow,
 } from "../utils/enterprisePage";
 
 /* ------------------------------------------------------------------ *
@@ -292,12 +296,12 @@ const asDataUri = (value) => {
   return v.startsWith("data:") ? v : `data:image/png;base64,${v}`;
 };
 
-const ItemsTable = ({ cols, rowHeights, items, startIndex, descLabel, closesGrid = true }) => {
+const ItemsTable = ({ cols, rowMeta, items, startIndex, descLabel, closesGrid = true }) => {
   return (
     <div style={{
       // No left/right borders here: the page frame already draws the outer
       // verticals — an extra pair flush against them reads as doubled lines.
-      height: M.thead + rowHeights.reduce((s, h) => s + h, 0),
+      height: M.thead + rowMeta.reduce((s, m) => s + m.height, 0),
       boxSizing: "border-box",
     }}>
       <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
@@ -326,10 +330,12 @@ const ItemsTable = ({ cols, rowHeights, items, startIndex, descLabel, closesGrid
           </tr>
         </thead>
         <tbody>
-          {rowHeights.map((h, i) => {
+          {rowMeta.map((meta, i) => {
             const item = items[i];
             const globalIdx = startIndex + i;
-            const desc = item.itemName;
+            // The measured (and possibly shrunk/clipped) description — the
+            // packer reserved exactly this much room for it.
+            const desc = meta.text;
             const qty = parseFloat(item.qty);
             const qtyText = `${Number.isFinite(qty) ? String(qty) : ""}${item.unit ? " " + item.unit : ""}`;
             const cells = {
@@ -342,7 +348,7 @@ const ItemsTable = ({ cols, rowHeights, items, startIndex, descLabel, closesGrid
               amount: <span style={{ fontWeight: 600 }}>{formatINR(item.__taxable)}</span>,
             };
             return (
-              <tr key={i} id={`ent-item-${globalIdx}`} style={{ height: `${h}px` }}>
+              <tr key={i} id={`ent-item-${globalIdx}`} style={{ height: `${meta.height}px` }}>
                 {cols.map((c, ci) => (
                   <td key={ci} style={{
                     // Last row closes the grid with an INK rule — unless the
@@ -350,14 +356,17 @@ const ItemsTable = ({ cols, rowHeights, items, startIndex, descLabel, closesGrid
                     // breakup header owns the junction rule instead (a border
                     // here would print in html2canvas but hide under the
                     // header's background on screen: two renderers, two truths).
-                    borderBottom: i === rowHeights.length - 1
+                    borderBottom: i === rowMeta.length - 1
                       ? (closesGrid ? `1px solid ${INK}` : "none")
                       : `1px solid ${LINE}`,
                     borderRight: ci < cols.length - 1 ? `1px solid ${GRID}` : "none",
-                    fontSize: "10px", padding: "0 8px", verticalAlign: "middle",
+                    fontSize: c.key === "desc" ? `${meta.fontSize}px` : "10px",
+                    padding: "0 8px", verticalAlign: "middle",
                     textAlign: c.align, overflow: "hidden",
                     whiteSpace: c.key === "desc" ? "normal" : "nowrap",
-                    ...(c.key === "desc" ? { wordBreak: "break-word", lineHeight: "13px" } : {}),
+                    ...(c.key === "desc"
+                      ? { wordBreak: "break-word", lineHeight: `${Math.round(meta.fontSize * 1.3)}px` }
+                      : {}),
                   }}>
                     {cells[c.key] || "-"}
                   </td>
@@ -715,7 +724,7 @@ const PageFooter = ({ jurLine, isLast, isProforma, pageNo, totalPages }) => (
 
 /* --------------------------------------------------------------- page */
 
-const EntPage = ({ pageId, showItems, sumRows, sumWithTotal, closing, chunkItems, chunkHeights, startIndex, shared, pageKind }) => {
+const EntPage = ({ pageId, showItems, sumRows, sumWithTotal, closing, chunkItems, chunkMeta, startIndex, shared, pageKind }) => {
   // pageKind: { isFirst, isLast, pageNo, totalPages }
   const { isLast } = pageKind;
   const { business, customer, form, jurLine, cols, descLabel } = shared;
@@ -754,7 +763,7 @@ const EntPage = ({ pageId, showItems, sumRows, sumWithTotal, closing, chunkItems
       {showItems && (
         <ItemsTable
           cols={cols}
-          rowHeights={chunkHeights}
+          rowMeta={chunkMeta}
           items={chunkItems}
           startIndex={startIndex}
           descLabel={descLabel}
@@ -818,7 +827,10 @@ const EntPage = ({ pageId, showItems, sumRows, sumWithTotal, closing, chunkItems
 
 const InvoiceTemplateEnterprise = React.forwardRef(
   ({ business, customer, form, items, discountPercent, type, invoiceNumber }, ref) => {
-    const validItems = (items || []).filter((i) => i?.itemName?.trim() && parseFloat(i?.qty) > 0);
+    const validItems = useMemo(
+      () => (items || []).filter((i) => i?.itemName?.trim() && parseFloat(i?.qty) > 0),
+      [items],
+    );
     const showHnSac = !business || business.showHnSac !== false;
     const cols = entColumnList(showHnSac);
     const isProforma = type === "PROFORMA_INVOICE";
@@ -838,19 +850,9 @@ const InvoiceTemplateEnterprise = React.forwardRef(
     /* Tax breakup rows — one PER PRODUCT, in item order (HSN/SAC or product
        name, taxable, CGST + SGST halves, total tax). The full list — however
        many products — paginates with the table below; nothing is merged. */
-    const summaryRows = validItems.map((item) => {
-      const rate = parseFloat(item.gstPercentage) || 0;
-      const taxable = (parseFloat(item.taxableValue) || 0) * calc.ratio;
-      const half = taxable * rate / 200;
-      return {
-        key: showHnSac ? (item.hsn || "-") : (item.itemName || "-"),
-        rateLabel: `${(rate / 2).toFixed(2)}%`,
-        taxable,
-        cgst: half,
-        sgst: half,
-        tax: taxable * rate / 100,
-      };
-    });
+    // GST breakup: ONE row per (HSN/product, rate) group — 53 line items
+    // across 5 rates are 5 summary rows, not 53 identical ones.
+    const summaryRows = groupTaxSummaryRows(validItems, { showHnSac, ratio: calc.ratio });
     const summaryFirstLabel = showHnSac ? "HSN/SAC" : "Product";
 
     /* Totals stack (Sub / Discount / CGST / SGST / Grand). Heights mirror
@@ -886,8 +888,29 @@ const InvoiceTemplateEnterprise = React.forwardRef(
     const fixedTopOf = (isFirst) =>
       isFirst ? headH + M.partyRow + M.thead + M.fudge : M.contHead + M.thead + M.fudge;
     const openBudget = (isFirst) => M.pageH - fixedTopOf(isFirst) - M.footer;
-    const est = (item) => estimateEntRow(item?.itemName);
-    const heights = validItems.map(est);
+    /* Row heights come from the REAL rendered text width (canvas measureText
+       with the template's own font), so a long description reserves exactly
+       the space it needs. The old character-count guess was ~15% pessimistic
+       and got worse with every wrapped line: pages ran out of room early and
+       the leftover showed up as empty space. The same numbers drive the
+       packer and the renderer, so the grid can never disagree with itself.
+       A single row taller than the page is shrunk, then clipped, so it can
+       never blow the frame open. */
+    const measureDesc = useMemo(() => {
+      if (typeof document === "undefined") return null;
+      const ctx = document.createElement("canvas").getContext("2d");
+      return (text) => {
+        ctx.font = `${ENT_DESC_FONT_SIZE}px ${ENT_FONT_STACK}`;
+        return ctx.measureText(String(text ?? "")).width;
+      };
+    }, []);
+    const maxRowH = openBudget(false);
+    const rowMeta = useMemo(
+      () => validItems.map((it) =>
+        resolveEntRow(it, { showHnSac, maxH: maxRowH, measure: measureDesc })),
+      [validItems, showHnSac, maxRowH, measureDesc],
+    );
+    const heights = rowMeta.map((m) => m.height);
     const packed = packEntPages(heights, {
       page1: openBudget(true),
       cont: openBudget(false),
@@ -915,34 +938,32 @@ const InvoiceTemplateEnterprise = React.forwardRef(
       plan.onItemsPage = nSum;
       plan.closingOnItemsPage = true;
     } else {
-      if (avail >= sumHeadH + M.summaryRow) {
-        plan.onItemsPage = Math.min(Math.floor((avail - sumHeadH) / M.summaryRow), nSum - 1);
+      const contCap = Math.max(1, Math.floor((M.pageH - M.contHead - sumHeadH - M.footer) / M.summaryRow));
+      // A tax table that fits on ONE page is never split across two: a 5-row
+      // table broken 4 + 1 leaves the last page looking half-empty and reads
+      // like the document skipped a page. It travels whole to the final page
+      // (which also carries the closing block).
+      if (nSum <= contCap) {
+        plan.onItemsPage = 0;
+        plan.pages.push({ rows: nSum, isFinal: true });
+      } else {
+        if (avail >= sumHeadH + M.summaryRow) {
+          plan.onItemsPage = Math.min(Math.floor((avail - sumHeadH) / M.summaryRow), nSum - 1);
+        }
+        let remaining = nSum - plan.onItemsPage;
+        // Capacity per breakup page: a continuation page carries the table
+        // header only; the FINAL page also carries the closing block (totals,
+        // amount-in-words, bank/signature band), so it holds fewer rows.
+        const finalCap = Math.max(1, Math.floor((M.pageH - M.contHead - sumHeadH - M.summaryFoot - closingNoFooter - M.footer) / M.summaryRow));
+        // Rows are spread EVENLY over the breakup pages: the old rule filled
+        // continuation pages to the brim and left the final page with a single
+        // row + the closing block — that page rendered ~30% full and read like
+        // the document had skipped a page. Same page count, no near-empty page.
+        const breakupCounts = distributeBreakupRows(remaining, { contCap, finalCap });
+        breakupCounts.forEach((rows, i) => {
+          plan.pages.push({ rows, isFinal: i === breakupCounts.length - 1 });
+        });
       }
-      let remaining = nSum - plan.onItemsPage;
-      const fullCap = Math.floor((M.pageH - M.contHead - sumHeadH - M.footer) / M.summaryRow);
-      const finalRows = Math.max(
-        Math.floor(
-          (M.pageH - M.contHead - sumHeadH - M.summaryFoot - closingNoFooter - M.footer) / M.summaryRow
-        ),
-        1
-      );
-      // Continuation pages fill to their capacity FIRST; the final page —
-      // the one that also carries the closing block — keeps only what is
-      // left over (always at least one row, so the breakup table still shows
-      // its Total row).
-      //
-      // The old rule handed the continuation page just the rows the final
-      // page could NOT take (take = remaining - finalRows), which left it a
-      // third full while the last page ran to the brim: the slack belongs on
-      // the closing page, never in the middle of the document. The page COUNT
-      // is unchanged by this (same number of continuation pages).
-      while (remaining > finalRows) {
-        const take = Math.min(fullCap, remaining - 1);
-        if (take <= 0) break;
-        plan.pages.push({ rows: take, isFinal: false });
-        remaining -= take;
-      }
-      plan.pages.push({ rows: remaining, isFinal: true });
     }
 
     const chunks = packed;
@@ -998,7 +1019,7 @@ const InvoiceTemplateEnterprise = React.forwardRef(
           // Compact natural rows — exactly the estimated heights, no page-fill
           // inflation. The frame is content-height, so the table closes at the
           // last row and the footer follows the bank band with no dead space.
-          const chunkHeights = p.chunk.map((idx) => heights[idx]);
+          const chunkMeta = p.chunk.map((idx) => rowMeta[idx]);
           return (
             <EntPage
               key={i}
@@ -1008,7 +1029,7 @@ const InvoiceTemplateEnterprise = React.forwardRef(
               sumWithTotal={p.sumWithTotal}
               closing={p.closing}
               chunkItems={chunkItems}
-              chunkHeights={chunkHeights}
+              chunkMeta={chunkMeta}
               startIndex={p.startIndex}
               pageKind={{ isFirst, isLast, pageNo: i + 1, totalPages: pages.length }}
               shared={{

@@ -21,11 +21,13 @@ function isTokenExpired(token) {
 }
 
 function readSession() {
-  const storedToken = sessionStorage.getItem(TOKEN_KEY);
-  const storedUser = sessionStorage.getItem(USER_KEY);
-  const rememberMe = localStorage.getItem(REMEMBER_KEY) === "true";
-  const finalToken = storedToken || (rememberMe ? localStorage.getItem(TOKEN_KEY) : null);
-  const finalUser = storedUser || (rememberMe ? localStorage.getItem(USER_KEY) : null);
+  // Auth must survive a browser restart: the tab-scoped sessionStorage copy is
+  // wiped the moment Chrome closes, so localStorage is the source of truth and
+  // sessionStorage is only a fallback for sessions written by older builds.
+  const finalToken =
+    sessionStorage.getItem(TOKEN_KEY) || localStorage.getItem(TOKEN_KEY);
+  const finalUser =
+    sessionStorage.getItem(USER_KEY) || localStorage.getItem(USER_KEY);
   if (finalToken && finalUser && !isTokenExpired(finalToken)) {
     try {
       return { token: finalToken, user: JSON.parse(finalUser) };
@@ -36,14 +38,9 @@ function readSession() {
   return null;
 }
 
-function writeStorage(key, value, rememberMe) {
-  if (rememberMe) {
-    localStorage.setItem(key, value);
-    sessionStorage.removeItem(key);
-  } else {
-    sessionStorage.setItem(key, value);
-    localStorage.removeItem(key);
-  }
+function writeStorage(key, value) {
+  localStorage.setItem(key, value);
+  sessionStorage.removeItem(key);
 }
 
 function clearAuthStorage() {
@@ -118,8 +115,8 @@ export function AuthProvider({ children }) {
     const res = await authAPI.login({ email, password, rememberMe });
     const data = res.data.data;
     setAuthToken(data.accessToken);
-    writeStorage(TOKEN_KEY, data.accessToken, rememberMe);
-    writeStorage(USER_KEY, JSON.stringify(data), rememberMe);
+    writeStorage(TOKEN_KEY, data.accessToken);
+    writeStorage(USER_KEY, JSON.stringify(data));
     localStorage.setItem(REMEMBER_KEY, String(rememberMe));
     setToken(data.accessToken);
     setUser(data);
@@ -168,8 +165,7 @@ export function AuthProvider({ children }) {
     localStorage.setItem("invoice_template", tpl);
     setSelectedTemplate(tpl);
     const updated = { ...user, selectedTemplate: tpl };
-    const rememberMe = localStorage.getItem(REMEMBER_KEY) === "true";
-    writeStorage(USER_KEY, JSON.stringify(updated), rememberMe);
+    writeStorage(USER_KEY, JSON.stringify(updated));
     setUser(updated);
 
     try {
@@ -184,7 +180,7 @@ export function AuthProvider({ children }) {
       if (prevLocal) localStorage.setItem("invoice_template", prevLocal);
       else localStorage.removeItem("invoice_template");
       setSelectedTemplate(sanitizeTemplate(prevLocal || "template-1"));
-      writeStorage(USER_KEY, JSON.stringify(user), rememberMe);
+      writeStorage(USER_KEY, JSON.stringify(user));
       setUser(user);
       throw err;
     }
@@ -193,8 +189,7 @@ export function AuthProvider({ children }) {
   const setupBusiness = useCallback(async (businessData) => {
     const res = await businessAPI.setup(businessData);
     const updatedUser = { ...user, businessSetupCompleted: true };
-    const rememberMe = localStorage.getItem(REMEMBER_KEY) === "true";
-    writeStorage(USER_KEY, JSON.stringify(updatedUser), rememberMe);
+    writeStorage(USER_KEY, JSON.stringify(updatedUser));
     setUser(updatedUser);
     if (res.data.data) setBusiness(res.data.data);
     return res.data.data;

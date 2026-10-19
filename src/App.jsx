@@ -40,6 +40,8 @@ import AdminAddUsers from "./pages/AdminAddUsers";
 import AdminUsersList from "./pages/AdminUsersList";
 import BusinessInvoices from "./pages/BusinessInvoices";
 import AdminInvoiceView from "./pages/AdminInvoiceView";
+import AdminDashboard from "./pages/AdminDashboard";
+import AdminUserWorkspace from "./pages/AdminUserWorkspace";
 import AdminBusinessesList from "./pages/AdminBusinessesList";
 import AdminCustomersList from "./pages/AdminCustomersList";
 import AdminInvoicesList from "./pages/AdminInvoicesList";
@@ -105,6 +107,7 @@ function AppRoutes() {
       <Route path="/customers/new" element={<PrivateRoute><AddCustomer /></PrivateRoute>} />
       <Route path="/customers" element={<PrivateRoute><CustomersList /></PrivateRoute>} />
       <Route path="/products/new" element={<PrivateRoute><AddProduct /></PrivateRoute>} />
+      <Route path="/products/:id/edit" element={<PrivateRoute><AddProduct /></PrivateRoute>} />
       <Route path="/products" element={<PrivateRoute><ProductsList /></PrivateRoute>} />
       <Route path="/invoice-templates" element={<PrivateRoute><InvoiceTemplates /></PrivateRoute>} />
       <Route path="/payments" element={<PrivateRoute><PaymentsList /></PrivateRoute>} />
@@ -119,6 +122,8 @@ function AppRoutes() {
       <Route path="/profile" element={<Navigate to="/settings" replace />} />
       <Route path="/admin/users" element={<PrivateRoute><AdminAddUsers /></PrivateRoute>} />
       <Route path="/admin/users-list" element={<PrivateRoute><AdminUsersList /></PrivateRoute>} />
+      <Route path="/admin/users/:userId" element={<PrivateRoute><AdminUserWorkspace /></PrivateRoute>} />
+      <Route path="/admin" element={<PrivateRoute><AdminDashboard /></PrivateRoute>} />
       <Route path="/admin/businesses" element={<PrivateRoute><AdminBusinessesList /></PrivateRoute>} />
       <Route path="/admin/customers" element={<PrivateRoute><AdminCustomersList /></PrivateRoute>} />
       <Route path="/admin/products" element={<PrivateRoute><AdminProductsList /></PrivateRoute>} />

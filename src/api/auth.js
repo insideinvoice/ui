@@ -27,6 +27,15 @@ export const businessAPI = {
     });
   },
   removeSignature: () => api.delete("/business/signature"),
+  uploadLogo: (file) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    return api.post("/business/logo", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+      timeout: 120000,
+    });
+  },
+  removeLogo: () => api.delete("/business/logo"),
   industries: () => api.get("/industries"),
 };
 
@@ -137,10 +146,18 @@ export const adminAPI = {
   getAllUsers: () => api.get("/admin/users"),
   getAllBusinesses: () => api.get("/admin/businesses"),
   getBusinessInvoices: (businessId) => api.get(`/admin/businesses/${businessId}/invoices`),
+  // Per-user workspace (admin triage console) — see AdminUserWorkspace.
+  getBusinessCustomers: (businessId) => api.get(`/admin/businesses/${businessId}/customers`),
+  createBusinessCustomer: (businessId, data) => api.post(`/admin/businesses/${businessId}/customers`, data),
+  getBusinessProducts: (businessId) => api.get(`/admin/businesses/${businessId}/products`),
+  createBusinessInvoice: (businessId, data) => api.post(`/admin/businesses/${businessId}/invoices`, data),
+  deleteInvoiceAsAdmin: (invoiceId) => api.delete(`/admin/invoices/${invoiceId}`),
+  deleteCustomerAsAdmin: (customerId) => api.delete(`/admin/customers/${customerId}`),
+  deleteProductAsAdmin: (productId) => api.delete(`/admin/products/${productId}`),
   getInvoice: (id) => api.get(`/admin/invoices/${id}`),
   updateInvoice: (id, data) => api.put(`/admin/invoices/${id}`, data),
   updatePassword: (id, data) => api.put(`/admin/users/${id}/password`, data),
-  updateRole: (id, role) => api.put(`/admin/users/${id}/role`, { role }),
+  updateRole: (id, role, adminPassword) => api.put(`/admin/users/${id}/role`, adminPassword ? { role, adminPassword } : { role }),
   updateUser: (id, data) => api.put(`/admin/users/${id}`, data),
   deleteUser: (id) => api.delete(`/admin/users/${id}`),
   getAllCustomers: () => api.get("/admin/customers"),

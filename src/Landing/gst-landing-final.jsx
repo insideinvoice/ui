@@ -329,8 +329,8 @@ export default function GSTBillingLanding() {
               </div>
 
               <h1 className="text-3xl sm:text-4xl lg:text-6xl font-bold text-slate-900 leading-tight">
-                GST Invoice &amp; Billing <span className="gradient-text">Made Simple</span>{" "}
-                for India
+                GST Invoice &amp; Billing{" "}
+                <span className="gradient-text">Made Simple</span> for India
               </h1>
 
               <p className="text-base sm:text-lg text-slate-600 leading-relaxed font-normal">
@@ -355,16 +355,28 @@ export default function GSTBillingLanding() {
 
               <div className="grid grid-cols-3 gap-4 sm:gap-6 pt-4 sm:pt-6">
                 <div className="text-center">
-                  <div className="text-xl sm:text-2xl font-bold gradient-text">100%</div>
-                  <div className="text-[10px] sm:text-xs text-slate-600 mt-1 font-medium">Web Based/PWA</div>
+                  <div className="text-xl sm:text-2xl font-bold gradient-text">
+                    100%
+                  </div>
+                  <div className="text-[10px] sm:text-xs text-slate-600 mt-1 font-medium">
+                    Web Based/PWA
+                  </div>
                 </div>
                 <div className="text-center">
-                  <div className="text-xl sm:text-2xl font-bold gradient-text">24/7</div>
-                  <div className="text-[10px] sm:text-xs text-slate-600 mt-1 font-medium">Access</div>
+                  <div className="text-xl sm:text-2xl font-bold gradient-text">
+                    24/7
+                  </div>
+                  <div className="text-[10px] sm:text-xs text-slate-600 mt-1 font-medium">
+                    Access
+                  </div>
                 </div>
                 <div className="text-center">
-                  <div className="text-xl sm:text-2xl font-bold gradient-text">Secure</div>
-                  <div className="text-[10px] sm:text-xs text-slate-600 mt-1 font-medium">Cloud</div>
+                  <div className="text-xl sm:text-2xl font-bold gradient-text">
+                    Secure
+                  </div>
+                  <div className="text-[10px] sm:text-xs text-slate-600 mt-1 font-medium">
+                    Cloud
+                  </div>
                 </div>
               </div>
             </div>
@@ -375,34 +387,56 @@ export default function GSTBillingLanding() {
               <div className="relative bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-xl border border-white invoice-float">
                 <div className="flex justify-between items-start mb-4">
                   <div>
-                    <div className="text-xl font-bold gradient-text mb-1">TAX INVOICE</div>
-                    <div className="text-xs text-gray-600 font-medium">Invoice #INV-2026-001</div>
+                    <div className="text-xl font-bold gradient-text mb-1">
+                      TAX INVOICE
+                    </div>
+                    <div className="text-xs text-gray-600 font-medium">
+                      Invoice #INV-2026-001
+                    </div>
                   </div>
-                  <div className="px-3 py-1.5 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-lg font-medium text-xs">PAID</div>
+                  <div className="px-3 py-1.5 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-lg font-medium text-xs">
+                    PAID
+                  </div>
                 </div>
 
                 <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-3 mb-3 border border-blue-200">
-                  <div className="font-medium text-gray-900 mb-1.5 text-sm">ABC Enterprises Pvt Ltd</div>
+                  <div className="font-medium text-gray-900 mb-1.5 text-sm">
+                    ABC Enterprises Pvt Ltd
+                  </div>
                   <div className="text-xs text-gray-600 space-y-0.5">
                     <div>123 Business Street, Mumbai</div>
-                    <div className="font-medium text-blue-700">GSTIN: 27AABCU9603R1ZX</div>
+                    <div className="font-medium text-blue-700">
+                      GSTIN: 27AABCU9603R1ZX
+                    </div>
                   </div>
                 </div>
 
                 <div className="space-y-2 mb-3">
                   <div className="flex justify-between items-center p-2.5 bg-white/50 rounded-lg border border-gray-200">
                     <div>
-                      <div className="font-medium text-gray-900 text-sm">Product Name</div>
-                      <div className="text-[10px] text-gray-600">Qty: 2 × ₹1,000</div>
+                      <div className="font-medium text-gray-900 text-sm">
+                        Product Name
+                      </div>
+                      <div className="text-[10px] text-gray-600">
+                        Qty: 2 × ₹1,000
+                      </div>
                     </div>
-                    <div className="font-medium text-gray-900 text-sm">₹2,000</div>
+                    <div className="font-medium text-gray-900 text-sm">
+                      ₹2,000
+                    </div>
                   </div>
                   <div className="flex justify-between items-center p-2.5 bg-white/50 rounded-lg border border-gray-200">
                     <div>
-                      <div className="font-medium text-gray-900 text-sm">Service Charges</div>
-                      <div className="text-[10px] text-gray-600">Qty: 1 × ₹500</div>
+                      <div className="font-medium text-gray-900 text-sm">
+                        Service Charges
+                      </div>
+                      <div className="text-[10px] text-gray-600">
+                        Qty: 1 × ₹500
+                      </div>
                     </div>
-                    <div className="font-medium text-gray-900 text-sm">₹500</div>
+                    <div className="font-medium text-gray-900 text-sm">
+                      ₹500
+                    </div>
                   </div>
                 </div>
 
@@ -420,16 +454,24 @@ export default function GSTBillingLanding() {
                     <span className="font-medium">₹225</span>
                   </div>
                   <div className="flex justify-between pt-2 border-t border-gray-300">
-                    <span className="font-bold text-sm gradient-text">TOTAL</span>
-                    <span className="font-bold text-lg gradient-text">₹2,950</span>
+                    <span className="font-bold text-sm gradient-text">
+                      TOTAL
+                    </span>
+                    <span className="font-bold text-lg gradient-text">
+                      ₹2,950
+                    </span>
                   </div>
                 </div>
 
                 <div className="mt-4 flex items-center gap-3">
                   <div className="w-16 h-16 bg-gradient-to-br from-blue-200 to-violet-200 rounded-lg flex items-center justify-center">
-                    <div className="text-[10px] font-medium text-blue-700">QR Code</div>
+                    <div className="text-[10px] font-medium text-blue-700">
+                      QR Code
+                    </div>
                   </div>
-                  <div className="text-[10px] text-gray-600 font-normal">Scan to verify invoice authenticity</div>
+                  <div className="text-[10px] text-gray-600 font-normal">
+                    Scan to verify invoice authenticity
+                  </div>
                 </div>
               </div>
 
@@ -439,8 +481,12 @@ export default function GSTBillingLanding() {
                     <Check className="w-5 h-5 text-white" strokeWidth={2.5} />
                   </div>
                   <div>
-                    <div className="font-bold text-gray-900 text-sm">GST Ready</div>
-                    <div className="text-xs text-gray-600 font-normal">100% Compliant</div>
+                    <div className="font-bold text-gray-900 text-sm">
+                      GST Ready
+                    </div>
+                    <div className="text-xs text-gray-600 font-normal">
+                      100% Compliant
+                    </div>
                   </div>
                 </div>
               </div>
@@ -450,7 +496,10 @@ export default function GSTBillingLanding() {
       </section>
 
       {/* Features Section */}
-      <section id="features" className="py-12 sm:py-16 lg:py-20 px-3 sm:px-4 lg:px-6 bg-white">
+      <section
+        id="features"
+        className="py-12 sm:py-16 lg:py-20 px-3 sm:px-4 lg:px-6 bg-white"
+      >
         <div className="max-w-full mx-auto">
           <div className="text-center mb-8 sm:mb-12 lg:mb-16 px-2">
             <div className="inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 bg-white/80 backdrop-blur-sm rounded-full text-xs sm:text-sm font-medium text-slate-700 mb-4 sm:mb-6 border border-slate-200">
@@ -559,62 +608,74 @@ export default function GSTBillingLanding() {
               {
                 icon: <Store className="w-5 h-5" />,
                 title: "Trading, Retail & Distribution",
-                description: "Wholesale, retail and distribution billing with full dispatch details.",
+                description:
+                  "Wholesale, retail and distribution billing with full dispatch details.",
               },
               {
                 icon: <HardHat className="w-5 h-5" />,
                 title: "Construction & Contracting",
-                description: "Work-order billing with project references and delivery notes.",
+                description:
+                  "Work-order billing with project references and delivery notes.",
               },
               {
                 icon: <Factory className="w-5 h-5" />,
                 title: "Manufacturing & Fabrication",
-                description: "Item-wise HSN/SAC invoicing for makers and fabricators.",
+                description:
+                  "Item-wise HSN/SAC invoicing for makers and fabricators.",
               },
               {
                 icon: <Briefcase className="w-5 h-5" />,
                 title: "Professional & Business Services",
-                description: "Clean service invoices for agencies, consultancies and firms.",
+                description:
+                  "Clean service invoices for agencies, consultancies and firms.",
               },
               {
                 icon: <Wrench className="w-5 h-5" />,
                 title: "Repair & Maintenance",
-                description: "Job-card style billing for service and repair workshops.",
+                description:
+                  "Job-card style billing for service and repair workshops.",
               },
               {
                 icon: <Truck className="w-5 h-5" />,
                 title: "Transport & Logistics",
-                description: "Consignment billing with vehicle and carrier details.",
+                description:
+                  "Consignment billing with vehicle and carrier details.",
               },
               {
                 icon: <UtensilsCrossed className="w-5 h-5" />,
                 title: "Food & Hospitality",
-                description: "Cafés, caterers and restaurants billing in seconds.",
+                description:
+                  "Cafés, caterers and restaurants billing in seconds.",
               },
               {
                 icon: <Key className="w-5 h-5" />,
                 title: "Rental & Leasing",
-                description: "Agreement numbers, asset IDs, rental periods and deposits.",
+                description:
+                  "Agreement numbers, asset IDs, rental periods and deposits.",
               },
               {
                 icon: <Server className="w-5 h-5" />,
                 title: "Telecom, IT & Subscriptions",
-                description: "Account-based and subscription-style billing cycles.",
+                description:
+                  "Account-based and subscription-style billing cycles.",
               },
               {
                 icon: <HeartPulse className="w-5 h-5" />,
                 title: "Healthcare & Wellness Services",
-                description: "Clinics and wellness providers — billing only, no medical data.",
+                description:
+                  "Clinics and wellness providers — billing only, no medical data.",
               },
               {
                 icon: <GraduationCap className="w-5 h-5" />,
-                title: "Education & Training",
-                description: "Course, batch and enrolment friendly fee invoices.",
+                title: "Training",
+                description:
+                  "Course, batch and enrolment friendly fee invoices.",
               },
               {
                 icon: <Sprout className="w-5 h-5" />,
                 title: "Agriculture & Primary Goods",
-                description: "Lot, grade and consignment friendly produce billing.",
+                description:
+                  "Lot, grade and consignment friendly produce billing.",
               },
             ].map((industry, index) => (
               <div
@@ -647,9 +708,9 @@ export default function GSTBillingLanding() {
                   General Business
                 </h3>
                 <p className="text-slate-600 leading-relaxed font-normal text-xs sm:text-sm">
-                  Not on the list? The default profile keeps every field
-                  visible — nothing hidden, nothing required. You can switch
-                  industries any time without losing a single invoice.
+                  Not on the list? The default profile keeps every field visible
+                  — nothing hidden, nothing required. You can switch industries
+                  any time without losing a single invoice.
                 </p>
               </div>
               <Link to="/login" className="shrink-0">
@@ -750,9 +811,7 @@ export default function GSTBillingLanding() {
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="text-lg font-bold text-amber-600">
-                        23
-                      </div>
+                      <div className="text-lg font-bold text-amber-600">23</div>
                       <div className="text-[10px] text-slate-400 font-medium">
                         invoices
                       </div>
@@ -852,7 +911,9 @@ export default function GSTBillingLanding() {
                     <div className="text-[10px] text-slate-500 font-medium mb-1">
                       Total Generated
                     </div>
-                    <div className="text-xl font-bold text-slate-900">₹3.6L</div>
+                    <div className="text-xl font-bold text-slate-900">
+                      ₹3.6L
+                    </div>
                   </div>
                   <div className="bg-white rounded-xl p-3.5 border border-slate-200">
                     <div className="text-[10px] text-slate-500 font-medium mb-1">
@@ -917,9 +978,7 @@ export default function GSTBillingLanding() {
                     </defs>
                   </svg>
                   <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <div className="text-3xl font-bold text-slate-900">
-                      92%
-                    </div>
+                    <div className="text-3xl font-bold text-slate-900">92%</div>
                     <div className="text-[10px] text-slate-500 font-medium mt-0.5">
                       Collected
                     </div>
@@ -988,9 +1047,7 @@ export default function GSTBillingLanding() {
                   <h3 className="text-lg font-bold text-slate-900">
                     Sales Trend
                   </h3>
-                  <p className="text-xs text-slate-500">
-                    Live invoice sales
-                  </p>
+                  <p className="text-xs text-slate-500">Live invoice sales</p>
                 </div>
               </div>
 
@@ -1076,7 +1133,6 @@ export default function GSTBillingLanding() {
                     ))}
                   </div>
                 </div>
-
               </div>
             </div>
           </div>
@@ -1101,18 +1157,56 @@ export default function GSTBillingLanding() {
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
                 {[
-                  { icon: <Clock className="w-5 h-5" />, label: "Real-time invoice status tracking", color: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-100" },
-                  { icon: <CreditCard className="w-5 h-5" />, label: "Payment tracking & records", color: "text-sky-600", bg: "bg-sky-50", border: "border-sky-100" },
-                  { icon: <BarChart3 className="w-5 h-5" />, label: "Visual analytics and reports", color: "text-violet-600", bg: "bg-violet-50", border: "border-violet-100" },
-                  { icon: <FileText className="w-5 h-5" />, label: "Export data to Excel", color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-100" },
-                  { icon: <CheckCircle className="w-5 h-5" />, label: "Filter by date, customer, status", color: "text-rose-600", bg: "bg-rose-50", border: "border-rose-100" },
-                  { icon: <Shield className="w-5 h-5" />, label: "GST-compliant reporting", color: "text-teal-600", bg: "bg-teal-50", border: "border-teal-100" },
+                  {
+                    icon: <Clock className="w-5 h-5" />,
+                    label: "Real-time invoice status tracking",
+                    color: "text-emerald-600",
+                    bg: "bg-emerald-50",
+                    border: "border-emerald-100",
+                  },
+                  {
+                    icon: <CreditCard className="w-5 h-5" />,
+                    label: "Payment tracking & records",
+                    color: "text-sky-600",
+                    bg: "bg-sky-50",
+                    border: "border-sky-100",
+                  },
+                  {
+                    icon: <BarChart3 className="w-5 h-5" />,
+                    label: "Visual analytics and reports",
+                    color: "text-violet-600",
+                    bg: "bg-violet-50",
+                    border: "border-violet-100",
+                  },
+                  {
+                    icon: <FileText className="w-5 h-5" />,
+                    label: "Export data to Excel",
+                    color: "text-amber-600",
+                    bg: "bg-amber-50",
+                    border: "border-amber-100",
+                  },
+                  {
+                    icon: <CheckCircle className="w-5 h-5" />,
+                    label: "Filter by date, customer, status",
+                    color: "text-rose-600",
+                    bg: "bg-rose-50",
+                    border: "border-rose-100",
+                  },
+                  {
+                    icon: <Shield className="w-5 h-5" />,
+                    label: "GST-compliant reporting",
+                    color: "text-teal-600",
+                    bg: "bg-teal-50",
+                    border: "border-teal-100",
+                  },
                 ].map((benefit, i) => (
                   <div
                     key={i}
                     className={`rounded-xl p-4 border ${benefit.border} ${benefit.bg} hover:shadow-md transition-shadow`}
                   >
-                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center mb-3 bg-white ${benefit.color}`}>
+                    <div
+                      className={`w-10 h-10 rounded-lg flex items-center justify-center mb-3 bg-white ${benefit.color}`}
+                    >
                       {benefit.icon}
                     </div>
                     <span className="text-slate-700 font-medium text-xs leading-snug block">
@@ -1240,17 +1334,23 @@ export default function GSTBillingLanding() {
           <div className="mt-8 sm:mt-12 flex items-center justify-center gap-6 sm:gap-8 text-white">
             <div className="text-center">
               <div className="text-xl sm:text-2xl font-bold">100%</div>
-              <div className="text-[10px] sm:text-xs text-slate-200 font-medium">Web Based/PWA</div>
+              <div className="text-[10px] sm:text-xs text-slate-200 font-medium">
+                Web Based/PWA
+              </div>
             </div>
             <div className="w-px h-8 sm:h-10 bg-white/30"></div>
             <div className="text-center">
               <div className="text-xl sm:text-2xl font-bold">Secure</div>
-              <div className="text-[10px] sm:text-xs text-slate-200 font-medium">Cloud</div>
+              <div className="text-[10px] sm:text-xs text-slate-200 font-medium">
+                Cloud
+              </div>
             </div>
             <div className="w-px h-8 sm:h-10 bg-white/30"></div>
             <div className="text-center">
               <div className="text-xl sm:text-2xl font-bold">24/7</div>
-              <div className="text-[10px] sm:text-xs text-slate-200 font-medium">Support</div>
+              <div className="text-[10px] sm:text-xs text-slate-200 font-medium">
+                Support
+              </div>
             </div>
           </div>
         </div>
@@ -1265,13 +1365,37 @@ export default function GSTBillingLanding() {
                 <div className="w-9 h-9 sm:w-10 sm:h-10 bg-gradient-to-br from-slate-700 via-gray-700 to-slate-900 rounded-xl flex items-center justify-center shadow-md">
                   <svg width="20" height="20" viewBox="0 0 32 32" fill="none">
                     <circle cx="10" cy="8" r="2.5" fill="white" />
-                    <rect x="8.5" y="12" width="3" height="12" rx="1.5" fill="white" />
-                    <circle cx="20" cy="11" r="1.8" fill="white" opacity="0.9" />
-                    <rect x="18.6" y="15" width="2.8" height="9" rx="1.4" fill="white" opacity="0.9" />
+                    <rect
+                      x="8.5"
+                      y="12"
+                      width="3"
+                      height="12"
+                      rx="1.5"
+                      fill="white"
+                    />
+                    <circle
+                      cx="20"
+                      cy="11"
+                      r="1.8"
+                      fill="white"
+                      opacity="0.9"
+                    />
+                    <rect
+                      x="18.6"
+                      y="15"
+                      width="2.8"
+                      height="9"
+                      rx="1.4"
+                      fill="white"
+                      opacity="0.9"
+                    />
                   </svg>
                 </div>
                 <div>
-                  <span className="text-base sm:text-lg font-bold text-white" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
+                  <span
+                    className="text-base sm:text-lg font-bold text-white"
+                    style={{ fontFamily: "'Space Grotesk', sans-serif" }}
+                  >
                     Inside Invoice
                   </span>
                   <div className="text-[7px] sm:text-[8px] text-slate-400 font-medium tracking-widest">
@@ -1280,49 +1404,147 @@ export default function GSTBillingLanding() {
                 </div>
               </div>
               <p className="text-gray-400 text-xs sm:text-sm font-normal">
-                Built for Indian small businesses. Making GST billing simple and beautiful.
+                Built for Indian small businesses. Making GST billing simple and
+                beautiful.
               </p>
             </div>
 
             <div>
-              <h4 className="text-white font-bold mb-2 sm:mb-3 text-sm sm:text-base">Products</h4>
+              <h4 className="text-white font-bold mb-2 sm:mb-3 text-sm sm:text-base">
+                Products
+              </h4>
               <ul className="space-y-1.5 sm:space-y-2 text-xs sm:text-sm font-normal">
-                <li><Link to="/gst-calculator" className="hover:text-slate-400 transition-colors">GST Calculator</Link></li>
-                <li><Link to="/qr-generator" className="hover:text-slate-400 transition-colors">QR Code Generator</Link></li>
-                <li><Link to="/barcode-generator" className="hover:text-slate-400 transition-colors">Barcode Generator</Link></li>
-                <li><Link to="/business-card" className="hover:text-slate-400 transition-colors">Business Card</Link></li>
+                <li>
+                  <Link
+                    to="/gst-calculator"
+                    className="hover:text-slate-400 transition-colors"
+                  >
+                    GST Calculator
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    to="/qr-generator"
+                    className="hover:text-slate-400 transition-colors"
+                  >
+                    QR Code Generator
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    to="/barcode-generator"
+                    className="hover:text-slate-400 transition-colors"
+                  >
+                    Barcode Generator
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    to="/business-card"
+                    className="hover:text-slate-400 transition-colors"
+                  >
+                    Business Card
+                  </Link>
+                </li>
               </ul>
             </div>
 
             <div>
-              <h4 className="text-white font-bold mb-2 sm:mb-3 text-sm sm:text-base">Support</h4>
+              <h4 className="text-white font-bold mb-2 sm:mb-3 text-sm sm:text-base">
+                Support
+              </h4>
               <ul className="space-y-1.5 sm:space-y-2 text-xs sm:text-sm font-normal">
-                <li><Link to="/help" className="hover:text-slate-400 transition-colors">Help Center</Link></li>
-                <li><Link to="/video" className="hover:text-slate-400 transition-colors">Video Tutorials</Link></li>
-                <li><Link to="/documentation" className="hover:text-slate-400 transition-colors">Documentation</Link></li>
-                <li><Link to="/contact" className="hover:text-slate-400 transition-colors">Contact Us</Link></li>
+                <li>
+                  <Link
+                    to="/help"
+                    className="hover:text-slate-400 transition-colors"
+                  >
+                    Help Center
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    to="/video"
+                    className="hover:text-slate-400 transition-colors"
+                  >
+                    Video Tutorials
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    to="/documentation"
+                    className="hover:text-slate-400 transition-colors"
+                  >
+                    Documentation
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    to="/contact"
+                    className="hover:text-slate-400 transition-colors"
+                  >
+                    Contact Us
+                  </Link>
+                </li>
               </ul>
             </div>
 
             <div>
-              <h4 className="text-white font-bold mb-2 sm:mb-3 text-sm sm:text-base">Company</h4>
+              <h4 className="text-white font-bold mb-2 sm:mb-3 text-sm sm:text-base">
+                Company
+              </h4>
               <ul className="space-y-1.5 sm:space-y-2 text-xs sm:text-sm font-normal">
-                <li><span className="text-slate-400">About Gritx Technologies</span></li>
-                <li><Link to="/terms-and-condition" className="hover:text-slate-400 transition-colors">Terms & Conditions</Link></li>
-                <li><Link to="/refund-policy" className="hover:text-slate-400 transition-colors">Refund Policy</Link></li>
-                <li><Link to="/privacy-policy" className="hover:text-slate-400 transition-colors">Privacy Policy</Link></li>
+                <li>
+                  <span className="text-slate-400">
+                    About Gritx Technologies
+                  </span>
+                </li>
+                <li>
+                  <Link
+                    to="/terms-and-condition"
+                    className="hover:text-slate-400 transition-colors"
+                  >
+                    Terms & Conditions
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    to="/refund-policy"
+                    className="hover:text-slate-400 transition-colors"
+                  >
+                    Refund Policy
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    to="/privacy-policy"
+                    className="hover:text-slate-400 transition-colors"
+                  >
+                    Privacy Policy
+                  </Link>
+                </li>
               </ul>
             </div>
           </div>
 
           <div className="border-t border-gray-800 pt-6 sm:pt-8 flex flex-col md:flex-row justify-between items-center gap-3 sm:gap-4">
             <p className="text-[10px] sm:text-xs text-gray-400 font-normal">
-              &copy; {year} Inside Invoice by Gritx Technologies. All rights reserved.
+              &copy; {year} Inside Invoice by Gritx Technologies. All rights
+              reserved.
             </p>
             <div className="flex gap-2 sm:gap-4">
-              <a href="https://x.com/InsideInvoice" className="text-gray-400 hover:text-slate-400 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center" target="_blank" rel="noopener noreferrer">
-                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.727-8.835L1.254 2.25H8.08l4.253 5.622L18.244 2.25zm-1.161 17.52h1.833L7.084 4.126H5.117L17.083 19.77z"/>
+              <a
+                href="https://x.com/InsideInvoice"
+                className="text-gray-400 hover:text-slate-400 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <svg
+                  className="w-5 h-5"
+                  fill="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.727-8.835L1.254 2.25H8.08l4.253 5.622L18.244 2.25zm-1.161 17.52h1.833L7.084 4.126H5.117L17.083 19.77z" />
                 </svg>
               </a>
               {/* GitHub — commented out for now
@@ -1332,7 +1554,7 @@ export default function GSTBillingLanding() {
                 </svg>
               </a>
             */}
-            {/* LinkedIn — commented out for now
+              {/* LinkedIn — commented out for now
               <a href="#" className="text-gray-400 hover:text-slate-400 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center">
                 <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z" />

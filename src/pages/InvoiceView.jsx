@@ -761,14 +761,10 @@ export default function InvoiceView() {
         /iPad|iPhone|iPod/.test(navigator.userAgent) ||
         (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
       const smsLink = `sms:${phone}${isIOS ? "&" : "?"}body=${encodeURIComponent(text)}`;
-      // Use a hidden anchor click so the SMS app opens without navigating
-      // the current tab away (window.location.href would leave the invoice).
-      const a = document.createElement("a");
-      a.href = smsLink;
-      a.style.display = "none";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
+      // Navigate the current tab to the sms: scheme. This avoids the
+      // "Open in Messages?" confirmation prompt that a programmatic anchor
+      // click triggers on iOS/Android.
+      window.location.href = smsLink;
       setShowShareSheet(false);
     } catch (err) {
       toast.error(err.response?.data?.message || "Could not open the SMS app");

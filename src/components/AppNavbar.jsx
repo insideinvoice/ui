@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, memo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef, memo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import {
@@ -128,6 +128,14 @@ const bottomTabs = [
   { label: "More", icon: Menu, path: "/more" },
 ];
 
+// MODULE-SCOPED: AppNavbar is rendered inside each page component, so every
+// route change remounts it and a component-level state (or the new <nav>'s
+// default scrollTop: 0) would snap the sidebar back to the top. Keeping the
+// value here lets the fresh mount restore the exact scroll offset the user
+// navigated from, so the clicked item stays in view instead of the sidebar
+// "jumping to the top" on every navigation.
+let sidebarNavScrollTop = 0;
+
 export default memo(function AppNavbar() {
   const { logout, isAdmin, documentAccess } = useAuth();
   const navigate = useNavigate();
@@ -145,6 +153,13 @@ export default memo(function AppNavbar() {
     typeof window !== "undefined" && window.matchMedia(RAIL_MEDIA).matches
   );
   const railExpanded = railMode && !railCollapsed;
+  const sidebarNavRef = useRef(null);
+  // Restore the sidebar's scroll position immediately on mount (before paint via
+  // useLayoutEffect-like timing is not required — the inner nav inherits 0 and
+  // this corrects it in the same commit, so there is no visible jump).
+  useEffect(() => {
+    if (sidebarNavRef.current) sidebarNavRef.current.scrollTop = sidebarNavScrollTop;
+  }, []);
   useNavbarHeightVar();
 
   useEffect(() => {
@@ -322,7 +337,11 @@ export default memo(function AppNavbar() {
       </div>
 
       {/* Nav items */}
-      <nav className="flex-1 overflow-y-auto px-3 py-3 space-y-1">
+      <nav
+        ref={sidebarNavRef}
+        onScroll={(e) => { sidebarNavScrollTop = e.currentTarget.scrollTop; }}
+        className="flex-1 overflow-y-auto px-3 py-3 space-y-1"
+      >
         {dropdownSections.map((section) => (
           <div key={section.header} className="mb-2">
             <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-3 py-1.5 rail-hide">

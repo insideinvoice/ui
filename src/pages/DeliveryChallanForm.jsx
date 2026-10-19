@@ -7,7 +7,7 @@ import { deliveryChallanAPI, customerAPI, businessAPI } from "../api/auth";
 import { renderDeliveryChallanPdf } from "../components/DeliveryChallanDownload";
 import { goBack } from "../utils/navigation";
 import toast from "react-hot-toast";
-import { ArrowLeft, Plus, Trash2, Download, ClipboardList } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Download, ClipboardList, X, UserPlus } from "lucide-react";
 
 const inputClass =
   "w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-400/30 focus:border-slate-400 bg-white transition-all min-h-[44px]";
@@ -26,6 +26,19 @@ export default function DeliveryChallanForm() {
   const [business, setBusiness] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+
+  // On-the-fly customer creation: the customer select carries a "+ New
+  // Customer" option that opens this modal; the created customer is
+  // appended to the list and auto-selected so the form is never interrupted.
+  const [showCustomerModal, setShowCustomerModal] = useState(false);
+  const [creatingCustomer, setCreatingCustomer] = useState(false);
+  const [newCustomer, setNewCustomer] = useState({
+    name: "",
+    phone: "",
+    email: "",
+    gstIn: "",
+    billingAddress: "",
+  });
 
   const [template, setTemplate] = useState(
     () => searchParams.get("template") || localStorage.getItem("ii_dc_template") || "classic"
@@ -69,6 +82,51 @@ export default function DeliveryChallanForm() {
   }, [sealOn]);
 
   const setField = (name, value) => setForm((f) => ({ ...f, [name]: value }));
+
+  const handleCustomerSelect = (value) => {
+    if (value === "__new_customer__") {
+      setShowCustomerModal(true);
+      return;
+    }
+    setField("customerId", value);
+  };
+
+  const setNewCustomerField = (name, value) =>
+    setNewCustomer((c) => ({ ...c, [name]: value }));
+
+  const createCustomerOnTheFly = async () => {
+    const name = newCustomer.name.trim();
+    if (!name) {
+      toast.error("Customer name is required");
+      return;
+    }
+    setCreatingCustomer(true);
+    try {
+      const res = await customerAPI.create({
+        name,
+        email: newCustomer.email || undefined,
+        phone: newCustomer.phone || undefined,
+        billingAddress: newCustomer.billingAddress || undefined,
+        gstIn: newCustomer.gstIn || undefined,
+      });
+      const created = res.data.data;
+      setCustomers((list) => [...list, created]);
+      setField("customerId", String(created.id));
+      setShowCustomerModal(false);
+      setNewCustomer({
+        name: "",
+        phone: "",
+        email: "",
+        gstIn: "",
+        billingAddress: "",
+      });
+      toast.success("Customer created & selected");
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to create customer");
+    } finally {
+      setCreatingCustomer(false);
+    }
+  };
 
   const setItem = (idx, name, value) =>
     setItems((list) => list.map((it, i) => (i === idx ? { ...it, [name]: value } : it)));
@@ -241,10 +299,11 @@ export default function DeliveryChallanForm() {
               <label className={labelClass}>Customer *</label>
               <select
                 value={form.customerId}
-                onChange={(e) => setField("customerId", e.target.value)}
+                onChange={(e) => handleCustomerSelect(e.target.value)}
                 className={inputClass}
               >
-                <option value="">Customer</option>
+                <option value="">Select customer *</option>
+                <option value="__new_customer__">➕ New Customer…</option>
                 {customers.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name}
@@ -345,6 +404,127 @@ export default function DeliveryChallanForm() {
             </button>
           </div>
         </div>
+
+        {/* Quick-create customer modal — opened from the "+ New Customer"
+            option in the customer select; the new customer is saved and
+            auto-selected without leaving this form. */}
+        {showCustomerModal && (
+          <div
+            className="fixed inset-0 z-[1100] bg-black/40 backdrop-blur-sm flex items-end sm:items-center justify-center p-3"
+            onClick={() => !creatingCustomer && setShowCustomerModal(false)}
+          >
+            <div
+              className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center gap-3 px-5 py-4 border-b border-slate-100">
+                <div className="w-9 h-9 rounded-lg bg-teal-50 border border-teal-100 flex items-center justify-center shrink-0">
+                  <UserPlus className="w-4.5 h-4.5 text-teal-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-sm font-bold text-slate-900">New Customer</h3>
+                  <p className="text-xs text-slate-500">Created instantly & selected below</p>
+                </div>
+                <button
+                  onClick={() => !creatingCustomer && setShowCustomerModal(false)}
+                  aria-label="Close"
+                  className="p-2 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="px-5 py-4 space-y-3 max-h-[65vh] overflow-y-auto">
+                <div>
+                  <label className={labelClass}>Name *</label>
+                  <input
+                    autoFocus
+                    value={newCustomer.name}
+                    onChange={(e) => setNewCustomerField("name", e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        createCustomerOnTheFly();
+                      }
+                    }}
+                    className={inputClass}
+                    placeholder="Customer name"
+                  />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className={labelClass}>Phone</label>
+                    <input
+                      type="tel"
+                      inputMode="numeric"
+                      value={newCustomer.phone}
+                      onChange={(e) =>
+                        setNewCustomerField(
+                          "phone",
+                          e.target.value.replace(/\D/g, "").replace(/^0+/, "").slice(0, 10)
+                        )
+                      }
+                      className={inputClass}
+                      placeholder="10-digit mobile"
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Email</label>
+                    <input
+                      type="email"
+                      value={newCustomer.email}
+                      onChange={(e) => setNewCustomerField("email", e.target.value)}
+                      className={inputClass}
+                      placeholder="name@example.com"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className={labelClass}>GSTIN</label>
+                  <input
+                    type="text"
+                    value={newCustomer.gstIn}
+                    onChange={(e) => setNewCustomerField("gstIn", e.target.value.toUpperCase())}
+                    className={inputClass}
+                    placeholder="22AAAAA0000A1Z5"
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>Billing address</label>
+                  <textarea
+                    rows={2}
+                    value={newCustomer.billingAddress}
+                    onChange={(e) => setNewCustomerField("billingAddress", e.target.value)}
+                    className={inputClass + " resize-none"}
+                    placeholder="Street, city, state, PIN"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-2 px-5 py-4 border-t border-slate-100 bg-slate-50/60">
+                <button
+                  onClick={createCustomerOnTheFly}
+                  disabled={creatingCustomer || !newCustomer.name.trim()}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-teal-600 text-white text-sm font-semibold rounded-lg hover:bg-teal-700 disabled:opacity-50 transition-all shadow-sm min-h-[44px]"
+                >
+                  {creatingCustomer ? (
+                    <LoadingDots className="text-white" />
+                  ) : (
+                    <UserPlus className="w-4 h-4" />
+                  )}
+                  {creatingCustomer ? "Creating…" : "Create & Select"}
+                </button>
+                <button
+                  onClick={() => setShowCustomerModal(false)}
+                  disabled={creatingCustomer}
+                  className="px-4 py-2.5 bg-white text-slate-700 text-sm font-semibold rounded-lg border border-slate-300 hover:bg-slate-50 transition-all min-h-[44px]"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

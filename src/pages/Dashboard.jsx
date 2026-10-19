@@ -2,8 +2,8 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { adminAPI, invoiceAPI, customerAPI } from "../api/auth";
-import { FileText, Users, Package, Building2, PlusCircle, List, BarChart3, DollarSign, TrendingUp, Calendar } from "lucide-react";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LineChart, Line } from "recharts";
+import { FileText, Users, Package, Building2, PlusCircle, List, BarChart3, DollarSign, TrendingUp, Calendar, UserPlus, Settings } from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from "recharts";
 
 import AppNavbar from "../components/AppNavbar";
 import { getCache, setCache } from "../utils/cache";
@@ -50,9 +50,6 @@ export default function Dashboard() {
   const [cached] = useState(() => getCache(cacheKey, CACHE_TTL));
 
   const [stats, setStats] = useState(cached?.data?.stats ?? null);
-  const [users, setUsers] = useState(cached?.data?.users ?? []);
-  const [businesses, setBusinesses] = useState(cached?.data?.businesses ?? []);
-  const [analytics, setAnalytics] = useState(cached?.data?.analytics ?? null);
   const [invoices, setInvoices] = useState(cached?.data?.invoices ?? []);
   const [customerCount, setCustomerCount] = useState(cached?.data?.customerCount ?? 0);
   const [loadingStats, setLoadingStats] = useState(!cached);
@@ -66,28 +63,14 @@ export default function Dashboard() {
     }
   }, [isBusinessSetupComplete, navigate, isAdmin]);
 
-  // Fetch admin data
+  // Fetch admin data (only what the top KPI row needs — no graphs)
   const fetchAdminData = useCallback(async () => {
     setLoadingStats(true);
     try {
-      const [statsRes, usersRes, bizRes, analyticsRes] = await Promise.all([
-        adminAPI.getStats(),
-        adminAPI.getAllUsers(),
-        adminAPI.getAllBusinesses(),
-        adminAPI.getAnalytics(),
-      ]);
-      const unwrap = (d) => (Array.isArray(d) ? d : Array.isArray(d?.content) ? d.content : []);
-      const statsData = statsRes.data.data;
-      const usersData = unwrap(usersRes.data.data);
-      const bizData = unwrap(bizRes.data.data);
-      const analyticsData = analyticsRes.data.data;
-
-      setStats(statsData);
-      setUsers(usersData);
-      setBusinesses(bizData);
-      setAnalytics(analyticsData);
+      const statsRes = await adminAPI.getStats();
+      setStats(statsRes.data.data);
     } catch (err) {
-      console.error("Admin data fetch failed:", err.response?.status, err.message);
+      console.error("Admin stats fetch failed:", err.response?.status, err.message);
     } finally {
       setLoadingStats(false);
     }
@@ -142,7 +125,6 @@ export default function Dashboard() {
     }
     fetchInvoices();
   }, [isAdmin, cached, fetchAdminData, fetchCustomerCount, fetchInvoices]);
-
   // Persist to storage whenever data changes — debounced so a burst of state
   // updates doesn't JSON.stringify up to 1000 invoices on the main thread while
   // the charts are painting, and skipped on a fresh-cache mount where the load
@@ -152,20 +134,10 @@ export default function Dashboard() {
     if (hadFreshCache || loadingStats || loadingInvoices) return undefined;
     if (!stats && invoices.length === 0) return undefined;
     const timer = setTimeout(() => {
-      setCache(cacheKey, { stats, users, businesses, analytics, invoices, customerCount });
+      setCache(cacheKey, { stats, invoices, customerCount });
     }, 400);
     return () => clearTimeout(timer);
-  }, [stats, users, businesses, analytics, invoices, customerCount, loadingStats, loadingInvoices, cacheKey, hadFreshCache]);
-
-  const chartData = useMemo(() => {
-    return stats ? [
-      { name: "Users", value: stats.totalUsers },
-      { name: "Businesses", value: stats.totalBusinesses },
-      { name: "Invoices", value: stats.totalInvoices },
-      { name: "Customers", value: stats.totalCustomers },
-      { name: "Products", value: stats.totalProducts },
-    ] : [];
-  }, [stats]);
+  }, [stats, invoices, customerCount, loadingStats, loadingInvoices, cacheKey, hadFreshCache]);
 
   const invoiceAnalytics = useMemo(() => {
     const valid = invoices;
@@ -243,16 +215,27 @@ export default function Dashboard() {
             </p>
           </div>
 
-          {/* Quick Actions - 2x2 grid on mobile, 4-col on desktop */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-4 sm:mb-6">
-            {[
+          {/* Quick Actions - 2x2 grid on mobile, 5-col on desktop for admin */}
+          <div className={`grid grid-cols-2 gap-3 sm:gap-4 mb-4 sm:mb-6 ${isAdmin ? "lg:grid-cols-5" : "lg:grid-cols-4"}`}>
+            {(isAdmin ? [
+              { label: "Add User", icon: UserPlus, path: "/admin/users", iconBg: "bg-emerald-50", iconColor: "text-emerald-600", border: "border-emerald-100 hover:border-emerald-200" },
+              { label: "All Users", icon: Users, path: "/admin/users-list", iconBg: "bg-indigo-50", iconColor: "text-indigo-600", border: "border-indigo-100 hover:border-indigo-200", count: Number(stats?.totalUsers) || 0 },
+              { label: "All Invoices", icon: FileText, path: "/admin/invoices", iconBg: "bg-blue-50", iconColor: "text-blue-600", border: "border-blue-100 hover:border-blue-200", count: invoiceAnalytics.invoiceCount },
+              { label: "All Businesses", icon: Building2, path: "/admin/businesses", iconBg: "bg-amber-50", iconColor: "text-amber-600", border: "border-amber-100 hover:border-amber-200", count: Number(stats?.totalBusinesses) || 0 },
+              { label: "Settings", icon: Settings, path: "/settings", iconBg: "bg-slate-100", iconColor: "text-slate-600", border: "border-slate-200 hover:border-slate-300" },
+            ] : [
               { label: "New Invoice", icon: PlusCircle, path: "/invoice", iconBg: "bg-blue-50", iconColor: "text-blue-600", border: "border-blue-100 hover:border-blue-200" },
               { label: "View Invoices", icon: List, path: "/invoices", iconBg: "bg-indigo-50", iconColor: "text-indigo-600", border: "border-indigo-100 hover:border-indigo-200" },
               { label: "Add Customer", icon: Users, path: "/customers/new", iconBg: "bg-emerald-50", iconColor: "text-emerald-600", border: "border-emerald-100 hover:border-emerald-200" },
               { label: "Add Product", icon: Package, path: "/products/new", iconBg: "bg-violet-50", iconColor: "text-violet-600", border: "border-violet-100 hover:border-violet-200" },
-            ].map((card) => (
+            ]).map((card) => (
               <div key={card.label} onClick={() => navigate(card.path)}
-                className={`bg-white rounded-xl p-3 sm:p-4 cursor-pointer active:scale-[0.97] transition-all shadow-sm border ${card.border} hover:shadow-md`}>
+                className={`relative bg-white rounded-xl p-3 sm:p-4 cursor-pointer active:scale-[0.97] transition-all shadow-sm border ${card.border} hover:shadow-md`}>
+                {card.count != null && (
+                  <span className="absolute top-2.5 right-2.5 sm:top-3 sm:right-3 text-[10px] font-bold text-slate-500 bg-slate-100 rounded-full px-1.5 py-0.5 min-w-[20px] text-center">
+                    {card.count > 999 ? "999+" : card.count}
+                  </span>
+                )}
                 <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl ${card.iconBg} flex items-center justify-center mb-2.5`}>
                   <card.icon className={`w-4.5 h-4.5 sm:w-5 sm:h-5 ${card.iconColor}`} />
                 </div>
@@ -262,15 +245,22 @@ export default function Dashboard() {
           </div>
 
           {/* Stats Row - 2-col grid on mobile, 4-col on desktop */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-4 sm:mb-6">
+          <div className={`grid grid-cols-2 gap-3 sm:gap-4 mb-4 sm:mb-6 ${isAdmin ? "lg:grid-cols-3" : "lg:grid-cols-4"}`}>
             {statsLoading ? (
               [0, 1, 2, 3].map((i) => <StatSkeleton key={i} />)
             ) : (
             [
-              { label: "Sales", value: `₹ ${invoiceAnalytics.totalSales.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`, icon: DollarSign, gradient: "from-emerald-500 to-emerald-600", path: "/invoices" },
-              { label: "Invoices", value: invoiceAnalytics.invoiceCount, icon: FileText, gradient: "from-blue-500 to-blue-600", path: "/invoices" },
-              { label: "Customers", value: isAdmin ? (stats?.totalCustomers || 0) : customerCount, icon: Users, gradient: "from-indigo-500 to-indigo-600", path: "/customers" },
-              { label: "This Month", value: `₹ ${(invoiceAnalytics.salesByMonth.length > 0 ? invoiceAnalytics.salesByMonth[invoiceAnalytics.salesByMonth.length - 1].sales : 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`, icon: Calendar, gradient: "from-amber-500 to-amber-600", path: "/invoices" },
+              { label: "Sales", value: `₹ ${invoiceAnalytics.totalSales.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`, icon: DollarSign, gradient: "from-emerald-500 to-emerald-600", path: isAdmin ? "/admin/invoices" : "/invoices" },
+              ...(isAdmin
+                ? [
+                    { label: "This Month", value: `₹ ${(invoiceAnalytics.salesByMonth.length > 0 ? invoiceAnalytics.salesByMonth[invoiceAnalytics.salesByMonth.length - 1].sales : 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`, icon: Calendar, gradient: "from-amber-500 to-amber-600", path: "/admin/invoices" },
+                    { label: "Products", value: Number(stats?.totalProducts) || 0, icon: Package, gradient: "from-violet-500 to-violet-600", path: "/admin/products" },
+                  ]
+                : [
+                    { label: "Invoices", value: invoiceAnalytics.invoiceCount, icon: FileText, gradient: "from-blue-500 to-blue-600", path: "/invoices" },
+                    { label: "Customers", value: customerCount, icon: Users, gradient: "from-indigo-500 to-indigo-600", path: "/customers" },
+                    { label: "This Month", value: `₹ ${(invoiceAnalytics.salesByMonth.length > 0 ? invoiceAnalytics.salesByMonth[invoiceAnalytics.salesByMonth.length - 1].sales : 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`, icon: Calendar, gradient: "from-amber-500 to-amber-600", path: "/invoices" },
+                  ]),
             ].map((stat) => (
               <div key={stat.label} onClick={() => navigate(stat.path)} className="bg-white rounded-xl border border-slate-200 p-3 sm:p-4 shadow-sm cursor-pointer active:scale-[0.97] transition-all hover:shadow-md">
                 <div className="flex items-center gap-2 mb-1.5">
@@ -287,6 +277,8 @@ export default function Dashboard() {
 
           {/* Charts */}
           <div className="space-y-4 sm:space-y-6">
+            {/* Sales trend + last 7 days: side by side on desktop, stacked on mobile */}
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-3 sm:gap-4 items-start">
             {/* Sales vs Months */}
             <div className="bg-white rounded-xl border border-slate-200 p-3 sm:p-4 shadow-sm">
               <div className="flex items-center gap-2 mb-3">
@@ -336,6 +328,7 @@ export default function Dashboard() {
                 <p className="text-xs text-slate-400 text-center py-10">No sales in last 7 days</p>
               )}
             </div>
+            </div>
 
             {/* Monthly Sales */}
             <div className="bg-white rounded-xl border border-slate-200 p-3 sm:p-4 shadow-sm">
@@ -384,161 +377,6 @@ export default function Dashboard() {
               )}
             </div>
 
-            {/* Admin sections */}
-            {isAdmin && (
-              <>
-                {/* Admin Stats Grid */}
-                <div className="grid grid-cols-3 gap-3 sm:gap-4">
-                  {[
-                    { label: "Users", count: stats?.totalUsers, color: "from-indigo-500 to-indigo-600", path: "/admin/users-list" },
-                    { label: "Businesses", count: stats?.totalBusinesses, color: "from-amber-500 to-amber-600", path: "/admin/businesses" },
-                    { label: "Invoices", count: stats?.totalInvoices, color: "from-blue-500 to-blue-600", path: "/admin/invoices" },
-                    { label: "Customers", count: stats?.totalCustomers, color: "from-emerald-500 to-emerald-600", path: "/admin/customers" },
-                    { label: "Active", count: users.length || 0, color: "from-teal-500 to-teal-600", path: "/admin/users-list" },
-                    { label: "Role", count: user?.role === "ADMIN" ? "Admin" : "Client", color: "from-purple-500 to-purple-600", path: "/settings" },
-                  ].map((card) => (
-                    <div key={card.label}
-                      onClick={() => card.path && navigate(card.path)}
-                      className="bg-white rounded-xl border border-slate-200 p-3 cursor-pointer active:scale-[0.97] transition-transform shadow-sm">
-                      <div className={`w-7 h-7 rounded-lg bg-gradient-to-br ${card.color} flex items-center justify-center mb-2`}>
-                        <span className="text-[10px] font-bold text-white">{typeof card.count === "number" ? (card.count > 99 ? "99+" : card.count) : card.count?.[0]}</span>
-                      </div>
-                      <div className="text-sm sm:text-base font-bold text-slate-900 truncate">
-                        {loadingStats && !stats ? <span className="inline-block w-8 h-5 bg-slate-200 rounded animate-pulse" /> : (card.count ?? 0)}
-                      </div>
-                      <div className="text-[10px] text-slate-500">{card.label}</div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Platform Chart */}
-                <div className="bg-white rounded-xl border border-slate-200 p-3 sm:p-4 shadow-sm">
-                  <div className="flex items-center gap-2 mb-3">
-                    <BarChart3 className="w-4 h-4 text-indigo-600" />
-                    <h2 className="text-sm font-semibold text-slate-900">Platform Overview</h2>
-                  </div>
-                  {loadingStats && !stats ? (
-                    <ChartSkeleton />
-                  ) : chartData.length > 0 ? (
-                    <div className="h-44 sm:h-56">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={chartData} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                          <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#64748b' }} />
-                          <YAxis tick={{ fontSize: 10, fill: '#64748b' }} allowDecimals={false} />
-                          <Tooltip contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '11px' }} cursor={{ fill: '#f8fafc' }} />
-                          <Bar dataKey="value" radius={[4, 4, 0, 0]} maxBarSize={50}>
-                            {chartData.map((entry, idx) => {
-                              const colors = ['#6366f1', '#f59e0b', '#3b82f6', '#10b981', '#8b5cf6'];
-                              return <Cell key={idx} fill={colors[idx % colors.length]} />;
-                            })}
-                          </Bar>
-                        </BarChart>
-                      </ResponsiveContainer>
-                    </div>
-                  ) : (
-                    <p className="text-xs text-slate-400 text-center py-10">No data yet</p>
-                  )}
-                </div>
-
-                {/* User Signups & Invoices */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                  <div className="bg-white rounded-xl border border-slate-200 p-3 sm:p-4 shadow-sm">
-                    <div className="flex items-center gap-2 mb-3">
-                      <Users className="w-4 h-4 text-indigo-600" />
-                      <h2 className="text-sm font-semibold text-slate-900">User Signups</h2>
-                    </div>
-                    {loadingStats && !analytics ? (
-                      <ChartSkeleton small />
-                    ) : analytics?.usersByMonth?.length > 0 ? (
-                      <div className="h-40 sm:h-48">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <BarChart data={analytics.usersByMonth} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                            <XAxis dataKey="month" tick={{ fontSize: 9, fill: '#64748b' }} />
-                            <YAxis tick={{ fontSize: 9, fill: '#64748b' }} allowDecimals={false} />
-                            <Tooltip contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '11px' }} />
-                            <Bar dataKey="count" fill="#6366f1" radius={[4, 4, 0, 0]} maxBarSize={40} name="Users" />
-                          </BarChart>
-                        </ResponsiveContainer>
-                      </div>
-                    ) : (
-                      <p className="text-xs text-slate-400 text-center py-8">No data yet</p>
-                    )}
-                  </div>
-                  <div className="bg-white rounded-xl border border-slate-200 p-3 sm:p-4 shadow-sm">
-                    <div className="flex items-center gap-2 mb-3">
-                      <FileText className="w-4 h-4 text-slate-600" />
-                      <h2 className="text-sm font-semibold text-slate-900">Invoices</h2>
-                    </div>
-                    {loadingStats && !analytics ? (
-                      <ChartSkeleton small />
-                    ) : analytics?.invoicesByMonth?.length > 0 ? (
-                      <div className="h-40 sm:h-48">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <BarChart data={analytics.invoicesByMonth} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                            <XAxis dataKey="month" tick={{ fontSize: 9, fill: '#64748b' }} />
-                            <YAxis tick={{ fontSize: 9, fill: '#64748b' }} allowDecimals={false} />
-                            <Tooltip contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '11px' }} />
-                            <Bar dataKey="count" fill="#3b82f6" radius={[4, 4, 0, 0]} maxBarSize={40} name="Invoices" />
-                          </BarChart>
-                        </ResponsiveContainer>
-                      </div>
-                    ) : (
-                      <p className="text-xs text-slate-400 text-center py-8">No data yet</p>
-                    )}
-                  </div>
-                </div>
-
-                {/* Businesses - mobile cards */}
-                {businesses.length > 0 && (
-                  <div className="bg-white rounded-xl border border-slate-200 p-3 sm:p-4 shadow-sm">
-                    <div className="flex items-center gap-2 mb-3">
-                      <Building2 className="w-4 h-4 text-slate-600" />
-                      <h2 className="text-sm font-semibold text-slate-900">Businesses</h2>
-                      <span className="text-[10px] text-slate-400">({businesses.length})</span>
-                    </div>
-                    {/* Mobile cards */}
-                    <div className="sm:hidden space-y-3">
-                      {businesses.slice(0, 5).map((b) => (
-                        <div key={b.id} onClick={() => navigate(`/admin/businesses/${b.id}/invoices`)}
-                          className="bg-slate-50 rounded-lg p-3 active:bg-slate-100 transition-colors">
-                          <div className="text-xs font-semibold text-slate-800 mb-1">{b.businessName}</div>
-                          <div className="text-[10px] text-slate-500">{b.ownerName || "-"}</div>
-                        </div>
-                      ))}
-                    </div>
-                    {/* Desktop table */}
-                    <div className="hidden sm:block overflow-x-auto max-h-72">
-                      <table className="w-full text-xs">
-                        <thead>
-                          <tr className="border-b border-slate-200">
-                            <th className="text-left py-2 px-3 text-[10px] font-medium text-slate-500 uppercase">Business</th>
-                            <th className="text-left py-2 px-3 text-[10px] font-medium text-slate-500 uppercase">Owner</th>
-                            <th className="text-left py-2 px-3 text-[10px] font-medium text-slate-500 uppercase">Phone</th>
-                            <th className="text-left py-2 px-3 text-[10px] font-medium text-slate-500 uppercase">GST</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {businesses.map((b, i) => (
-                            <tr key={b.id} className={`border-b border-slate-100 hover:bg-slate-50 ${i % 2 === 1 ? "bg-slate-50/50" : ""}`}>
-                              <td className="py-2 px-3 font-medium">
-                                <button onClick={() => navigate(`/admin/businesses/${b.id}/invoices`)}
-                                  className="text-slate-800 hover:text-indigo-600 hover:underline">{b.businessName}</button>
-                              </td>
-                              <td className="py-2 px-3 text-slate-600">{b.ownerName || "-"}</td>
-                              <td className="py-2 px-3 text-slate-600">{b.phone || "-"}</td>
-                              <td className="py-2 px-3 text-slate-600 font-mono">{b.gstIn || "-"}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
           </div>
         </main>
       </div>

@@ -21,14 +21,25 @@ html, body, #root {
      fogs header text there (set inline by index.html only when
      navigator.standalone is true). Zero in browsers / older iOS / Android.
      index.html writes a CONSTANT here (currently 0px, dial-able while
-     testing if iOS 27's blur ever fogs the nav) — the strip total is
-     therefore "inset + feather", computed entirely by the calc() below,
-     never a JS-measured number. */
+     testing if iOS 27's blur ever fogs the nav). */
   --status-bar-blur-gap: 0px;
-  /* Single top offset shared by the painted strip (#root padding and
-     body::before) and every pinned top bar (nav, drawer, public header,
-     toasts) so nothing ever renders inside the status-bar/blur zone. */
-  --status-bar-offset: calc(env(safe-area-inset-top, 0px) + var(--status-bar-blur-gap));
+  /* The device's own reserved top inset — clock / notch / Dynamic Island
+     zone, including the iOS 27 blur feather dial above. The painted strip
+     (body::before) always covers this full height so nothing renders under
+     the status text. */
+  --status-bar-inset: calc(env(safe-area-inset-top, 0px) + var(--status-bar-blur-gap));
+  /* How far the app's own top bars rise INTO the status-bar gap. >0
+     shaves the dead white area under the clock ("remove the weird top
+     padding" on iPhone home-screen installs). The nav bg and the strip are
+     the same color, so the shave is invisible except that the nav row sits
+     closer to the clock. 0 = every bar fully below the inset (old behavior).
+     Tunable: if nav text ever looks soft, dial down to 8 / 4 / 0. */
+  --status-bar-overlap: 12px;
+  /* Single top offset shared by the page reserve (#root padding) and every
+     pinned top bar (nav, drawer, public header, landing nav) so everything
+     shifts together. Never below 0: browsers / older iOS / Android with no
+     inset are completely untouched. */
+  --status-bar-offset: calc(max(var(--status-bar-inset) - var(--status-bar-overlap), 0px));
   /* Real mobile top-nav height, injected by AppNavbar at runtime (varies with
      the device safe-area inset). Fallback covers pre-hydration paint. */
   --app-nav-height: calc(var(--status-bar-offset) + 61px);
@@ -82,7 +93,10 @@ body::before {
   top: 0;
   left: 0;
   right: 0;
-  height: var(--status-bar-offset);
+  /* Full device inset (not the shaved offset): the solid white backdrop must
+     extend under the whole clock/status zone even when the top bars rise
+     --status-bar-overlap px into it. */
+  height: var(--status-bar-inset);
   background-color: var(--status-bar-bg, #f8fafc);
   z-index: 100;
   pointer-events: none;

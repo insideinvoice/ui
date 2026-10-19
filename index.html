@@ -80,8 +80,10 @@
       // The blur feather is a constant extension past the safe-area inset,
       // so the answer is simply "inset + feather" — no measurement needed.
       // (Older probe-based approach double-counted the inset: ~140px of
-      // dead space.) 10px keeps the top tight while still sampling solid
-      // color; raise it (e.g. 20–24px) if the iOS blur ever fogs the nav.
+      // dead space.) Current dial: 0px — the nav pins immediately below the
+      // safe-area inset; 24px and 10px both still left too much dead space
+      // per on-device testing. If iOS 27's blur starts fogging the nav,
+      // raise this toward 10–24px again.
       (function () {
         var isIOS =
           /iPhone|iPad|iPod/.test(navigator.userAgent) ||
@@ -93,7 +95,7 @@
         if (!isIOS || !isStandalone) return;
         document.documentElement.style.setProperty(
           "--status-bar-blur-gap",
-          "10px"
+          "0px"
         );
       })();
     </script>

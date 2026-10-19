@@ -1,7 +1,6 @@
 import React from "react";
 import CompanySeal from "./CompanySeal";
 import CompanyStamp from "./CompanyStamp";
-import CompanyLogo from "./CompanyLogo";
 import { resolveSeal } from "../utils/seal";
 import { asImageSrc } from "../utils/imageSrc";
 import InvoiceTemplateRetro from "./InvoiceTemplateRetro";
@@ -99,10 +98,6 @@ const InvoiceTemplateVariants = React.memo(React.forwardRef(({ theme, business, 
     ? ITEM_COLS
     : ITEM_COLS.filter((c) => c.key !== "hsn").map((c) => (c.key === "desc" ? { ...c, w: c.w + 76 } : c));
   const sigSrc = asImageSrc(business?.signature);
-  // The uploaded company logo travels with the invoice (and with the share
-  // payload), so the letterhead shows it on every template that draws the
-  // seller's block — exactly like the signature does.
-  const logoSrc = asImageSrc(business?.logo);
   const calc = computeInvoiceTotals(items, discountPercent);
   const discPct = calc.discountPercent;
   const discAmt = calc.discountAmount;
@@ -166,7 +161,6 @@ const InvoiceTemplateVariants = React.memo(React.forwardRef(({ theme, business, 
 
   const sellerBlock = (
     <div style={{ display: "flex", alignItems: "flex-start", gap: "10px" }}>
-      <CompanyLogo src={logoSrc} size={t.compact ? 44 : 56} />
       <div style={{ minWidth: 0, flex: "1 1 0" }}>
       <div style={{ fontSize: t.compact ? "14px" : "18px", fontWeight: "bold", marginBottom: "4px", color: t.accentBg !== "#ffffff" ? t.accentBg : "#000" }}>
         {business?.businessName || "Business Name"}

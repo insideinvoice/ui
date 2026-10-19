@@ -2,7 +2,6 @@ import React, { useMemo } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import CompanySeal from "./CompanySeal";
 import CompanyStamp from "./CompanyStamp";
-import CompanyLogo from "./CompanyLogo";
 import { resolveSeal } from "../utils/seal";
 import { asImageSrc } from "../utils/imageSrc";
 import { getSpecialistInLine } from "../utils/specialistIn";
@@ -77,9 +76,6 @@ const InvoicePDF = React.memo(React.forwardRef(({ business, customer, form, item
   const isProforma = type === "PROFORMA_INVOICE";
   const validItems = (items || []).filter((i) => i.itemName?.trim() && parseFloat(i.qty) > 0);
   const sigSrc = asImageSrc(business?.signature);
-  // The uploaded company logo, printed top-left beside the seller's block —
-  // the same way the signature is printed in the signatory box.
-  const logoSrc = asImageSrc(business?.logo);
   const calc = computeInvoiceTotals(items, discountPercent);
   const discPct = calc.discountPercent;
   const discAmt = calc.discountAmount;
@@ -171,7 +167,6 @@ const InvoicePDF = React.memo(React.forwardRef(({ business, customer, form, item
                   <tr>
                     <td style={{ padding: "10px 8px 6px 12px", border: 0, verticalAlign: "top" }}>
                       <div style={{ display: "flex", alignItems: "flex-start", gap: "10px" }}>
-                        <CompanyLogo src={logoSrc} />
                         <div style={{ minWidth: 0, flex: "1 1 0" }}>
                       <div style={{ fontSize: "18px", fontWeight: "bold", marginBottom: "4px" }}>
                         {business?.businessName || "Business Name"}

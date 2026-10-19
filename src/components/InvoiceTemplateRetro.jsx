@@ -1,7 +1,6 @@
 import React from "react";
 import CompanySeal from "./CompanySeal";
 import CompanyStamp from "./CompanyStamp";
-import CompanyLogo from "./CompanyLogo";
 import { resolveSeal } from "../utils/seal";
 import { asImageSrc } from "../utils/imageSrc";
 import { numberToWords, formatINR } from "../utils/invoiceFormat";
@@ -100,9 +99,6 @@ const Letterhead = ({ business, title, subNote }) => {
   // (PDF cut points), so the company name tightens (27px / lineHeight 1) to
   // keep the untouched 112px (+18px specialist) budget.
   const twoLine = Boolean(subNote);
-  // The uploaded company logo (the share payload carries it, so a shared
-  // invoice shows it too).
-  const logoSrc = asImageSrc(business?.logo);
 
   return (
     <div style={{ height: headerH, boxSizing: "border-box", borderBottom: B, padding: "7px 10px 8px", position: "relative", overflow: "hidden" }}>
@@ -131,13 +127,6 @@ const Letterhead = ({ business, title, subNote }) => {
         <div style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{addr1}</div>
         <div style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{addrLine}</div>
       </div>
-      {/* The uploaded company logo, printed at the left of the letterhead —
-          the centred rows above keep clear of it. */}
-      {logoSrc && (
-        <div style={{ position: "absolute", left: "10px", top: "50%", transform: "translateY(-50%)" }}>
-          <CompanyLogo src={logoSrc} size={46} />
-        </div>
-      )}
     </div>
   );
 };
@@ -615,7 +604,6 @@ const InvoiceTemplateRetro = React.forwardRef(
       terms: (form?.notes && form.notes.trim()) || "Goods once sold cannot be taken back or exchanged.",
       ...resolveSeal(business),
       sigSrc: asImageSrc(business?.signature),
-      logoSrc: asImageSrc(business?.logo),
     };
 
     const offsets = chunks.reduce((acc, chunk, i) => {

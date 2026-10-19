@@ -1,21 +1,26 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import LoadingDots from "../components/LoadingDots";
 import { useAuth } from "../context/AuthContext";
 import AppNavbar from "../components/AppNavbar";
 import PageHeader from "../components/PageHeader";
 import toast from "react-hot-toast";
 import { adminAPI } from "../api/auth";
-import { ArrowLeft, Users, Eye, EyeOff, Shield, AlertCircle, Trash2, ToggleLeft, ToggleRight, KeyRound, Pencil } from "lucide-react";
+import { ArrowLeft, Users, Eye, EyeOff, Shield, AlertCircle, Trash2, ToggleLeft, ToggleRight, KeyRound, Pencil, ExternalLink } from "lucide-react";
 import ConfirmModal from "../components/ConfirmModal";
+import Spinner from "../components/Spinner";
 
 export default function AdminUsersList() {
   const { user: currentUser, isAdmin } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeFilter = searchParams.get("filter") === "active";
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [visiblePasswords, setVisiblePasswords] = useState({});
-  const [modal, setModal] = useState({ open: false, type: "", user: null });
+  const [modal, setModal] = useState({ open: false, type: "", user: null, adminPassword: "" });
+  const openModal = (type, user) => setModal({ open: true, type, user, adminPassword: "" });
+  const closeModal = () => setModal({ open: false, type: "", user: null, adminPassword: "" });
   const [passwordModal, setPasswordModal] = useState({ open: false, user: null, password: "" });
   const [editModal, setEditModal] = useState({ open: false, user: null });
 
@@ -28,12 +33,16 @@ export default function AdminUsersList() {
 
   useEffect(() => { fetchUsers(); }, []);
 
+  // A user is "active" when they generated at least one invoice in the last
+  // 30 days (server-computed `active` flag; shows in the Status pill column).
+  const shownUsers = activeFilter ? users.filter((u) => u.active) : users;
+
   const handleToggleRole = async (u) => {
-    setModal({ open: true, type: "role", user: u });
+    openModal("role", u);
   };
 
   const handleDelete = async (u) => {
-    setModal({ open: true, type: "delete", user: u });
+    openModal("delete", u);
   };
 
   const handleEdit = async (u) => {
@@ -43,18 +52,28 @@ export default function AdminUsersList() {
   const [confirmBusy, setConfirmBusy] = useState(false);
   const confirmAction = async () => {
     if (confirmBusy) return;
-    setConfirmBusy(true);
     const u = modal.user;
     if (modal.type === "role") {
+      if (!modal.adminPassword) {
+        toast.error("Enter your admin password to confirm");
+        return;
+      }
+      setConfirmBusy(true);
       const newRole = u.role === "ADMIN" ? "USER" : "ADMIN";
       try {
-        await adminAPI.updateRole(u.id, newRole);
+        await adminAPI.updateRole(u.id, newRole, modal.adminPassword);
         toast.success(`${u.name} is now ${newRole}`);
         fetchUsers();
+        closeModal();
       } catch (err) {
         toast.error(err.response?.data?.message || "Failed to update role");
+      } finally {
+        setConfirmBusy(false);
       }
-    } else if (modal.type === "delete") {
+      return;
+    }
+    setConfirmBusy(true);
+    if (modal.type === "delete") {
       try {
         await adminAPI.deleteUser(u.id);
         toast.success(`User "${u.name}" deleted`);
@@ -81,7 +100,7 @@ export default function AdminUsersList() {
         toast.error(err.response?.data?.message || "Failed to update user");
       }
     }
-    setModal({ open: false, type: "", user: null });
+    closeModal();
     setConfirmBusy(false);
   };
 
@@ -120,7 +139,21 @@ export default function AdminUsersList() {
       <AppNavbar />
       <div className="px-4 sm:px-5 lg:px-6 py-3 sm:py-4 lg:py-5 max-w-[1900px] mx-auto">
         <PageHeader title="User Management" />
-        <p className="text-xs text-slate-500 -mt-4 mb-6">{users.length} total user{users.length !== 1 ? "s" : ""} on the platform</p>
+        <div className="flex items-center gap-2 flex-wrap -mt-4 mb-6">
+          <p className="text-xs text-slate-500">
+            {activeFilter ? `${shownUsers.length} active of ` : ""}{users.length} total user{users.length !== 1 ? "s" : ""} on the platform
+          </p>
+          <div className="flex items-center gap-1.5">
+            <button onClick={() => setSearchParams({})}
+              className={`text-[10px] font-semibold px-2.5 py-1 rounded-full transition-colors ${!activeFilter ? "bg-slate-800 text-white" : "bg-slate-200 text-slate-600 hover:bg-slate-300"}`}>
+              All
+            </button>
+            <button onClick={() => setSearchParams({ filter: "active" })}
+              className={`text-[10px] font-semibold px-2.5 py-1 rounded-full transition-colors ${activeFilter ? "bg-teal-600 text-white" : "bg-teal-50 text-teal-700 hover:bg-teal-100"}`}>
+              Active
+            </button>
+          </div>
+        </div>
 
         {loading ? (
           <div className="flex items-center justify-center py-24">
@@ -139,12 +172,13 @@ export default function AdminUsersList() {
                     <th className="text-left py-3 px-6 text-[10px] font-medium text-slate-500 uppercase whitespace-nowrap">Username</th>
                     <th className="text-left py-3 px-6 text-[10px] font-medium text-slate-500 uppercase whitespace-nowrap">Email</th>
                     <th className="text-left py-3 px-6 text-[10px] font-medium text-slate-500 uppercase whitespace-nowrap">Role</th>
+                    <th className="text-left py-3 px-6 text-[10px] font-medium text-slate-500 uppercase whitespace-nowrap">Status</th>
                     <th className="text-left py-3 px-6 text-[10px] font-medium text-slate-500 uppercase whitespace-nowrap">Password</th>
                     <th className="text-left py-3 px-6 text-[10px] font-medium text-slate-500 uppercase whitespace-nowrap">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {users.map((u, idx) => (
+                  {shownUsers.map((u, idx) => (
                     <tr key={u.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
                       <td className="py-3 px-6 text-xs text-slate-400">{idx + 1}</td>
                       <td className="py-3 px-6 text-sm text-slate-800 font-medium">{u.name}</td>
@@ -153,6 +187,12 @@ export default function AdminUsersList() {
                       <td className="py-3 px-6">
                         <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${u.role === "ADMIN" ? "bg-indigo-100 text-indigo-700" : "bg-slate-100 text-slate-600"}`}>
                           {u.role}
+                        </span>
+                      </td>
+                      <td className="py-3 px-6">
+                        <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full ${u.active ? "bg-teal-50 text-teal-700" : "bg-slate-100 text-slate-400"}`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${u.active ? "bg-teal-500" : "bg-slate-300"}`}></span>
+                          {u.active ? "Active" : "Inactive"}
                         </span>
                       </td>
                       <td className="py-3 px-6">
@@ -173,6 +213,11 @@ export default function AdminUsersList() {
                       </td>
                       <td className="py-3 px-6">
                         <div className="flex items-center gap-2">
+                          <button onClick={() => navigate(`/admin/users/${u.id}`)}
+                            className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg text-indigo-600 hover:bg-indigo-50 transition-colors"
+                            title="Open the user workspace (their invoices, customers, products, sales)">
+                            <ExternalLink className="w-3.5 h-3.5" /> Workspace
+                          </button>
                           {u.email !== currentUser?.email && (
                             <>
                               <button onClick={() => handleToggleRole(u)}
@@ -204,13 +249,19 @@ export default function AdminUsersList() {
               </table>
             </div>
             <div className="md:hidden divide-y divide-slate-100">
-              {users.map((u) => (
+              {shownUsers.map((u) => (
                 <div key={u.id} className="p-4">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm font-semibold text-slate-800">{u.name}</span>
-                    <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${u.role === "ADMIN" ? "bg-indigo-100 text-indigo-700" : "bg-slate-100 text-slate-600"}`}>
-                      {u.role}
-                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full ${u.active ? "bg-teal-50 text-teal-700" : "bg-slate-100 text-slate-400"}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${u.active ? "bg-teal-500" : "bg-slate-300"}`}></span>
+                        {u.active ? "Active" : "Inactive"}
+                      </span>
+                      <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${u.role === "ADMIN" ? "bg-indigo-100 text-indigo-700" : "bg-slate-100 text-slate-600"}`}>
+                        {u.role}
+                      </span>
+                    </div>
                   </div>
                   <div className="text-xs text-slate-500 space-y-0.5 mb-3">
                     <div className="flex items-center gap-1 min-h-[44px]">
@@ -221,6 +272,12 @@ export default function AdminUsersList() {
                       <span className="font-medium text-slate-600 w-16">User:</span>
                       <span className="font-mono">{u.username || '-'}</span>
                     </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => navigate(`/admin/users/${u.id}`)}
+                      className="flex items-center gap-1 text-xs px-3 py-2 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-colors min-h-[44px] font-medium">
+                      <ExternalLink className="w-3.5 h-3.5" /> Workspace
+                    </button>
                   </div>
                   {u.email !== currentUser?.email && (
                     <div className="flex items-center gap-2">
@@ -246,19 +303,53 @@ export default function AdminUsersList() {
       </div>
 
       <ConfirmModal
-        open={modal.open}
-        title={modal.type === "delete" ? "Delete User" : "Change Role"}
-        message={
-          modal.type === "delete"
-            ? `Delete "${modal.user?.name}" (${modal.user?.email})? This permanently deletes ALL their data — invoices, customers, products, payments, delivery challans, and labels. This cannot be undone.`
-            : `Change ${modal.user?.name}'s role from ${modal.user?.role} to ${modal.user?.role === "ADMIN" ? "USER" : "ADMIN"}?`
-        }
-        confirmLabel={modal.type === "delete" ? "Delete" : "Confirm"}
-        confirmVariant={modal.type === "delete" ? "danger" : "primary"}
+        open={modal.open && modal.type === "delete"}
+        title="Delete User"
+        message={`Delete "${modal.user?.name}" (${modal.user?.email})? This permanently deletes ALL their data — invoices, customers, products, payments, delivery challans, and labels. This cannot be undone.`}
+        confirmLabel="Delete"
+        confirmVariant="danger"
         onConfirm={confirmAction}
         busy={confirmBusy}
-        onCancel={() => setModal({ open: false, type: "", user: null })}
+        onCancel={closeModal}
       />
+
+      {/* Role change (promote/demote): cross-confirmed by re-entering the current
+          admin's own password — enforced server-side via /admin/users/{id}/role. */}
+      {modal.open && modal.type === "role" && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black/30 backdrop-blur-sm" onClick={confirmBusy ? undefined : closeModal}></div>
+          <div className="relative bg-white rounded-xl shadow-xl border border-slate-200 w-full max-w-sm p-6">
+            <h3 className="text-sm font-semibold text-slate-900 mb-1">
+              {modal.user?.role === "ADMIN" ? "Revoke Admin Access" : "Promote to Admin"}
+            </h3>
+            <p className="text-sm text-slate-500 mb-4">
+              Change <strong>{modal.user?.name}</strong>'s role from <strong>{modal.user?.role}</strong> to{" "}
+              <strong>{modal.user?.role === "ADMIN" ? "USER" : "ADMIN"}</strong>. Confirm with your admin password.
+            </p>
+            <input
+              type="password"
+              value={modal.adminPassword}
+              onChange={(e) => setModal({ ...modal, adminPassword: e.target.value })}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !confirmBusy) confirmAction();
+              }}
+              placeholder="Enter your admin password"
+              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-slate-400 mb-4"
+              autoFocus
+            />
+            <div className="flex justify-end gap-2">
+              <button onClick={closeModal} disabled={confirmBusy}
+                className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-50">
+                Cancel
+              </button>
+              <button onClick={confirmAction} disabled={confirmBusy}
+                className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors disabled:opacity-60">
+                {confirmBusy ? <Spinner size={16} className="text-white" /> : "Confirm"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {passwordModal.open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">

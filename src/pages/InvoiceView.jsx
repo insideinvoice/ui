@@ -5,7 +5,7 @@ import Spinner from "../components/Spinner";
 import PageHeader from "../components/PageHeader";
 import { invoiceAPI, businessAPI, customerAPI } from "../api/auth";
 import toast from "react-hot-toast";
-import { ArrowLeft, Download, Save, Edit3, Plus, Trash2, FileText, AlertCircle, User, Building2, Phone, MapPin, Hash, Package, Mail, Globe, X, Share2, Smartphone, Link2, Copy, RotateCw, Unlink, ChevronDown, Printer } from "lucide-react";
+import { ArrowLeft, Download, Save, Edit3, Plus, Trash2, FileText, AlertCircle, User, Building2, Phone, MapPin, Hash, Package, Mail, Globe, X, Share2, Smartphone, Link2, Copy, RotateCw, Unlink, ChevronDown, Printer, MessageSquare } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import InvoiceTemplateRenderer from "../components/InvoiceTemplateRenderer";
 import WhatsAppIcon from "../components/WhatsAppIcon";
@@ -710,6 +710,68 @@ export default function InvoiceView() {
       openWhatsAppChat(text);
     } catch (err) {
       toast.error(err.response?.data?.message || "Could not share via WhatsApp");
+    } finally {
+      setBusyAction("");
+    }
+  };
+
+  const shareViaSms = async () => {
+    if (busyAction) return;
+    const phone = (form.customerPhone || buyerSnapshotRef.current?.phone || "").trim().replace(/[\s\-()]/g, "");
+    if (!phone) {
+      toast.error("Customer phone number is missing");
+      return;
+    }
+    setBusyAction("sms");
+    try {
+      if (!(await persistDiscount())) {
+        setBusyAction("");
+        return;
+      }
+      const token = await ensureShareToken();
+      const origin = typeof window !== "undefined" && window.location.origin ? window.location.origin : "https://www.insideinvoice.com";
+      const shareUrl = `${origin}/i/${token}`;
+      // Compact, single-segment-friendly message for SMS (the WhatsApp message
+      // is too long and gets split into multiple SMS segments).
+      const name = (form.customerName || "").trim();
+      const label = invoiceType === "PROFORMA_INVOICE" ? "Proforma Invoice" : "Tax Invoice";
+      const invNo = (form.invoiceNumber || "").trim();
+      const amount = parseFloat(totals.grandTotal);
+      const totalStr = !isNaN(amount) && amount >= 0
+        ? `Rs. ${amount.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+        : "";
+      const smsLines = [];
+      if (name) smsLines.push(`Hi ${name},`);
+      else smsLines.push("Hello,");
+      const invLine = invNo ? `${label} ${invNo}` : label;
+      if (totalStr) smsLines.push(`${invLine}, Total: ${totalStr}.`);
+      else smsLines.push(`${invLine}.`);
+      if (shareUrl) {
+        // A zero-width space inside the URL stops iMessage/SMS apps from
+        // generating a link-preview "thumbnail" card for this message only
+        // (WhatsApp keeps its normal preview because it uses the unmodified
+        // URL). The link still opens correctly in most clients.
+        const smsUrl = shareUrl.replace("https://", "https://\u200B");
+        smsLines.push(`View invoice: ${smsUrl}`);
+      }
+      const text = smsLines.join(" ");
+      // sms: opens the device's default SMS app with recipient + body
+      // pre-filled. Android uses `?body=`, iOS historically uses `&body=`.
+      const isIOS =
+        /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+        (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+      const smsLink = `sms:${phone}${isIOS ? "&" : "?"}body=${encodeURIComponent(text)}`;
+      // Use a hidden anchor click so the SMS app opens without navigating
+      // the current tab away (window.location.href would leave the invoice).
+      const a = document.createElement("a");
+      a.href = smsLink;
+      a.style.display = "none";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setShowShareSheet(false);
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Could not open the SMS app");
     } finally {
       setBusyAction("");
     }
@@ -1610,6 +1672,17 @@ export default function InvoiceView() {
                 <span className="min-w-0">
                   <span className="block text-sm font-semibold text-slate-800">WhatsApp</span>
                   <span className="block text-xs text-slate-400">Send the invoice link in a chat</span>
+                </span>
+              </button>
+
+              <button type="button" onClick={shareViaSms} disabled={!!shareBusy}
+                className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-slate-50 disabled:opacity-60 transition-colors text-left">
+                <span className="w-10 h-10 shrink-0 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center">
+                  {shareBusy === "sms" ? <Spinner size={18} /> : <MessageSquare className="w-5 h-5" />}
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-sm font-semibold text-slate-800">Text Message</span>
+                  <span className="block text-xs text-slate-400">Send the invoice link via SMS</span>
                 </span>
               </button>
 

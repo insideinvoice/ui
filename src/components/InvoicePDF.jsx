@@ -2,7 +2,9 @@ import React, { useMemo } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import CompanySeal from "./CompanySeal";
 import CompanyStamp from "./CompanyStamp";
+import CompanyLogo from "./CompanyLogo";
 import { resolveSeal } from "../utils/seal";
+import { asImageSrc } from "../utils/imageSrc";
 import { getSpecialistInLine } from "../utils/specialistIn";
 import { computeInvoiceTotals } from "../utils/invoiceTotals";
 import { jurisdictionLine } from "../utils/jurisdiction";
@@ -74,7 +76,10 @@ const InvoicePDF = React.memo(React.forwardRef(({ business, customer, form, item
   const displayInvNo = invoiceNumber || "DRAFT";
   const isProforma = type === "PROFORMA_INVOICE";
   const validItems = (items || []).filter((i) => i.itemName?.trim() && parseFloat(i.qty) > 0);
-  const sigSrc = business?.signature ? `data:image/png;base64,${business.signature}` : null;
+  const sigSrc = asImageSrc(business?.signature);
+  // The uploaded company logo, printed top-left beside the seller's block —
+  // the same way the signature is printed in the signatory box.
+  const logoSrc = asImageSrc(business?.logo);
   const calc = computeInvoiceTotals(items, discountPercent);
   const discPct = calc.discountPercent;
   const discAmt = calc.discountAmount;
@@ -165,6 +170,9 @@ const InvoicePDF = React.memo(React.forwardRef(({ business, customer, form, item
                 <tbody>
                   <tr>
                     <td style={{ padding: "10px 8px 6px 12px", border: 0, verticalAlign: "top" }}>
+                      <div style={{ display: "flex", alignItems: "flex-start", gap: "10px" }}>
+                        <CompanyLogo src={logoSrc} />
+                        <div style={{ minWidth: 0, flex: "1 1 0" }}>
                       <div style={{ fontSize: "18px", fontWeight: "bold", marginBottom: "4px" }}>
                         {business?.businessName || "Business Name"}
                       </div>
@@ -181,6 +189,8 @@ const InvoicePDF = React.memo(React.forwardRef(({ business, customer, form, item
                       {business?.email ? <div style={{ fontSize: "10px", lineHeight: "1.45" }}>{business.email}</div> : null}
                       {business?.gstIn ? <div style={{ fontSize: "10px", lineHeight: "1.45" }}>GSTIN/UIN: {business.gstIn}</div> : null}
                       {business?.state ? <div style={{ fontSize: "10px", lineHeight: "1.45" }}>State: {business.state} Code: {business.gstIn?.substring(0, 2) || ""}</div> : null}
+                        </div>
+                      </div>
                     </td>
                   </tr>
                   <tr>

@@ -1,7 +1,9 @@
 import React from "react";
 import CompanySeal from "./CompanySeal";
 import CompanyStamp from "./CompanyStamp";
+import CompanyLogo from "./CompanyLogo";
 import { resolveSeal } from "../utils/seal";
+import { asImageSrc } from "../utils/imageSrc";
 import InvoiceTemplateRetro from "./InvoiceTemplateRetro";
 import InvoiceTemplateEnterprise from "./InvoiceTemplateEnterprise";
 import { numberToWords, formatINR } from "../utils/invoiceFormat";
@@ -96,7 +98,11 @@ const InvoiceTemplateVariants = React.memo(React.forwardRef(({ theme, business, 
   const itemCols = showHnSac
     ? ITEM_COLS
     : ITEM_COLS.filter((c) => c.key !== "hsn").map((c) => (c.key === "desc" ? { ...c, w: c.w + 76 } : c));
-  const sigSrc = business?.signature ? `data:image/png;base64,${business.signature}` : null;
+  const sigSrc = asImageSrc(business?.signature);
+  // The uploaded company logo travels with the invoice (and with the share
+  // payload), so the letterhead shows it on every template that draws the
+  // seller's block — exactly like the signature does.
+  const logoSrc = asImageSrc(business?.logo);
   const calc = computeInvoiceTotals(items, discountPercent);
   const discPct = calc.discountPercent;
   const discAmt = calc.discountAmount;
@@ -159,7 +165,9 @@ const InvoiceTemplateVariants = React.memo(React.forwardRef(({ theme, business, 
   );
 
   const sellerBlock = (
-    <div>
+    <div style={{ display: "flex", alignItems: "flex-start", gap: "10px" }}>
+      <CompanyLogo src={logoSrc} size={t.compact ? 44 : 56} />
+      <div style={{ minWidth: 0, flex: "1 1 0" }}>
       <div style={{ fontSize: t.compact ? "14px" : "18px", fontWeight: "bold", marginBottom: "4px", color: t.accentBg !== "#ffffff" ? t.accentBg : "#000" }}>
         {business?.businessName || "Business Name"}
       </div>
@@ -173,6 +181,7 @@ const InvoiceTemplateVariants = React.memo(React.forwardRef(({ theme, business, 
       {business?.email ? <div style={{ fontSize: baseFS, lineHeight: "1.45" }}>{business.email}</div> : null}
       {business?.gstIn ? <div style={{ fontSize: baseFS, lineHeight: "1.45" }}>GSTIN/UIN: {business.gstIn}</div> : null}
       {business?.state ? <div style={{ fontSize: baseFS, lineHeight: "1.45" }}>State: {business.state} Code: {business.gstIn?.substring(0, 2) || ""}</div> : null}
+      </div>
     </div>
   );
 

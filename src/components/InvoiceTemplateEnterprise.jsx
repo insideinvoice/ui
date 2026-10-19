@@ -319,7 +319,7 @@ const ItemsTable = ({ cols, rowMeta, items, startIndex, descLabel, closesGrid = 
                 // draws the single line above the header (an extra one here
                 // printed as a doubled rule over Sl No / Description).
                 borderBottom: `1px solid ${INK}`,
-                borderRight: i < cols.length - 1 ? `1px solid ${GRID}` : "none",
+                borderRight: i < cols.length - 1 ? `1.5px solid ${GRID}` : "none",
                 fontSize: "9.5px", fontWeight: 700, letterSpacing: "0.4px", color: INK,
                 textAlign: c.align, verticalAlign: "middle", padding: "0 8px",
                 lineHeight: 1.2,
@@ -358,8 +358,8 @@ const ItemsTable = ({ cols, rowMeta, items, startIndex, descLabel, closesGrid = 
                     // header's background on screen: two renderers, two truths).
                     borderBottom: i === rowMeta.length - 1
                       ? (closesGrid ? `1px solid ${INK}` : "none")
-                      : `1px solid ${LINE}`,
-                    borderRight: ci < cols.length - 1 ? `1px solid ${GRID}` : "none",
+                      : `1.5px solid ${LINE}`,
+                    borderRight: ci < cols.length - 1 ? `1.5px solid ${GRID}` : "none",
                     fontSize: c.key === "desc" ? `${meta.fontSize}px` : "10px",
                     padding: "0 8px", verticalAlign: "middle",
                     textAlign: c.align, overflow: "hidden",
@@ -429,25 +429,25 @@ const GstSummary = ({ rows, firstLabel, showTax, totals, withTotal = true, endsA
             // screen and the PDF agree on a single line.
             borderTop: topRule ? `1px solid ${INK}` : "none",
             borderBottom: `1px solid ${INK}`,
-            borderRight: `1px solid ${GRID}`,
+            borderRight: `1.5px solid ${GRID}`,
           }}>{firstLabel}</th>
           <th rowSpan={2} style={{
             ...thBase, textAlign: GST_SUMMARY_COLS[1].align,
             borderTop: topRule ? `1px solid ${INK}` : "none",
             borderBottom: `1px solid ${INK}`,
-            borderRight: `1px solid ${GRID}`,
+            borderRight: `1.5px solid ${GRID}`,
           }}>{GST_SUMMARY_COLS[1].label}</th>
           <th colSpan={2} style={{
             ...thBase,
             borderTop: topRule ? `1px solid ${INK}` : "none",
             borderBottom: `1px solid ${INK}`,
-            borderRight: `1px solid ${GRID}`,
+            borderRight: `1.5px solid ${GRID}`,
           }}>CGST</th>
           <th colSpan={2} style={{
             ...thBase,
             borderTop: topRule ? `1px solid ${INK}` : "none",
             borderBottom: `1px solid ${INK}`,
-            borderRight: `1px solid ${GRID}`,
+            borderRight: `1.5px solid ${GRID}`,
           }}>SGST/UTGST</th>
           <th rowSpan={2} style={{
             ...thBase, textAlign: GST_SUMMARY_COLS[6].align,
@@ -460,7 +460,7 @@ const GstSummary = ({ rows, firstLabel, showTax, totals, withTotal = true, endsA
           {["Rate", "Amount", "Rate", "Amount"].map((lbl, i) => (
             <th key={i} style={{
               ...thBase, borderBottom: `1px solid ${INK}`,
-              borderRight: `1px solid ${GRID}`,
+              borderRight: `1.5px solid ${GRID}`,
               textAlign: GST_SUMMARY_COLS[i + 2].align,
             }}>{lbl}</th>
           ))}
@@ -471,32 +471,32 @@ const GstSummary = ({ rows, firstLabel, showTax, totals, withTotal = true, endsA
           // A chunk that ends flush against the page footer lets the footer's
           // own top rule close the grid — two touching 1px rules read double.
           const bb = endsAtFooter && i === rows.length - 1
-            ? "none" : `1px solid ${LINE}`;
+            ? "none" : `1.5px solid ${LINE}`;
           return (
             <tr key={i} style={{ height: `${M.summaryRow}px` }}>
               <td style={{
-                ...tdBase, textAlign: "center", borderRight: `1px solid ${GRID}`,
+                ...tdBase, textAlign: "center", borderRight: `1.5px solid ${GRID}`,
                 borderBottom: bb, whiteSpace: "nowrap",
                 overflow: "hidden", textOverflow: "ellipsis",
               }}>{r.key}</td>
               <td style={{
-                ...tdBase, textAlign: "right", borderRight: `1px solid ${GRID}`,
+                ...tdBase, textAlign: "right", borderRight: `1.5px solid ${GRID}`,
                 borderBottom: bb,
               }}>{formatINR(r.taxable)}</td>
               <td style={{
-                ...tdBase, textAlign: "center", borderRight: `1px solid ${GRID}`,
+                ...tdBase, textAlign: "center", borderRight: `1.5px solid ${GRID}`,
                 borderBottom: bb,
               }}>{r.rateLabel}</td>
               <td style={{
-                ...tdBase, textAlign: "right", borderRight: `1px solid ${GRID}`,
+                ...tdBase, textAlign: "right", borderRight: `1.5px solid ${GRID}`,
                 borderBottom: bb,
               }}>{formatINR(r.cgst)}</td>
               <td style={{
-                ...tdBase, textAlign: "center", borderRight: `1px solid ${GRID}`,
+                ...tdBase, textAlign: "center", borderRight: `1.5px solid ${GRID}`,
                 borderBottom: bb,
               }}>{r.rateLabel}</td>
               <td style={{
-                ...tdBase, textAlign: "right", borderRight: `1px solid ${GRID}`,
+                ...tdBase, textAlign: "right", borderRight: `1.5px solid ${GRID}`,
                 borderBottom: bb,
               }}>{formatINR(r.sgst)}</td>
               <td style={{
@@ -520,7 +520,7 @@ const GstSummary = ({ rows, firstLabel, showTax, totals, withTotal = true, endsA
               <td key={i} style={{
                 background: TOTAL_BG, fontWeight: 700, fontSize: "9.5px",
                 borderBottom: `1px solid ${INK}`,
-                borderRight: i < GST_SUMMARY_COLS.length - 1 ? `1px solid ${GRID}` : "none",
+                borderRight: i < GST_SUMMARY_COLS.length - 1 ? `1.5px solid ${GRID}` : "none",
                 textAlign: i === 0 ? "center" : "right", verticalAlign: "middle", padding: "0 8px",
               }}>{v}</td>
             ))}
@@ -560,14 +560,14 @@ const TotalsTable = ({ rows }) => (
         }
         return (
           <tr key={row.label} style={{ height: `${h}px` }}>
-            <td style={{ borderBottom: `1px solid ${LINE}`, padding: 0 }} />
+            <td style={{ borderBottom: `1.5px solid ${LINE}`, padding: 0 }} />
             <td style={{
               fontSize: "10px", fontWeight: 600, color: INK, textAlign: "right",
-              padding: "0 14px", verticalAlign: "middle", borderBottom: `1px solid ${LINE}`,
+              padding: "0 14px", verticalAlign: "middle", borderBottom: `1.5px solid ${LINE}`,
             }}>{row.label}</td>
             <td style={{
               fontSize: "10px", fontWeight: 600, textAlign: "right", padding: "0 8px",
-              verticalAlign: "middle", borderBottom: `1px solid ${LINE}`,
+              verticalAlign: "middle", borderBottom: `1.5px solid ${LINE}`,
             }}>{row.value}</td>
           </tr>
         );
@@ -623,7 +623,7 @@ const BankBand = ({ business, sigSrc, sealVisible, sealType, isProforma }) => (
     overflow: "hidden", background: "#ffffff",
   }}>
     {/* bank details */}
-    <div style={{ width: "34%", padding: "8px 12px", borderRight: `1px solid ${GRID}`, overflow: "hidden" }}>
+    <div style={{ width: "34%", padding: "8px 12px", borderRight: `1.5px solid ${GRID}`, overflow: "hidden" }}>
       {capsLabel("COMPANY'S BANK DETAILS")}
       <div style={{ fontSize: "9.5px", color: MUTED, lineHeight: "14px" }}>
         <div style={nowrap}>Bank Name: {business?.bankName || "-"}</div>
@@ -633,7 +633,7 @@ const BankBand = ({ business, sigSrc, sealVisible, sealType, isProforma }) => (
       </div>
     </div>
     {/* declaration */}
-    <div style={{ width: "33%", padding: "8px 12px", borderRight: `1px solid ${GRID}`, overflow: "hidden" }}>
+    <div style={{ width: "33%", padding: "8px 12px", borderRight: `1.5px solid ${GRID}`, overflow: "hidden" }}>
       {capsLabel("DECLARATION")}
       <div style={{ fontSize: "8.5px", color: MUTED, lineHeight: "13px", maxHeight: "58px", overflow: "hidden" }}>
         {isProforma

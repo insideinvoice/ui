@@ -260,7 +260,7 @@ export default function CustomersList() {
       <ConfirmModal
         open={deleteModalOpen}
         title="Delete Customer"
-        message={`Are you sure you want to delete "${customerToDelete?.name}"? This cannot be undone.`}
+        message={`Are you sure you want to delete "${customerToDelete?.name}"? This cannot be undone — their invoices will be deleted too.`}
         onConfirm={handleDeleteConfirm}
         busy={deleteBusy}
         onCancel={() => { setDeleteModalOpen(false); setCustomerToDelete(null); }}

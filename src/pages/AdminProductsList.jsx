@@ -3,12 +3,30 @@ import LoadingDots from "../components/LoadingDots";
 import AppNavbar from "../components/AppNavbar";
 import PageHeader from "../components/PageHeader";
 import { adminAPI } from "../api/auth";
+import ConfirmModal from "../components/ConfirmModal";
 import toast from "react-hot-toast";
-import { ArrowLeft, Package, Building2, User, Hash, IndianRupee, Percent } from "lucide-react";
+import { ArrowLeft, Package, Building2, User, Hash, IndianRupee, Percent, Trash2 } from "lucide-react";
 
 export default function AdminProductsList() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+
+  const handleDelete = async () => {
+    if (!deleteTarget || deleteBusy) return;
+    setDeleteBusy(true);
+    try {
+      await adminAPI.deleteProductAsAdmin(deleteTarget.id);
+      setProducts((prev) => prev.filter((x) => x.id !== deleteTarget.id));
+      toast.success(`Product ${deleteTarget.name} deleted`);
+      setDeleteTarget(null);
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Delete failed");
+    } finally {
+      setDeleteBusy(false);
+    }
+  };
 
   useEffect(() => {
     const fetch = async () => {
@@ -63,6 +81,7 @@ export default function AdminProductsList() {
                     <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Business</th>
                     <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Owner</th>
                     <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Created</th>
+                    <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -92,6 +111,17 @@ export default function AdminProductsList() {
                         </div>
                       </td>
                       <td className="py-3 px-4 text-xs text-slate-500">{p.createdAt ? new Date(p.createdAt).toLocaleDateString() : "-"}</td>
+                      <td className="py-3 px-4 text-right">
+                        <button
+                          type="button"
+                          onClick={() => setDeleteTarget(p)}
+                          title="Delete product"
+                          aria-label={`Delete ${p.name}`}
+                          className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 hover:text-red-600 focus:outline-none focus:ring-2 focus:ring-red-200 transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -102,7 +132,18 @@ export default function AdminProductsList() {
                 <div key={p.id} className="p-4">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm font-semibold text-slate-800">{p.name}</span>
-                    <span className="text-xs font-semibold text-slate-600">{p.gstPercentage || 0}%</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-semibold text-slate-600">{p.gstPercentage || 0}%</span>
+                      <button
+                        type="button"
+                        onClick={() => setDeleteTarget(p)}
+                        title="Delete product"
+                        aria-label={`Delete ${p.name}`}
+                        className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 hover:text-red-600 transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                   <div className="text-xs text-slate-500 space-y-0.5">
                     <div className="min-h-[44px] flex items-center gap-1">
@@ -121,6 +162,17 @@ export default function AdminProductsList() {
             </>
           )}
         </div>
+
+        <ConfirmModal
+          open={!!deleteTarget}
+          title="Delete Product"
+          message={`Are you sure you want to delete "${deleteTarget?.name}"? This cannot be undone.`}
+          confirmLabel="Delete"
+          confirmVariant="danger"
+          onConfirm={handleDelete}
+          onCancel={() => !deleteBusy && setDeleteTarget(null)}
+          busy={deleteBusy}
+        />
       </div>
     </div>
   );

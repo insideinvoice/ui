@@ -219,10 +219,11 @@ export default function AuthPage() {
 
             {/* Form */}
             <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Email */}
+              {/* Email address / username (login) — forgot mode stays email-only
+                  because the OTP can only be mailed to the registered address */}
               <div>
                 <label className="block text-[13px] font-medium text-slate-600 mb-1.5">
-                  Email address
+                  {isForgotMode ? "Email address" : "Email address / username"}
                 </label>
                 <div className={`relative group`}>
                   <div
@@ -243,7 +244,11 @@ export default function AuthPage() {
                         ? "border-red-400 bg-red-50/50 focus:ring-red-500/20 focus:border-red-400"
                         : "border-slate-200 hover:border-slate-300"
                     }`}
-                    placeholder="email@insideinvoice.com"
+                    placeholder={
+                      isForgotMode
+                        ? "email@insideinvoice.com"
+                        : "Email or username"
+                    }
                   />
                 </div>
                 {errors.email && (

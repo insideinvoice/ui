@@ -17,6 +17,7 @@ export default function CustomersList() {
   const [search, setSearch] = useState("");
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [customerToDelete, setCustomerToDelete] = useState(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState(emptyEdit);
   const [saving, setSaving] = useState(false);
@@ -73,18 +74,26 @@ export default function CustomersList() {
   }, [editForm, cancelEdit]);
 
   const handleDeleteConfirm = useCallback(async () => {
-    if (!customerToDelete) return;
+    if (!customerToDelete || deleteBusy) return;
+    setDeleteBusy(true);
     try {
       await customerAPI.delete(customerToDelete.id);
       setCustomers((prev) => prev.filter((c) => c.id !== customerToDelete.id));
       toast.success("Customer deleted");
     } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to delete customer");
+      // Already deleted (double-tap / another device) — same end state.
+      if (err.response?.status === 404) {
+        setCustomers((prev) => prev.filter((c) => c.id !== customerToDelete.id));
+        toast.success("Customer deleted");
+      } else {
+        toast.error(err.response?.data?.message || "Failed to delete customer");
+      }
     } finally {
+      setDeleteBusy(false);
       setDeleteModalOpen(false);
       setCustomerToDelete(null);
     }
-  }, [customerToDelete]);
+  }, [customerToDelete, deleteBusy]);
 
   const inputClass = "w-full px-2 py-1.5 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-400/30 focus:border-indigo-400 bg-white";
 
@@ -253,6 +262,7 @@ export default function CustomersList() {
         title="Delete Customer"
         message={`Are you sure you want to delete "${customerToDelete?.name}"? This cannot be undone.`}
         onConfirm={handleDeleteConfirm}
+        busy={deleteBusy}
         onCancel={() => { setDeleteModalOpen(false); setCustomerToDelete(null); }}
       />
 

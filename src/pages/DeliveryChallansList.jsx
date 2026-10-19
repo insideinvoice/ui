@@ -27,6 +27,7 @@ export default function DeliveryChallansList() {
   const [loading, setLoading] = useState(true);
   const [downloadingId, setDownloadingId] = useState(null);
   const [challanToDelete, setChallanToDelete] = useState(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
   const [search, setSearch] = useState("");
 
   const query = search.trim().toLowerCase();
@@ -62,14 +63,24 @@ export default function DeliveryChallansList() {
   }, []);
 
   const handleDelete = async () => {
-    if (!challanToDelete) return;
+    if (!challanToDelete || deleteBusy) return;
+    setDeleteBusy(true);
     try {
       await deliveryChallanAPI.delete(challanToDelete.id);
       toast.success("Delivery challan deleted");
       setChallanToDelete(null);
       fetchChallans();
     } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to delete");
+      // Already deleted (double-tap / another device) — same end state.
+      if (err.response?.status === 404) {
+        toast.success("Delivery challan deleted");
+        setChallanToDelete(null);
+        fetchChallans();
+      } else {
+        toast.error(err.response?.data?.message || "Failed to delete");
+      }
+    } finally {
+      setDeleteBusy(false);
     }
   };
 
@@ -343,6 +354,7 @@ export default function DeliveryChallansList() {
           confirmLabel="Delete"
           confirmVariant="danger"
           onConfirm={handleDelete}
+          busy={deleteBusy}
           onCancel={() => setChallanToDelete(null)}
         />
       </div>

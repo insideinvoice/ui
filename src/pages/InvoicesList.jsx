@@ -68,6 +68,7 @@ export default function InvoicesList() {
   });
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [invoiceToDelete, setInvoiceToDelete] = useState(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
   const [busy, setBusy] = useState("");
   const [exporting, setExporting] = useState(false);
 
@@ -247,7 +248,8 @@ export default function InvoicesList() {
   }, []);
 
   const handleDeleteConfirm = useCallback(async () => {
-    if (!invoiceToDelete) return;
+    if (!invoiceToDelete || deleteBusy) return;
+    setDeleteBusy(true);
     try {
       await invoiceAPI.delete(invoiceToDelete.id);
       toast.success("Invoice deleted");
@@ -255,9 +257,21 @@ export default function InvoicesList() {
       setDeleteModalOpen(false);
       setInvoiceToDelete(null);
     } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to delete invoice");
+      // A fast double-tap (or another device) may have deleted it first —
+      // the invoice is gone either way, so treat 404 as success instead of
+      // showing "Invoice not found" after "Invoice deleted".
+      if (err.response?.status === 404) {
+        toast.success("Invoice deleted");
+        setInvoices((prev) => prev.filter((inv) => inv.id !== invoiceToDelete.id));
+        setDeleteModalOpen(false);
+        setInvoiceToDelete(null);
+      } else {
+        toast.error(err.response?.data?.message || "Failed to delete invoice");
+      }
+    } finally {
+      setDeleteBusy(false);
     }
-  }, [invoiceToDelete]);
+  }, [invoiceToDelete, deleteBusy]);
 
   const handleDeleteCancel = useCallback(() => {
     setDeleteModalOpen(false);
@@ -694,6 +708,7 @@ export default function InvoicesList() {
         confirmLabel="Delete"
         confirmVariant="danger"
         onConfirm={handleDeleteConfirm}
+        busy={deleteBusy}
         onCancel={handleDeleteCancel}
       />
 

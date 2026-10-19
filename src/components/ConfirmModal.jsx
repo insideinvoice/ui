@@ -1,6 +1,7 @@
 import { AlertTriangle, X } from "lucide-react";
+import Spinner from "./Spinner";
 
-export default function ConfirmModal({ open, title, message, confirmLabel, confirmVariant, onConfirm, onCancel }) {
+export default function ConfirmModal({ open, title, message, confirmLabel, confirmVariant, onConfirm, onCancel, busy = false }) {
   if (!open) return null;
 
   const isDanger = confirmVariant === "danger";
@@ -10,7 +11,7 @@ export default function ConfirmModal({ open, title, message, confirmLabel, confi
       {/* Backdrop */}
       <div
         className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200"
-        onClick={onCancel}
+        onClick={busy ? undefined : onCancel}
       />
 
       {/* Modal */}
@@ -47,19 +48,21 @@ export default function ConfirmModal({ open, title, message, confirmLabel, confi
         <div className="px-6 py-4 flex items-center justify-end gap-3 bg-slate-50/50">
           <button
             onClick={onCancel}
-            className="px-4 py-2.5 min-h-[44px] text-sm font-medium text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 hover:text-slate-700 rounded-lg transition-all duration-150 shadow-sm"
+            disabled={busy}
+            className="px-4 py-2.5 min-h-[44px] text-sm font-medium text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 hover:text-slate-700 rounded-lg transition-all duration-150 shadow-sm disabled:opacity-50 disabled:hover:bg-white"
           >
             Cancel
           </button>
           <button
-            onClick={onConfirm}
-            className={`px-5 py-2.5 min-h-[44px] text-sm font-semibold rounded-lg transition-all duration-150 shadow-sm active:scale-[0.98] ${
+            onClick={busy ? undefined : onConfirm}
+            disabled={busy}
+            className={`px-5 py-2.5 min-h-[44px] text-sm font-semibold rounded-lg transition-all duration-150 shadow-sm active:scale-[0.98] disabled:opacity-60 disabled:active:scale-100 ${
               isDanger
                 ? "bg-red-600 text-white hover:bg-red-700 shadow-red-600/25 hover:shadow-red-600/40"
                 : "bg-indigo-600 text-white hover:bg-indigo-700 shadow-indigo-600/25 hover:shadow-indigo-600/40"
             }`}
           >
-            {confirmLabel || "Confirm"}
+            {busy ? <Spinner size={16} className="text-white" /> : (confirmLabel || "Confirm")}
           </button>
         </div>
       </div>

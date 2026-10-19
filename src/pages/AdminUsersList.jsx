@@ -40,7 +40,10 @@ export default function AdminUsersList() {
     setEditModal({ open: true, user: u });
   };
 
+  const [confirmBusy, setConfirmBusy] = useState(false);
   const confirmAction = async () => {
+    if (confirmBusy) return;
+    setConfirmBusy(true);
     const u = modal.user;
     if (modal.type === "role") {
       const newRole = u.role === "ADMIN" ? "USER" : "ADMIN";
@@ -57,7 +60,13 @@ export default function AdminUsersList() {
         toast.success(`User "${u.name}" deleted`);
         fetchUsers();
       } catch (err) {
-        toast.error(err.response?.data?.message || "Failed to delete user");
+        // Already deleted (double-tap / another admin) — same end state.
+        if (err.response?.status === 404) {
+          toast.success(`User "${u.name}" deleted`);
+          fetchUsers();
+        } else {
+          toast.error(err.response?.data?.message || "Failed to delete user");
+        }
       }
     } else if (modal.type === "edit") {
       try {
@@ -73,6 +82,7 @@ export default function AdminUsersList() {
       }
     }
     setModal({ open: false, type: "", user: null });
+    setConfirmBusy(false);
   };
 
   const handlePasswordChange = async () => {
@@ -246,6 +256,7 @@ export default function AdminUsersList() {
         confirmLabel={modal.type === "delete" ? "Delete" : "Confirm"}
         confirmVariant={modal.type === "delete" ? "danger" : "primary"}
         onConfirm={confirmAction}
+        busy={confirmBusy}
         onCancel={() => setModal({ open: false, type: "", user: null })}
       />
 

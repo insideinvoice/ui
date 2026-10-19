@@ -15,6 +15,7 @@ export default function ProductsList() {
   const [search, setSearch] = useState("");
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
 
   useEffect(() => {
     const fetch = async () => {
@@ -37,14 +38,22 @@ export default function ProductsList() {
   }), [products, search]);
 
   const handleDeleteConfirm = async () => {
-    if (!productToDelete) return;
+    if (!productToDelete || deleteBusy) return;
+    setDeleteBusy(true);
     try {
       await productAPI.delete(productToDelete.id);
       setProducts((prev) => prev.filter((p) => p.id !== productToDelete.id));
       toast.success("Product deleted");
     } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to delete product");
+      // Already deleted (double-tap / another device) — same end state.
+      if (err.response?.status === 404) {
+        setProducts((prev) => prev.filter((p) => p.id !== productToDelete.id));
+        toast.success("Product deleted");
+      } else {
+        toast.error(err.response?.data?.message || "Failed to delete product");
+      }
     } finally {
+      setDeleteBusy(false);
       setDeleteModalOpen(false);
       setProductToDelete(null);
     }
@@ -173,6 +182,7 @@ export default function ProductsList() {
           title="Delete Product"
           message={`Are you sure you want to delete "${productToDelete?.name}"? This cannot be undone.`}
           onConfirm={handleDeleteConfirm}
+          busy={deleteBusy}
           onCancel={() => { setDeleteModalOpen(false); setProductToDelete(null); }}
         />
       </div>

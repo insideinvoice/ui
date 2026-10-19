@@ -29,6 +29,7 @@ export default function DeliveryChallanView() {
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteBusy, setDeleteBusy] = useState(false);
 
   const containerRef = useRef(null);
   const wrapRef = useRef(null);
@@ -119,12 +120,21 @@ export default function DeliveryChallanView() {
   };
 
   const handleDelete = async () => {
+    if (deleteBusy) return;
+    setDeleteBusy(true);
     try {
       await deliveryChallanAPI.delete(id);
       toast.success("Delivery challan deleted");
       navigate("/delivery-challans");
     } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to delete");
+      // Already deleted (double-tap / another device) — same end state.
+      if (err.response?.status === 404) {
+        toast.success("Delivery challan deleted");
+        navigate("/delivery-challans");
+      } else {
+        toast.error(err.response?.data?.message || "Failed to delete");
+        setDeleteBusy(false);
+      }
     }
   };
 
@@ -299,6 +309,7 @@ export default function DeliveryChallanView() {
           confirmLabel="Delete"
           confirmVariant="danger"
           onConfirm={handleDelete}
+          busy={deleteBusy}
           onCancel={() => setDeleteOpen(false)}
         />
       </div>

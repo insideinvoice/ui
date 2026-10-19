@@ -152,22 +152,22 @@ export default function DeliveryChallansList() {
               </p>
             </div>
             {challans.length > 0 && (
-              <div className="relative w-full sm:w-56 md:w-64">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+              <div className="relative w-full sm:w-48 md:w-56">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
                 <input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Search challans…"
                   aria-label="Search delivery challans"
-                  className="w-full pl-9 pr-9 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-400/30 focus:border-teal-400 bg-white text-slate-800 placeholder:text-slate-400 min-h-[44px]"
+                  className="w-full pl-8 pr-8 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-400/30 focus:border-teal-400 bg-white text-slate-800 placeholder:text-slate-400 min-h-[40px]"
                 />
                 {search && (
                   <button
                     onClick={() => setSearch("")}
                     aria-label="Clear search"
-                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                    className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
                   >
-                    <X className="w-4 h-4" />
+                    <X className="w-3.5 h-3.5" />
                   </button>
                 )}
               </div>
@@ -175,7 +175,7 @@ export default function DeliveryChallansList() {
             {canCreate && (
               <button
                 onClick={() => navigate("/delivery-challans/new")}
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-teal-600 text-white text-sm font-semibold rounded-lg hover:bg-teal-700 active:scale-[0.98] transition-all shadow-sm min-h-[44px] shrink-0"
+                className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 bg-teal-600 text-white text-sm font-semibold rounded-lg hover:bg-teal-700 active:scale-[0.98] transition-all shadow-sm min-h-[40px] shrink-0"
               >
                 <Plus className="w-4 h-4" /> New Challan
               </button>

@@ -439,38 +439,32 @@ export default function PublicInvoicePage() {
 
       <main className="flex-1 max-w-[1200px] w-full mx-auto px-2 sm:px-4 py-3 sm:py-6">
         {/* Native-zoom viewer: the document is fitted to the screen with CSS
-            `zoom` (layout-scaled, so text stays crisp) and the browser's own
-            pinch/pan/double-tap handle the rest — no custom gesture code, so
-            zooming is smooth on every device and double-tap resets to fit. */}
+            `zoom` and the browser's own pinch/pan/double-tap handle the rest
+            — no wrapping scroll container, so zooming/panning never gets
+            trapped inside a box. */}
         <div
-          className="bg-slate-100/60 sm:bg-white rounded-xl shadow-sm border border-slate-200 overflow-auto relative"
-          style={{ minHeight: "calc(100dvh - 96px)", WebkitOverflowScrolling: "touch" }}
+          className="min-w-full flex items-start justify-center p-2 sm:p-5"
         >
           <div
-            className="min-w-full min-h-full flex items-start p-2 sm:p-5"
-            style={{ justifyContent: "safe center" }}
+            style={{
+              width: `${widthPx}px`,
+              zoom: fitScale,
+              background: "#ffffff",
+              boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -2px rgba(0, 0, 0, 0.06)",
+            }}
           >
-            <div
-              style={{
-                width: `${widthPx}px`,
-                zoom: fitScale,
-                background: "#ffffff",
-                boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -2px rgba(0, 0, 0, 0.06)",
-              }}
-            >
-              <InvoiceTemplateRenderer
-                business={templateProps.business}
-                customer={templateProps.customer}
-                form={templateProps.form}
-                items={templateProps.items}
-                totals={templateProps.totals}
-                discountPercent={data.discountPercent != null ? String(data.discountPercent) : "0"}
-                type={renderType}
-                invoiceNumber={data.invoiceNumber}
-                paperSize={paperSize}
-                template={data.template || undefined}
-              />
-            </div>
+            <InvoiceTemplateRenderer
+              business={templateProps.business}
+              customer={templateProps.customer}
+              form={templateProps.form}
+              items={templateProps.items}
+              totals={templateProps.totals}
+              discountPercent={data.discountPercent != null ? String(data.discountPercent) : "0"}
+              type={renderType}
+              invoiceNumber={data.invoiceNumber}
+              paperSize={paperSize}
+              template={data.template || undefined}
+            />
           </div>
         </div>
 

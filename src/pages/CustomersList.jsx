@@ -2,7 +2,6 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { customerAPI } from "../api/auth";
 import LoadingDots from "../components/LoadingDots";
-import AppNavbar from "../components/AppNavbar";
 import PageHeader from "../components/PageHeader";
 import ConfirmModal from "../components/ConfirmModal";
 import toast from "react-hot-toast";
@@ -100,7 +99,6 @@ export default function CustomersList() {
   if (loading) {
     return (
       <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-gray-100">
-        <AppNavbar />
         <div className="flex items-center justify-center" style={{ minHeight: "calc(100dvh - 80px)" }}>
           <LoadingDots className="text-slate-400" />
         </div>
@@ -110,7 +108,6 @@ export default function CustomersList() {
 
   return (
     <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-gray-100">
-      <AppNavbar />
       <div className="px-4 sm:px-5 lg:px-6 py-3 sm:py-4 lg:py-5 max-w-[1900px] mx-auto">
         <PageHeader title="View Customers" />
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">

@@ -2,7 +2,6 @@ import { useState, useEffect, useRef, useMemo, useCallback, memo } from "react";
 import { useLocation } from "react-router-dom";
 import LoadingDots from "../components/LoadingDots";
 import Spinner from "../components/Spinner";
-import AppNavbar from "../components/AppNavbar";
 import PageHeader from "../components/PageHeader";
 import { invoiceAPI, customerAPI, businessAPI, productAPI, deliveryChallanAPI } from "../api/auth";
 import toast from "react-hot-toast";
@@ -1095,7 +1094,6 @@ export default function InvoiceForm() {
     // loads — only the center area shows the spinner, matching InvoicesList.
     return (
       <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-gray-100">
-        <AppNavbar />
         <div
           className="flex items-center justify-center"
           style={{ minHeight: "calc(100dvh - 80px)" }}
@@ -1445,7 +1443,6 @@ export default function InvoiceForm() {
 
   return (
     <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-gray-100">
-      <AppNavbar />
       {/* Hidden Invoice PDF for capture — mounted only while generating a PDF */}
       {showPdfPreview && (
         <div style={{ position: "absolute", left: "-9999px", top: 0, pointerEvents: "none" }}>

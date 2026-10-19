@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import LoadingDots from "../components/LoadingDots";
 import { adminAPI } from "../api/auth";
 import { ArrowLeft, UserCheck } from "lucide-react";
-import AppNavbar from "../components/AppNavbar";
 import PageHeader from "../components/PageHeader";
 
 export default function AdminCustomersList() {
@@ -18,7 +17,6 @@ export default function AdminCustomersList() {
 
   return (
     <div className="min-h-[100dvh] bg-gradient-to-br from-gray-50 via-slate-50 to-gray-100">
-      <AppNavbar />
       <div className="px-4 sm:px-5 lg:px-6 py-3 sm:py-4 lg:py-5 max-w-[1900px] mx-auto">
         <PageHeader title="All Customers" />
         <p className="text-xs text-slate-500 -mt-4 mb-6">{customers.length} total</p>

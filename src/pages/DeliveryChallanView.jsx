@@ -1,6 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import AppNavbar from "../components/AppNavbar";
 import PageHeader from "../components/PageHeader";
 import ConfirmModal from "../components/ConfirmModal";
 import LoadingDots from "../components/LoadingDots";
@@ -185,7 +184,6 @@ export default function DeliveryChallanView() {
   if (loading || !dc) {
     return (
       <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-gray-100">
-        <AppNavbar />
         <div
           className="flex items-center justify-center"
           style={{ minHeight: "calc(100dvh - 80px)" }}
@@ -198,7 +196,6 @@ export default function DeliveryChallanView() {
 
   return (
     <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-gray-100">
-      <AppNavbar />
       <div className="px-3 sm:px-5 lg:px-6 py-3 sm:py-4 lg:py-5 max-w-[1400px] mx-auto">
         <PageHeader title={`Challan ${dc.challanNumber}`} backTo="/delivery-challans" />
 

@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import LoadingDots from "../components/LoadingDots";
 import JurisdictionRegionSelect from "../components/JurisdictionRegionSelect";
 import { useAuth } from "../context/AuthContext";
-import AppNavbar from "../components/AppNavbar";
 import PageHeader from "../components/PageHeader";
 import toast from "react-hot-toast";
 import { ArrowLeft, Check, ArrowRight, Building2, MapPin, Phone, Mail, Globe, FileText, Landmark } from "lucide-react";
@@ -87,7 +86,6 @@ export default function BusinessSetup() {
 
   return (
     <div className="min-h-[100dvh] bg-gradient-to-br from-gray-50 via-slate-50 to-gray-100">
-      <AppNavbar />
       <div className="px-4 sm:px-5 lg:px-6 py-3 sm:py-4 lg:py-5 max-w-[1900px] mx-auto">
         <PageHeader title="Business Setup" />
         <div className="max-w-2xl mx-auto glass-effect rounded-xl shadow-lg p-4 sm:p-6 lg:p-8">

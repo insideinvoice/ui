@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import LoadingDots from "../components/LoadingDots";
 import { useAuth } from "../context/AuthContext";
-import AppNavbar from "../components/AppNavbar";
 import PageHeader from "../components/PageHeader";
 import toast from "react-hot-toast";
 import { adminAPI } from "../api/auth";
@@ -136,7 +135,6 @@ export default function AdminUsersList() {
 
   return (
     <div className="min-h-[100dvh] bg-gradient-to-br from-gray-50 via-slate-50 to-gray-100">
-      <AppNavbar />
       <div className="px-4 sm:px-5 lg:px-6 py-3 sm:py-4 lg:py-5 max-w-[1900px] mx-auto">
         <PageHeader title="User Management" />
         <div className="flex items-center gap-2 flex-wrap -mt-4 mb-6">

@@ -1,5 +1,4 @@
 import { useState, useCallback, useEffect } from "react";
-import AppNavbar from "../components/AppNavbar";
 import PageHeader from "../components/PageHeader";
 import { getPrintSettings, savePrintSettings, PAPER_SIZE_LIST, ALL_TEMPLATES, DEFAULT_PRINT_SETTINGS, getGlobalTemplate } from "../constants/paperSizes";
 import { useAuth } from "../context/AuthContext";
@@ -201,7 +200,6 @@ export default function PrintSettings({ noWrapper }) {
 
   return (
     <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-gray-100">
-      <AppNavbar />
       <PageHeader title="Print Settings" />
       <div className="max-w-[1900px] mx-auto m-[5px] bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
         <div className="p-4 sm:p-5">{docSettings}</div>

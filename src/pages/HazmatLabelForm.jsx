@@ -1,6 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import AppNavbar from "../components/AppNavbar";
 import PdfPreview from "../components/PdfPreview";
 import HazmatLabelPreview from "../components/labelPreview/HazmatLabelPreview";
 import usePdfPreview from "../hooks/usePdfPreview";
@@ -158,7 +157,6 @@ export default function HazmatLabelForm() {
 
   return (
     <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-gray-100">
-      <AppNavbar />
       <div className="px-4 sm:px-5 lg:px-6 py-3 sm:py-4 lg:py-5 max-w-[1900px] mx-auto">
         <PageHeader title={editing ? "Edit Hazmat Label" : "New Hazmat Label"} />
         <div className="grid grid-cols-1 xl:grid-cols-5 gap-4">

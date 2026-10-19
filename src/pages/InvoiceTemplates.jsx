@@ -1,6 +1,5 @@
 import { useState, useEffect, useLayoutEffect, useRef, memo, useCallback } from "react";
 import { useAuth } from "../context/AuthContext";
-import AppNavbar from "../components/AppNavbar";
 import PageHeader from "../components/PageHeader";
 import InvoicePDF from "../components/InvoicePDF";
 import InvoiceTemplateVariants from "../components/InvoiceTemplateVariants";
@@ -589,7 +588,6 @@ export default function InvoiceTemplates() {
 
   return (
     <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-gray-100">
-      <AppNavbar />
       <div className="max-w-[1900px] mx-auto px-4 sm:px-6 py-6">
         <PageHeader title="Templates" />
         <p className="text-xs text-slate-500 -mt-4 mb-6">Choose a template style for your invoices and delivery challans</p>

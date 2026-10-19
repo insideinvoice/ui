@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import LoadingDots from "../components/LoadingDots";
-import AppNavbar from "../components/AppNavbar";
 import PageHeader from "../components/PageHeader";
 import { labelAPI } from "../api/auth";
 import toast from "react-hot-toast";
@@ -39,7 +38,6 @@ export default function HazmatLabelsList() {
 
   return (
     <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-gray-100">
-      <AppNavbar />
       <div className="px-4 sm:px-5 lg:px-6 py-3 sm:py-4 lg:py-5 max-w-[1900px] mx-auto">
         <PageHeader title="Hazmat Labels" />
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">

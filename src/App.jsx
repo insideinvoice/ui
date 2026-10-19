@@ -3,6 +3,7 @@ import { Route, Routes, Navigate, useLocation } from "react-router-dom";
 import { useEffect } from "react";
 import { useAuth } from "./context/AuthContext";
 import { AuthProvider } from "./context/AuthProvider";
+import AppNavbar from "./components/AppNavbar";
 import PWAInstallPrompt from "./components/PWAInstallPrompt";
 import GSTBillingLanding from "./Landing/gst-landing-final";
 import PrivacyPolicy from "./Landing/PrivacyPolicy";
@@ -72,11 +73,33 @@ function PrivateRoute({ children }) {
   ) : <Navigate to="/login" />;
 }
 
+/** Routes that never rendered app chrome (public share, landing, docs, auth). */
+const PUBLIC_PATHS = [
+  "/", "/i/", "/login", "/forgot-password", "/change-password",
+  "/privacy-policy", "/terms-and-condition", "/refund-policy", "/updates",
+  "/contact", "/documentation", "/help", "/video", "/gst-calculator",
+  "/qr-generator", "/barcode-generator", "/business-card",
+];
+
+function isPublicPath(pathname) {
+  return PUBLIC_PATHS.some((p) =>
+    p === "/" ? pathname === "/" : pathname === p || pathname.startsWith(`${p}/`));
+}
+
 function AppRoutes() {
+  const { isAuthenticated } = useAuth();
+  const location = useLocation();
   return (
     <>
       <ScrollToTop />
       <SeoHead />
+      {/* Persistent app chrome, mounted ONCE per authenticated session and
+          NOT per routed page: every page used to render its own <AppNavbar/>,
+          so navigating unmounted + remounted the whole desktop sidebar and
+          mobile top-nav (CSS transitions replayed → the sidebar "blinked"
+          on every click). Mounted here it survives route changes; public
+          and landing routes are gated off exactly like before. */}
+      {isAuthenticated && !isPublicPath(location.pathname) && <AppNavbar />}
       <Routes>
       <Route path="/" element={<GSTBillingLanding />} />
       <Route path="/login" element={<Login />} />

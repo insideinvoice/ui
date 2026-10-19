@@ -7,7 +7,6 @@ import {
   RefreshCw, Search, ArrowRight,
 } from "lucide-react";
 
-import AppNavbar from "../components/AppNavbar";
 import { getCache, setCache } from "../utils/cache";
 
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
@@ -136,7 +135,6 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-[100dvh] bg-slate-50">
-      <AppNavbar />
 
       <div className="px-3 sm:px-4 lg:px-6 max-w-[1900px] mx-auto">
         <main className="py-4">

@@ -5,7 +5,6 @@ import { adminAPI, invoiceAPI, customerAPI } from "../api/auth";
 import { FileText, Users, Package, Building2, PlusCircle, List, BarChart3, DollarSign, TrendingUp, Calendar, UserPlus, Settings, UserCheck, IndianRupee } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from "recharts";
 
-import AppNavbar from "../components/AppNavbar";
 import { getCache, setCache } from "../utils/cache";
 import { formatAxisMoney } from "../utils/chartFormat";
 
@@ -292,7 +291,6 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-[100dvh] bg-slate-50">
-      <AppNavbar />
 
       <div className="px-3 sm:px-4 lg:px-6 max-w-[1900px] mx-auto">
         <main className="py-2 sm:py-3">

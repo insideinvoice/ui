@@ -12,7 +12,6 @@ import {
   LineChart, Line,
 } from "recharts";
 
-import AppNavbar from "../components/AppNavbar";
 import { getCache, setCache } from "../utils/cache";
 import { formatAxisMoney } from "../utils/chartFormat";
 
@@ -250,7 +249,6 @@ export default function AdminUserWorkspace() {
   if (loading && !targetUser) {
     return (
       <div className="min-h-[100dvh] bg-slate-50">
-        <AppNavbar />
         <div className="px-3 sm:px-4 lg:px-6 max-w-[1900px] mx-auto">
           <div className="py-4 sm:py-6">
             <div className="h-10 w-64 bg-slate-200 rounded-lg animate-pulse mb-4" />
@@ -265,7 +263,6 @@ export default function AdminUserWorkspace() {
 
   return (
     <div className="min-h-[100dvh] bg-slate-50">
-      <AppNavbar />
 
       <div className="px-3 sm:px-4 lg:px-6 max-w-[1900px] mx-auto">
         <main className="py-4">

@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import LoadingDots from "../components/LoadingDots";
-import AppNavbar from "../components/AppNavbar";
 import PageHeader from "../components/PageHeader";
 import { customerAPI } from "../api/auth";
 import toast from "react-hot-toast";
@@ -43,7 +42,6 @@ export default function AddCustomer() {
 
   return (
     <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-gray-100">
-      <AppNavbar />
       <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 max-w-2xl mx-auto">
         <PageHeader title="Add New Customer" />
 

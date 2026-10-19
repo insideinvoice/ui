@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import LoadingDots from "../components/LoadingDots";
-import AppNavbar from "../components/AppNavbar";
 import PageHeader from "../components/PageHeader";
 import { adminAPI } from "../api/auth";
 import ConfirmModal from "../components/ConfirmModal";
@@ -46,7 +45,6 @@ export default function AdminProductsList() {
   if (loading) {
     return (
       <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-gray-100">
-        <AppNavbar />
         <div className="flex items-center justify-center" style={{ minHeight: "calc(100dvh - 80px)" }}>
           <LoadingDots className="text-slate-400" />
         </div>
@@ -56,7 +54,6 @@ export default function AdminProductsList() {
 
   return (
     <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-gray-100">
-      <AppNavbar />
       <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8 max-w-[1900px] mx-auto">
         <PageHeader title="All Products" />
         <p className="text-xs text-slate-500 -mt-4 mb-6">All products across all businesses</p>

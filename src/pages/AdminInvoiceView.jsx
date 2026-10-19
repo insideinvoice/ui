@@ -4,7 +4,6 @@ import LoadingDots from "../components/LoadingDots";
 import { adminAPI } from "../api/auth";
 import toast from "react-hot-toast";
 import { ArrowLeft, FileText, Save, Edit2, Download } from "lucide-react";
-import AppNavbar from "../components/AppNavbar";
 import PageHeader from "../components/PageHeader";
 import InvoiceTemplateRenderer from "../components/InvoiceTemplateRenderer";
 import { processPrint } from "../utils/printInvoice";
@@ -185,7 +184,6 @@ export default function AdminInvoiceView() {
     // loading state (same pattern as InvoicesList).
     return (
       <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-gray-100">
-        <AppNavbar />
         <div
           className="flex items-center justify-center"
           style={{ minHeight: "calc(100dvh - 80px)" }}
@@ -199,7 +197,6 @@ export default function AdminInvoiceView() {
   if (error) {
     return (
       <div className="min-h-[100dvh] bg-gradient-to-br from-gray-50 via-slate-50 to-gray-100">
-        <AppNavbar />
         <div className="max-w-3xl mx-auto px-6 py-8">
           <button onClick={() => goBack(navigate, "/admin/invoices")}
             className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 mb-4 transition-colors">
@@ -219,7 +216,6 @@ export default function AdminInvoiceView() {
 
   return (
     <div className="min-h-[100dvh] bg-gradient-to-br from-gray-50 via-slate-50 to-gray-100">
-      <AppNavbar />
       <div className="max-w-[1900px] mx-auto px-4 sm:px-5 lg:px-6 py-3 sm:py-4 lg:py-5">
         <PageHeader title="Invoice Details" backTo={-1} />
 

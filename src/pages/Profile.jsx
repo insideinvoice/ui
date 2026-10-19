@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from "react";
 import { useAuth } from "../context/AuthContext";
-import AppNavbar from "../components/AppNavbar";
 import PrintSettings from "./PrintSettings";
 import JurisdictionRegionSelect from "../components/JurisdictionRegionSelect";
 import { authAPI, businessAPI } from "../api/auth";
@@ -258,7 +257,6 @@ export default function Profile() {
 
   return (
     <div className="min-h-[100dvh] bg-gradient-to-br from-gray-50 via-slate-50 to-gray-100">
-      <AppNavbar />
       <div className="px-4 sm:px-5 lg:px-6 py-3 sm:py-4 lg:py-5 max-w-[1900px] mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">

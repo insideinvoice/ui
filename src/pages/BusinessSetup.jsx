@@ -1,12 +1,15 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import LoadingDots from "../components/LoadingDots";
+import JurisdictionRegionSelect from "../components/JurisdictionRegionSelect";
 import { useAuth } from "../context/AuthContext";
 import AppNavbar from "../components/AppNavbar";
 import PageHeader from "../components/PageHeader";
 import toast from "react-hot-toast";
 import { ArrowLeft, Check, ArrowRight, Building2, MapPin, Phone, Mail, Globe, FileText, Landmark } from "lucide-react";
 import { INDUSTRY_LIST, DEFAULT_INDUSTRY } from "../constants/industryConfig";
+import { formatJurisdiction } from "../utils/jurisdiction";
+import { JURISDICTION_CENTRES } from "../constants/indianRegions";
 
 export default function BusinessSetup() {
   const { setupBusiness, logout } = useAuth();
@@ -28,6 +31,9 @@ export default function BusinessSetup() {
     invoicePrefix: "",
     specialistIn: "",
     specialistInEnabled: false,
+    jurisdictionEnabled: true,
+    jurisdictionRegion: "",
+    jurisdictionCity: "",
     bankName: "",
     accountNo: "",
     branch: "",
@@ -43,11 +49,26 @@ export default function BusinessSetup() {
     setFormData({ ...formData, specialistInEnabled: !formData.specialistInEnabled });
   };
 
+  const handleJurisdictionToggle = () => {
+    setFormData((f) => ({ ...f, jurisdictionEnabled: !f.jurisdictionEnabled }));
+  };
+
+  // Convenience only: fill the jurisdiction city with the region's common
+  // capital / administrative centre. Always editable afterwards.
+  const suggestJurisdictionCentre = () => {
+    const centre = JURISDICTION_CENTRES[formData.jurisdictionRegion];
+    if (centre) setFormData((f) => ({ ...f, jurisdictionCity: centre }));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!formData.businessName) {
       toast.error("Business name is required");
+      return;
+    }
+    if (formData.jurisdictionEnabled && !formData.jurisdictionCity.trim()) {
+      toast.error("Enter the jurisdiction city / location, or turn off the jurisdiction line");
       return;
     }
 
@@ -169,6 +190,79 @@ export default function BusinessSetup() {
                   placeholder="ALL KINDS OF ELECTRICAL & HARDWARE MATERIALS"
                   className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-slate-400 disabled:bg-slate-50 disabled:text-slate-400" />
                 <p className="text-[10px] text-slate-400 mt-1">Printed under the address on the invoice when enabled.</p>
+              </div>
+
+              {/* Invoice Jurisdiction — optional at onboarding; omitted fields
+                  fall back to the same legacy defaults Settings uses. */}
+              <div className="sm:col-span-2 rounded-lg border border-slate-200 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <MapPin className="w-4 h-4 text-slate-500 shrink-0" />
+                    <span className="text-xs font-semibold text-slate-700 uppercase tracking-wide">Invoice Jurisdiction</span>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-[10px] text-slate-400 uppercase tracking-wider">Show jurisdiction on invoice</span>
+                    <button type="button" onClick={handleJurisdictionToggle} aria-label="Show jurisdiction on invoice"
+                      className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${formData.jurisdictionEnabled ? "bg-blue-500" : "bg-slate-300"}`}>
+                      <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform ${formData.jurisdictionEnabled ? "translate-x-5" : ""}`} />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-3">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">Jurisdiction Region</label>
+                    <JurisdictionRegionSelect
+                      value={formData.jurisdictionRegion}
+                      onChange={(region) => setFormData((f) => ({ ...f, jurisdictionRegion: region }))}
+                      disabled={!formData.jurisdictionEnabled}
+                    />
+                    <p className="text-[10px] text-slate-400 mt-1">The Indian state or Union Territory your invoices should reference.</p>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">Jurisdiction City / Location</label>
+                    <input
+                      type="text"
+                      name="jurisdictionCity"
+                      value={formData.jurisdictionCity}
+                      onChange={handleChange}
+                      disabled={!formData.jurisdictionEnabled}
+                      placeholder="e.g., Bengaluru"
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-slate-400 disabled:bg-slate-50 disabled:text-slate-400"
+                    />
+                    <div className="flex items-center justify-between gap-2 mt-1">
+                      <p className="text-[10px] text-slate-400">City whose jurisdiction should appear on your invoices.</p>
+                      {formData.jurisdictionEnabled
+                        && formData.jurisdictionRegion
+                        && JURISDICTION_CENTRES[formData.jurisdictionRegion]
+                        && JURISDICTION_CENTRES[formData.jurisdictionRegion].toLowerCase() !== formData.jurisdictionCity.trim().toLowerCase() && (
+                        <button
+                          type="button"
+                          onClick={suggestJurisdictionCentre}
+                          title="Suggestion only — edit as needed; the capital is not automatically the correct jurisdiction."
+                          className="shrink-0 text-[10px] font-semibold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border border-indigo-100 rounded-md px-2 py-1 transition-colors"
+                        >
+                          Use {JURISDICTION_CENTRES[formData.jurisdictionRegion]}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-3 rounded-md border border-slate-200 bg-white px-3 py-2 text-center">
+                  <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-1">Preview on invoice</p>
+                  {formData.jurisdictionEnabled ? (
+                    <div style={{ fontWeight: "bold" }}>
+                      {formatJurisdiction(formData.jurisdictionCity) || (
+                        <span className="italic font-normal" style={{ fontWeight: 400 }}>
+                          Enter a city above to preview the jurisdiction line
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-[10px] text-slate-500 italic">Jurisdiction display is off — the line will not appear on your invoices.</p>
+                  )}
+                </div>
               </div>
             </div>
 

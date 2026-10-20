@@ -217,14 +217,18 @@ export default function PublicInvoicePage() {
 
   useEffect(() => {
     if (!data || !containerRef.current) return undefined;
-    const el = containerRef.current;
-    const measure = () => {
-      const w = el.clientWidth;
+    // contentRect.width is the CONTENT box — it excludes the surface's
+    // px-2 / sm:px-4 padding. `clientWidth` (used before) includes padding, so
+    // `fit` was computed against a strip 16–32px wider than the sheet actually
+    // has: the sheet overflowed its own footprint (right edge ran off-screen
+    // at default zoom on phones) and below-fit recentring sat half that error
+    // — a visible ~8px — off-centre. ResizeObserver reports the initial size
+    // immediately on observe, so this also covers the first measurement.
+    const ro = new ResizeObserver((entries) => {
+      const w = entries[0].contentRect.width;
       setContainerW((prev) => (prev === w ? prev : w));
-    };
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(el);
+    });
+    ro.observe(containerRef.current);
     return () => ro.disconnect();
   }, [data]);
 
@@ -332,8 +336,18 @@ export default function PublicInvoicePage() {
       const ph = paper.offsetHeight * view.s;
       const loX = (pw <= vw ? 0 : vw - pw) - h.left;
       const hiX = (pw <= vw ? vw - pw : 0) - h.left;
-      const loY = (ph <= vh ? 0 : vh - ph) - h.top;
-      const hiY = (ph <= vh ? vh - ph : 0) - h.top;
+      // The sticky header floats OVER the sheet (z-20, opaque blur), so the
+      // usable viewing strip starts at the header's bottom edge — not at y=0.
+      // Clamping the sheet's top to y=0 meant its first ~66px (the printed
+      // title bar) sat permanently behind the header: dragging all the way
+      // down still could not bring the invoice's top into view. Now the top
+      // edge parks flush under the header, and a sheet that fits inside the
+      // strip is never allowed to slide under it at all.
+      const mainEl = surfaceRef.current ? surfaceRef.current.parentElement : null;
+      const headEl = mainEl ? mainEl.previousElementSibling : null;
+      const visTop = headEl ? Math.max(0, headEl.getBoundingClientRect().bottom) : 0;
+      const loY = Math.min(visTop, vh - ph) - h.top;
+      const hiY = Math.max(visTop, vh - ph) - h.top;
       view.x = clamp(view.x, Math.min(loX, hiX), Math.max(loX, hiX));
       view.y = clamp(view.y, Math.min(loY, hiY), Math.max(loY, hiY));
     };

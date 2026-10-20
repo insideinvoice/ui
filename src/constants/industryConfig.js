@@ -325,6 +325,7 @@ export const REFERENCES_SECTION_FIELDS = [
   "deliveryNote",
   "deliveryNoteDate",
   "referenceNumber",
+  "buyerOrderNumber",
   "dispatchDocNumber",
   "dispatchedThrough",
   "termsOfDelivery",

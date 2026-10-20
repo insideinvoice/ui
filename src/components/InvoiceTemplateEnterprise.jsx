@@ -404,12 +404,28 @@ const GST_SUMMARY_COLS = [
   { w: "22%", label: "Total Tax Amount", align: "right" },
 ];
 
+/* IGST (inter-state) replaces the two rate/amount pairs with ONE pair at the
+   full rate — the freed width folds into those columns so the table still
+   spans the full invoice width and no empty CGST/SGST columns remain. The
+   two header rows are kept, so gstSummaryHeight() and the page packer's
+   budgeting are byte-identical in both modes. */
+const GST_SUMMARY_COLS_IGST = [
+  { w: "13%", label: "HSN/SAC", align: "center" },
+  { w: "23%", label: "Taxable Value", align: "right" },
+  { w: "13%", label: "Rate", align: "center" },
+  { w: "29%", label: "Amount", align: "right" },
+  { w: "22%", label: "Total Tax Amount", align: "right" },
+];
+
 const gstSummaryHeight = (rowCount) =>
   M.summaryHead + M.summarySubHead + M.summaryFoot + rowCount * M.summaryRow;
 
-const GstSummary = ({ rows, firstLabel, showTax, totals, withTotal = true, endsAtFooter = false, topRule = false }) => {
+const GstSummary = ({ rows, firstLabel, showTax, totals, withTotal = true, endsAtFooter = false, topRule = false, taxMode }) => {
   // Proforma carries no tax breakup at all.
   if (!showTax) return null;
+
+  const igstMode = taxMode === "IGST";
+  const cols = igstMode ? GST_SUMMARY_COLS_IGST : GST_SUMMARY_COLS;
 
   const thBase = {
     background: PANEL, fontSize: "8.5px", fontWeight: 700, letterSpacing: "0.4px",
@@ -419,13 +435,14 @@ const GstSummary = ({ rows, firstLabel, showTax, totals, withTotal = true, endsA
 
   return (
     <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
-      <colgroup>{GST_SUMMARY_COLS.map((c, i) => <col key={i} style={{ width: c.w }} />)}</colgroup>
+      <colgroup>{cols.map((c, i) => <col key={i} style={{ width: c.w }} />)}</colgroup>
       <thead>
         {/* Row 1: HSN/SAC + Taxable Value span both header rows; CGST and
-            SGST/UTGST span two columns (Rate | Amount) below. */}
+            SGST/UTGST span two columns (Rate | Amount) below — IGST spans the
+            single Rate | Amount pair instead. */}
         <tr style={{ height: `${M.summaryHead}px` }}>
           <th rowSpan={2} style={{
-            ...thBase, textAlign: GST_SUMMARY_COLS[0].align,
+            ...thBase, textAlign: cols[0].align,
             // Junction rule (topRule): see note above — drawn here so the
             // screen and the PDF agree on a single line.
             borderTop: topRule ? `1.5px solid ${INK}` : "none",
@@ -433,36 +450,38 @@ const GstSummary = ({ rows, firstLabel, showTax, totals, withTotal = true, endsA
             borderRight: `1.5px solid ${GRID}`,
           }}>{firstLabel}</th>
           <th rowSpan={2} style={{
-            ...thBase, textAlign: GST_SUMMARY_COLS[1].align,
+            ...thBase, textAlign: cols[1].align,
             borderTop: topRule ? `1.5px solid ${INK}` : "none",
             borderBottom: `1.5px solid ${INK}`,
             borderRight: `1.5px solid ${GRID}`,
-          }}>{GST_SUMMARY_COLS[1].label}</th>
+          }}>{cols[1].label}</th>
           <th colSpan={2} style={{
             ...thBase,
             borderTop: topRule ? `1.5px solid ${INK}` : "none",
             borderBottom: `1.5px solid ${INK}`,
             borderRight: `1.5px solid ${GRID}`,
-          }}>CGST</th>
-          <th colSpan={2} style={{
-            ...thBase,
-            borderTop: topRule ? `1.5px solid ${INK}` : "none",
-            borderBottom: `1.5px solid ${INK}`,
-            borderRight: `1.5px solid ${GRID}`,
-          }}>SGST/UTGST</th>
+          }}>{igstMode ? "IGST" : "CGST"}</th>
+          {!igstMode && (
+            <th colSpan={2} style={{
+              ...thBase,
+              borderTop: topRule ? `1.5px solid ${INK}` : "none",
+              borderBottom: `1.5px solid ${INK}`,
+              borderRight: `1.5px solid ${GRID}`,
+            }}>SGST/UTGST</th>
+          )}
           <th rowSpan={2} style={{
-            ...thBase, textAlign: GST_SUMMARY_COLS[6].align,
+            ...thBase, textAlign: cols[cols.length - 1].align,
             borderTop: topRule ? `1.5px solid ${INK}` : "none",
             borderBottom: `1.5px solid ${INK}`,
-          }}>{GST_SUMMARY_COLS[6].label}</th>
+          }}>{cols[cols.length - 1].label}</th>
         </tr>
-        {/* Row 2: the four rate/amount sub-headers. */}
+        {/* Row 2: the rate/amount sub-headers (one pair in IGST mode). */}
         <tr style={{ height: `${M.summarySubHead}px` }}>
-          {["Rate", "Amount", "Rate", "Amount"].map((lbl, i) => (
+          {(igstMode ? ["Rate", "Amount"] : ["Rate", "Amount", "Rate", "Amount"]).map((lbl, i) => (
             <th key={i} style={{
               ...thBase, borderBottom: `1.5px solid ${INK}`,
               borderRight: `1.5px solid ${GRID}`,
-              textAlign: GST_SUMMARY_COLS[i + 2].align,
+              textAlign: cols[i + 2].align,
             }}>{lbl}</th>
           ))}
         </tr>
@@ -484,22 +503,37 @@ const GstSummary = ({ rows, firstLabel, showTax, totals, withTotal = true, endsA
                 ...tdBase, textAlign: "right", borderRight: `1.5px solid ${GRID}`,
                 borderBottom: bb,
               }}>{formatINR(r.taxable)}</td>
-              <td style={{
-                ...tdBase, textAlign: "center", borderRight: `1.5px solid ${GRID}`,
-                borderBottom: bb,
-              }}>{r.rateLabel}</td>
-              <td style={{
-                ...tdBase, textAlign: "right", borderRight: `1.5px solid ${GRID}`,
-                borderBottom: bb,
-              }}>{formatINR(r.cgst)}</td>
-              <td style={{
-                ...tdBase, textAlign: "center", borderRight: `1.5px solid ${GRID}`,
-                borderBottom: bb,
-              }}>{r.rateLabel}</td>
-              <td style={{
-                ...tdBase, textAlign: "right", borderRight: `1.5px solid ${GRID}`,
-                borderBottom: bb,
-              }}>{formatINR(r.sgst)}</td>
+              {igstMode ? (
+                <>
+                  <td style={{
+                    ...tdBase, textAlign: "center", borderRight: `1.5px solid ${GRID}`,
+                    borderBottom: bb,
+                  }}>{r.rateLabel}</td>
+                  <td style={{
+                    ...tdBase, textAlign: "right", borderRight: `1.5px solid ${GRID}`,
+                    borderBottom: bb,
+                  }}>{formatINR(r.igst)}</td>
+                </>
+              ) : (
+                <>
+                  <td style={{
+                    ...tdBase, textAlign: "center", borderRight: `1.5px solid ${GRID}`,
+                    borderBottom: bb,
+                  }}>{r.rateLabel}</td>
+                  <td style={{
+                    ...tdBase, textAlign: "right", borderRight: `1.5px solid ${GRID}`,
+                    borderBottom: bb,
+                  }}>{formatINR(r.cgst)}</td>
+                  <td style={{
+                    ...tdBase, textAlign: "center", borderRight: `1.5px solid ${GRID}`,
+                    borderBottom: bb,
+                  }}>{r.rateLabel}</td>
+                  <td style={{
+                    ...tdBase, textAlign: "right", borderRight: `1.5px solid ${GRID}`,
+                    borderBottom: bb,
+                  }}>{formatINR(r.sgst)}</td>
+                </>
+              )}
               <td style={{
                 ...tdBase, fontWeight: 600, textAlign: "right",
                 borderBottom: bb,
@@ -509,7 +543,13 @@ const GstSummary = ({ rows, firstLabel, showTax, totals, withTotal = true, endsA
         })}
         {withTotal && (
           <tr style={{ height: `${M.summaryFoot}px` }}>
-            {[
+            {(igstMode ? [
+              "Total",
+              formatINR(totals.taxableAmount),
+              "",
+              formatINR(totals.igst),
+              formatINR(totals.taxAmount),
+            ] : [
               "Total",
               formatINR(totals.taxableAmount),
               "",
@@ -517,11 +557,11 @@ const GstSummary = ({ rows, firstLabel, showTax, totals, withTotal = true, endsA
               "",
               formatINR(totals.sgst),
               formatINR(totals.taxAmount),
-            ].map((v, i) => (
+            ]).map((v, i) => (
               <td key={i} style={{
                 background: TOTAL_BG, fontWeight: 700, fontSize: "9.5px",
                 borderBottom: `1.5px solid ${INK}`,
-                borderRight: i < GST_SUMMARY_COLS.length - 1 ? `1.5px solid ${GRID}` : "none",
+                borderRight: i < cols.length - 1 ? `1.5px solid ${GRID}` : "none",
                 textAlign: i === 0 ? "center" : "right", verticalAlign: "middle", padding: "0 8px",
               }}>{v}</td>
             ))}
@@ -800,6 +840,7 @@ const EntPage = ({ pageId, showItems, sumRows, sumWithTotal, closing, chunkItems
           withTotal={sumWithTotal}
           endsAtFooter={!closing}
           topRule={showItems}
+          taxMode={shared.taxMode}
         />
       )}
 
@@ -844,7 +885,7 @@ const EntPage = ({ pageId, showItems, sumRows, sumWithTotal, closing, chunkItems
 /* ----------------------------------------------------------- component */
 
 const InvoiceTemplateEnterprise = React.forwardRef(
-  ({ business, customer, form, items, discountPercent, type, invoiceNumber }, ref) => {
+  ({ business, customer, form, items, discountPercent, type, invoiceNumber, taxMode }, ref) => {
     const validItems = useMemo(
       () => (items || []).filter((i) => i?.itemName?.trim() && parseFloat(i?.qty) > 0),
       [items],
@@ -854,7 +895,10 @@ const InvoiceTemplateEnterprise = React.forwardRef(
     const isProforma = type === "PROFORMA_INVOICE";
     const showTax = !isProforma;
     const displayInvNo = invoiceNumber || "DRAFT";
-    const calc = computeInvoiceTotals(items, discountPercent);
+    const calc = computeInvoiceTotals(items, discountPercent, taxMode);
+    // IGST (inter-state) replaces the CGST/SGST pair in the totals stack and
+    // the HSN breakup table — the two structures never render together.
+    const igstMode = taxMode === "IGST";
     const jurLine = jurisdictionLine(business);
     const specialist = getSpecialistInLine(business);
     const headH = M.head + (specialist ? SPECIALIST_IN_EXTRA_H : 0);
@@ -870,20 +914,23 @@ const InvoiceTemplateEnterprise = React.forwardRef(
        many products — paginates with the table below; nothing is merged. */
     // GST breakup: ONE row per (HSN/product, rate) group — 53 line items
     // across 5 rates are 5 summary rows, not 53 identical ones.
-    const summaryRows = groupTaxSummaryRows(validItems, { showHnSac, ratio: calc.ratio });
+    const summaryRows = groupTaxSummaryRows(validItems, { showHnSac, ratio: calc.ratio, taxMode });
     const summaryFirstLabel = showHnSac ? "HSN/SAC" : "Product";
 
-    /* Totals stack (Sub / Discount / CGST / SGST / Grand). Heights mirror
-       M.totalsRow / M.totalsGrand exactly — the chunker reads the sum. */
+    /* Totals stack (Sub / Discount / [CGST, SGST | IGST] / Grand). Heights
+       mirror M.totalsRow / M.totalsGrand exactly — the chunker reads the
+       sum. IGST collapses the split pair into one row. */
     const totalsRows = [
       { label: "Sub Total", value: formatINR(calc.subtotal), strong: false },
       ...(calc.discountAmount > 0
         ? [{ label: `Discount (${calc.discountPercent}%)`, value: "- " + formatINR(calc.discountAmount), strong: false }]
         : []),
-      ...(showTax ? [
-        { label: "CGST", value: formatINR(calc.cgst), strong: false },
-        { label: "SGST", value: formatINR(calc.sgst), strong: false },
-      ] : []),
+      ...(showTax ? (igstMode
+        ? [{ label: "IGST", value: formatINR(calc.igst), strong: false }]
+        : [
+          { label: "CGST", value: formatINR(calc.cgst), strong: false },
+          { label: "SGST", value: formatINR(calc.sgst), strong: false },
+        ]) : []),
       {
         label: isProforma ? "Estimated Total" : "Grand Total",
         value: "Rs. " + formatINR(calc.grandTotal),
@@ -1053,7 +1100,7 @@ const InvoiceTemplateEnterprise = React.forwardRef(
               shared={{
                 business, customer, form,
                 calc, title, subNote, displayInvNo, isProforma,
-                showTax, summaryFirstLabel, totalsRows, words,
+                showTax, summaryFirstLabel, totalsRows, words, taxMode,
                 jurLine, cols, descLabel,
                 headH, sigSrc, sealVisible, sealType,
               }}

@@ -57,21 +57,20 @@ html {
   overscroll-behavior-x: none;
 }
 
-/* Document-viewer routes (public share pages, /i/<token>) release the
-   viewport-level overflow-x clip: a zoomed-in paper is wider than the layout
-   viewport, and WebKit refuses to pan a CLIPPED html element — the zoomed
-   page gets stuck and can't be moved left/right (long-standing Safari bug).
-   The clip stays on everywhere else as the lateral overflow guard.
-   The viewer backdrop is also white EDGE TO EDGE: html, body and #root paint
-   white here, so every scroll position (including the iOS overscroll bounce
-   and the status-bar strip) shows the full-screen white surface — never the
-   app grey — with the invoice sheet centred on top of it. */
-html.public-docs-zoomable {
-  overflow-x: visible;
+/* Document-viewer routes (/i/<token>): the viewer is an ISOLATED fixed
+   container — the page itself must never scroll, pan or bounce. Any
+   page-level movement shifts the coordinates the pan engine clamps against,
+   and pinch-zoom comes out "stuck" (the exact bug). Everything is owned by
+   the in-page engine inside one fixed box, so overflow stays locked on every
+   axis. html/body/#root still paint white edge to edge for the iOS overscroll
+   bounce and the status-bar strip. */
+html.pip-locked,
+html.pip-locked body {
+  overflow: hidden;
+  height: 100%;
+  background-color: #ffffff;
 }
-html.public-docs-zoomable,
-html.public-docs-zoomable body,
-html.public-docs-zoomable #root {
+html.pip-locked #root {
   background-color: #ffffff;
 }
 
@@ -80,11 +79,12 @@ html.public-docs-zoomable #root {
    and iOS recognise a two-finger spread as the browser's own pinch BEFORE the
    second pointer ever moves and fire pointercancel — the engine dies at
    gesture start and pinch appears to "do nothing" on the phone. The engine
-   compensates for the lost native behaviour itself: one-finger drags scroll
-   the page (with flick momentum) while at fit, and pan the sheet once zoomed. */
+   compensates for the lost native behaviour itself: one-finger drags pan the
+   document (with flick momentum) at every zoom level. */
 .doc-pan {
   cursor: grab;
   touch-action: none;
+  overscroll-behavior: contain;
 }
 .doc-pan.is-grabbing { cursor: grabbing; }
 .doc-pan.is-grabbing * { cursor: grabbing; }

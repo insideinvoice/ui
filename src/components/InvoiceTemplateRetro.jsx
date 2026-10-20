@@ -325,7 +325,7 @@ const ItemBox = ({ pageItems, startIndex, height = RETRO_PAGE_METRICS.body, layo
 
 /* -------------------------------------------------------------- totals */
 
-const Totals = ({ gross, discAmt, discPct, cgst, sgst, grand, words, pctLabel, showTax = true, layout }) => {
+const Totals = ({ gross, discAmt, discPct, cgst, sgst, igst, igstMode = false, grand, words, pctLabel, showTax = true, layout }) => {
   const { cols, ruleX, showHnSac } = layout;
   const shade = { background: "#d6d6d6" };
   const rs = splitAmount;
@@ -336,16 +336,20 @@ const Totals = ({ gross, discAmt, discPct, cgst, sgst, grand, words, pctLabel, s
       ? [{ key: "discount", text: `Discount (${discPct}%)`, val: -Math.abs(parseFloat(discAmt) || 0), shade: false, discount: true }]
       : []),
     ...(showTax
-      ? [
+      ? (igstMode
+        // Inter-state: ONE IGST row at the full rate — never beside CGST/SGST.
+        ? [{ key: "igst", text: "IGST", pct: true, val: igst, shade: false }]
+        : [
           { key: "cgst", text: "CGST", pct: true, val: cgst, shade: false },
           { key: "sgst", text: "SGST", pct: true, val: sgst, shade: false },
-        ]
+        ])
       : []),
     { key: "grand", text: "G. TOTAL", val: grand, shade: true },
   ];
   // The block always owns the same fixed pixel budget (104px + one discount
   // line), spread across whichever rows exist — dropping the proforma's
-  // CGST/SGST lines shrinks no frame height, so the A4 cut never moves.
+  // CGST/SGST lines (or collapsing them to one IGST line) shrinks no frame
+  // height, so the A4 cut never moves.
   const rowH = (RETRO_PAGE_METRICS.totals + (showDiscount ? ROW_H : 0)) / rows.length;
   const label = {
     height: `${rowH}px`,
@@ -521,6 +525,8 @@ const RetroPage = ({ pageId, chunks, startIndex, shared }) => (
       discPct={shared.discPct}
       cgst={shared.cgst}
       sgst={shared.sgst}
+      igst={shared.igst}
+      igstMode={shared.igstMode}
       grand={shared.grand}
       words={shared.words}
       pctLabel={shared.pctLabel}
@@ -543,7 +549,7 @@ const RetroPage = ({ pageId, chunks, startIndex, shared }) => (
 /* ----------------------------------------------------------- component */
 
 const InvoiceTemplateRetro = React.forwardRef(
-  ({ business, customer, form, items, discountPercent, type, invoiceNumber }, ref) => {
+  ({ business, customer, form, items, discountPercent, type, invoiceNumber, taxMode }, ref) => {
     const all = (items || []).filter((i) => i?.itemName?.trim() && parseFloat(i?.qty) > 0);
     // Display-only HSN/SAC switch: hidden means the whole column disappears
     // and PARTICULARS absorbs its width — frame width and cut points unchanged.
@@ -558,8 +564,9 @@ const InvoiceTemplateRetro = React.forwardRef(
       (getSpecialistInLine(business) ? SPECIALIST_IN_EXTRA_H : 0);
     const chunks = chunkRetroItems(all, bodyH, retroCharsPerLine(cols));
 
-    const calc = computeInvoiceTotals(items, discountPercent);
+    const calc = computeInvoiceTotals(items, discountPercent, taxMode);
     const isProforma = type === "PROFORMA_INVOICE";
+    const igstMode = taxMode === "IGST";
     // A Discount row takes one extra totals line (ROW_H). Shrink the open item
     // box by the same amount so the fixed A4 frame budget is unchanged and the
     // PDF slicer still cuts exactly on the page boundary.
@@ -573,7 +580,9 @@ const InvoiceTemplateRetro = React.forwardRef(
 
     const grand = isProforma ? calc.taxableAmount : calc.grandTotal;
     const singleRate = rates.size === 1 ? [...rates][0] : null;
-    const pctLabel = singleRate ? `${singleRate / 2} %` : "";
+    // Rate shown beside the tax rows: the FULL GST rate in IGST mode, the
+    // halved split rate otherwise (as always).
+    const pctLabel = singleRate ? (igstMode ? `${singleRate} %` : `${singleRate / 2} %`) : "";
 
     const pageItems = (page) =>
       page.map((item) => ({
@@ -598,6 +607,8 @@ const InvoiceTemplateRetro = React.forwardRef(
       discPct: calc.discountPercent,
       cgst: calc.cgst,
       sgst: calc.sgst,
+      igst: calc.igst,
+      igstMode,
       grand,
       words: grand > 0 ? numberToWords(grand) : "",
       pctLabel,

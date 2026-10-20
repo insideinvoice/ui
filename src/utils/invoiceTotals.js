@@ -5,7 +5,10 @@
 // Indian GST rules applied here (CGST Act s.15(3)(b)):
 //   - Any discount declared on the invoice is deducted BEFORE tax, so GST is
 //     charged on the net (discounted) taxable value, never on the gross.
-//   - CGST = SGST = half of the total GST (intra-state supply).
+//   - Tax mode (3rd argument, defaults to "CGST_SGST"):
+//       CGST_SGST -> CGST = SGST = half of the total GST (intra-state supply)
+//       IGST      -> one full-rate IGST leg, NO CGST/SGST components
+//     The total tax is identical either way — only the structure changes.
 //   - All money values are rounded to 2 decimals (HALF_UP), matching the
 //     backend InvoiceMapper exactly, so the stored invoice and every screen
 //     agree to the paisa.
@@ -37,7 +40,14 @@ export const round2 = (n) => {
 // per-item tax matches the stored invoice to the paisa in every edge case.
 const round10 = (n) => Math.round((n + Number.EPSILON) * 1e10) / 1e10;
 
-export function computeInvoiceTotals(items, discountPercent) {
+/**
+ * @param {Array}  items         invoice lines
+ * @param {number} discountPercent invoice-level discount %
+ * @param {string} [taxMode]     "CGST_SGST" (default) | "IGST" — picks the
+ *                               tax STRUCTURE only; totals never change.
+ */
+export function computeInvoiceTotals(items, discountPercent, taxMode) {
+  const igstMode = taxMode === "IGST";
   const valid = (items || []).filter(
     (i) => i?.itemName?.trim() && parseFloat(i?.qty) > 0
   );
@@ -64,10 +74,12 @@ export function computeInvoiceTotals(items, discountPercent) {
   });
   const taxAmount = round2(taxes.reduce((s, t) => s + t, 0));
 
-  // CGST/SGST split of the total tax; residual paisa goes to SGST so the two
-  // halves always add up to the taxAmount shown on the invoice.
-  const cgst = round2(taxAmount / 2);
-  const sgst = round2(taxAmount - cgst);
+  // Invoice-level tax structure. IGST (inter-state) is the single full-rate
+  // leg and must never coexist with CGST/SGST; in split mode the residual
+  // paisa goes to SGST so the two legs always add up to the taxAmount shown.
+  const cgst = igstMode ? 0 : round2(taxAmount / 2);
+  const sgst = igstMode ? 0 : round2(taxAmount - cgst);
+  const igst = igstMode ? taxAmount : 0;
 
   // Discounted taxable value per line. The last line absorbs any rounding
   // residual so the Taxable column adds up EXACTLY to the Taxable Amount
@@ -82,8 +94,9 @@ export function computeInvoiceTotals(items, discountPercent) {
     const half = round2(taxes[idx] / 2);
     return {
       taxable: taxableCol[idx],
-      cgst: half,
-      sgst: round2(taxes[idx] - half),
+      cgst: igstMode ? 0 : half,
+      sgst: igstMode ? 0 : round2(taxes[idx] - half),
+      igst: igstMode ? taxes[idx] : 0,
       tax: taxes[idx],
       total: round2(taxableCol[idx] + taxes[idx]),
     };
@@ -97,6 +110,7 @@ export function computeInvoiceTotals(items, discountPercent) {
     ratio,
     cgst,
     sgst,
+    igst,
     taxAmount,
     grandTotal: round2(taxableAmount + taxAmount),
     perItem,

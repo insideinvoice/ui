@@ -16,6 +16,7 @@ import InvoiceTemplateRenderer from "../components/InvoiceTemplateRenderer";
 import { getInvoiceTemplate } from "../constants/paperSizes";
 import { buildInvoiceWhatsAppMessage, openWhatsAppChat } from "../utils/whatsapp";
 import { shareLinkToUser, proformaShareUrl, readCachedShareToken, writeCachedShareToken } from "../utils/shareLink";
+import { resolveTaxMode } from "../utils/taxMode";
 
 const MONTH_NAMES = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -179,6 +180,8 @@ export default function InvoicesList() {
       taxAmount: invoice.taxAmount || 0,
       grandTotal: invoice.grandTotal || 0,
     };
+    // Saved tax structure (legacy invoices resolve via supplier state vs PoS).
+    const taxMode = resolveTaxMode(invoice.taxMode, business?.state, invoice.placeOfSupply);
 
     const container = document.createElement("div");
     container.style.cssText = "position:absolute;left:-9999px;top:0;pointer-events:none;";
@@ -224,6 +227,7 @@ export default function InvoicesList() {
             items={items}
             totals={totals}
             discountPercent={String(invoice.discountPercent || "0")}
+            taxMode={taxMode}
             type={invoice.invoiceType}
             invoiceNumber={invoice.invoiceNumber}
             template={getInvoiceTemplate(invoice.invoiceType)}

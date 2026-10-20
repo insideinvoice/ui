@@ -5,6 +5,8 @@ import InvoiceTemplateRenderer from "../components/InvoiceTemplateRenderer";
 import LoadingDots from "../components/LoadingDots";
 import { publicInvoiceAPI } from "../api/public";
 import { computeInvoiceTotals } from "../utils/invoiceTotals";
+import { resolveTaxMode } from "../utils/taxMode";
+import { panBounds, clampPan, anchorZoom, toDocPoint, clampScale, decayVelocity, VELOCITY_EPS } from "../utils/panZoom";
 import { ALL_EXTENDED_FIELDS } from "../constants/industryConfig";
 
 const toNum = (v) => {
@@ -16,7 +18,6 @@ function mapToTemplateProps(data, typeOverride) {
   const s = data.seller || {};
   const pay = s.payment || {};
   const b = data.buyer || {};
-
   const business = {
     businessName: s.businessName,
     gstIn: s.gstIn,
@@ -106,7 +107,11 @@ function mapToTemplateProps(data, typeOverride) {
   }));
 
   const discountPct = toNum(data.discountPercent);
-  const calc = computeInvoiceTotals(items, discountPct);
+  // Tax structure the saved invoice presents: the stored selection wins;
+  // legacy links (no taxMode in the payload) fall back to seller state vs
+  // place of supply, else the intra-state split (pre-V34 rendering).
+  const taxMode = resolveTaxMode(data.taxMode, s.state, data.placeOfSupply);
+  const calc = computeInvoiceTotals(items, discountPct, taxMode);
   const totals = {
     subtotal: calc.subtotal,
     discountAmount: calc.discountAmount,
@@ -115,7 +120,7 @@ function mapToTemplateProps(data, typeOverride) {
     grandTotal: calc.grandTotal,
   };
 
-  return { business, customer, form, items, totals };
+  return { business, customer, form, items, totals, taxMode };
 }
 
 function StatusCard({ icon, title, body, action }) {
@@ -165,7 +170,6 @@ export default function PublicInvoicePage() {
   // 794px wide with true 1px rules, and only the rendered surface is scaled —
   // hairlines antialias instead of vanishing, identically on every device.
   const paperRef = useRef(null);
-  const [naturalH, setNaturalH] = useState(0);
   // Interactive zoom state, owned by the gesture engine below and written
   // straight to the DOM (see apply): { s: scale, x, y: pan }.
   const viewRef = useRef({ s: 1, x: 0, y: 0 });
@@ -202,14 +206,14 @@ export default function PublicInvoicePage() {
     load();
   }, [load]);
 
-  // Document routes release the app-wide horizontal overflow clip (see the
-  // html.public-docs-zoomable rule in index.css): a zoomed-in paper extends
-  // past the layout viewport, and a CLIPPED html can never be panned by
-  // WebKit — the zoomed page would stay stuck, exactly what the customer
-  // reports against the needle-sharp print dialog which CAN pan.
+  // The viewer is an ISOLATED fixed container: the page itself must never
+  // scroll or pan. A page-level scroll area is what previously let the
+  // document drift while the in-page pan engine translated it — the source of
+  // the "stuck, can't move freely after zooming" feel. With the document
+  // locked, every gesture is owned by the engine below.
   useEffect(() => {
-    document.documentElement.classList.add("public-docs-zoomable");
-    return () => document.documentElement.classList.remove("public-docs-zoomable");
+    document.documentElement.classList.add("pip-locked");
+    return () => document.documentElement.classList.remove("pip-locked");
   }, []);
 
   const paperSize = data?.paperSize || "A4_PORTRAIT";
@@ -247,45 +251,46 @@ export default function PublicInvoicePage() {
     fitScaleRef.current = fitScale;
     const v = viewRef.current;
     v.s = fitScale;
-    v.x = 0;
-    v.y = 0;
-    if (paperRef.current) paperRef.current.style.transform = `scale(${fitScale})`;
+    v.y = 0; // top edge flush under the top bar
+    // A sheet narrower than the surface parks dead-centre, like a PDF viewer.
+    // (The gesture re-clamps centre late-arriving content automatically.)
+    if (paperRef.current && surfaceRef.current) {
+      const b = panBounds({
+        surfaceW: surfaceRef.current.clientWidth,
+        surfaceH: surfaceRef.current.clientHeight,
+        contentW: Math.max(1, paperRef.current.offsetWidth),
+        contentH: Math.max(1, paperRef.current.offsetHeight),
+        scale: fitScale,
+      });
+      v.x = b.xMin;
+    } else {
+      v.x = 0;
+    }
+    if (paperRef.current) {
+      paperRef.current.style.transform = `translate3d(${v.x}px, ${v.y}px, 0) scale(${v.s})`;
+    }
     if (surfaceRef.current) surfaceRef.current.classList.remove("is-zoomed", "is-grabbing");
     if (pctRef.current) pctRef.current.textContent = `${Math.round(fitScale * 100)}%`;
   }, [fitScale, data]);
 
-  // Measure the paper's natural (unscaled) height so the layout container can
-  // reserve exactly the scaled footprint — the scaled paper is absolutely
-  // positioned and would otherwise leave a full natural-height hole below it.
-  useEffect(() => {
-    if (!data || !paperRef.current) return undefined;
-    const el = paperRef.current;
-    const measure = () => {
-      const h = el.offsetHeight;
-      setNaturalH((prev) => (prev === h ? prev : h));
-    };
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [data]);
-
   // ------------------------------------------------------------------ zoom
-  // Industry-standard document zoom, implemented IN-PAGE because the app
-  // shell blocks the browser's own (the html overflow clip defeats WebKit
-  // panning, and an installed PWA has no browser chrome to zoom with). Same
-  // gestures as Chrome / any PDF viewer:
+  // PDF-viewer zoom, isolated to a fixed surface. The PAGE never scrolls or
+  // pans on this route — the engine owns every pixel, so one-finger drags are
+  // FREEHAND in every direction the document actually overflows (both axes
+  // once zoomed; the vertical axis even at fit for tall multi-page docs).
+  // Same gesture set as Chrome / any PDF viewer:
   //
   //   pinch              → zoom about the pinch midpoint (two-finger pan too)
   //   ctrl/cmd + wheel   → zoom at the cursor (Mac trackpad pinch emits this)
-  //   plain wheel        → pan the sheet once zoomed in; native scroll at fit
+  //   plain wheel        → pan the sheet (wheel deltaX/Y)
   //   double-tap / click → toggle fit ↔ 100%
-  //   drag               → pan once zoomed in (grab cursor)
+  //   drag               → pan, with platform-style flick inertia on release
   //   ctrl + / − / 0     → zoom in / out / fit
   //
-  // The transform is written to the DOM inside one rAF per gesture frame and
-  // React never re-renders mid-gesture, so a pinch stays jank-free even on
-  // the 300-item invoices.
+  // All range/anchor math lives in src/utils/panZoom.js (unit-tested by
+  // scripts/panZoom.test.mjs). The transform is written to the DOM inside one
+  // rAF per gesture frame and React never re-renders mid-gesture, so a pinch
+  // stays jank-free even on the 300-item invoices.
   useEffect(() => {
     if (!data || !paperRef.current || !surfaceRef.current) return undefined;
     const paper = paperRef.current;
@@ -293,12 +298,27 @@ export default function PublicInvoicePage() {
     const view = viewRef.current;
 
     let raf = 0;
-    const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+
+    // The paper is laid out at natural size, absolutely anchored at the
+    // surface's top-left, so the surface's own box IS the whole viewing area —
+    // measured live per frame (fixed container: it never scrolls, so
+    // clientWidth/clientHeight are always exact).
+    const boundsNow = (s) =>
+      panBounds({
+        surfaceW: surface.clientWidth,
+        surfaceH: surface.clientHeight,
+        contentW: paper.offsetWidth,
+        contentH: paper.offsetHeight,
+        scale: s ?? view.s,
+      });
 
     const apply = () => {
       raf = 0;
-      paper.style.transform =
-        view.x || view.y ? `translate(${view.x}px, ${view.y}px) scale(${view.s})` : `scale(${view.s})`;
+      const b = boundsNow(view.s);
+      const c = clampPan(view, b);
+      view.x = c.x;
+      view.y = c.y;
+      paper.style.transform = `translate3d(${view.x}px, ${view.y}px, 0) scale(${view.s})`;
       const zoomed = view.s > fitScaleRef.current + 1e-3;
       surface.classList.toggle("is-zoomed", zoomed);
       if (pctRef.current) pctRef.current.textContent = `${Math.round(view.s * 100)}%`;
@@ -307,70 +327,35 @@ export default function PublicInvoicePage() {
       if (!raf) raf = requestAnimationFrame(apply);
     };
 
-    // The paper hangs off the sizer's top-left corner (absolute, origin top
-    // left), so the sizer rect is the paper's untransformed anchor in
-    // viewport coordinates.
-    const home = () => {
-      const h = paper.parentElement.getBoundingClientRect();
-      return { left: h.left, top: h.top };
+    // Screen (client) coordinates → surface coordinates.
+    const surf = (clientX, clientY) => {
+      const r = surface.getBoundingClientRect();
+      return { x: clientX - r.left, y: clientY - r.top };
     };
 
-    // Keep the sheet reachable: fully-visible sheets stay fully visible,
-    // zoomed sheets can never be dragged clear off the viewport.
-    const clampView = () => {
-      const fit = fitScaleRef.current;
-      view.s = clamp(view.s, MIN_ZOOM, MAX_ZOOM);
-      if (view.s <= fit + 1e-3) {
-        // Below fit the sheet stays CENTRED on its reserved white footprint.
-        // Pinning it to the origin made a zoomed-out invoice hug the top-left
-        // corner with a sea of empty page beside it — unreadable and
-        // unscrollable-to, since the corners were nowhere near the fingers.
-        view.x = (paper.offsetWidth * (fit - view.s)) / 2;
-        view.y = (paper.offsetHeight * (fit - view.s)) / 2;
-        return;
-      }
-      const h = home();
-      const vw = document.documentElement.clientWidth;
-      const vh = window.innerHeight;
-      const pw = paper.offsetWidth * view.s;
-      const ph = paper.offsetHeight * view.s;
-      const loX = (pw <= vw ? 0 : vw - pw) - h.left;
-      const hiX = (pw <= vw ? vw - pw : 0) - h.left;
-      // The sticky header floats OVER the sheet (z-20, opaque blur), so the
-      // usable viewing strip starts at the header's bottom edge — not at y=0.
-      // Clamping the sheet's top to y=0 meant its first ~66px (the printed
-      // title bar) sat permanently behind the header: dragging all the way
-      // down still could not bring the invoice's top into view. Now the top
-      // edge parks flush under the header, and a sheet that fits inside the
-      // strip is never allowed to slide under it at all.
-      const mainEl = surfaceRef.current ? surfaceRef.current.parentElement : null;
-      const headEl = mainEl ? mainEl.previousElementSibling : null;
-      const visTop = headEl ? Math.max(0, headEl.getBoundingClientRect().bottom) : 0;
-      const loY = Math.min(visTop, vh - ph) - h.top;
-      const hiY = Math.max(visTop, vh - ph) - h.top;
-      view.x = clamp(view.x, Math.min(loX, hiX), Math.max(loX, hiX));
-      view.y = clamp(view.y, Math.min(loY, hiY), Math.max(loY, hiY));
-    };
-
-    // Zoom to `sNext` keeping the natural paper point currently under the
-    // focal viewport point nailed to that spot — the whole reason zoom feels
-    // like the system zoom and not like a resize.
+    // Zoom to `sNext` keeping the document point under the focal surface
+    // point nailed to that spot — zoom feels like the system zoom, never
+    // like a resize.
     const zoomAt = (fx, fy, sNextRaw) => {
-      const sNext = clamp(sNextRaw, MIN_ZOOM, MAX_ZOOM);
-      const h = home();
-      const nx = (fx - h.left - view.x) / view.s;
-      const ny = (fy - h.top - view.y) / view.s;
-      view.s = sNext;
-      view.x = fx - h.left - nx * sNext;
-      view.y = fy - h.top - ny * sNext;
-      clampView();
+      const sNext = clampScale(sNextRaw, MIN_ZOOM, MAX_ZOOM);
+      const docPoint = toDocPoint(view, fx, fy);
+      Object.assign(view, anchorZoom(view, docPoint, fx, fy, sNext, boundsNow(sNext)));
       schedule();
     };
 
     const doFit = () => {
       view.s = fitScaleRef.current;
-      view.x = 0;
-      view.y = 0;
+      view.x = boundsNow(view.s).xMin; // pinned centre when narrower, flush-left if overflowing
+      view.y = 0;                      // top edge flush under the top bar
+      schedule();
+    };
+
+    // Content height drifts (late fonts, chart images, multi-page splits):
+    // re-clamp in place — the user's zoom level is never reset.
+    const reclamp = () => {
+      const c = clampPan(view, boundsNow(view.s));
+      view.x = c.x;
+      view.y = c.y;
       schedule();
     };
 
@@ -380,68 +365,106 @@ export default function PublicInvoicePage() {
     };
 
     const zoomStep = (factor) => {
-      zoomAt(window.innerWidth / 2, window.innerHeight / 2, view.s * factor);
+      zoomAt(surface.clientWidth / 2, surface.clientHeight / 2, view.s * factor);
     };
 
     // ---------------------------------------------------------- wheel
     const onWheel = (e) => {
+      // The page is scroll-locked on this route, so the wheel always pans the
+      // sheet (PDF-viewer behaviour) — with the modifier it zooms first.
+      e.preventDefault();
       if (e.ctrlKey || e.metaKey) {
-        // ctrl/cmd+wheel (and Mac trackpad pinch, which the browser reports
-        // as exactly this) → zoom under the cursor.
-        e.preventDefault();
-        zoomAt(e.clientX, e.clientY, view.s * Math.exp(-e.deltaY * 0.002));
-      } else if (view.s > fitScaleRef.current + 1e-3) {
-        // Zoomed in: the wheel pans the document instead of scrolling the
-        // page away from under it (PDF-viewer behaviour).
-        e.preventDefault();
+        const p = surf(e.clientX, e.clientY);
+        zoomAt(p.x, p.y, view.s * Math.exp(-e.deltaY * 0.002));
+      } else {
         view.x -= e.deltaX;
         view.y -= e.deltaY;
-        clampView();
-        schedule();
+        reclamp();
       }
-      // At fit with no modifier: native page scroll, untouched.
     };
     surface.addEventListener("wheel", onWheel, { passive: false });
 
     // ---------------------------------------------------------- pointers
     const pts = new Map();
     let pinch0 = null; // two-finger gesture snapshot
-    let pan0 = null;   // one-finger / mouse drag snapshot (zoomed sheet)
-    let pagePan = null; // one-finger touch scroll at fit (see onDown)
-    let movedDist = 0;  // travel since gesture start — under ~10px it's a tap
-    let flick = null;   // release velocity for inertial page scroll
-    let flickRaf = 0;
+    let pan0 = null;   // one-finger drag snapshot (the sheet, any zoom level)
+    let movedDist = 0; // travel since gesture start — under ~10px it's a tap
+    let samples = [];  // recent pan samples for release velocity
+    let inertia = null; // flick glide: { vx, vy } px/ms
+    let inertiaRaf = 0;
     let lastTapT = 0;
     let lastTapX = 0;
     let lastTapY = 0;
 
-    // Native inertial scrolling is off (`touch-action: none` is what stops
-    // the browser stealing pinch), so one-finger flicks are re-created here:
-    // keep the release velocity and decay it per frame like the platform.
-    const stopFlick = () => {
-      if (flickRaf) cancelAnimationFrame(flickRaf);
-      flickRaf = 0;
-      flick = null;
+    // Freehand pan in BOTH axes. The page itself is scroll-locked on this
+    // route, so the sheet inside the fixed surface is the only thing that
+    // moves — like any PDF viewer. (Previously one finger scrolled the PAGE
+    // at fit and panned the sheet only when zoomed; the two worlds were what
+    // made panning feel stuck.)
+    const driftPan = (dx, dy) => {
+      view.x += dx;
+      view.y += dy;
+      reclamp();
     };
-    const runFlick = () => {
-      flickRaf = 0;
-      if (!flick) return;
-      const now = performance.now();
-      const dt = Math.min(48, now - flick.t);
-      flick.t = now;
-      const dy = flick.vy * dt;
-      flick.vy *= Math.pow(0.94, dt / 16.7);
-      if (Math.abs(flick.vy) < 0.02) {
-        flick = null;
+
+    // Flick inertia on release: keep the departure velocity and glide with
+    // platform-style decay, stopping the instant the sheet reaches a bound.
+    const stopInertia = () => {
+      if (inertiaRaf) cancelAnimationFrame(inertiaRaf);
+      inertiaRaf = 0;
+      inertia = null;
+    };
+    const runInertia = (lastT) => {
+      inertiaRaf = 0;
+      if (!inertia || (!inertia.vx && !inertia.vy)) {
+        inertia = null;
         return;
       }
-      window.scrollBy(0, -dy);
-      flickRaf = requestAnimationFrame(runFlick);
+      const now = performance.now();
+      const dt = Math.max(1, Math.min(64, now - lastT));
+      const b = boundsNow(view.s);
+      const wantX = view.x + inertia.vx * dt;
+      const wantY = view.y + inertia.vy * dt;
+      const cl = clampPan({ x: wantX, y: wantY }, b);
+      view.x = cl.x;
+      view.y = cl.y;
+      schedule();
+      // A clamp eating the motion means that axis has hit its bound — kill
+      // its velocity and let the other axis finish gliding.
+      inertia.vx = cl.x !== wantX ? 0 : decayVelocity(inertia.vx, dt);
+      inertia.vy = cl.y !== wantY ? 0 : decayVelocity(inertia.vy, dt);
+      if (!inertia.vx && !inertia.vy) {
+        inertia = null;
+        return;
+      }
+      inertiaRaf = requestAnimationFrame(() => runInertia(now));
+    };
+    // Departure velocity from the last ~120ms of drag samples.
+    const fling = () => {
+      const now = performance.now();
+      const recent = samples.filter((s) => now - s.t <= 120);
+      samples = [];
+      if (recent.length < 2) return;
+      const a = recent[0];
+      const b2 = recent[recent.length - 1];
+      const dt = b2.t - a.t;
+      if (dt < 8 || dt > 350) return;
+      const vx = (b2.x - a.x) / dt;
+      const vy = (b2.y - a.y) / dt;
+      if (Math.hypot(vx, vy) > VELOCITY_EPS * 3) {
+        stopInertia();
+        inertia = { vx, vy };
+        inertiaRaf = requestAnimationFrame(() => runInertia(now));
+      }
+    };
+    const notePan = () => {
+      samples.push({ t: performance.now(), x: view.x, y: view.y });
+      if (samples.length > 8) samples.shift();
     };
 
     const onDown = (e) => {
       if (e.pointerType === "mouse" && e.button !== 0) return;
-      stopFlick();
+      stopInertia();
       try {
         surface.setPointerCapture(e.pointerId);
       } catch {
@@ -452,27 +475,22 @@ export default function PublicInvoicePage() {
       if (fresh) movedDist = 0;
       if (pts.size === 2) {
         const [a, b] = [...pts.values()];
-        const h = home();
         const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+        const ms = surf(mid.x, mid.y);
         pinch0 = {
           d: Math.hypot(a.x - b.x, a.y - b.y) || 1,
           s: view.s,
-          nx: (mid.x - h.left - view.x) / view.s,
-          ny: (mid.y - h.top - view.y) / view.s,
+          doc: toDocPoint(view, ms.x, ms.y),
         };
         pan0 = null;
-        pagePan = null;
         movedDist = 100; // a pinch is never part of a double-tap
-      } else if (pts.size === 1 && view.s > fitScaleRef.current + 1e-3) {
+      } else if (pts.size === 1) {
+        // Any single finger (or mouse drag) pans the sheet — at fit, where
+        // tall multi-page documents still overflow vertically, and once
+        // zoomed, where left/right freehand is exactly what the viewer is for.
         pan0 = { x: view.x, y: view.y, px: e.clientX, py: e.clientY };
+        samples = [];
         surface.classList.add("is-grabbing");
-      } else if (pts.size === 1 && e.pointerType === "touch") {
-        // At fit. `touch-action: none` on the surface has disabled native
-        // scrolling (it is exactly what keeps the browser from hijacking the
-        // two-finger pinch), so ONE finger scrolls the page from here instead
-        // — the sheet is fully visible at fit, so the page, not the sheet,
-        // is what has to move.
-        pagePan = { px: e.clientX, py: e.clientY, t: performance.now() };
       }
     };
 
@@ -484,33 +502,24 @@ export default function PublicInvoicePage() {
         const [a, b] = [...pts.values()];
         const d = Math.hypot(a.x - b.x, a.y - b.y) || 1;
         const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
-        const sNext = clamp(pinch0.s * (d / pinch0.d), MIN_ZOOM, MAX_ZOOM);
-        const h = home();
-        // Zoom about the pinch midpoint AND follow it — the natural-point
+        const ms = surf(mid.x, mid.y);
+        // Zoom about the pinch midpoint AND follow it — the document-point
         // snapshot from gesture start means zero drift no matter how the
         // fingers wander.
-        view.s = sNext;
-        view.x = mid.x - h.left - pinch0.nx * sNext;
-        view.y = mid.y - h.top - pinch0.ny * sNext;
-        clampView();
+        const sNext = clampScale(pinch0.s * (d / pinch0.d), MIN_ZOOM, MAX_ZOOM);
+        Object.assign(
+          view,
+          anchorZoom(
+            { s: view.s, x: view.x, y: view.y },
+            pinch0.doc, ms.x, ms.y, sNext, boundsNow(sNext),
+          ),
+        );
+        movedDist += Math.abs(e.clientX - prev.x) + Math.abs(e.clientY - prev.y);
         schedule();
       } else if (pan0 && pts.size === 1) {
-        view.x = pan0.x + (e.clientX - pan0.px);
-        view.y = pan0.y + (e.clientY - pan0.py);
         movedDist += Math.abs(e.clientX - prev.x) + Math.abs(e.clientY - prev.y);
-        clampView();
-        schedule();
-      } else if (pagePan && pts.size === 1) {
-        const dx = e.clientX - pagePan.px;
-        const dy = e.clientY - pagePan.py;
-        const now = performance.now();
-        const dt = Math.max(8, Math.min(64, now - pagePan.t));
-        pagePan.px = e.clientX;
-        pagePan.py = e.clientY;
-        pagePan.t = now;
-        movedDist += Math.abs(dx) + Math.abs(dy);
-        flick = { vy: dy / dt, t: now };
-        window.scrollBy(0, -dy);
+        driftPan(e.clientX - pan0.px, e.clientY - pan0.py);
+        notePan();
       }
     };
 
@@ -518,14 +527,11 @@ export default function PublicInvoicePage() {
       pts.delete(e.pointerId);
       if (pts.size < 2) pinch0 = null;
       if (pts.size === 0) {
+        const wasPan = !!pan0;
         pan0 = null;
         surface.classList.remove("is-grabbing");
-        if (pagePan && e.type === "pointerup" && flick && performance.now() - flick.t < 120) {
-          flickRaf = requestAnimationFrame(runFlick);
-        } else {
-          flick = null;
-        }
-        pagePan = null;
+        if (wasPan && e.type === "pointerup") fling();
+        else samples = [];
       }
       if (e.pointerType !== "touch" || pts.size !== 0) return;
       if (movedDist >= 10) {
@@ -590,11 +596,18 @@ export default function PublicInvoicePage() {
     window.addEventListener("keydown", onKey);
 
     // On-screen controls (the pill) read their handlers off the ref.
-    engineRef.current = { zoomIn: () => zoomStep(1.3), zoomOut: () => zoomStep(1 / 1.3), fit: doFit };
+    engineRef.current = { zoomIn: () => zoomStep(1.3), zoomOut: () => zoomStep(1 / 1.3), fit: doFit, reclamp };
+
+    // The paper's natural height shifts after mount (late fonts, images,
+    // multi-page splits): re-clamp in place — the user's zoom is never reset.
+    const paperRO = new ResizeObserver(() => reclamp());
+    paperRO.observe(paper);
+
     apply();
 
     return () => {
       if (raf) cancelAnimationFrame(raf);
+      paperRO.disconnect();
       surface.removeEventListener("wheel", onWheel);
       surface.removeEventListener("pointerdown", onDown);
       surface.removeEventListener("pointermove", onMove);
@@ -604,7 +617,7 @@ export default function PublicInvoicePage() {
       surface.removeEventListener("gesturestart", stopSysPinch);
       surface.removeEventListener("gesturechange", stopSysPinch);
       window.removeEventListener("keydown", onKey);
-      stopFlick();
+      stopInertia();
       engineRef.current = null;
     };
   }, [data]);
@@ -774,8 +787,18 @@ export default function PublicInvoicePage() {
     );
   }
 
+  const docKind = renderType === "PROFORMA_INVOICE" ? "Proforma invoice" : "Tax invoice";
+
   return (
-    <div className="min-h-[100dvh] bg-white flex flex-col">
+    <div
+      className="fixed inset-x-0 bottom-0 flex flex-col bg-white overflow-hidden"
+      style={{ top: "var(--status-bar-offset, 0px)" }}
+      // ISOLATED viewer: fixed to the viewport flush under the status-bar
+      // strip, and the page itself can never scroll or pan. Everything the
+      // user sees lives INSIDE this box — the slim top bar, then the document
+      // surface, nothing else. Freehand pinch-zoom + pan happens here under
+      // the engine's complete control (see the zoom effect above).
+    >
       {/* Hidden unscaled renderer dedicated for 100% crisp PDF generation */}
       <div className="pip-print-source" style={{ position: "absolute", left: "-9999px", top: 0, pointerEvents: "none" }}>
         <InvoiceTemplateRenderer
@@ -786,6 +809,7 @@ export default function PublicInvoicePage() {
           items={templateProps.items}
           totals={templateProps.totals}
           discountPercent={data.discountPercent != null ? String(data.discountPercent) : "0"}
+          taxMode={templateProps.taxMode}
           type={renderType}
           invoiceNumber={data.invoiceNumber}
           paperSize={paperSize}
@@ -793,17 +817,14 @@ export default function PublicInvoicePage() {
         />
       </div>
 
-      <header className="sticky z-20 bg-white/95 backdrop-blur border-b border-slate-200"
-        style={{
-          // Pin below the status-bar strip like the other top bars: a layer
-          // spanning the under-status-bar region rasterizes blurry in iOS
-          // standalone PWAs, and iOS 27's system blur feather extends past
-          // the strip into it.
-          top: "var(--status-bar-offset, 0px)",
-        }}>
+      <header
+        className="z-20 bg-white border-b border-slate-200"
+      >
         <div className="w-full px-3 sm:px-5 py-2.5 flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-[11px] uppercase tracking-wide text-slate-400 font-semibold">Shared invoice</p>
+            <p className="text-[11px] uppercase tracking-wide text-slate-400 font-semibold truncate">
+              {docKind} · ₹{Number(templateProps.totals.grandTotal || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+            </p>
             <p className="text-sm font-bold text-slate-800 truncate">{data.invoiceNumber}</p>
           </div>
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
@@ -834,107 +855,87 @@ export default function PublicInvoicePage() {
         )}
       </header>
 
-      <main className="flex-1 w-full bg-white flex flex-col">
-        {/* Full-bleed white viewer: the white backdrop IS the entire screen —
-            html, body, #root, this root div and main all paint white, so the
-            surface spans the full width AND height of the page (and of the
-            overscroll bounce), with no bordered card floating in the middle.
-            The sizer below is a pure layout spacer holding the paper's exact
-            scaled footprint (the sheet is absolutely positioned and would
-            otherwise leave a natural-height hole); `margin: auto` centres it —
-            and with it the invoice — dead centre of that full screen, and
-            collapses to zero on overflow so a multi-page invoice taller than
-            the screen still starts at the top and scrolls. NO top padding —
-            an overflowing sheet starts flush under the header (a stray band
-            of white above the invoice read as a rendering gap). The container
-            doubles as the gesture surface for the in-page zoom engine
-            (pinch / ctrl+wheel / double-tap / drag) across the WHOLE area. */}
+      <main className="flex-1 w-full bg-white flex flex-col min-h-0">
+        {/* The ONE container. Under the slim top bar there is nothing but the
+            document surface: a flex-filling box inside the scroll-locked
+            fixed root, and the paper — EVERY page of the invoice as one
+            absolutely-positioned element — is transformed INSIDE it by the
+            gesture engine (pinch = zoom about the fingers, drag = freehand
+            pan, flick = momentum, double-tap = 100%). No sizer, no margins,
+            no page-level scrolling: nothing can fight the pan, which is what
+            made the previous viewer feel stuck after zooming. */}
         <div
           ref={(el) => {
             containerRef.current = el;
             surfaceRef.current = el;
           }}
-          className="doc-pan flex-1 w-full flex px-2 sm:px-4 pb-5 sm:pb-8"
+          className="doc-pan flex-1 w-full relative overflow-hidden"
         >
           <div
+            ref={paperRef}
             style={{
-              width: naturalH ? `${widthPx * fitScale}px` : `${widthPx}px`,
-              height: naturalH ? `${naturalH * fitScale}px` : undefined,
-              position: "relative",
-              margin: "auto",
+              width: `${widthPx}px`,
+              position: "absolute",
+              top: 0,
+              left: 0,
+              transform: `translate3d(0px, 0px, 0) scale(${fitScale})`,
+              transformOrigin: "top left",
             }}
           >
-            <div
-              ref={paperRef}
-              style={{
-                width: `${widthPx}px`,
-                position: "absolute",
-                top: 0,
-                left: 0,
-                transform: `scale(${fitScale})`,
-                transformOrigin: "top left",
-              }}
-            >
-              <InvoiceTemplateRenderer
-                business={templateProps.business}
-                customer={templateProps.customer}
-                form={templateProps.form}
-                items={templateProps.items}
-                totals={templateProps.totals}
-                discountPercent={data.discountPercent != null ? String(data.discountPercent) : "0"}
-                type={renderType}
-                invoiceNumber={data.invoiceNumber}
-                paperSize={paperSize}
-                template={data.template || undefined}
-              />
-            </div>
+            <InvoiceTemplateRenderer
+              business={templateProps.business}
+              customer={templateProps.customer}
+              form={templateProps.form}
+              items={templateProps.items}
+              totals={templateProps.totals}
+              discountPercent={data.discountPercent != null ? String(data.discountPercent) : "0"}
+              taxMode={templateProps.taxMode}
+              type={renderType}
+              invoiceNumber={data.invoiceNumber}
+              paperSize={paperSize}
+              template={data.template || undefined}
+            />
           </div>
         </div>
-
-        {/* Zoom controls — same affordance as a system/PDF viewer, for
-            pointers and keyboards that have no pinch gesture. Live % label is
-            written straight to the DOM by the engine (no re-render per frame). */}
-        <div className="fixed inset-x-0 bottom-4 z-30 flex justify-center pointer-events-none px-4">
-          <div className="pointer-events-auto flex items-center gap-1 rounded-full border border-slate-200 bg-white/95 px-2 py-1.5 shadow-lg backdrop-blur">
-            <button
-              type="button"
-              aria-label="Zoom out"
-              onClick={() => engineRef.current?.zoomOut()}
-              className="p-2 rounded-full text-slate-600 hover:bg-slate-100 active:bg-slate-200 transition-colors"
-            >
-              <ZoomOut className="w-4 h-4" />
-            </button>
-            <span ref={pctRef} className="w-12 text-center text-xs font-semibold text-slate-700 tabular-nums select-none">
-              {Math.round(fitScale * 100)}%
-            </span>
-            <button
-              type="button"
-              aria-label="Zoom in"
-              onClick={() => engineRef.current?.zoomIn()}
-              className="p-2 rounded-full text-slate-600 hover:bg-slate-100 active:bg-slate-200 transition-colors"
-            >
-              <ZoomIn className="w-4 h-4" />
-            </button>
-            <div className="w-px h-5 bg-slate-200 mx-0.5" />
-            <button
-              type="button"
-              aria-label="Fit to screen"
-              onClick={() => engineRef.current?.fit()}
-              className="p-2 rounded-full text-slate-600 hover:bg-slate-100 active:bg-slate-200 transition-colors"
-              title="Fit to screen"
-            >
-              <Scan className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-
-        <p className="text-center text-xs text-slate-400 mt-4 sm:mt-5">
-          Computer-generated copy of a shared invoice &middot; Powered by Inside Invoice
-          <span className="block mt-1 text-[10px] text-slate-300">
-            Pinch or Ctrl + scroll to zoom &middot; drag to pan &middot; double-tap for 100%
-          </span>
-        </p>
       </main>
+
+      {/* Zoom controls — same affordance as a system/PDF viewer, for pointers
+          and keyboards that have no pinch gesture. Floating, small, and above
+          everything; the document itself is the only content below the bar.
+          Live % label is written straight to the DOM by the engine. */}
+      <div className="fixed bottom-4 z-30 flex justify-center pointer-events-none inset-x-0 px-4">
+        <div className="pointer-events-auto flex items-center gap-1 rounded-full border border-slate-200 bg-white/95 px-2 py-1.5 shadow-lg backdrop-blur">
+          <button
+            type="button"
+            aria-label="Zoom out"
+            onClick={() => engineRef.current?.zoomOut()}
+            className="p-2 rounded-full text-slate-600 hover:bg-slate-100 active:bg-slate-200 transition-colors"
+          >
+            <ZoomOut className="w-4 h-4" />
+          </button>
+          <span ref={pctRef} className="w-12 text-center text-xs font-semibold text-slate-700 tabular-nums select-none">
+            {Math.round(fitScale * 100)}%
+          </span>
+          <button
+            type="button"
+            aria-label="Zoom in"
+            onClick={() => engineRef.current?.zoomIn()}
+            className="p-2 rounded-full text-slate-600 hover:bg-slate-100 active:bg-slate-200 transition-colors"
+          >
+            <ZoomIn className="w-4 h-4" />
+          </button>
+          <div className="w-px h-5 bg-slate-200 mx-0.5" />
+          <button
+            type="button"
+            aria-label="Fit to screen"
+            onClick={() => engineRef.current?.fit()}
+            className="p-2 rounded-full text-slate-600 hover:bg-slate-100 active:bg-slate-200 transition-colors"
+            title="Fit to screen"
+          >
+            <Scan className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

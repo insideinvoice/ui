@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useLocation } from "react-router-dom";
 import { Download, X } from "lucide-react";
 import insideInvoiceLogo from "../assets/inside-invoice-logo.svg";
 
@@ -11,10 +12,17 @@ function isStandalone() {
 }
 
 export default function PWAInstallPrompt() {
+  // The public invoice viewer (/i/<token>) is a distraction-free document
+  // surface for the invoice RECIPIENT — not an app user. A floating install
+  // card parked over the shared invoice breaks the "just the PDF" contract
+  // there (and steals pointer gestures from the pan surface), so it never
+  // renders on that route.
+  const location = useLocation();
+  const onPublicViewer = location.pathname.startsWith("/i/");
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [showAndroidPrompt, setShowAndroidPrompt] = useState(false);
   const [showIOSHint, setShowIOSHint] = useState(() => {
-    if (isStandalone()) return false;
+    if (onPublicViewer || isStandalone()) return false;
     const until = localStorage.getItem("pwa_install_dismissed_until");
     if (until && Date.now() < parseInt(until, 10)) return false;
     return isIOS();
@@ -22,7 +30,7 @@ export default function PWAInstallPrompt() {
   const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
-    if (isStandalone() || dismissed) return;
+    if (onPublicViewer || isStandalone() || dismissed) return;
 
     const dismissedUntil = localStorage.getItem("pwa_install_dismissed_until");
     if (dismissedUntil && Date.now() < parseInt(dismissedUntil, 10)) return;
@@ -37,7 +45,7 @@ export default function PWAInstallPrompt() {
 
     window.addEventListener("beforeinstallprompt", handler);
     return () => window.removeEventListener("beforeinstallprompt", handler);
-  }, [dismissed]);
+  }, [onPublicViewer, dismissed]);
 
   const handleInstall = useCallback(async () => {
     if (!deferredPrompt) return;
@@ -57,7 +65,7 @@ export default function PWAInstallPrompt() {
     localStorage.setItem("pwa_install_dismissed_until", String(Date.now() + 7 * 24 * 60 * 60 * 1000));
   }, []);
 
-  if (isStandalone()) return null;
+  if (isStandalone() || onPublicViewer) return null;
 
   if (showAndroidPrompt && deferredPrompt) {
     return (

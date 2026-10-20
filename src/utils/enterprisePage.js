@@ -144,30 +144,45 @@ export const estimateEntRow = (name, charsPerLine = ENT_CHARS_PER_LINE) =>
  * per line item. A 53-item invoice spanning 5 rates is 5 summary rows, not 53
  * (the per-item version printed 11 identical rows for the same HSN+rate and
  * inflated the tax table into extra pages, one of them nearly empty).
+ *
+ * Tax mode: "CGST_SGST" (default) emits the legacy CGST + SGST/UTGST rate/amount
+ * pairs at the halved rate; "IGST" replaces that pair with a single IGST column
+ * at the FULL rate — the table never shows empty CGST/SGST columns beside IGST.
  */
-export function groupTaxSummaryRows(items = [], { showHnSac = true, ratio = 1 } = {}) {
+export function groupTaxSummaryRows(items = [], { showHnSac = true, ratio = 1, taxMode = "CGST_SGST" } = {}) {
+  const igstMode = taxMode === "IGST";
   const groups = new Map();
   items.forEach((item) => {
     const rate = parseFloat(item.gstPercentage) || 0;
     const taxable = (parseFloat(item.taxableValue) || 0) * ratio;
     const half = taxable * rate / 200;
+    const full = taxable * rate / 100;
     const key = showHnSac ? (item.hsn || "-") : (item.itemName || "-");
     const mapKey = `${key}|${rate}`;
     const row = groups.get(mapKey);
     if (row) {
       row.taxable += taxable;
-      row.cgst += half;
-      row.sgst += half;
-      row.tax += taxable * rate / 100;
+      if (igstMode) {
+        row.igst += full;
+      } else {
+        row.cgst += half;
+        row.sgst += half;
+      }
+      row.tax += full;
     } else {
-      groups.set(mapKey, {
+      const base = {
         key,
-        rateLabel: `${(rate / 2).toFixed(2)}%`,
+        rateLabel: igstMode ? `${rate.toFixed(2)}%` : `${(rate / 2).toFixed(2)}%`,
         taxable,
-        cgst: half,
-        sgst: half,
-        tax: taxable * rate / 100,
-      });
+      };
+      if (igstMode) {
+        base.igst = full;
+      } else {
+        base.cgst = half;
+        base.sgst = half;
+      }
+      base.tax = full;
+      groups.set(mapKey, base);
     }
   });
   return [...groups.values()];

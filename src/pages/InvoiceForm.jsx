@@ -19,6 +19,7 @@ import { processPrint } from "../utils/printInvoice";
 import { buildInvoiceWhatsAppMessage, openWhatsAppChat, createInvoicePdfFile } from "../utils/whatsapp";
 import { getPrintSettings, getInvoiceTemplate } from "../constants/paperSizes";
 import { computeInvoiceTotals, round2 } from "../utils/invoiceTotals";
+import { determineTaxMode, validateTaxMode } from "../utils/taxMode";
 import { formatInvoiceNumber } from "../utils/invoiceConvention";
 import { INDIAN_STATES, DELIVERY_TERMS, PAYMENT_TERMS } from "../constants/indianStates";
 import { UNITS } from "../constants/units";
@@ -50,7 +51,7 @@ const EXTENDED_FALLBACK_LABELS = {
   referringDoctor: "Referring Doctor",
 };
 
-const FOCUS_ORDER = ["phone", "name", "email", "gstIn", "billingAddress", "invoiceDate", "dueDate", "placeOfSupply", "destination", "paymentTerms", "paymentMode", "deliveryNote", "deliveryNoteDate", "referenceNumber", "dispatchDocNumber", "dispatchedThrough", "termsOfDelivery", "otherReferences", "notes"];
+const FOCUS_ORDER = ["phone", "name", "email", "gstIn", "billingAddress", "invoiceDate", "dueDate", "placeOfSupply", "destination", "paymentTerms", "paymentMode", "deliveryNote", "deliveryNoteDate", "referenceNumber", "buyerOrderNumber", "dispatchDocNumber", "dispatchedThrough", "termsOfDelivery", "otherReferences", "notes"];
 
 const focusNext = (currentName) => {
   const i = FOCUS_ORDER.indexOf(currentName);
@@ -335,6 +336,10 @@ export default function InvoiceForm() {
   const [showPrefillBanner, setShowPrefillBanner] = useState(!!prefilledData);
   const discountVal = parseFloat(discountPercent) || 0;
   const invoiceRef = useRef(null);
+  // Invoice-level GST tax mode. Once the user flips the IGST toggle the
+  // derivation effect must stop touching it — a manual choice is law and is
+  // never silently overridden (only an explicit flip changes it).
+  const taxModeTouchedRef = useRef(prefilledData?.taxMode === "IGST" || prefilledData?.taxMode === "CGST_SGST");
   // The hidden A4 invoice preview is only mounted while a PDF is being generated.
   // Re-rendering it on every keystroke was the main source of typing lag.
   const [showPdfPreview, setShowPdfPreview] = useState(false);
@@ -380,6 +385,10 @@ export default function InvoiceForm() {
     termsOfDelivery: "Standard Shipping",
     paymentTerms: "Due on Receipt",
     paymentMode: "CASH",
+    // GST structure: CGST + SGST/UTGST (intra-state) or IGST (inter-state).
+    // Seeded from prefilled (duplicate) data when present, then refined by
+    // the supplier-state vs place-of-supply derivation until touched.
+    taxMode: prefilledData?.taxMode === "IGST" ? "IGST" : "CGST_SGST",
     otherReferences: "",
     destination: "Karnataka",
     notes: "",
@@ -653,7 +662,7 @@ export default function InvoiceForm() {
     });
   }, []);
 
-  const totals = useMemo(() => computeInvoiceTotals(items, discountEnabled ? discountPercent : "0"), [items, discountEnabled, discountPercent]);
+  const totals = useMemo(() => computeInvoiceTotals(items, discountEnabled ? discountPercent : "0", form.taxMode), [items, discountEnabled, discountPercent, form.taxMode]);
 
   const validItemsCount = useMemo(
     () => items.filter((i) => i.itemName.trim() && parseFloat(i.qty) > 0).length,
@@ -685,6 +694,31 @@ export default function InvoiceForm() {
   const previewPaperSize = useMemo(() => (getPrintSettings()[effectiveType] || {}).paperSize || "A4_PORTRAIT", [effectiveType]);
   const previewTemplate = useMemo(() => getInvoiceTemplate(effectiveType), [effectiveType]);
 
+  // Initial tax-mode default — derived from the SUPPLIER's (business) state
+  // vs the legally applicable Place of Supply, never from the customer's
+  // billing address or Destination. Re-derives while the user hasn't touched
+  // the toggle (e.g. they are still picking the place of supply); after the
+  // first manual flip it never runs again for this invoice.
+  useEffect(() => {
+    if (taxModeTouchedRef.current || !business) return;
+    const derived = determineTaxMode(business.state, form.placeOfSupply);
+    if (derived && derived !== form.taxMode) {
+      setForm((f) => ({ ...f, taxMode: derived }));
+    }
+  }, [business, form.placeOfSupply, form.taxMode]);
+
+  // Live rule-check of the selection vs the applicable GST structure. Used by
+  // the helper text under the toggle and by validate() to gate finalization.
+  const taxValidation = useMemo(
+    () => validateTaxMode(form.taxMode, business?.state, form.placeOfSupply),
+    [form.taxMode, business?.state, form.placeOfSupply],
+  );
+
+  const toggleTaxMode = () => {
+    taxModeTouchedRef.current = true;
+    setForm((f) => ({ ...f, taxMode: f.taxMode === "IGST" ? "CGST_SGST" : "IGST" }));
+  };
+
   const validate = () => {
     if (!customer.name.trim()) { toast.error("Customer name is required"); return false; }
     if (!form.dueDate) { toast.error("Due date is required"); return false; }
@@ -699,6 +733,12 @@ export default function InvoiceForm() {
     }
     const validItems = items.filter((i) => i.itemName.trim() && parseFloat(i.qty) > 0 && parseFloat(i.rate) > 0);
     if (validItems.length === 0) { toast.error("Add at least one item"); return false; }
+    // Tax mode vs GST rules: the user's selection is NEVER silently changed —
+    // a conflicting mode can only proceed through an explicit override, which
+    // keeps invalid finalization out while still allowing deliberate choices.
+    if (!taxValidation.ok && !window.confirm(`${taxValidation.message}\n\nSave with this tax mode anyway?`)) {
+      return false;
+    }
     return true;
   };
 
@@ -716,6 +756,9 @@ export default function InvoiceForm() {
     return {
       customerId,
       invoiceType: form.invoiceType,
+      // Persisted with the invoice — the backend validates it and every
+      // renderer (preview, download, email, share link) reads it back.
+      taxMode: form.taxMode,
       invoiceDate: form.invoiceDate,
       dueDate: form.dueDate,
       placeOfSupply: form.placeOfSupply || undefined,
@@ -726,7 +769,7 @@ export default function InvoiceForm() {
       deliveryNote: opt("deliveryNote", form.deliveryNote),
       deliveryNoteDate: opt("deliveryNoteDate", form.deliveryNoteDate),
       referenceNumber: form.referenceNumber || undefined,
-      buyerOrderNumber: opt("otherReferences", form.otherReferences),
+      buyerOrderNumber: opt("buyerOrderNumber", form.buyerOrderNumber),
       dispatchDocNumber: opt("dispatchDocNumber", form.dispatchDocNumber),
       dispatchedThrough: opt("dispatchedThrough", form.dispatchedThrough),
       termsOfDelivery: opt("termsOfDelivery", form.termsOfDelivery),
@@ -803,10 +846,50 @@ export default function InvoiceForm() {
     }
   };
 
+  // Background PDF-email job: the share link, the hidden-capture render and
+  // the email POST all run detached from the UI. Callers finish immediately
+  // after their synchronous part (the save); milestones and failures surface
+  // as toasts. An in-flight guard serialises jobs — two overlapping calls can
+  // never double-email an invoice.
+  const pdfEmailJobRef = useRef(false);
+  const runPdfEmailJob = (invoiceId, invNo) => {
+    if (pdfEmailJobRef.current) return;
+    pdfEmailJobRef.current = true;
+    const email = (customer.email || "").trim();
+    (async () => {
+      // The email carries the same public link the Share Link panel shows;
+      // createShare is idempotent and the backend also creates it on demand.
+      if (!shareToken) {
+        const shareRes = await invoiceAPI.createShare(invoiceId);
+        const token = shareRes.data?.data?.token;
+        if (token) setShareToken(token);
+      }
+      // Attach the SAME PDF the Download button produces (seal/stamp
+      // included) so the emailed document matches the download exactly.
+      const pdfFile = await buildTaxInvoicePdfFile(invNo);
+      await invoiceAPI.sendInvoiceEmail(invoiceId, window.location.origin, pdfFile);
+      const attachNote = pdfFile ? ` — PDF attached (${Math.round(pdfFile.size / 1024)} KB)` : "";
+      toast.success(`Tax Invoice ${invNo} emailed to ${email}${attachNote}`);
+      if (!pdfFile) {
+        toast("Emailed WITHOUT the PDF attachment — the render failed; see the browser console", { icon: "⚠️" });
+      }
+    })()
+      .catch((err) => {
+        toast.error(err.response?.data?.message || "Invoice saved, but the email could not be sent — retry with Send Email below");
+      })
+      .finally(() => {
+        pdfEmailJobRef.current = false;
+      });
+  };
+
   // Generate Tax Invoice — one action that saves the invoice to the DB
   // (create or update) and emails it to the customer's registered email with
-  // its share link. Afterwards the button turns into "Download Tax Invoice
-  // PDF"; editing the invoice brings Generate back (see contentSignature).
+  // its share link. The save is awaited (the record must exist before the
+  // email job can reference it) — but the PDF render and the SMTP round-trip
+  // are a BACKGROUND job: the button flips to "Download Tax Invoice PDF" as
+  // soon as the save lands, the user is free to keep working, and progress
+  // arrives as toasts. Editing the invoice brings Generate back (see
+  // contentSignature).
   const handleGenerateTaxInvoice = async () => {
     if (saving) return;
     // Without validate(), an invalid save still reached saveInvoice(), which
@@ -830,38 +913,15 @@ export default function InvoiceForm() {
       return;
     }
 
-    let emailed = false;
-    let lastPdfBytes = 0;
-    if (customer.email?.trim()) {
-      try {
-        // The email carries the same public link the Share Link panel shows;
-        // createShare is idempotent and the backend also creates it on demand.
-        if (!shareToken) {
-          const shareRes = await invoiceAPI.createShare(invoiceId);
-          const token = shareRes.data?.data?.token;
-          if (token) setShareToken(token);
-        }
-        // Attach the SAME PDF the Download button produces (seal/stamp
-        // included) so the emailed document matches the download exactly.
-        const pdfFile = await buildTaxInvoicePdfFile(invNo);
-        lastPdfBytes = pdfFile ? pdfFile.size : 0;
-        await invoiceAPI.sendInvoiceEmail(invoiceId, window.location.origin, pdfFile);
-        emailed = true;
-        if (!pdfFile) {
-          toast("Invoice emailed WITHOUT the PDF attachment — check the browser console for the render error", { icon: "⚠️" });
-        }
-      } catch (err) {
-        toast.error(err.response?.data?.message || "Invoice saved, but the email could not be sent — retry with Send Email below");
-      }
-    }
-
+    // Save landed — release the UI immediately and hand the rest to the
+    // background runner.
     setGeneratedSignature(signature);
     setGenerating(false);
     setSaving(false);
-    if (emailed) {
-      const attachNote = lastPdfBytes ? ` — PDF attached (${Math.round(lastPdfBytes / 1024)} KB)` : "";
-      toast.success(`Tax Invoice ${invNo} saved & emailed to ${customer.email.trim()}${attachNote}`);
-    } else if (!customer.email?.trim()) {
+    if (customer.email?.trim()) {
+      toast(`Saved ${invNo} — preparing the email in the background`, { icon: "📨" });
+      runPdfEmailJob(invoiceId, invNo);
+    } else {
       toast.success(`Tax Invoice ${invNo} saved`);
       toast("Customer has no email on record — add one to email the invoice", { icon: "📧" });
     }
@@ -1077,16 +1137,16 @@ export default function InvoiceForm() {
         const token = res.data?.data?.token;
         if (token) setShareToken(token);
       }
-      // Same client-rendered PDF as the Download button, attached so the
-      // emailed document matches the download exactly (best-effort).
-      const pdfFile = await buildTaxInvoicePdfFile(savedInvoiceNumber);
-      const res = await invoiceAPI.sendInvoiceEmail(savedInvoiceId, window.location.origin, pdfFile);
-      toast.success(res.data?.message || "Invoice emailed to the customer");
     } catch (err) {
-      toast.error(err.response?.data?.message || "Could not send the invoice email");
-    } finally {
+      toast.error(err.response?.data?.message || "Could not create the share link for the email");
       setEmailBusy(false);
+      return;
     }
+    // Link is ready — release the button and let the PDF render + SMTP run
+    // detached (runPdfEmailJob guards against duplicate sends).
+    setEmailBusy(false);
+    toast("Preparing the invoice email in the background", { icon: "📨" });
+    runPdfEmailJob(savedInvoiceId, savedInvoiceNumber);
   };
 
   if (loading) {
@@ -1454,6 +1514,7 @@ export default function InvoiceForm() {
             items={items}
             totals={totals}
             discountPercent={discountEnabled ? discountPercent : "0"}
+            taxMode={form.taxMode}
             type={effectiveType}
             invoiceNumber={savedInvoiceNumber || customInvoiceNumber || nextInvoiceNumber || ""}
             paperSize={previewPaperSize}
@@ -1673,6 +1734,41 @@ export default function InvoiceForm() {
                     <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                   </div>
                 </div>
+                {/* Invoice-level GST tax mode — immediately beside Payment Mode
+                    in the same grid. ON = IGST (inter-state), OFF = CGST +
+                    SGST/UTGST (intra-state). The default is derived from the
+                    business state vs the legally applicable place of supply;
+                    the helper text flags any conflict with GST rules but the
+                    user's selection is never silently changed. */}
+                <div>
+                  <label className={labelClass} id="tax-mode-label">Tax Mode <span className="normal-case font-normal text-slate-400">(GST)</span></label>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={form.taxMode === "IGST"}
+                    aria-labelledby="tax-mode-label"
+                    onClick={toggleTaxMode}
+                    title="Inter-state supply: IGST at the full rate. Intra-state supply: CGST + SGST/UTGST split in half."
+                    className={`w-full flex items-center justify-between gap-2 px-3 rounded-lg border bg-white hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-400/30 transition-all min-h-[44px] ${
+                      taxValidation.level === "warning" ? "border-amber-400" : "border-slate-300"
+                    }`}>
+                    <span className="text-sm font-medium text-slate-700">IGST</span>
+                    <span className="flex items-center gap-2">
+                      <span className={`text-[11px] font-semibold ${form.taxMode === "IGST" ? "text-emerald-600" : "text-slate-500"}`}>
+                        {form.taxMode === "IGST" ? "ON · IGST" : "OFF · CGST + SGST"}
+                      </span>
+                      <span className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${form.taxMode === "IGST" ? "bg-emerald-500" : "bg-slate-300"}`}>
+                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${form.taxMode === "IGST" ? "translate-x-4" : "translate-x-0.5"}`} />
+                      </span>
+                    </span>
+                  </button>
+                  <p className={`mt-1.5 text-[11px] leading-snug ${
+                    taxValidation.level === "warning" ? "text-amber-600 font-medium"
+                      : taxValidation.level === "info" ? "text-slate-500 italic" : "text-slate-500"
+                  }`}>
+                    {taxValidation.message || "Inter-state supplies use IGST; intra-state use CGST + SGST/UTGST."}
+                  </p>
+                </div>
               </div>
             </div>
 
@@ -1710,6 +1806,15 @@ export default function InvoiceForm() {
                     placeholder={placeholderFor("referenceNumber")}
                     className={inputClass} />
                 </div>
+                {!isHidden("buyerOrderNumber") && (
+                <div>
+                  <label className={labelClass}>{labelFor("buyerOrderNumber", "Buyer's Order No.")}</label>
+                  <input type="text" name="buyerOrderNumber" value={form.buyerOrderNumber} onChange={handleFieldChange}
+                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); focusNext("buyerOrderNumber"); } }}
+                    placeholder={placeholderFor("buyerOrderNumber") || "e.g. PO-221"}
+                    className={inputClass} />
+                </div>
+                )}
                 {!isHidden("dispatchDocNumber") && (
                 <div>
                   <label className={labelClass}>{labelFor("dispatchDocNumber", "Dispatch Doc No")}</label>

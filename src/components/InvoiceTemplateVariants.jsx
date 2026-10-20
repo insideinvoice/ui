@@ -46,7 +46,7 @@ const tStyleSep = {
 };
 
 
-const InvoiceTemplateVariants = React.memo(React.forwardRef(({ theme, business, customer, form, items, discountPercent, type, invoiceNumber }, ref) => {
+const InvoiceTemplateVariants = React.memo(React.forwardRef(({ theme, business, customer, form, items, discountPercent, type, invoiceNumber, taxMode }, ref) => {
   const t = TEMPLATE_THEMES[theme] || TEMPLATE_THEMES["template-3"];
   // The retro shop-bill layout is a self-contained fixed page (repeated per
   // overflow page), so it renders outside the shared table skeleton.
@@ -61,6 +61,7 @@ const InvoiceTemplateVariants = React.memo(React.forwardRef(({ theme, business, 
         discountPercent={discountPercent}
         type={type}
         invoiceNumber={invoiceNumber}
+        taxMode={taxMode}
       />
     );
   }
@@ -77,6 +78,7 @@ const InvoiceTemplateVariants = React.memo(React.forwardRef(({ theme, business, 
         discountPercent={discountPercent}
         type={type}
         invoiceNumber={invoiceNumber}
+        taxMode={taxMode}
       />
     );
   }
@@ -98,7 +100,10 @@ const InvoiceTemplateVariants = React.memo(React.forwardRef(({ theme, business, 
     ? ITEM_COLS
     : ITEM_COLS.filter((c) => c.key !== "hsn").map((c) => (c.key === "desc" ? { ...c, w: c.w + 76 } : c));
   const sigSrc = asImageSrc(business?.signature);
-  const calc = computeInvoiceTotals(items, discountPercent);
+  const calc = computeInvoiceTotals(items, discountPercent, taxMode);
+  // IGST (inter-state) replaces the CGST/SGST pair everywhere below — the two
+  // structures never render together for the same taxable line.
+  const igstMode = taxMode === "IGST";
   const discPct = calc.discountPercent;
   const discAmt = calc.discountAmount;
   const taxableAmount = calc.taxableAmount;
@@ -1020,6 +1025,12 @@ const InvoiceTemplateVariants = React.memo(React.forwardRef(({ theme, business, 
                   <tr>
                     <td style={{ textAlign: "right", padding: "4px 10px", border: 0 }}>
                       {calcTaxAmount > 0 ? (
+                        igstMode ? (
+                          <div style={{ fontSize: baseFS, marginBottom: "1px" }}>
+                            <span style={{ marginRight: "16px", color: t.primary, fontWeight: "bold" }}>IGST (Estimated)</span>
+                            <span style={{ fontWeight: "bold" }}>{formatINR(calc.igst)}</span>
+                          </div>
+                        ) : (
                         <>
                           <div style={{ fontSize: baseFS, marginBottom: "1px" }}>
                             <span style={{ marginRight: "16px", color: t.primary, fontWeight: "bold" }}>CGST (Estimated)</span>
@@ -1030,6 +1041,7 @@ const InvoiceTemplateVariants = React.memo(React.forwardRef(({ theme, business, 
                             <span style={{ fontWeight: "bold" }}>{formatINR(sgstTotal)}</span>
                           </div>
                         </>
+                        )
                       ) : null}
                     </td>
                   </tr>
@@ -1084,6 +1096,12 @@ const InvoiceTemplateVariants = React.memo(React.forwardRef(({ theme, business, 
                   <tr>
                     <td style={{ textAlign: "right", padding: "4px 10px", border: 0 }}>
                       {calcTaxAmount > 0 ? (
+                        igstMode ? (
+                          <div style={{ fontSize: baseFS, marginBottom: "1px" }}>
+                            <span style={{ marginRight: "16px", color: t.primary, fontWeight: "bold" }}>IGST</span>
+                            <span style={{ fontWeight: "bold" }}>{formatINR(calc.igst)}</span>
+                          </div>
+                        ) : (
                         <>
                           <div style={{ fontSize: baseFS, marginBottom: "1px" }}>
                             <span style={{ marginRight: "16px", color: t.primary, fontWeight: "bold" }}>CGST</span>
@@ -1094,6 +1112,7 @@ const InvoiceTemplateVariants = React.memo(React.forwardRef(({ theme, business, 
                             <span style={{ fontWeight: "bold" }}>{formatINR(sgstTotal)}</span>
                           </div>
                         </>
+                        )
                       ) : null}
                       <div style={{ fontSize: baseFS }}>
                         <span style={{ marginRight: "16px" }}>Round Off</span>
@@ -1147,6 +1166,21 @@ const InvoiceTemplateVariants = React.memo(React.forwardRef(({ theme, business, 
             <td colSpan={2} style={{ borderLeft: S.border, borderRight: S.border, borderBottom: S.border, padding: 0 }}>
               <table style={tStyleSep}>
                 <thead id="section-hsn-header">
+                  {igstMode ? (
+                    // Inter-state: one IGST rate/amount pair; the freed width
+                    // folds into those two columns so the table still spans
+                    // the full invoice width (no empty CGST/SGST columns).
+                    <tr style={{ height: t.compact ? "24px" : "28px" }}>
+                      {showHnSac && (
+                      <th style={{ width: "16%", borderRight: S.border, borderBottom: S.border, textAlign: "center", fontSize: baseFS, padding: basePadH, verticalAlign: "middle", background: t.tableHeaderBg, color: t.tableHeaderText, lineHeight: "1.5" }}>HSN/SAC</th>
+                      )}
+                      <th style={{ width: showHnSac ? "18%" : "34%", borderRight: S.border, borderBottom: S.border, textAlign: "center", fontSize: baseFS, padding: basePadH, verticalAlign: "middle", background: t.tableHeaderBg, color: t.tableHeaderText, lineHeight: "1.5" }}>Taxable Value</th>
+                      <th style={{ width: "26%", borderRight: S.border, borderBottom: S.border, textAlign: "center", fontSize: baseFS, padding: basePadH, verticalAlign: "middle", background: t.tableHeaderBg, color: t.tableHeaderText, lineHeight: "1.5" }}>IGST Rate</th>
+                      <th style={{ width: "26%", borderRight: S.border, borderBottom: S.border, textAlign: "center", fontSize: baseFS, padding: basePadH, verticalAlign: "middle", background: t.tableHeaderBg, color: t.tableHeaderText, lineHeight: "1.5" }}>IGST Amount</th>
+                      <th style={{ width: "14%", borderBottom: S.border, textAlign: "center", fontSize: baseFS, padding: basePadH, verticalAlign: "middle", background: t.tableHeaderBg, color: t.tableHeaderText, lineHeight: "1.5" }}>Total Tax Amount</th>
+                    </tr>
+                  ) : (
+                    <>
                   <tr style={{ height: t.compact ? "24px" : "28px" }}>
                     {showHnSac && (
                     <th rowSpan={2} style={{ width: "16%", borderRight: S.border, borderBottom: S.border, textAlign: "center", fontSize: baseFS, padding: basePadH, verticalAlign: "middle", background: t.tableHeaderBg, color: t.tableHeaderText, lineHeight: "1.5" }}>HSN/SAC</th>
@@ -1162,6 +1196,8 @@ const InvoiceTemplateVariants = React.memo(React.forwardRef(({ theme, business, 
                     <td style={{ width: "14%", borderRight: S.border, borderBottom: S.border, textAlign: "center", fontSize: baseFS, padding: basePad, background: t.tableHeaderBg, color: t.tableHeaderText, lineHeight: "1.5" }}>Rate</td>
                     <td style={{ width: "14%", borderRight: S.border, borderBottom: S.border, textAlign: "center", fontSize: baseFS, padding: basePad, background: t.tableHeaderBg, color: t.tableHeaderText, lineHeight: "1.5" }}>Amount</td>
                   </tr>
+                    </>
+                  )}
                 </thead>
                 <tbody>
                   {validItems.map((item, idx) => {
@@ -1175,10 +1211,19 @@ const InvoiceTemplateVariants = React.memo(React.forwardRef(({ theme, business, 
                         <td style={{ borderRight: S.border, borderBottom: S.border, textAlign: "center", fontSize: baseFS, padding: basePad, lineHeight: "1.5" }}>{item.hsn || "-"}</td>
                         )}
                         <td style={{ borderRight: S.border, borderBottom: S.border, textAlign: "right", fontSize: baseFS, padding: basePad, lineHeight: "1.5" }}>{formatINR(taxable)}</td>
-                        <td style={{ borderRight: S.border, borderBottom: S.border, textAlign: "center", fontSize: baseFS, padding: basePad, lineHeight: "1.5" }}>{halfGst.toFixed(1)}%</td>
-                        <td style={{ borderRight: S.border, borderBottom: S.border, textAlign: "right", fontSize: baseFS, padding: basePad, lineHeight: "1.5" }}>{formatINR(taxAmt / 2)}</td>
-                        <td style={{ borderRight: S.border, borderBottom: S.border, textAlign: "center", fontSize: baseFS, padding: basePad, lineHeight: "1.5" }}>{halfGst.toFixed(1)}%</td>
-                        <td style={{ borderRight: S.border, borderBottom: S.border, textAlign: "right", fontSize: baseFS, padding: basePad, lineHeight: "1.5" }}>{formatINR(taxAmt / 2)}</td>
+                        {igstMode ? (
+                          <>
+                            <td style={{ borderRight: S.border, borderBottom: S.border, textAlign: "center", fontSize: baseFS, padding: basePad, lineHeight: "1.5" }}>{gst.toFixed(1)}%</td>
+                            <td style={{ borderRight: S.border, borderBottom: S.border, textAlign: "right", fontSize: baseFS, padding: basePad, lineHeight: "1.5" }}>{formatINR(taxAmt)}</td>
+                          </>
+                        ) : (
+                          <>
+                            <td style={{ borderRight: S.border, borderBottom: S.border, textAlign: "center", fontSize: baseFS, padding: basePad, lineHeight: "1.5" }}>{halfGst.toFixed(1)}%</td>
+                            <td style={{ borderRight: S.border, borderBottom: S.border, textAlign: "right", fontSize: baseFS, padding: basePad, lineHeight: "1.5" }}>{formatINR(taxAmt / 2)}</td>
+                            <td style={{ borderRight: S.border, borderBottom: S.border, textAlign: "center", fontSize: baseFS, padding: basePad, lineHeight: "1.5" }}>{halfGst.toFixed(1)}%</td>
+                            <td style={{ borderRight: S.border, borderBottom: S.border, textAlign: "right", fontSize: baseFS, padding: basePad, lineHeight: "1.5" }}>{formatINR(taxAmt / 2)}</td>
+                          </>
+                        )}
                         <td style={{ borderBottom: S.border, textAlign: "right", fontSize: baseFS, padding: basePad, lineHeight: "1.5", fontWeight: "bold" }}>{formatINR(taxAmt)}</td>
                       </tr>
                     );
@@ -1189,10 +1234,19 @@ const InvoiceTemplateVariants = React.memo(React.forwardRef(({ theme, business, 
                     )}
                     <td style={{ borderRight: S.border, borderBottom: S.border, textAlign: "right", fontSize: baseFS, padding: basePad, lineHeight: "1.5", fontWeight: "bold", background: t.tableHeaderBg, color: t.tableHeaderText }}>{formatINR(taxableAmount)}</td>
                     <td style={{ borderRight: S.border, borderBottom: S.border, textAlign: "center", fontSize: baseFS, padding: basePad, lineHeight: "1.5", background: t.tableHeaderBg, color: t.tableHeaderText }}></td>
-                    <td style={{ borderRight: S.border, borderBottom: S.border, textAlign: "right", fontSize: baseFS, padding: basePad, lineHeight: "1.5", fontWeight: "bold", background: t.tableHeaderBg, color: t.tableHeaderText }}>{formatINR(cgstTotal)}</td>
-                    <td style={{ borderRight: S.border, borderBottom: S.border, textAlign: "center", fontSize: baseFS, padding: basePad, lineHeight: "1.5", background: t.tableHeaderBg, color: t.tableHeaderText }}></td>
-                    <td style={{ borderRight: S.border, borderBottom: S.border, textAlign: "right", fontSize: baseFS, padding: basePad, lineHeight: "1.5", fontWeight: "bold", background: t.tableHeaderBg, color: t.tableHeaderText }}>{formatINR(sgstTotal)}</td>
-                    <td style={{ borderBottom: S.border, textAlign: "right", fontSize: baseFS, padding: basePad, lineHeight: "1.5", fontWeight: "bold", background: t.tableHeaderBg, color: t.tableHeaderText }}>{formatINR(cgstTotal + sgstTotal)}</td>
+                    {igstMode ? (
+                      <>
+                        <td style={{ borderRight: S.border, borderBottom: S.border, textAlign: "right", fontSize: baseFS, padding: basePad, lineHeight: "1.5", fontWeight: "bold", background: t.tableHeaderBg, color: t.tableHeaderText }}>{formatINR(calc.igst)}</td>
+                        <td style={{ borderBottom: S.border, textAlign: "right", fontSize: baseFS, padding: basePad, lineHeight: "1.5", fontWeight: "bold", background: t.tableHeaderBg, color: t.tableHeaderText }}>{formatINR(calcTaxAmount)}</td>
+                      </>
+                    ) : (
+                      <>
+                        <td style={{ borderRight: S.border, borderBottom: S.border, textAlign: "right", fontSize: baseFS, padding: basePad, lineHeight: "1.5", fontWeight: "bold", background: t.tableHeaderBg, color: t.tableHeaderText }}>{formatINR(cgstTotal)}</td>
+                        <td style={{ borderRight: S.border, borderBottom: S.border, textAlign: "center", fontSize: baseFS, padding: basePad, lineHeight: "1.5", background: t.tableHeaderBg, color: t.tableHeaderText }}></td>
+                        <td style={{ borderRight: S.border, borderBottom: S.border, textAlign: "right", fontSize: baseFS, padding: basePad, lineHeight: "1.5", fontWeight: "bold", background: t.tableHeaderBg, color: t.tableHeaderText }}>{formatINR(sgstTotal)}</td>
+                        <td style={{ borderBottom: S.border, textAlign: "right", fontSize: baseFS, padding: basePad, lineHeight: "1.5", fontWeight: "bold", background: t.tableHeaderBg, color: t.tableHeaderText }}>{formatINR(cgstTotal + sgstTotal)}</td>
+                      </>
+                    )}
                   </tr>
                 </tbody>
               </table>

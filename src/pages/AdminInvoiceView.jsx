@@ -9,6 +9,7 @@ import InvoiceTemplateRenderer from "../components/InvoiceTemplateRenderer";
 import { processPrint } from "../utils/printInvoice";
 import { getPrintSettings } from "../constants/paperSizes";
 import { computeInvoiceTotals, round2 } from "../utils/invoiceTotals";
+import { resolveTaxMode } from "../utils/taxMode";
 import { goBack } from "../utils/navigation";
 
 const emptyItem = { itemName: "", hsn: "", unit: "", qty: "", rate: "", gstPercentage: "18", taxableValue: 0, taxAmount: 0, total: 0 };
@@ -55,6 +56,9 @@ export default function AdminInvoiceView() {
           destination: inv.destination || "",
           status: inv.status,
           billingMode: inv.billingMode || "",
+          // Stored GST structure; legacy invoices (null) resolve via the
+          // supplier state vs place of supply heuristic at render time.
+          taxMode: inv.taxMode || "",
           discountPercent: inv.discountPercent != null ? String(inv.discountPercent) : "",
         });
         setItems(inv.items?.map((item) => ({
@@ -105,9 +109,19 @@ export default function AdminInvoiceView() {
   const activeDiscount = editing
     ? (form.discountPercent || "0")
     : (invoice?.discountPercent != null ? String(invoice.discountPercent) : "0");
+  // Tax structure shown on the admin preview/PDF: the stored selection (or
+  // the legacy heuristic when the invoice predates the field).
+  const effectiveTaxMode = useMemo(
+    () => resolveTaxMode(
+      (editing && form.taxMode) || invoice?.taxMode,
+      business?.state,
+      form.placeOfSupply || invoice?.placeOfSupply,
+    ),
+    [editing, form.taxMode, invoice?.taxMode, business?.state, form.placeOfSupply, invoice?.placeOfSupply],
+  );
   const totals = useMemo(
-    () => computeInvoiceTotals(items, activeDiscount),
-    [items, activeDiscount]
+    () => computeInvoiceTotals(items, activeDiscount, effectiveTaxMode),
+    [items, activeDiscount, effectiveTaxMode]
   );
 
   // Stable object identity keeps React.memo'd templates from re-rendering on
@@ -161,6 +175,8 @@ export default function AdminInvoiceView() {
         destination: form.destination || undefined,
         status: form.status,
         billingMode: form.billingMode || undefined,
+        // Blank = keep the stored selection (backend absent-keeps contract).
+        taxMode: form.taxMode || undefined,
         discountPercent: parseFloat(form.discountPercent) || 0,
         items: items.filter((i) => i.itemName.trim() && parseFloat(i.qty) > 0 && parseFloat(i.rate) > 0).map((i, idx) => ({
           sno: idx + 1, itemName: i.itemName, hsn: i.hsn || undefined, unit: i.unit || undefined,
@@ -230,6 +246,7 @@ export default function AdminInvoiceView() {
               items={items}
               totals={totals}
               discountPercent={activeDiscount}
+              taxMode={effectiveTaxMode}
               type={form.invoiceType}
               invoiceNumber={form.invoiceNumber}
             />

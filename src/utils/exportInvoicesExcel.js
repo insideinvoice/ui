@@ -105,6 +105,9 @@ const CORE_COLUMNS = [
   { header: "Place of Supply", key: "placeOfSupply", width: 16, type: "text" },
   { header: "Payment Terms", key: "paymentTerms", width: 18, type: "text" },
   { header: "Payment Mode", key: "paymentMode", width: 14, type: "text" },
+  // GST structure of the invoice — "IGST" (inter-state) or "CGST + SGST"
+  // (intra-state). Legacy invoices saved before the field show blank.
+  { header: "Tax Mode", key: "taxMode", width: 16, type: "text" },
 ];
 
 // Item block: placed directly after Payment Mode. `hsn` is dropped for Food
@@ -259,6 +262,10 @@ function invoiceToRow(inv, customer, business) {
     placeOfSupply: text(inv.placeOfSupply),
     paymentTerms: text(inv.paymentTerms),
     paymentMode: text(inv.paymentMode),
+    taxMode:
+      inv.taxMode === "IGST" ? "IGST"
+        : inv.taxMode === "CGST_SGST" ? "CGST + SGST"
+          : "",
     itemName,
     hsn,
     unit,

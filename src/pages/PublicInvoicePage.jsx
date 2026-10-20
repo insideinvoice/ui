@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
-import { Download, Printer, RefreshCw, ShieldAlert, Clock } from "lucide-react";
+import { Download, Printer, RefreshCw, ShieldAlert, Clock, ZoomIn, ZoomOut, Scan } from "lucide-react";
 import InvoiceTemplateRenderer from "../components/InvoiceTemplateRenderer";
 import LoadingDots from "../components/LoadingDots";
 import { publicInvoiceAPI } from "../api/public";
@@ -138,6 +138,11 @@ function StatusCard({ icon, title, body, action }) {
 
 const PAPER_WIDTH = { A4_PORTRAIT: 794, A4_LANDSCAPE: 1123, A5: 559, LETTER: 816 };
 
+// Interactive viewer zoom band, in multiples of the paper's natural size —
+// the same 35%–500% range desktop browsers allow for page zoom.
+const MIN_ZOOM = 0.35;
+const MAX_ZOOM = 5;
+
 export default function PublicInvoicePage() {
   const { shareToken } = useParams();
   // ?type=PROFORMA_INVOICE (or TAX_INVOICE) renders the other document from the same
@@ -161,6 +166,12 @@ export default function PublicInvoicePage() {
   // hairlines antialias instead of vanishing, identically on every device.
   const paperRef = useRef(null);
   const [naturalH, setNaturalH] = useState(0);
+  // Interactive zoom state, owned by the gesture engine below and written
+  // straight to the DOM (see apply): { s: scale, x, y: pan }.
+  const viewRef = useRef({ s: 1, x: 0, y: 0 });
+  const engineRef = useRef(null);   // zoomBy/fit handles for the on-screen controls
+  const pctRef = useRef(null);      // live percentage label (DOM text, no re-render)
+  const surfaceRef = useRef(null);  // gesture surface
   // The viewer container is the measuring stick: the paper scales to ITS exact
   // width, so it always fills the page and stays perfectly centred — no fixed
   // gutters to drift out of sync with the responsive padding. The observer
@@ -169,6 +180,9 @@ export default function PublicInvoicePage() {
   // own zoom is never cancelled.
   const containerRef = useRef(null);
   const [containerW, setContainerW] = useState(0);
+  // The fit scale, mirrored into a ref so gesture handlers (attached once)
+  // never read a stale closure value.
+  const fitScaleRef = useRef(1);
 
   const load = useCallback(async () => {
     setStatus("loading");
@@ -221,6 +235,20 @@ export default function PublicInvoicePage() {
   const MAX_FIT_SCALE = 0.9;
   const fitScale = containerW ? Math.min(MAX_FIT_SCALE, Math.max(0.2, containerW / widthPx)) : 1;
 
+  // Whenever the fit changes (load, resize, rotation) the view snaps back to
+  // fit — the same contract as every document viewer. React re-renders the
+  // paper's transform here; after this point the gesture engine owns it.
+  useEffect(() => {
+    fitScaleRef.current = fitScale;
+    const v = viewRef.current;
+    v.s = fitScale;
+    v.x = 0;
+    v.y = 0;
+    if (paperRef.current) paperRef.current.style.transform = `scale(${fitScale})`;
+    if (surfaceRef.current) surfaceRef.current.classList.remove("is-zoomed", "is-grabbing");
+    if (pctRef.current) pctRef.current.textContent = `${Math.round(fitScale * 100)}%`;
+  }, [fitScale, data]);
+
   // Measure the paper's natural (unscaled) height so the layout container can
   // reserve exactly the scaled footprint — the scaled paper is absolutely
   // positioned and would otherwise leave a full natural-height hole below it.
@@ -235,6 +263,257 @@ export default function PublicInvoicePage() {
     const ro = new ResizeObserver(measure);
     ro.observe(el);
     return () => ro.disconnect();
+  }, [data]);
+
+  // ------------------------------------------------------------------ zoom
+  // Industry-standard document zoom, implemented IN-PAGE because the app
+  // shell blocks the browser's own (the html overflow clip defeats WebKit
+  // panning, and an installed PWA has no browser chrome to zoom with). Same
+  // gestures as Chrome / any PDF viewer:
+  //
+  //   pinch              → zoom about the pinch midpoint (two-finger pan too)
+  //   ctrl/cmd + wheel   → zoom at the cursor (Mac trackpad pinch emits this)
+  //   plain wheel        → pan the sheet once zoomed in; native scroll at fit
+  //   double-tap / click → toggle fit ↔ 100%
+  //   drag               → pan once zoomed in (grab cursor)
+  //   ctrl + / − / 0     → zoom in / out / fit
+  //
+  // The transform is written to the DOM inside one rAF per gesture frame and
+  // React never re-renders mid-gesture, so a pinch stays jank-free even on
+  // the 300-item invoices.
+  useEffect(() => {
+    if (!data || !paperRef.current || !surfaceRef.current) return undefined;
+    const paper = paperRef.current;
+    const surface = surfaceRef.current;
+    const view = viewRef.current;
+
+    let raf = 0;
+    const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+
+    const apply = () => {
+      raf = 0;
+      paper.style.transform =
+        view.x || view.y ? `translate(${view.x}px, ${view.y}px) scale(${view.s})` : `scale(${view.s})`;
+      const zoomed = view.s > fitScaleRef.current + 1e-3;
+      surface.classList.toggle("is-zoomed", zoomed);
+      if (pctRef.current) pctRef.current.textContent = `${Math.round(view.s * 100)}%`;
+    };
+    const schedule = () => {
+      if (!raf) raf = requestAnimationFrame(apply);
+    };
+
+    // The paper hangs off the sizer's top-left corner (absolute, origin top
+    // left), so the sizer rect is the paper's untransformed anchor in
+    // viewport coordinates.
+    const home = () => {
+      const h = paper.parentElement.getBoundingClientRect();
+      return { left: h.left, top: h.top };
+    };
+
+    // Keep the sheet reachable: fully-visible sheets stay fully visible,
+    // zoomed sheets can never be dragged clear off the viewport.
+    const clampView = () => {
+      const fit = fitScaleRef.current;
+      view.s = clamp(view.s, MIN_ZOOM, MAX_ZOOM);
+      if (view.s <= fit + 1e-3) {
+        view.x = 0;
+        view.y = 0;
+        return;
+      }
+      const h = home();
+      const vw = document.documentElement.clientWidth;
+      const vh = window.innerHeight;
+      const pw = paper.offsetWidth * view.s;
+      const ph = paper.offsetHeight * view.s;
+      const loX = (pw <= vw ? 0 : vw - pw) - h.left;
+      const hiX = (pw <= vw ? vw - pw : 0) - h.left;
+      const loY = (ph <= vh ? 0 : vh - ph) - h.top;
+      const hiY = (ph <= vh ? vh - ph : 0) - h.top;
+      view.x = clamp(view.x, Math.min(loX, hiX), Math.max(loX, hiX));
+      view.y = clamp(view.y, Math.min(loY, hiY), Math.max(loY, hiY));
+    };
+
+    // Zoom to `sNext` keeping the natural paper point currently under the
+    // focal viewport point nailed to that spot — the whole reason zoom feels
+    // like the system zoom and not like a resize.
+    const zoomAt = (fx, fy, sNextRaw) => {
+      const sNext = clamp(sNextRaw, MIN_ZOOM, MAX_ZOOM);
+      const h = home();
+      const nx = (fx - h.left - view.x) / view.s;
+      const ny = (fy - h.top - view.y) / view.s;
+      view.s = sNext;
+      view.x = fx - h.left - nx * sNext;
+      view.y = fy - h.top - ny * sNext;
+      clampView();
+      schedule();
+    };
+
+    const doFit = () => {
+      view.s = fitScaleRef.current;
+      view.x = 0;
+      view.y = 0;
+      schedule();
+    };
+
+    const toggleAt = (fx, fy) => {
+      if (view.s > 0.97) doFit();
+      else zoomAt(fx, fy, 1); // 100% — the paper's natural print size
+    };
+
+    const zoomStep = (factor) => {
+      zoomAt(window.innerWidth / 2, window.innerHeight / 2, view.s * factor);
+    };
+
+    // ---------------------------------------------------------- wheel
+    const onWheel = (e) => {
+      if (e.ctrlKey || e.metaKey) {
+        // ctrl/cmd+wheel (and Mac trackpad pinch, which the browser reports
+        // as exactly this) → zoom under the cursor.
+        e.preventDefault();
+        zoomAt(e.clientX, e.clientY, view.s * Math.exp(-e.deltaY * 0.002));
+      } else if (view.s > fitScaleRef.current + 1e-3) {
+        // Zoomed in: the wheel pans the document instead of scrolling the
+        // page away from under it (PDF-viewer behaviour).
+        e.preventDefault();
+        view.x -= e.deltaX;
+        view.y -= e.deltaY;
+        clampView();
+        schedule();
+      }
+      // At fit with no modifier: native page scroll, untouched.
+    };
+    surface.addEventListener("wheel", onWheel, { passive: false });
+
+    // ---------------------------------------------------------- pointers
+    const pts = new Map();
+    let pinch0 = null; // two-finger gesture snapshot
+    let pan0 = null;   // one-finger / mouse drag snapshot
+    let lastTapT = 0;
+    let lastTapX = 0;
+    let lastTapY = 0;
+
+    const onDown = (e) => {
+      if (e.pointerType === "mouse" && e.button !== 0) return;
+      try {
+        surface.setPointerCapture(e.pointerId);
+      } catch {
+        /* capture is best-effort */
+      }
+      pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (pts.size === 2) {
+        const [a, b] = [...pts.values()];
+        const h = home();
+        const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+        pinch0 = {
+          d: Math.hypot(a.x - b.x, a.y - b.y) || 1,
+          s: view.s,
+          nx: (mid.x - h.left - view.x) / view.s,
+          ny: (mid.y - h.top - view.y) / view.s,
+        };
+        pan0 = null;
+      } else if (pts.size === 1 && view.s > fitScaleRef.current + 1e-3) {
+        pan0 = { x: view.x, y: view.y, px: e.clientX, py: e.clientY };
+        surface.classList.add("is-grabbing");
+      }
+    };
+
+    const onMove = (e) => {
+      if (!pts.has(e.pointerId)) return;
+      pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (pts.size >= 2 && pinch0) {
+        const [a, b] = [...pts.values()];
+        const d = Math.hypot(a.x - b.x, a.y - b.y) || 1;
+        const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+        const sNext = clamp(pinch0.s * (d / pinch0.d), MIN_ZOOM, MAX_ZOOM);
+        const h = home();
+        // Zoom about the pinch midpoint AND follow it — the natural-point
+        // snapshot from gesture start means zero drift no matter how the
+        // fingers wander.
+        view.s = sNext;
+        view.x = mid.x - h.left - pinch0.nx * sNext;
+        view.y = mid.y - h.top - pinch0.ny * sNext;
+        clampView();
+        schedule();
+      } else if (pan0 && pts.size === 1) {
+        view.x = pan0.x + (e.clientX - pan0.px);
+        view.y = pan0.y + (e.clientY - pan0.py);
+        clampView();
+        schedule();
+      }
+    };
+
+    const onUp = (e) => {
+      pts.delete(e.pointerId);
+      if (pts.size < 2) pinch0 = null;
+      if (pts.size === 0) {
+        pan0 = null;
+        surface.classList.remove("is-grabbing");
+      }
+      if (e.pointerType === "touch" && pts.size === 0) {
+        const now = Date.now();
+        if (now - lastTapT < 300 && Math.hypot(e.clientX - lastTapX, e.clientY - lastTapY) < 28) {
+          toggleAt(e.clientX, e.clientY);
+          lastTapT = 0;
+        } else {
+          lastTapT = now;
+          lastTapX = e.clientX;
+          lastTapY = e.clientY;
+        }
+      }
+    };
+
+    surface.addEventListener("pointerdown", onDown);
+    surface.addEventListener("pointermove", onMove);
+    surface.addEventListener("pointerup", onUp);
+    surface.addEventListener("pointercancel", onUp);
+    // A mouse leaves the surface captured mid-drag → treat as pointer-up.
+    surface.addEventListener("pointerleave", (e) => {
+      if (e.pointerType === "mouse" && pan0) onUp(e);
+    });
+
+    const onDblClick = (e) => toggleAt(e.clientX, e.clientY);
+    surface.addEventListener("dblclick", onDblClick);
+
+    // iOS Safari fires these proprietary events for a system-level pinch of
+    // the whole page; swallowing them keeps the page still while OUR pinch
+    // runs (they are non-standard, hence the string names).
+    const stopSysPinch = (e) => e.preventDefault();
+    surface.addEventListener("gesturestart", stopSysPinch, { passive: false });
+    surface.addEventListener("gesturechange", stopSysPinch, { passive: false });
+
+    // ---------------------------------------------------------- keyboard
+    const onKey = (e) => {
+      if (!e.ctrlKey && !e.metaKey) return;
+      if (e.key === "+" || e.key === "=") {
+        e.preventDefault();
+        zoomStep(1.3);
+      } else if (e.key === "-" || e.key === "_") {
+        e.preventDefault();
+        zoomStep(1 / 1.3);
+      } else if (e.key === "0") {
+        e.preventDefault();
+        doFit();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+
+    // On-screen controls (the pill) read their handlers off the ref.
+    engineRef.current = { zoomIn: () => zoomStep(1.3), zoomOut: () => zoomStep(1 / 1.3), fit: doFit };
+    apply();
+
+    return () => {
+      if (raf) cancelAnimationFrame(raf);
+      surface.removeEventListener("wheel", onWheel);
+      surface.removeEventListener("pointerdown", onDown);
+      surface.removeEventListener("pointermove", onMove);
+      surface.removeEventListener("pointerup", onUp);
+      surface.removeEventListener("pointercancel", onUp);
+      surface.removeEventListener("dblclick", onDblClick);
+      surface.removeEventListener("gesturestart", stopSysPinch);
+      surface.removeEventListener("gesturechange", stopSysPinch);
+      window.removeEventListener("keydown", onKey);
+      engineRef.current = null;
+    };
   }, [data]);
 
   const buildPdf = async () => {
@@ -466,10 +745,16 @@ export default function PublicInvoicePage() {
         {/* Full-page viewer: the paper takes the whole container width, sits
             centred with breathing room above and below, and is scaled with
             `transform` (see paperRef) so its 1px rules survive at every size.
-            The sizer reserves the paper's exact scaled footprint; the browser's
-            native pinch / double-tap zoom does the rest — no inner scroll box
-            to trap gestures. */}
-        <div ref={containerRef} className="w-full flex justify-center">
+            The sizer reserves the paper's exact scaled footprint, and the
+            container doubles as the gesture surface for the in-page zoom
+            engine (pinch / ctrl+wheel / double-tap / drag). */}
+        <div
+          ref={(el) => {
+            containerRef.current = el;
+            surfaceRef.current = el;
+          }}
+          className="doc-pan w-full flex justify-center"
+        >
           <div
             style={{
               width: naturalH ? `${widthPx * fitScale}px` : `${widthPx}px`,
@@ -506,9 +791,48 @@ export default function PublicInvoicePage() {
           </div>
         </div>
 
+        {/* Zoom controls — same affordance as a system/PDF viewer, for
+            pointers and keyboards that have no pinch gesture. Live % label is
+            written straight to the DOM by the engine (no re-render per frame). */}
+        <div className="fixed inset-x-0 bottom-4 z-30 flex justify-center pointer-events-none px-4">
+          <div className="pointer-events-auto flex items-center gap-1 rounded-full border border-slate-200 bg-white/95 px-2 py-1.5 shadow-lg backdrop-blur">
+            <button
+              type="button"
+              aria-label="Zoom out"
+              onClick={() => engineRef.current?.zoomOut()}
+              className="p-2 rounded-full text-slate-600 hover:bg-slate-100 active:bg-slate-200 transition-colors"
+            >
+              <ZoomOut className="w-4 h-4" />
+            </button>
+            <span ref={pctRef} className="w-12 text-center text-xs font-semibold text-slate-700 tabular-nums select-none">
+              {Math.round(fitScale * 100)}%
+            </span>
+            <button
+              type="button"
+              aria-label="Zoom in"
+              onClick={() => engineRef.current?.zoomIn()}
+              className="p-2 rounded-full text-slate-600 hover:bg-slate-100 active:bg-slate-200 transition-colors"
+            >
+              <ZoomIn className="w-4 h-4" />
+            </button>
+            <div className="w-px h-5 bg-slate-200 mx-0.5" />
+            <button
+              type="button"
+              aria-label="Fit to screen"
+              onClick={() => engineRef.current?.fit()}
+              className="p-2 rounded-full text-slate-600 hover:bg-slate-100 active:bg-slate-200 transition-colors"
+              title="Fit to screen"
+            >
+              <Scan className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
         <p className="text-center text-xs text-slate-400 mt-4 sm:mt-5">
           Computer-generated copy of a shared invoice &middot; Powered by Inside Invoice
-          <span className="block mt-1 text-[10px] text-slate-300">Pinch to zoom &middot; double-tap to fit</span>
+          <span className="block mt-1 text-[10px] text-slate-300">
+            Pinch or Ctrl + scroll to zoom &middot; drag to pan &middot; double-tap for 100%
+          </span>
         </p>
       </main>
     </div>

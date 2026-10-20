@@ -72,6 +72,12 @@ html.public-docs-zoomable {
 .doc-pan.is-grabbing { cursor: grabbing; }
 .doc-pan.is-grabbing * { cursor: grabbing; }
 
+/* Once the in-page zoom engine takes the sheet past fit, IT owns every
+   gesture (pan + pinch) — touch scrolling is disabled on the surface so a
+   one-finger drag moves the document instead of scrolling the page away
+   from under it. At fit, touch-action stays default: native scroll. */
+.doc-pan.is-zoomed { touch-action: none; }
+
 body {
   margin: 0;
   padding: 0;

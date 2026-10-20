@@ -158,6 +158,34 @@ async function drag(cdp, x, y, dx, dy, steps = 10) {
   await sleep(450); // settle flick inertia
 }
 
+// Linearity guard: two incremental 30px moves must move the sheet ~60px —
+// exactly one screen pixel per finger pixel. Measuring each move from the
+// pointerdown anchor (instead of the previous point) re-applies the whole
+// cumulative displacement every frame, i.e. quadratic acceleration that flings
+// the sheet away from the finger. Read mid-gesture, BEFORE release, so flick
+// inertia cannot blur the measurement.
+async function assertLinearPan(page, cdp, mode, iter, v0) {
+  const cx = v0.surfW / 2;
+  const cy = v0.surfH / 2;
+  await touchStart(cdp, [{ x: cx, y: cy }]);
+  await sleep(30);
+  await touchMove(cdp, [{ x: cx + 30, y: cy + 30 }]);
+  await sleep(30);
+  await touchMove(cdp, [{ x: cx + 60, y: cy + 60 }]);
+  await sleep(30);
+  const vm = await readState(page);
+  await touchEnd(cdp);
+  await sleep(450);
+  const dx = Math.abs(vm.x - v0.x);
+  const dy = Math.abs(vm.y - v0.y);
+  check(
+    mode, iter,
+    "pan tracks the finger 1:1 (no acceleration)",
+    dx > 45 && dx < 80 && dy > 45 && dy < 80,
+    `dx=${dx.toFixed(1)} dy=${dy.toFixed(1)} (want ~60)`,
+  );
+}
+
 // Two opposite drags: one of them must always move the sheet a substantial
 // distance, regardless of which bound the view was parked against.
 async function panBothAxes(page, cdp, mode, iter, v0) {
@@ -209,6 +237,10 @@ async function mobileSuite(browser, iter) {
   await pinch(cdp, cx, cy, 30, 150);
   const vZoom = await assertHealthy(page, "mobile", iter, "after pinch-out");
   check("mobile", iter, "pinch-out zooms IN", vZoom.s > fit * 1.5, `s=${vZoom.s} fit=${fit}`);
+
+  // 2b. One-finger pan is LINEAR — 1:1 with the finger (zoomed in, so both
+  //     axes overflow and nothing is pinned by the clamp).
+  await assertLinearPan(page, cdp, "mobile", iter, vZoom);
 
   // 3. Pinch IN (fingers together) zooms back out.
   await pinch(cdp, cx, cy, 150, 40);

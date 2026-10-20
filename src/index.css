@@ -89,6 +89,30 @@ html.pip-locked #root {
 .doc-pan.is-grabbing { cursor: grabbing; }
 .doc-pan.is-grabbing * { cursor: grabbing; }
 
+/* Printing the APP PAGE (browser menu -> Print) is only a fallback — the
+   in-app Print action renders and prints the PDF. But make the fallback sane
+   instead of the clipped screenshot it used to produce: lift the scroll-lock,
+   drop the zoom transform so the document lays out at its natural print
+   width, and hide the one-time gesture hint. */
+@media print {
+  html.pip-locked,
+  html.pip-locked body {
+    overflow: visible !important;
+    height: auto !important;
+  }
+  .doc-pan {
+    overflow: visible !important;
+    height: auto !important;
+  }
+  .doc-pan > [data-testid="doc-zoom-paper"] {
+    position: static !important;
+    transform: none !important;
+  }
+  .doc-pan > div[aria-hidden="true"] {
+    display: none !important;
+  }
+}
+
 body {
   margin: 0;
   padding: 0;

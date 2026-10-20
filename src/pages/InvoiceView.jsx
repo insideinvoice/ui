@@ -923,8 +923,14 @@ export default function InvoiceView() {
     }
   };
 
-  // Sends a PDF blob URL to the printer via a hidden iframe — this prints the
-  // PDF document itself, never the surrounding HTML page.
+  // Sends a PDF blob URL to the printer.
+  //  - Android / desktop: a hidden iframe calls print() on the PDF document
+  //    itself, so the dialog previews and prints the PDF — never the app page.
+  //  - iOS Safari has no programmatic print for a PDF (window.print() is a
+  //    no-op; a PDF inside an iframe prints the surrounding page — which is
+  //    exactly how users used to get a clipped screenshot of the app). The
+  //    reliable iOS route is Safari's own PDF viewer: open the file there and
+  //    Share -> Print prints the actual PDF.
   const printPdfUrl = (url) => {
     if (!url) return;
     const isIOS =
@@ -934,20 +940,31 @@ export default function InvoiceView() {
       const isStandalone =
         navigator.standalone === true ||
         (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches);
+      const openInSafari = (href) => {
+        if (isStandalone) {
+          // blob: URLs don't survive the jump into Safari from a home-screen
+          // app; convert to a self-contained data: URL first.
+          toast("PDF opened in Safari — tap Share, then Print");
+          window.location.href = href;
+          return;
+        }
+        // Popup blockers allow this only during the click, and PDF generation
+        // is async — so try a window first and fall back to same-tab.
+        if (!window.open(href, "_blank")) window.location.href = href;
+        toast("PDF opened — tap Share, then Print");
+      };
       if (isStandalone) {
-        // blob: URLs don't survive the jump into Safari from a home-screen app;
-        // convert to a self-contained data: URL first.
         fetch(url)
           .then((r) => r.blob())
           .then((blob) => {
             const reader = new FileReader();
-            reader.onload = () => { window.location.href = reader.result; };
+            reader.onload = () => openInSafari(reader.result);
             reader.readAsDataURL(blob);
           })
-          .catch(() => { window.location.href = url; });
+          .catch(() => openInSafari(url));
         return;
       }
-      if (!window.open(url, "_blank")) window.location.href = url;
+      openInSafari(url);
       return;
     }
     const iframe = document.createElement("iframe");
@@ -1118,6 +1135,14 @@ export default function InvoiceView() {
                     className={`${chipClass} bg-indigo-600 text-white`}>
                     {busyAction === `download:${invoiceType}` ? <Spinner size={14} /> : <Download className="w-3.5 h-3.5" />}
                     {busyAction === `download:${invoiceType}` ? "Preparing..." : "Download PDF"}
+                  </button>
+                  {/* Print routes to the PDF (printFromPreview), NOT the page —
+                      on iOS it opens Safari's PDF viewer for Share -> Print. */}
+                  <button type="button" onClick={printFromPreview}
+                    disabled={sealRequired || !!busyAction}
+                    className={`${chipClass} border border-slate-300 text-slate-700 bg-white`}>
+                    {busyAction === "print-preview" ? <Spinner size={14} /> : <Printer className="w-3.5 h-3.5" />}
+                    {busyAction === "print-preview" ? "Preparing..." : "Print"}
                   </button>
                   <button type="button" onClick={sendInvoiceEmailToCustomer}
                     disabled={emailBusy || !!busyAction}

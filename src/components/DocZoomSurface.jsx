@@ -353,7 +353,11 @@ export default function DocZoomSurface({
         schedule();
       } else if (pan0 && pts.size === 1) {
         movedDist += Math.abs(e.clientX - prev.x) + Math.abs(e.clientY - prev.y);
-        driftPan(e.clientX - pan0.px, e.clientY - pan0.py);
+        // Delta from the PREVIOUS move (prev), 1:1 with the finger. Using the
+        // pointerdown anchor (pan0.px) would re-apply the whole cumulative
+        // displacement every frame — quadratic acceleration that flings the
+        // sheet away from the finger.
+        driftPan(e.clientX - prev.x, e.clientY - prev.y);
         notePan();
       }
     };

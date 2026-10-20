@@ -229,10 +229,11 @@ export default function PublicInvoicePage() {
   }, [data]);
 
   // Scale = container width / paper width, floored so an A4 stays legible on
-  // a watch-sized viewport, and CAPPED so a wide monitor shows the sheet as a
-  // page with breathing room instead of a 2.4x wall of type bleeding off both
-  // edges (the customer's PDF-in-hand reference is a page, not a mural).
-  const MAX_FIT_SCALE = 0.9;
+  // a watch-sized viewport, and CAPPED at 80% — the customer's chosen default
+  // — so a wide monitor opens on the sheet at exactly 80% with breathing room
+  // around it instead of a near-full-bleed wall of type. Narrow screens still
+  // fall below the cap and fit their width.
+  const MAX_FIT_SCALE = 0.8;
   const fitScale = containerW ? Math.min(MAX_FIT_SCALE, Math.max(0.2, containerW / widthPx)) : 1;
 
   // Whenever the fit changes (load, resize, rotation) the view snaps back to
@@ -316,8 +317,12 @@ export default function PublicInvoicePage() {
       const fit = fitScaleRef.current;
       view.s = clamp(view.s, MIN_ZOOM, MAX_ZOOM);
       if (view.s <= fit + 1e-3) {
-        view.x = 0;
-        view.y = 0;
+        // Below fit the sheet stays CENTRED on its reserved white footprint.
+        // Pinning it to the origin made a zoomed-out invoice hug the top-left
+        // corner with a sea of empty page beside it — unreadable and
+        // unscrollable-to, since the corners were nowhere near the fingers.
+        view.x = (paper.offsetWidth * (fit - view.s)) / 2;
+        view.y = (paper.offsetHeight * (fit - view.s)) / 2;
         return;
       }
       const h = home();
@@ -387,19 +392,50 @@ export default function PublicInvoicePage() {
     // ---------------------------------------------------------- pointers
     const pts = new Map();
     let pinch0 = null; // two-finger gesture snapshot
-    let pan0 = null;   // one-finger / mouse drag snapshot
+    let pan0 = null;   // one-finger / mouse drag snapshot (zoomed sheet)
+    let pagePan = null; // one-finger touch scroll at fit (see onDown)
+    let movedDist = 0;  // travel since gesture start — under ~10px it's a tap
+    let flick = null;   // release velocity for inertial page scroll
+    let flickRaf = 0;
     let lastTapT = 0;
     let lastTapX = 0;
     let lastTapY = 0;
 
+    // Native inertial scrolling is off (`touch-action: none` is what stops
+    // the browser stealing pinch), so one-finger flicks are re-created here:
+    // keep the release velocity and decay it per frame like the platform.
+    const stopFlick = () => {
+      if (flickRaf) cancelAnimationFrame(flickRaf);
+      flickRaf = 0;
+      flick = null;
+    };
+    const runFlick = () => {
+      flickRaf = 0;
+      if (!flick) return;
+      const now = performance.now();
+      const dt = Math.min(48, now - flick.t);
+      flick.t = now;
+      const dy = flick.vy * dt;
+      flick.vy *= Math.pow(0.94, dt / 16.7);
+      if (Math.abs(flick.vy) < 0.02) {
+        flick = null;
+        return;
+      }
+      window.scrollBy(0, -dy);
+      flickRaf = requestAnimationFrame(runFlick);
+    };
+
     const onDown = (e) => {
       if (e.pointerType === "mouse" && e.button !== 0) return;
+      stopFlick();
       try {
         surface.setPointerCapture(e.pointerId);
       } catch {
         /* capture is best-effort */
       }
+      const fresh = pts.size === 0;
       pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (fresh) movedDist = 0;
       if (pts.size === 2) {
         const [a, b] = [...pts.values()];
         const h = home();
@@ -411,14 +447,24 @@ export default function PublicInvoicePage() {
           ny: (mid.y - h.top - view.y) / view.s,
         };
         pan0 = null;
+        pagePan = null;
+        movedDist = 100; // a pinch is never part of a double-tap
       } else if (pts.size === 1 && view.s > fitScaleRef.current + 1e-3) {
         pan0 = { x: view.x, y: view.y, px: e.clientX, py: e.clientY };
         surface.classList.add("is-grabbing");
+      } else if (pts.size === 1 && e.pointerType === "touch") {
+        // At fit. `touch-action: none` on the surface has disabled native
+        // scrolling (it is exactly what keeps the browser from hijacking the
+        // two-finger pinch), so ONE finger scrolls the page from here instead
+        // — the sheet is fully visible at fit, so the page, not the sheet,
+        // is what has to move.
+        pagePan = { px: e.clientX, py: e.clientY, t: performance.now() };
       }
     };
 
     const onMove = (e) => {
       if (!pts.has(e.pointerId)) return;
+      const prev = pts.get(e.pointerId);
       pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (pts.size >= 2 && pinch0) {
         const [a, b] = [...pts.values()];
@@ -437,8 +483,20 @@ export default function PublicInvoicePage() {
       } else if (pan0 && pts.size === 1) {
         view.x = pan0.x + (e.clientX - pan0.px);
         view.y = pan0.y + (e.clientY - pan0.py);
+        movedDist += Math.abs(e.clientX - prev.x) + Math.abs(e.clientY - prev.y);
         clampView();
         schedule();
+      } else if (pagePan && pts.size === 1) {
+        const dx = e.clientX - pagePan.px;
+        const dy = e.clientY - pagePan.py;
+        const now = performance.now();
+        const dt = Math.max(8, Math.min(64, now - pagePan.t));
+        pagePan.px = e.clientX;
+        pagePan.py = e.clientY;
+        pagePan.t = now;
+        movedDist += Math.abs(dx) + Math.abs(dy);
+        flick = { vy: dy / dt, t: now };
+        window.scrollBy(0, -dy);
       }
     };
 
@@ -448,17 +506,26 @@ export default function PublicInvoicePage() {
       if (pts.size === 0) {
         pan0 = null;
         surface.classList.remove("is-grabbing");
-      }
-      if (e.pointerType === "touch" && pts.size === 0) {
-        const now = Date.now();
-        if (now - lastTapT < 300 && Math.hypot(e.clientX - lastTapX, e.clientY - lastTapY) < 28) {
-          toggleAt(e.clientX, e.clientY);
-          lastTapT = 0;
+        if (pagePan && e.type === "pointerup" && flick && performance.now() - flick.t < 120) {
+          flickRaf = requestAnimationFrame(runFlick);
         } else {
-          lastTapT = now;
-          lastTapX = e.clientX;
-          lastTapY = e.clientY;
+          flick = null;
         }
+        pagePan = null;
+      }
+      if (e.pointerType !== "touch" || pts.size !== 0) return;
+      if (movedDist >= 10) {
+        lastTapT = 0; // a drag or pinch breaks the double-tap chain
+        return;
+      }
+      const now = Date.now();
+      if (now - lastTapT < 300 && Math.hypot(e.clientX - lastTapX, e.clientY - lastTapY) < 28) {
+        toggleFromTap(e.clientX, e.clientY);
+        lastTapT = 0;
+      } else {
+        lastTapT = now;
+        lastTapX = e.clientX;
+        lastTapY = e.clientY;
       }
     };
 
@@ -471,7 +538,18 @@ export default function PublicInvoicePage() {
       if (e.pointerType === "mouse" && pan0) onUp(e);
     });
 
-    const onDblClick = (e) => toggleAt(e.clientX, e.clientY);
+    // A manual touch double-tap toggles the zoom; the browser can ALSO emit
+    // `dblclick` for the same two taps, and letting it through would toggle
+    // straight back. Swallow the duplicate for a moment after ours fires.
+    let suppressDblT = 0;
+    const toggleFromTap = (fx, fy) => {
+      suppressDblT = performance.now();
+      toggleAt(fx, fy);
+    };
+    const onDblClick = (e) => {
+      if (performance.now() - suppressDblT < 600) return;
+      toggleAt(e.clientX, e.clientY);
+    };
     surface.addEventListener("dblclick", onDblClick);
 
     // iOS Safari fires these proprietary events for a system-level pinch of
@@ -512,6 +590,7 @@ export default function PublicInvoicePage() {
       surface.removeEventListener("gesturestart", stopSysPinch);
       surface.removeEventListener("gesturechange", stopSysPinch);
       window.removeEventListener("keydown", onKey);
+      stopFlick();
       engineRef.current = null;
     };
   }, [data]);
@@ -682,7 +761,7 @@ export default function PublicInvoicePage() {
   }
 
   return (
-    <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-gray-100 flex flex-col">
+    <div className="min-h-[100dvh] bg-white flex flex-col">
       {/* Hidden unscaled renderer dedicated for 100% crisp PDF generation */}
       <div className="pip-print-source" style={{ position: "absolute", left: "-9999px", top: 0, pointerEvents: "none" }}>
         <InvoiceTemplateRenderer
@@ -741,27 +820,34 @@ export default function PublicInvoicePage() {
         )}
       </header>
 
-      <main className="flex-1 w-full px-2 sm:px-4 py-5 sm:py-8">
-        {/* Full-page viewer: the paper takes the whole container width, sits
-            centred with breathing room above and below, and is scaled with
-            `transform` (see paperRef) so its 1px rules survive at every size.
-            The sizer reserves the paper's exact scaled footprint, and the
-            container doubles as the gesture surface for the in-page zoom
-            engine (pinch / ctrl+wheel / double-tap / drag). */}
+      <main className="flex-1 w-full bg-white flex flex-col">
+        {/* Full-bleed white viewer: the white backdrop IS the entire screen —
+            html, body, #root, this root div and main all paint white, so the
+            surface spans the full width AND height of the page (and of the
+            overscroll bounce), with no bordered card floating in the middle.
+            The sizer below is a pure layout spacer holding the paper's exact
+            scaled footprint (the sheet is absolutely positioned and would
+            otherwise leave a natural-height hole); `margin: auto` centres it —
+            and with it the invoice — dead centre of that full screen, and
+            collapses to zero on overflow so a multi-page invoice taller than
+            the screen still starts at the top and scrolls. NO top padding —
+            an overflowing sheet starts flush under the header (a stray band
+            of white above the invoice read as a rendering gap). The container
+            doubles as the gesture surface for the in-page zoom engine
+            (pinch / ctrl+wheel / double-tap / drag) across the WHOLE area. */}
         <div
           ref={(el) => {
             containerRef.current = el;
             surfaceRef.current = el;
           }}
-          className="doc-pan w-full flex justify-center"
+          className="doc-pan flex-1 w-full flex px-2 sm:px-4 pb-5 sm:pb-8"
         >
           <div
             style={{
               width: naturalH ? `${widthPx * fitScale}px` : `${widthPx}px`,
               height: naturalH ? `${naturalH * fitScale}px` : undefined,
               position: "relative",
-              background: "#ffffff",
-              boxShadow: "0 12px 32px -10px rgba(15, 23, 42, 0.25), 0 2px 8px -2px rgba(15, 23, 42, 0.08)",
+              margin: "auto",
             }}
           >
             <div

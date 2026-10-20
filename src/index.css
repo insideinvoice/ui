@@ -61,22 +61,33 @@ html {
    viewport-level overflow-x clip: a zoomed-in paper is wider than the layout
    viewport, and WebKit refuses to pan a CLIPPED html element — the zoomed
    page gets stuck and can't be moved left/right (long-standing Safari bug).
-   The clip stays on everywhere else as the lateral overflow guard. */
+   The clip stays on everywhere else as the lateral overflow guard.
+   The viewer backdrop is also white EDGE TO EDGE: html, body and #root paint
+   white here, so every scroll position (including the iOS overscroll bounce
+   and the status-bar strip) shows the full-screen white surface — never the
+   app grey — with the invoice sheet centred on top of it. */
 html.public-docs-zoomable {
   overflow-x: visible;
 }
+html.public-docs-zoomable,
+html.public-docs-zoomable body,
+html.public-docs-zoomable #root {
+  background-color: #ffffff;
+}
 
-/* Drag-to-pan affordance on the document viewer (mouse pointers). Touch
-   devices scroll natively, so the cursor classes matter only on desktop. */
-.doc-pan { cursor: grab; }
+/* Document viewer gesture surface. `touch-action: none` hands EVERY touch to
+   the page's own zoom engine (PublicInvoicePage): with anything less, Android
+   and iOS recognise a two-finger spread as the browser's own pinch BEFORE the
+   second pointer ever moves and fire pointercancel — the engine dies at
+   gesture start and pinch appears to "do nothing" on the phone. The engine
+   compensates for the lost native behaviour itself: one-finger drags scroll
+   the page (with flick momentum) while at fit, and pan the sheet once zoomed. */
+.doc-pan {
+  cursor: grab;
+  touch-action: none;
+}
 .doc-pan.is-grabbing { cursor: grabbing; }
 .doc-pan.is-grabbing * { cursor: grabbing; }
-
-/* Once the in-page zoom engine takes the sheet past fit, IT owns every
-   gesture (pan + pinch) — touch scrolling is disabled on the surface so a
-   one-finger drag moves the document instead of scrolling the page away
-   from under it. At fit, touch-action stays default: native scroll. */
-.doc-pan.is-zoomed { touch-action: none; }
 
 body {
   margin: 0;

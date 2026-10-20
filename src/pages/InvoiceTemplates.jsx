@@ -44,6 +44,10 @@ const sampleBusiness = {
   email: "info@acme.in",
   gstIn: "29ABCDE1234F1Z5",
   logo: SAMPLE_LOGO,
+  // Demo VPA so the gallery previews render the Scan-to-Pay QR exactly like a
+  // real invoice whose owner entered a UPI id in Settings; real invoices
+  // always read the persisted business profile instead.
+  upiId: "acme@okaxis",
 };
 
 const sampleCustomer = {

@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import { QRCodeSVG } from "qrcode.react";
 import CompanySeal from "./CompanySeal";
 import CompanyStamp from "./CompanyStamp";
 import { resolveSeal } from "../utils/seal";
@@ -613,7 +614,7 @@ const WordsStrip = ({ isProforma, words, showTax, taxAmount }) => {
 
 /* --------------------------------------------------------------- band */
 
-const BankBand = ({ business, sigSrc, sealVisible, sealType, isProforma }) => (
+const BankBand = ({ business, sigSrc, sealVisible, sealType, isProforma, payAmount, payRef }) => (
   <div style={{
     height: M.band, boxSizing: "border-box", display: "flex",
     // The band sits directly under the words strip (whose bottom rule is its
@@ -622,14 +623,29 @@ const BankBand = ({ business, sigSrc, sealVisible, sealType, isProforma }) => (
     // stacked 1px rules read as a double line above the jurisdiction row.
     overflow: "hidden", background: "#ffffff",
   }}>
-    {/* bank details */}
+    {/* bank details — the UPI QR sits BESIDE the rows (original template's
+        arrangement) inside the same fixed 34% column: the container width
+        never changes, the rows simply share the space with the code and
+        ellipsize when a value runs long. */}
     <div style={{ width: "34%", padding: "8px 12px", borderRight: `1.5px solid ${GRID}`, overflow: "hidden" }}>
       {capsLabel("COMPANY'S BANK DETAILS")}
-      <div style={{ fontSize: "9.5px", color: MUTED, lineHeight: "14px" }}>
-        <div style={nowrap}>Bank Name: {business?.bankName || "-"}</div>
-        <div style={nowrap}>A/c No: {business?.accountNo || "-"}</div>
-        <div style={nowrap}>IFSC: {business?.ifsc || "-"}</div>
-        <div style={nowrap}>UPI: {business?.upiId || "-"}</div>
+      <div style={{ display: "flex", gap: "8px", alignItems: "flex-start" }}>
+        <div style={{ fontSize: "9.5px", color: MUTED, lineHeight: "14px", flex: 1, minWidth: 0 }}>
+          <div style={nowrap}>Bank Name: {business?.bankName || "-"}</div>
+          <div style={nowrap}>A/c No: {business?.accountNo || "-"}</div>
+          <div style={nowrap}>IFSC: {business?.ifsc || "-"}</div>
+          <div style={nowrap}>UPI: {business?.upiId || "-"}</div>
+        </div>
+        {business?.upiId && (
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flexShrink: 0 }}>
+            <QRCodeSVG
+              value={`upi://pay?pa=${business.upiId}&pn=${encodeURIComponent(business.businessName || "")}&am=${Number(payAmount || 0).toFixed(2)}&tr=${encodeURIComponent(payRef || "")}&tn=${encodeURIComponent(payRef || "")}&cu=INR`}
+              size={66}
+              style={{ display: "block" }}
+            />
+            <div style={{ fontSize: "8.5px", color: "#555", marginTop: "2px" }}>Scan to Pay</div>
+          </div>
+        )}
       </div>
     </div>
     {/* declaration */}
@@ -805,6 +821,8 @@ const EntPage = ({ pageId, showItems, sumRows, sumWithTotal, closing, chunkItems
             sealVisible={shared.sealVisible}
             sealType={shared.sealType}
             isProforma={shared.isProforma}
+            payAmount={shared.calc.grandTotal}
+            payRef={shared.displayInvNo}
           />
         </>
       )}

@@ -143,13 +143,15 @@ export const labelAPI = {
 export const adminAPI = {
   createUser: (data) => api.post("/auth/signup", { ...data, businessName: data.businessName || undefined }),
   getStats: () => api.get("/admin/stats"),
-  getAllUsers: () => api.get("/admin/users"),
-  getAllBusinesses: () => api.get("/admin/businesses"),
-  getBusinessInvoices: (businessId) => api.get(`/admin/businesses/${businessId}/invoices`),
+  // Paginated admin lists — params: { page, size, q, ...sort } → PagedResponse.
+  getAllUsers: (params) => api.get("/admin/users", { params }),
+  getUser: (id) => api.get(`/admin/users/${id}`),
+  getAllBusinesses: (params) => api.get("/admin/businesses", { params }),
+  getBusinessInvoices: (businessId, params) => api.get(`/admin/businesses/${businessId}/invoices`, { params }),
   // Per-user workspace (admin triage console) — see AdminUserWorkspace.
-  getBusinessCustomers: (businessId) => api.get(`/admin/businesses/${businessId}/customers`),
+  getBusinessCustomers: (businessId, params) => api.get(`/admin/businesses/${businessId}/customers`, { params }),
   createBusinessCustomer: (businessId, data) => api.post(`/admin/businesses/${businessId}/customers`, data),
-  getBusinessProducts: (businessId) => api.get(`/admin/businesses/${businessId}/products`),
+  getBusinessProducts: (businessId, params) => api.get(`/admin/businesses/${businessId}/products`, { params }),
   createBusinessInvoice: (businessId, data) => api.post(`/admin/businesses/${businessId}/invoices`, data),
   deleteInvoiceAsAdmin: (invoiceId) => api.delete(`/admin/invoices/${invoiceId}`),
   deleteCustomerAsAdmin: (customerId) => api.delete(`/admin/customers/${customerId}`),
@@ -160,9 +162,11 @@ export const adminAPI = {
   updateRole: (id, role, adminPassword) => api.put(`/admin/users/${id}/role`, adminPassword ? { role, adminPassword } : { role }),
   updateUser: (id, data) => api.put(`/admin/users/${id}`, data),
   deleteUser: (id) => api.delete(`/admin/users/${id}`),
-  getAllCustomers: () => api.get("/admin/customers"),
-  getAllInvoices: () => api.get("/admin/invoices"),
+  getAllCustomers: (params) => api.get("/admin/customers", { params }),
+  getAllInvoices: (params) => api.get("/admin/invoices", { params }),
   getBusiness: (id) => api.get(`/admin/businesses/${id}`),
   getAnalytics: () => api.get("/admin/analytics"),
-  getAllProducts: () => api.get("/admin/products"),
+  // SQL-side aggregates (KPIs/charts) — { businessId? } → SalesAnalyticsResponse.
+  getSalesAnalytics: (params) => api.get("/admin/sales-analytics", { params }),
+  getAllProducts: (params) => api.get("/admin/products", { params }),
 };

@@ -8,6 +8,10 @@ import { adminAPI } from "../api/auth";
 import { ArrowLeft, Users, Eye, EyeOff, Shield, AlertCircle, Trash2, ToggleLeft, ToggleRight, KeyRound, Pencil, ExternalLink } from "lucide-react";
 import ConfirmModal from "../components/ConfirmModal";
 import Spinner from "../components/Spinner";
+import PaginationBar from "../components/PaginationBar";
+import { Search } from "lucide-react";
+
+const PAGE_SIZE = 25;
 
 export default function AdminUsersList() {
   const { user: currentUser, isAdmin } = useAuth();
@@ -16,6 +20,11 @@ export default function AdminUsersList() {
   const activeFilter = searchParams.get("filter") === "active";
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(0); // 0-based server page
+  const [q, setQ] = useState("");
+  const [query, setQuery] = useState(""); // debounced search term
+  const [totalElements, setTotalElements] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const [visiblePasswords, setVisiblePasswords] = useState({});
   const [modal, setModal] = useState({ open: false, type: "", user: null, adminPassword: "" });
   const openModal = (type, user) => setModal({ open: true, type, user, adminPassword: "" });
@@ -24,17 +33,48 @@ export default function AdminUsersList() {
   const [editModal, setEditModal] = useState({ open: false, user: null });
 
   const fetchUsers = () => {
-    adminAPI.getAllUsers()
-      .then((res) => { const d = res.data.data; setUsers(Array.isArray(d) ? d : d?.content || []); })
+    // Server-side: page + ?q= search + ?activeOnly= EXISTS filter (SQL), no
+    // more shipping every platform user to the browser per request.
+    adminAPI.getAllUsers({ page, size: PAGE_SIZE, q: query, activeOnly: activeFilter || undefined })
+      .then((res) => {
+        const d = res.data.data;
+        const rows = d?.content || [];
+        const total = d?.totalElements ?? 0;
+        const pages = Math.max(1, d?.totalPages ?? 1);
+        // Deleted the last row of the last page? The window shifted — snap
+        // back to a page that still exists (strictly decreasing, no loop).
+        if (rows.length === 0 && total > 0 && page > 0) {
+          setPage(Math.max(0, Math.min(page - 1, pages - 1)));
+          return;
+        }
+        setUsers(rows);
+        setTotalElements(total);
+        setTotalPages(pages);
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { fetchUsers(); }, []);
+  // Debounce the search box → server-side ?q=.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setQuery(q.trim());
+      setPage(0);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [q]);
 
-  // A user is "active" when they generated at least one invoice in the last
-  // 30 days (server-computed `active` flag; shows in the Status pill column).
-  const shownUsers = activeFilter ? users.filter((u) => u.active) : users;
+  // Toggling the Active filter starts a fresh page (its total changes).
+  useEffect(() => { setPage(0); }, [activeFilter]);
+
+  useEffect(() => {
+    setLoading(true);
+    fetchUsers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, query, activeFilter]);
+
+  // "active" is now computed (and filtered) server-side — the page rows are the rows shown.
+  const shownUsers = users;
 
   const handleToggleRole = async (u) => {
     openModal("role", u);
@@ -137,9 +177,20 @@ export default function AdminUsersList() {
     <div className="min-h-[100dvh] bg-gradient-to-br from-gray-50 via-slate-50 to-gray-100">
       <div className="px-4 sm:px-5 lg:px-6 py-3 sm:py-4 lg:py-5 max-w-[1900px] mx-auto">
         <PageHeader title="User Management" />
-        <div className="flex items-center gap-2 flex-wrap -mt-4 mb-6">
+        <div className="relative max-w-md mb-3 -mt-2">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            type="text"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Search name, email or username…"
+            className="w-full pl-8 pr-3 py-2 text-xs rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400"
+          />
+        </div>
+        <div className="flex items-center gap-2 flex-wrap -mt-1 mb-6">
           <p className="text-xs text-slate-500">
-            {activeFilter ? `${shownUsers.length} active of ` : ""}{users.length} total user{users.length !== 1 ? "s" : ""} on the platform
+            {totalElements.toLocaleString("en-IN")} total user{totalElements !== 1 ? "s" : ""} on the platform
+            {query ? " (matching search)" : ""}
           </p>
           <div className="flex items-center gap-1.5">
             <button onClick={() => setSearchParams({})}
@@ -158,7 +209,9 @@ export default function AdminUsersList() {
             <LoadingDots className="text-slate-400" />
           </div>
         ) : users.length === 0 ? (
-          <div className="text-center py-16 text-sm text-slate-400">No users found</div>
+          <div className="text-center py-16 text-sm text-slate-400">
+            {query ? "No users match your search" : "No users found"}
+          </div>
         ) : (
           <>
             <div className="hidden md:block overflow-x-auto -mx-4 sm:-mx-6 lg:-mx-8">
@@ -178,7 +231,7 @@ export default function AdminUsersList() {
                 <tbody>
                   {shownUsers.map((u, idx) => (
                     <tr key={u.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
-                      <td className="py-3 px-6 text-xs text-slate-400">{idx + 1}</td>
+                      <td className="py-3 px-6 text-xs text-slate-400">{page * PAGE_SIZE + idx + 1}</td>
                       <td className="py-3 px-6 text-sm text-slate-800 font-medium">{u.name}</td>
                       <td className="py-3 px-6 text-sm text-slate-500 font-mono">{u.username || '-'}</td>
                       <td className="py-3 px-6 text-sm text-slate-600">{u.email}</td>
@@ -298,6 +351,13 @@ export default function AdminUsersList() {
             </div>
           </>
         )}
+        <PaginationBar
+          page={page}
+          totalPages={totalPages}
+          totalElements={totalElements}
+          onPage={(p) => { setPage(p); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+          loading={loading}
+        />
       </div>
 
       <ConfirmModal

@@ -11,6 +11,9 @@ import { getCache, setCache } from "../utils/cache";
 
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 const round2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
+const RECENT_INVOICES = 6; // rows fetched for the Recent Invoices panel (server page 0)
+const BUSINESS_PANEL = 50; // rows fetched for the Businesses panel (drills to the full list)
+const SEARCH_SIZE = 5; // rows per entity in the global search dropdown
 
 // Status pills — same language as AdminInvoicesList (PAID green, SENT blue…).
 const STATUS_CLASS = {
@@ -40,12 +43,19 @@ export default function AdminDashboard() {
 
   const cacheKey = `admin-console:${user?.userId ?? user?.id ?? "anon"}`;
   const [cached] = useState(() => getCache(cacheKey, CACHE_TTL));
+  // Older cache snapshots predate the sales-analytics payload — ignore them so
+  // Platform Sales never renders a stale 0 from an old shape.
+  const cacheUsable = Boolean(cached?.fresh && cached?.data && "analytics" in cached.data);
 
   const [stats, setStats] = useState(cached?.data?.stats ?? null);
-  const [users, setUsers] = useState(cached?.data?.users ?? []);
+  // SQL-side aggregates (GET /admin/sales-analytics) — replaces summing a full
+  // invoice download in the browser for the Platform Sales KPI.
+  const [analytics, setAnalytics] = useState(cached?.data?.analytics ?? null);
+  const [recentInvoices, setRecentInvoices] = useState(cached?.data?.recentInvoices ?? []);
   const [businesses, setBusinesses] = useState(cached?.data?.businesses ?? []);
-  const [invoices, setInvoices] = useState(cached?.data?.invoices ?? []);
-  const [loading, setLoading] = useState(!cached);
+  const [businessTotal, setBusinessTotal] = useState(cached?.data?.businessTotal ?? 0);
+  const [users, setUsers] = useState(cached?.data?.users ?? []);
+  const [loading, setLoading] = useState(!cacheUsable);
 
   // Superuser console: business-role users never land here.
   useEffect(() => {
@@ -53,20 +63,25 @@ export default function AdminDashboard() {
   }, [isAdmin, navigate]);
 
   const load = useCallback(async (force = false) => {
-    if (!force && getCache(cacheKey, CACHE_TTL)?.fresh) return;
+    if (!force && getCache(cacheKey, CACHE_TTL)?.fresh && "analytics" in (getCache(cacheKey, CACHE_TTL)?.data ?? {})) return;
     setLoading(true);
     try {
-      const [statsRes, usersRes, bizRes, invRes] = await Promise.all([
+      // Five bounded queries instead of four full-table downloads: page 0 of
+      // the recents/panels + one aggregate call for the KPI.
+      const [statsRes, anRes, invRes, bizRes, usersRes] = await Promise.all([
         adminAPI.getStats(),
-        adminAPI.getAllUsers(),
-        adminAPI.getAllBusinesses(),
-        adminAPI.getAllInvoices(),
+        adminAPI.getSalesAnalytics(),
+        adminAPI.getAllInvoices({ page: 0, size: RECENT_INVOICES }),
+        adminAPI.getAllBusinesses({ page: 0, size: BUSINESS_PANEL }),
+        adminAPI.getAllUsers({ page: 0, size: 25 }),
       ]);
-      const unwrap = (d) => (Array.isArray(d) ? d : Array.isArray(d?.content) ? d.content : []);
+      const rows = (res) => res?.data?.data?.content || [];
       setStats(statsRes.data.data);
-      setUsers(unwrap(usersRes.data.data));
-      setBusinesses(unwrap(bizRes.data.data));
-      setInvoices(unwrap(invRes.data.data));
+      setAnalytics(anRes.data.data);
+      setRecentInvoices(rows(invRes));
+      setBusinesses(rows(bizRes));
+      setBusinessTotal(bizRes?.data?.data?.totalElements ?? 0);
+      setUsers(rows(usersRes));
     } catch (err) {
       console.error("Admin console fetch failed:", err.response?.status, err.message);
     } finally {
@@ -75,30 +90,26 @@ export default function AdminDashboard() {
   }, [cacheKey]);
 
   useEffect(() => {
-    if (cached?.fresh && cached?.data) {
+    if (cacheUsable) {
       setLoading(false);
       return;
     }
     load();
-  }, [cached, load]);
+  }, [cacheUsable, load]);
 
-  const hadFreshCache = Boolean(cached?.fresh);
+  const hadFreshCache = Boolean(cached?.fresh && "analytics" in (cached?.data ?? {}));
   // Debounced persist — same pattern as Dashboard (burst-safe on big lists).
   useEffect(() => {
     if (hadFreshCache || loading) return undefined;
-    if (!stats && invoices.length === 0) return undefined;
+    if (!stats && !analytics && recentInvoices.length === 0) return undefined;
     const timer = setTimeout(() => {
-      setCache(cacheKey, { stats, users, businesses, invoices });
+      setCache(cacheKey, { stats, analytics, recentInvoices, businesses, businessTotal, users });
     }, 400);
     return () => clearTimeout(timer);
-  }, [stats, users, businesses, invoices, loading, cacheKey, hadFreshCache]);
+  }, [stats, analytics, recentInvoices, businesses, businessTotal, users, loading, cacheKey, hadFreshCache]);
 
-  // Billed value across the platform (drafts/cancelled excluded) for the KPI card.
-  const platformSales = useMemo(() => round2(
-    invoices
-      .filter((inv) => inv.status !== "DRAFT" && inv.status !== "CANCELLED")
-      .reduce((s, inv) => s + (parseFloat(inv.grandTotal) || 0), 0)
-  ), [invoices]);
+  // Billed value across the platform (drafts/cancelled excluded) — computed in SQL.
+  const platformSales = useMemo(() => round2(analytics?.netSales ?? 0), [analytics]);
 
   const kpiLoading = loading && !stats;
 
@@ -111,18 +122,40 @@ export default function AdminDashboard() {
     { label: "Platform Sales", value: `₹ ${platformSales.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`, icon: IndianRupee, gradient: "from-teal-500 to-teal-600", path: "/admin/invoices" },
   ];
 
-  // ---------------- global search ----------------
+  // ---------------- global search (server-side) ----------------
   const [query, setQuery] = useState("");
-  const results = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return null;
-    const has = (s) => String(s || "").toLowerCase().includes(q);
-    return {
-      users: users.filter((u) => has(u.name) || has(u.email) || has(u.username)).slice(0, 5),
-      businesses: businesses.filter((b) => has(b.businessName) || has(b.ownerName)).slice(0, 5),
-      invoices: invoices.filter((inv) => has(inv.invoiceNumber) || has(inv.customerName) || has(inv.businessName)).slice(0, 5),
-    };
-  }, [query, users, businesses, invoices]);
+  const [searchQ, setSearchQ] = useState(""); // debounced term
+  const [searchResults, setSearchResults] = useState(null); // { users, businesses, invoices }
+
+  // Debounce the box → one round of q= searches (5 rows per entity) instead of
+  // filtering downloaded full lists in the browser.
+  useEffect(() => {
+    const t = setTimeout(() => setSearchQ(query.trim()), 300);
+    return () => clearTimeout(t);
+  }, [query]);
+
+  useEffect(() => {
+    if (!searchQ) {
+      setSearchResults(null);
+      return undefined;
+    }
+    let cancelled = false;
+    Promise.all([
+      adminAPI.getAllUsers({ page: 0, size: SEARCH_SIZE, q: searchQ }),
+      adminAPI.getAllBusinesses({ page: 0, size: SEARCH_SIZE, q: searchQ }),
+      adminAPI.getAllInvoices({ page: 0, size: SEARCH_SIZE, q: searchQ }),
+    ])
+      .then(([uRes, bRes, iRes]) => {
+        if (cancelled) return;
+        const rows = (res) => res?.data?.data?.content || [];
+        setSearchResults({ users: rows(uRes), businesses: rows(bRes), invoices: rows(iRes) });
+      })
+      .catch(() => { /* transient search error — keep the dropdown closed */ })
+      .finally(() => {});
+    return () => { cancelled = true; };
+  }, [searchQ]);
+
+  const results = searchResults;
 
   const fmtDate = (s) => {
     if (!s) return "-";
@@ -267,7 +300,7 @@ export default function AdminDashboard() {
                 <h2 className="text-sm font-semibold text-slate-900">Recent Invoices</h2>
                 <button onClick={() => navigate("/admin/invoices")} className="ml-auto text-[11px] font-semibold text-indigo-600 hover:text-indigo-700">View all</button>
               </div>
-              {invoices.length > 0 ? invoices.slice(0, 6).map((inv, idx, arr) => (
+              {recentInvoices.length > 0 ? recentInvoices.map((inv, idx, arr) => (
                 <button key={inv.id} onClick={() => navigate(`/admin/invoices/${inv.id}`)}
                   className={`w-full flex items-center gap-3 py-2.5 px-2 -mx-1 rounded-lg hover:bg-slate-50 transition-colors text-left ${idx < arr.length - 1 ? "border-b border-slate-50" : ""}`}>
                   <div className="min-w-0 flex-1">
@@ -307,13 +340,13 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          {/* Businesses */}
-          {businesses.length > 0 && (
+          {/* Businesses (first server page — the full list lives at /admin/businesses) */}
+          {businessTotal > 0 && (
             <div className="bg-white rounded-xl border border-slate-200 p-3 sm:p-4 shadow-sm">
               <div className="flex items-center gap-2 mb-3">
                 <Building2 className="w-4 h-4 text-slate-600" />
                 <h2 className="text-sm font-semibold text-slate-900">Businesses</h2>
-                <span className="text-[10px] text-slate-400">({businesses.length})</span>
+                <span className="text-[10px] text-slate-400">({businessTotal.toLocaleString("en-IN")})</span>
                 <button onClick={() => navigate("/admin/businesses")} className="ml-auto text-[11px] font-semibold text-indigo-600 hover:text-indigo-700">View all</button>
               </div>
               {/* Mobile cards */}

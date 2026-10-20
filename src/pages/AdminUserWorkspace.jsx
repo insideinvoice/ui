@@ -14,8 +14,10 @@ import {
 
 import { getCache, setCache } from "../utils/cache";
 import { formatAxisMoney } from "../utils/chartFormat";
+import PaginationBar from "../components/PaginationBar";
 
 const CACHE_TTL = 5 * 60 * 1000;
+const LIST_SIZE = 25; // rows per tab page (server-side pagination)
 const round2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
 const money = (v) => `₹ ${Number(v || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
@@ -65,6 +67,14 @@ export default function AdminUserWorkspace() {
   const [invoices, setInvoices] = useState(null);
   const [customers, setCustomers] = useState(null);
   const [products, setProducts] = useState(null);
+  // Server-side pagination state per tab (PagedResponse totals/pages).
+  const [listPage, setListPage] = useState({ invoices: 0, customers: 0, products: 0 });
+  const [listTotals, setListTotals] = useState({ invoices: 0, customers: 0, products: 0 });
+  const [listPages, setListPages] = useState({ invoices: 1, customers: 1, products: 1 });
+  const [listLoading, setListLoading] = useState(false);
+  // SQL-side aggregates (GET /admin/sales-analytics?businessId=) — KPIs/charts
+  // no longer sum a full invoice download in the browser.
+  const [analytics, setAnalytics] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [tab, setTab] = useState("invoices");
@@ -81,6 +91,10 @@ export default function AdminUserWorkspace() {
     setInvoices(data.invoices ?? []);
     setCustomers(data.customers ?? []);
     setProducts(data.products ?? []);
+    setAnalytics(data.analytics ?? null);
+    setListTotals(data.listTotals ?? { invoices: 0, customers: 0, products: 0 });
+    setListPages(data.listPages ?? { invoices: 1, customers: 1, products: 1 });
+    setListPage({ invoices: 0, customers: 0, products: 0 });
   }, []);
 
   useEffect(() => {
@@ -94,17 +108,28 @@ export default function AdminUserWorkspace() {
       setLoading(true);
       setError(null);
       try {
-        const [usersRes, bizRes] = await Promise.all([
-          adminAPI.getAllUsers(),
-          adminAPI.getAllBusinesses(),
-        ]);
-        const unwrap = (d) => (Array.isArray(d) ? d : Array.isArray(d?.content) ? d.content : []);
-        const foundUser = unwrap(usersRes.data.data).find((u) => String(u.id) === String(userId));
+        // Direct lookups: one user by id + one business by id, instead of
+        // downloading every user AND every business on the platform to .find() one.
+        const userRes = await adminAPI.getUser(userId);
+        const foundUser = userRes.data.data;
         if (!foundUser) {
           if (!cancelled) setError("User not found — the account may have been deleted.");
           return;
         }
-        const foundBusiness = unwrap(bizRes.data.data).find((b) => String(b.id) === String(foundUser.businessId)) ?? null;
+        if (!foundUser.businessId) {
+          if (!cancelled) {
+            setError("This user has no business workspace yet (setup incomplete).");
+            setTargetUser(foundUser);
+          }
+          return;
+        }
+        let foundBusiness = null;
+        try {
+          const bizRes = await adminAPI.getBusiness(foundUser.businessId);
+          foundBusiness = bizRes.data.data;
+        } catch (bizErr) {
+          if (bizErr.response?.status !== 404) throw bizErr;
+        }
         if (!foundBusiness) {
           if (!cancelled) {
             setError("This user has no business workspace yet (setup incomplete).");
@@ -112,17 +137,30 @@ export default function AdminUserWorkspace() {
           }
           return;
         }
-        const [invRes, custRes, prodRes] = await Promise.all([
-          adminAPI.getBusinessInvoices(foundBusiness.id),
-          adminAPI.getBusinessCustomers(foundBusiness.id),
-          adminAPI.getBusinessProducts(foundBusiness.id),
+        // Page 0 of each tab list + SQL-side aggregates, all in one round.
+        const [invRes, custRes, prodRes, anRes] = await Promise.all([
+          adminAPI.getBusinessInvoices(foundBusiness.id, { page: 0, size: LIST_SIZE }),
+          adminAPI.getBusinessCustomers(foundBusiness.id, { page: 0, size: LIST_SIZE }),
+          adminAPI.getBusinessProducts(foundBusiness.id, { page: 0, size: LIST_SIZE }),
+          adminAPI.getSalesAnalytics({ businessId: foundBusiness.id }),
         ]);
+        const pageOf = (res) => ({
+          rows: res?.data?.data?.content || [],
+          totalElements: res?.data?.data?.totalElements ?? 0,
+          totalPages: Math.max(1, res?.data?.data?.totalPages ?? 1),
+        });
+        const inv = pageOf(invRes);
+        const cust = pageOf(custRes);
+        const prod = pageOf(prodRes);
         const data = {
           targetUser: foundUser,
           business: foundBusiness,
-          invoices: unwrap(invRes.data.data),
-          customers: unwrap(custRes.data.data),
-          products: unwrap(prodRes.data.data),
+          invoices: inv.rows,
+          customers: cust.rows,
+          products: prod.rows,
+          analytics: anRes.data.data,
+          listTotals: { invoices: inv.totalElements, customers: cust.totalElements, products: prod.totalElements },
+          listPages: { invoices: inv.totalPages, customers: cust.totalPages, products: prod.totalPages },
         };
         if (!cancelled) {
           hydrate(data);
@@ -149,18 +187,31 @@ export default function AdminUserWorkspace() {
         navigate(0);
         return;
       }
-      const [invRes, custRes, prodRes] = await Promise.all([
-        adminAPI.getBusinessInvoices(business.id),
-        adminAPI.getBusinessCustomers(business.id),
-        adminAPI.getBusinessProducts(business.id),
+      // Re-pull page 0 of every list plus fresh SQL aggregates (Refresh = the
+      // canonical overview snapshot, same shape as the initial load).
+      const [invRes, custRes, prodRes, anRes] = await Promise.all([
+        adminAPI.getBusinessInvoices(business.id, { page: 0, size: LIST_SIZE }),
+        adminAPI.getBusinessCustomers(business.id, { page: 0, size: LIST_SIZE }),
+        adminAPI.getBusinessProducts(business.id, { page: 0, size: LIST_SIZE }),
+        adminAPI.getSalesAnalytics({ businessId: business.id }),
       ]);
-      const unwrap = (d) => (Array.isArray(d) ? d : Array.isArray(d?.content) ? d.content : []);
+      const pageOf = (res) => ({
+        rows: res?.data?.data?.content || [],
+        totalElements: res?.data?.data?.totalElements ?? 0,
+        totalPages: Math.max(1, res?.data?.data?.totalPages ?? 1),
+      });
+      const inv = pageOf(invRes);
+      const cust = pageOf(custRes);
+      const prod = pageOf(prodRes);
       const data = {
         targetUser,
         business,
-        invoices: unwrap(invRes.data.data),
-        customers: unwrap(custRes.data.data),
-        products: unwrap(prodRes.data.data),
+        invoices: inv.rows,
+        customers: cust.rows,
+        products: prod.rows,
+        analytics: anRes.data.data,
+        listTotals: { invoices: inv.totalElements, customers: cust.totalElements, products: prod.totalElements },
+        listPages: { invoices: inv.totalPages, customers: cust.totalPages, products: prod.totalPages },
       };
       hydrate(data);
       setCache(cacheKey, data);
@@ -171,54 +222,70 @@ export default function AdminUserWorkspace() {
     }
   }, [targetUser, business, cacheKey, hydrate, navigate]);
 
+  // Fetch ONE tab's list page on demand (page changes never refetch the other tabs).
+  const fetchList = useCallback(async (kind, page) => {
+    if (!business) return;
+    const apiFor = {
+      invoices: adminAPI.getBusinessInvoices,
+      customers: adminAPI.getBusinessCustomers,
+      products: adminAPI.getBusinessProducts,
+    };
+    setListLoading(true);
+    try {
+      const res = await apiFor[kind](business.id, { page, size: LIST_SIZE });
+      const d = res.data.data;
+      const rows = d?.content || [];
+      if (kind === "invoices") setInvoices(rows);
+      else if (kind === "customers") setCustomers(rows);
+      else setProducts(rows);
+      setListTotals((t) => ({ ...t, [kind]: d?.totalElements ?? 0 }));
+      setListPages((p) => ({ ...p, [kind]: Math.max(1, d?.totalPages ?? 1) }));
+      setListPage((p) => ({ ...p, [kind]: page }));
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to load list");
+    } finally {
+      setListLoading(false);
+    }
+  }, [business]);
+
   // ---------------- sales analytics for this user's business ----------------
+  // KPIs/charts come from GET /admin/sales-analytics?businessId= (SQL-side
+  // aggregates; billable = excl. DRAFT/CANCELLED — same numbers the old
+  // client-side sums produced over the full invoice download).
 
   const sales = useMemo(() => {
-    const billable = (invoices ?? []).filter((inv) => inv.status !== "DRAFT" && inv.status !== "CANCELLED");
-    const total = round2(billable.reduce((s, inv) => s + (parseFloat(inv.grandTotal) || 0), 0));
-
-    const now = new Date();
-    const cutoff = new Date(now);
-    cutoff.setDate(now.getDate() - 29);
-    cutoff.setHours(0, 0, 0, 0);
-    let last30 = 0;
-    const daily = {};
-    for (let i = 0; i < 30; i++) {
-      const d = new Date(cutoff);
-      d.setDate(cutoff.getDate() + i);
-      daily[d.toLocaleDateString("en-IN", { day: "numeric", month: "short" })] = 0;
-    }
-    billable.forEach((inv) => {
-      const d = new Date(inv.invoiceDate);
-      if (Number.isNaN(d.getTime())) return;
-      if (d >= cutoff) {
-        last30 += parseFloat(inv.grandTotal) || 0;
-        const key = d.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
-        if (key in daily) daily[key] = round2(daily[key] + (parseFloat(inv.grandTotal) || 0));
-      }
-    });
+    if (!analytics) return { total: 0, last30: 0, dailyTrend: [], monthlyTrend: [] };
 
     const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-    const byMonth = {};
-    billable.forEach((inv) => {
-      const d = new Date(inv.invoiceDate);
-      if (Number.isNaN(d.getTime())) return;
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-      byMonth[key] = round2((byMonth[key] || 0) + (parseFloat(inv.grandTotal) || 0));
-    });
-    const trend = Object.keys(byMonth).sort().map((k) => ({
-      month: `${MONTHS[Number(k.slice(5, 7)) - 1]} ${k.slice(2, 4)}`,
-      sales: byMonth[k],
+    // Parse "YYYY-MM-DD" in the LOCAL calendar (new Date("YYYY-MM-DD") is UTC
+    // and would shift the label a day in negative-offset timezones).
+    const fmtDay = (iso) => {
+      const [y, m, d] = String(iso).split("T")[0].split("-").map(Number);
+      return new Date(y, (m || 1) - 1, d || 1).toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+    };
+
+    const dailyTrend = (analytics.dailySales30 || []).map((row) => ({
+      day: fmtDay(row.date),
+      value: round2(row.billableSales),
+    }));
+    const monthlyTrend = (analytics.salesByMonth || []).map((m) => ({
+      month: `${MONTHS[Number(m.period.slice(5, 7)) - 1]} ${m.period.slice(2, 4)}`,
+      sales: round2(m.billableSales),
     }));
 
-    return { total, last30: round2(last30), dailyTrend: Object.entries(daily).map(([day, value]) => ({ day, value })), monthlyTrend: trend };
-  }, [invoices]);
+    return {
+      total: round2(analytics.netSales),
+      last30: round2(analytics.last30BillableSales),
+      dailyTrend,
+      monthlyTrend,
+    };
+  }, [analytics]);
 
   const counts = useMemo(() => ({
-    invoices: (invoices ?? []).length,
-    customers: (customers ?? []).length,
-    products: (products ?? []).length,
-  }), [invoices, customers, products]);
+    invoices: listTotals.invoices,
+    customers: listTotals.customers,
+    products: listTotals.products,
+  }), [listTotals]);
 
   // ---------------- admin actions ----------------
 
@@ -474,6 +541,17 @@ export default function AdminUserWorkspace() {
                       </div>
                     </>
                   )}
+                  {(invoices ?? []).length > 0 && (
+                    <div className="border-t border-slate-100 px-4">
+                      <PaginationBar
+                        page={listPage.invoices}
+                        totalPages={listPages.invoices}
+                        totalElements={listTotals.invoices}
+                        onPage={(p) => fetchList("invoices", p)}
+                        loading={listLoading}
+                      />
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -497,6 +575,17 @@ export default function AdminUserWorkspace() {
                       ))}
                     </div>
                   )}
+                  {(customers ?? []).length > 0 && (
+                    <div className="border-t border-slate-100 px-4">
+                      <PaginationBar
+                        page={listPage.customers}
+                        totalPages={listPages.customers}
+                        totalElements={listTotals.customers}
+                        onPage={(p) => fetchList("customers", p)}
+                        loading={listLoading}
+                      />
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -515,6 +604,17 @@ export default function AdminUserWorkspace() {
                           <div className="text-xs text-slate-700 font-mono shrink-0">₹{Number(p.rate || 0).toLocaleString("en-IN")}</div>
                         </div>
                       ))}
+                    </div>
+                  )}
+                  {(products ?? []).length > 0 && (
+                    <div className="border-t border-slate-100 px-4">
+                      <PaginationBar
+                        page={listPage.products}
+                        totalPages={listPages.products}
+                        totalElements={listTotals.products}
+                        onPage={(p) => fetchList("products", p)}
+                        loading={listLoading}
+                      />
                     </div>
                   )}
                 </div>

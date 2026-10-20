@@ -1,14 +1,23 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import LoadingDots from "../components/LoadingDots";
 import PageHeader from "../components/PageHeader";
+import PaginationBar from "../components/PaginationBar";
 import { adminAPI } from "../api/auth";
 import ConfirmModal from "../components/ConfirmModal";
 import toast from "react-hot-toast";
-import { ArrowLeft, Package, Building2, User, Hash, IndianRupee, Percent, Trash2 } from "lucide-react";
+import { Package, Building2, User, Search, Trash2 } from "lucide-react";
+
+const PAGE_SIZE = 25;
 
 export default function AdminProductsList() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(0); // 0-based server page
+  const [q, setQ] = useState("");
+  const [query, setQuery] = useState(""); // debounced search term
+  const [totalElements, setTotalElements] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [reload, setReload] = useState(0); // bump after delete to refetch totals
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
 
@@ -17,9 +26,9 @@ export default function AdminProductsList() {
     setDeleteBusy(true);
     try {
       await adminAPI.deleteProductAsAdmin(deleteTarget.id);
-      setProducts((prev) => prev.filter((x) => x.id !== deleteTarget.id));
       toast.success(`Product ${deleteTarget.name} deleted`);
       setDeleteTarget(null);
+      setReload((r) => r + 1); // refetch the page — totals live server-side now
     } catch (err) {
       toast.error(err.response?.data?.message || "Delete failed");
     } finally {
@@ -27,20 +36,45 @@ export default function AdminProductsList() {
     }
   };
 
+  // Debounce the search box → server-side ?q= (SQL search, not .filter()).
   useEffect(() => {
-    const fetch = async () => {
-      try {
-        const res = await adminAPI.getAllProducts();
-        const data = res?.data?.data;
-        setProducts(Array.isArray(data) ? data : data?.content || []);
-      } catch {
-        toast.error("Failed to load products");
-      } finally {
-        setLoading(false);
+    const t = setTimeout(() => {
+      setQuery(q.trim());
+      setPage(0);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [q]);
+
+  const fetchPage = useCallback(async (signal) => {
+    try {
+      const res = await adminAPI.getAllProducts({ page, size: PAGE_SIZE, q: query });
+      if (signal?.cancelled) return;
+      const data = res?.data?.data;
+      const rows = data?.content || [];
+      const total = data?.totalElements ?? 0;
+      const pages = Math.max(1, data?.totalPages ?? 1);
+      // Deleting the last row of the last page shifts the window — snap back
+      // to a page that still exists (strictly decreasing, no loop).
+      if (rows.length === 0 && total > 0 && page > 0) {
+        setPage(Math.max(0, Math.min(page - 1, pages - 1)));
+        return;
       }
-    };
-    fetch();
-  }, []);
+      setProducts(rows);
+      setTotalElements(total);
+      setTotalPages(pages);
+    } catch {
+      if (!signal?.cancelled) toast.error("Failed to load products");
+    } finally {
+      if (!signal?.cancelled) setLoading(false);
+    }
+  }, [page, query]);
+
+  useEffect(() => {
+    const signal = { cancelled: false };
+    setLoading(true);
+    fetchPage(signal);
+    return () => { signal.cancelled = true; };
+  }, [fetchPage, reload]);
 
   if (loading) {
     return (
@@ -56,14 +90,28 @@ export default function AdminProductsList() {
     <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-gray-100">
       <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8 max-w-[1900px] mx-auto">
         <PageHeader title="All Products" />
-        <p className="text-xs text-slate-500 -mt-4 mb-6">All products across all businesses</p>
+        <div className="relative max-w-md mb-3 -mt-2">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            type="text"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Search product name or HSN…"
+            className="w-full pl-8 pr-3 py-2 text-xs rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400"
+          />
+        </div>
+        <p className="text-xs text-slate-500 -mt-1 mb-6">
+          {totalElements.toLocaleString("en-IN")} total{query ? " (matching search)" : ""} across all businesses
+        </p>
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
           {products.length === 0 ? (
             <div className="p-16 text-center">
               <div className="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-4">
                 <Package className="w-8 h-8 text-slate-300" />
               </div>
-              <p className="text-sm font-semibold text-slate-700">No products registered yet</p>
+              <p className="text-sm font-semibold text-slate-700">
+                {query ? "No products match your search" : "No products registered yet"}
+              </p>
             </div>
           ) : (
             <>
@@ -159,6 +207,14 @@ export default function AdminProductsList() {
             </>
           )}
         </div>
+
+        <PaginationBar
+          page={page}
+          totalPages={totalPages}
+          totalElements={totalElements}
+          onPage={(p) => { setPage(p); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+          loading={loading}
+        />
 
         <ConfirmModal
           open={!!deleteTarget}

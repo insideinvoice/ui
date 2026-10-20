@@ -46,13 +46,16 @@ export default function Dashboard() {
   const navigate = useNavigate();
 
   // Storage-backed cache: renders instantly from localStorage, revalidates in background
-  // "v3": admin charts switched to platform-wide "All ..." data — invalidate old caches once
-  const cacheKey = `dashboard-v3:${user?.userId ?? user?.id ?? "anon"}:${isAdmin ? "admin" : "user"}`;
+  // "v4": platform charts switched from a full invoice download to the
+  // sales-analytics endpoint — invalidate v3 (and older) caches once.
+  const cacheKey = `dashboard-v4:${user?.userId ?? user?.id ?? "anon"}:${isAdmin ? "admin" : "user"}`;
   const [cached] = useState(() => getCache(cacheKey, CACHE_TTL));
 
   const [stats, setStats] = useState(cached?.data?.stats ?? null);
   const [invoices, setInvoices] = useState(cached?.data?.invoices ?? []);
-  const [allInvoices, setAllInvoices] = useState(cached?.data?.allInvoices ?? []);
+  // Admin platform aggregates (GET /admin/sales-analytics) — SQL-side now;
+  // merchants never receive platform data (isolation preserved).
+  const [salesAnalytics, setSalesAnalytics] = useState(cached?.data?.salesAnalytics ?? null);
   const [customerCount, setCustomerCount] = useState(cached?.data?.customerCount ?? 0);
   const [loadingStats, setLoadingStats] = useState(!cached);
   const [loadingInvoices, setLoadingInvoices] = useState(!cached);
@@ -66,22 +69,22 @@ export default function Dashboard() {
     }
   }, [isBusinessSetupComplete, navigate, isAdmin]);
 
-  // Fetch admin data: KPI stats + the platform-wide invoice list that powers the
-  // admin-only "All ..." sales charts (merchants never get this list — isolation).
+  // Fetch admin data: KPI stats + the platform-wide sales aggregates that power
+  // the admin-only "All ..." charts. (Merchants never get either — isolation.)
   const fetchAdminData = useCallback(async () => {
     setLoadingStats(true);
     setLoadingAll(true);
-    const [statsRes, allRes] = await Promise.allSettled([adminAPI.getStats(), adminAPI.getAllInvoices()]);
+    const [statsRes, anRes] = await Promise.allSettled([adminAPI.getStats(), adminAPI.getSalesAnalytics()]);
     if (statsRes.status === "fulfilled") {
       setStats(statsRes.value.data.data);
     } else {
       console.error("Admin stats fetch failed:", statsRes.reason?.response?.status, statsRes.reason?.message);
     }
     setLoadingStats(false);
-    if (allRes.status === "fulfilled") {
-      const raw = allRes.value.data?.data;
-      const list = Array.isArray(raw) ? raw : Array.isArray(raw?.content) ? raw.content : [];
-      setAllInvoices(list);
+    if (anRes.status === "fulfilled") {
+      setSalesAnalytics(anRes.value.data?.data ?? null);
+    } else {
+      console.error("Admin sales analytics fetch failed:", anRes.reason?.response?.status, anRes.reason?.message);
     }
     setLoadingAll(false);
   }, []);
@@ -145,10 +148,10 @@ export default function Dashboard() {
     if (hadFreshCache || loadingStats || loadingInvoices) return undefined;
     if (!stats && invoices.length === 0) return undefined;
     const timer = setTimeout(() => {
-      setCache(cacheKey, { stats, invoices, customerCount, allInvoices });
+      setCache(cacheKey, { stats, invoices, customerCount, salesAnalytics });
     }, 400);
     return () => clearTimeout(timer);
-  }, [stats, invoices, customerCount, allInvoices, loadingStats, loadingInvoices, cacheKey, hadFreshCache]);
+  }, [stats, invoices, customerCount, salesAnalytics, loadingStats, loadingInvoices, cacheKey, hadFreshCache]);
 
   const buildInvoiceAnalytics = (valid) => {
     const totalGrand = round2(valid.reduce((s, inv) => s + (parseFloat(inv.grandTotal) || 0), 0));
@@ -209,10 +212,40 @@ export default function Dashboard() {
   // Own-business analytics → Sales / This Month KPIs (and merchant charts).
   const invoiceAnalytics = useMemo(() => buildInvoiceAnalytics(invoices), [invoices]);
   // Platform-wide analytics (admin only) → the "All ..." charts below the KPIs.
-  const allInvoiceAnalytics = useMemo(() => buildInvoiceAnalytics(allInvoices), [allInvoices]);
+  // Built from the SQL aggregates but shaped EXACTLY like buildInvoiceAnalytics
+  // (month labels "Jul 2026", day labels "5 Jul", same totals semantics) so the
+  // shared render paths below don't care where the numbers came from.
+  const allInvoiceAnalytics = useMemo(() => {
+    const empty = { totalSales: 0, salesByMonth: [], last7Days: [], salesByPayment: [], invoiceCount: 0 };
+    if (!salesAnalytics) return empty;
+    const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    // Parse "YYYY-MM-DD" in the LOCAL calendar (avoid UTC date shift).
+    const fmtDay = (iso) => {
+      const [y, m, d] = String(iso).split("T")[0].split("-").map(Number);
+      return new Date(y, (m || 1) - 1, d || 1).toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+    };
+    return {
+      totalSales: round2(salesAnalytics.totalSales ?? 0),
+      salesByMonth: (salesAnalytics.salesByMonth || []).map((m) => ({
+        month: `${MONTHS[Number(m.period.slice(5, 7)) - 1]} ${m.period.slice(2, 4)}`,
+        sales: round2(m.sales),
+        count: m.count,
+      })),
+      // Mirror the old client build: only days that actually had sales, within
+      // the last 7 CALENDAR days (slice first — dailySales30 is a 30-day
+      // zero-filled window ending today — then drop empty days so the
+      // "No sales in last 7 days" empty state still appears).
+      last7Days: (salesAnalytics.dailySales30 || [])
+        .slice(-7)
+        .filter((d) => (parseFloat(d.sales) || 0) > 0)
+        .map((d) => ({ day: fmtDay(d.date), sales: round2(d.sales) })),
+      salesByPayment: (salesAnalytics.salesByPayment || []).map((p) => ({ mode: p.mode, amount: round2(p.sales) })),
+      invoiceCount: salesAnalytics.invoiceCount ?? 0,
+    };
+  }, [salesAnalytics]);
   const chartAnalytics = isAdmin ? allInvoiceAnalytics : invoiceAnalytics;
   const chartsLoading = isAdmin
-    ? (loadingAll && allInvoices.length === 0)
+    ? (loadingAll && !salesAnalytics)
     : (loadingInvoices && invoices.length === 0);
 
   // Current calendar-month figures for the "This Month" KPI (₹ + invoice count).

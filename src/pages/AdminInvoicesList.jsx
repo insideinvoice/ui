@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import LoadingDots from "../components/LoadingDots";
 import { adminAPI } from "../api/auth";
-import { ArrowLeft, FileText } from "lucide-react";
+import { Search } from "lucide-react";
 import PageHeader from "../components/PageHeader";
 
 const PAGE_SIZE = 25; // invoices per page — keeps even 10k+ lists smooth
@@ -11,25 +11,46 @@ export default function AdminInvoicesList() {
   const navigate = useNavigate();
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useState(1); // 1-based UI page (server is 0-based)
+  const [q, setQ] = useState(""); // search input
+  const [query, setQuery] = useState(""); // debounced server-side search term
+  const [totalElements, setTotalElements] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+
+  // Debounce the search box → server-side ?q= (search runs in SQL now, not .filter()).
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setLoading(true); // page reset + search = a new request
+      setQuery(q.trim());
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [q]);
 
   useEffect(() => {
-    adminAPI.getAllInvoices()
-      .then((res) => { const d = res.data.data; setInvoices(Array.isArray(d) ? d : d?.content || []); })
+    let cancelled = false;
+    adminAPI.getAllInvoices({ page: page - 1, size: PAGE_SIZE, q: query })
+      .then((res) => {
+        if (cancelled) return;
+        const d = res.data.data;
+        setInvoices(d?.content || []);
+        setTotalElements(d?.totalElements ?? 0);
+        setTotalPages(Math.max(1, d?.totalPages ?? 1));
+      })
       .catch((err) => console.error(err))
-      .finally(() => setLoading(false));
-  }, []);
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [page, query]);
 
-  const totalPages = Math.max(1, Math.ceil(invoices.length / PAGE_SIZE));
   // Derived (not state): if the list ever shrinks below the stored page, the
   // effective page clamps itself — no cascading-render setState needed.
   const safePage = Math.min(Math.max(page, 1), totalPages);
-
   const start = (safePage - 1) * PAGE_SIZE;
-  const pageInvoices = invoices.slice(start, start + PAGE_SIZE);
+  const pageInvoices = invoices;
 
   const goTo = (p) => {
     if (p >= 1 && p <= totalPages && p !== safePage) {
+      setLoading(true); // next page = a new request
       setPage(p);
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
@@ -65,8 +86,7 @@ export default function AdminInvoicesList() {
                 : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
             }`}>
             {cell}
-          </button>
-        ))}
+          </button>))}
       <button type="button" onClick={() => goTo(safePage + 1)} disabled={safePage === totalPages}
         className="px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
         Next ›
@@ -78,9 +98,19 @@ export default function AdminInvoicesList() {
     <div className="min-h-[100dvh] bg-gradient-to-br from-gray-50 via-slate-50 to-gray-100">
       <div className="px-4 sm:px-5 lg:px-6 py-3 sm:py-4 lg:py-5 max-w-[1900px] mx-auto">
         <PageHeader title="All Invoices" />
-        <p className="text-xs text-slate-500 -mt-4 mb-6">
-          {invoices.length > 0
-            ? `Showing ${start + 1}–${Math.min(start + PAGE_SIZE, invoices.length)} of ${invoices.length}`
+        <div className="relative max-w-md mb-4 -mt-2">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            type="text"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Search invoice #, customer or business…"
+            className="w-full pl-8 pr-3 py-2 text-xs rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400"
+          />
+        </div>
+        <p className="text-xs text-slate-500 -mt-1 mb-6">
+          {totalElements > 0
+            ? `Showing ${start + 1}–${start + invoices.length} of ${totalElements.toLocaleString("en-IN")}`
             : "0 total"}
         </p>
 
@@ -164,7 +194,9 @@ export default function AdminInvoicesList() {
             {showPagination && paginationBar}
           </>
         ) : (
-          <p className="text-sm text-slate-400 text-center py-16">No invoices found</p>
+          <p className="text-sm text-slate-400 text-center py-16">
+            {query ? "No invoices match your search" : "No invoices found"}
+          </p>
         )}
       </div>
 

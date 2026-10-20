@@ -3,8 +3,11 @@ import { useParams, useNavigate } from "react-router-dom";
 import LoadingDots from "../components/LoadingDots";
 import { adminAPI } from "../api/auth";
 import toast from "react-hot-toast";
-import { ArrowLeft, FileText, Building2 } from "lucide-react";
+import { FileText, Search } from "lucide-react";
 import PageHeader from "../components/PageHeader";
+import PaginationBar from "../components/PaginationBar";
+
+const PAGE_SIZE = 25;
 
 export default function BusinessInvoices() {
   const { businessId } = useParams();
@@ -12,35 +15,71 @@ export default function BusinessInvoices() {
   const [business, setBusiness] = useState(null);
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(0); // 0-based server page
+  const [q, setQ] = useState("");
+  const [query, setQuery] = useState(""); // debounced search term
+  const [totalElements, setTotalElements] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
 
+  // Debounce the search box → server-side ?q= (invoice-number search in SQL).
   useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        const [bRes, iRes] = await Promise.all([
-          adminAPI.getAllBusinesses(),
-          adminAPI.getBusinessInvoices(businessId),
-        ]);
-        const biz = bRes.data.data?.find((b) => String(b.id) === String(businessId));
-        setBusiness(biz);
-        setInvoices(iRes.data.data || []);
-      } catch (err) {
-        console.error("Failed to load business invoices:", err);
-        toast.error(err.response?.data?.message || "Failed to load invoices");
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
+    const t = setTimeout(() => {
+      setLoading(true); // page reset + search = a new request
+      setQuery(q.trim());
+      setPage(0);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [q]);
+
+  // Business identity — fetched once per businessId.
+  useEffect(() => {
+    let cancelled = false;
+    adminAPI.getBusiness(businessId)
+      .then((bRes) => { if (!cancelled) setBusiness(bRes.data.data); })
+      .catch((err) => {
+        console.error("Failed to load business:", err);
+        if (!cancelled) toast.error(err.response?.data?.message || "Failed to load business");
+      });
+    return () => { cancelled = true; };
   }, [businessId]);
+
+  // Invoice list — one server page per (page, query) change.
+  useEffect(() => {
+    let cancelled = false;
+    adminAPI.getBusinessInvoices(businessId, { page, size: PAGE_SIZE, q: query })
+      .then((iRes) => {
+        if (cancelled) return;
+        const d = iRes.data.data;
+        setInvoices(d?.content || []);
+        setTotalElements(d?.totalElements ?? 0);
+        setTotalPages(Math.max(1, d?.totalPages ?? 1));
+      })
+      .catch((err) => {
+        console.error("Failed to load business invoices:", err);
+        if (!cancelled) toast.error(err.response?.data?.message || "Failed to load invoices");
+      })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [businessId, page, query]);
 
   return (
     <div className="min-h-[100dvh] bg-gradient-to-br from-gray-50 via-slate-50 to-gray-100">
       <div className="px-4 sm:px-5 lg:px-6 py-3 sm:py-4 lg:py-5 max-w-[1900px] mx-auto">
         <PageHeader title={business?.businessName || `Business #${businessId}`} backTo="/admin/businesses" />
-        <p className="text-xs text-slate-500 -mt-4 mb-6">
+        <div className="relative max-w-md mb-3 -mt-2">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            type="text"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Search invoice #…"
+            className="w-full pl-8 pr-3 py-2 text-xs rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400"
+          />
+        </div>
+        <p className="text-xs text-slate-500 -mt-1 mb-6">
           {business?.ownerName ? `${business.ownerName} — ` : ""}
-          {invoices.length} invoice{invoices.length !== 1 ? "s" : ""} total
+          {totalElements.toLocaleString("en-IN")} invoice{totalElements !== 1 ? "s" : ""} total
+          {query ? " (matching search)" : ""}
         </p>
 
         {loading ? (
@@ -121,9 +160,18 @@ export default function BusinessInvoices() {
         ) : (
           <div className="text-center py-16">
             <FileText className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-            <p className="text-sm text-slate-500">No invoices created by this business yet</p>
+            <p className="text-sm text-slate-500">
+              {query ? "No invoices match your search" : "No invoices created by this business yet"}
+            </p>
           </div>
         )}
+        <PaginationBar
+          page={page}
+          totalPages={totalPages}
+          totalElements={totalElements}
+          onPage={(p) => { setLoading(true); setPage(p); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+          loading={loading}
+        />
       </div>
 
       <style>{`

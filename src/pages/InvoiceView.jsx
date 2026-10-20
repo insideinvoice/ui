@@ -454,8 +454,22 @@ export default function InvoiceView() {
     Promise.all([
       invoiceAPI.getById(id),
       businessAPI.getProfile().catch(() => null),
-    ]).then(([invRes, bizRes]) => {
+    ]).then(async ([invRes, bizRes]) => {
       const inv = invRes.data.data;
+      // Buyer contact details (email/phone/address/GSTIN) live on the CUSTOMER
+      // record, not the invoice. Fetching it after the first paint used to pop
+      // the document in half — name first, then the rest "refreshing" into
+      // place. The load spinner now covers this request too, so the page and
+      // the View PDF modal render ONCE with the complete buyer block.
+      let customer = null;
+      if (inv.customerId) {
+        try {
+          const cRes = await customerAPI.getById(inv.customerId);
+          customer = cRes.data.data;
+        } catch {
+          /* customer record may be deleted — render without contact details */
+        }
+      }
       setBusiness(bizRes?.data?.data || null);
       // Seed the seal type from the saved business profile so the radio and the
       // rendered document agree with what the share page/email will show.
@@ -472,8 +486,10 @@ export default function InvoiceView() {
       // Tax mode: the stored selection wins outright; legacy invoices (null)
       // resolve via supplier state vs place of supply — never a silent change.
       setForm({
-        customerId: inv.customerId || null, customerName: inv.customerName || "", customerEmail: "", customerPhone: "",
-        billingAddress: "", customerGstIn: "", invoiceDate: inv.invoiceDate || "",
+        customerId: inv.customerId || null, customerName: inv.customerName || "",
+        customerEmail: customer?.email || "", customerPhone: customer?.phone || "",
+        billingAddress: customer?.billingAddress || "", customerGstIn: customer?.gstIn || "",
+        invoiceDate: inv.invoiceDate || "",
         dueDate: inv.dueDate || "", placeOfSupply: inv.placeOfSupply || "",
         destination: inv.destination || "", termsOfDelivery: inv.termsOfDelivery || "",
         paymentTerms: inv.paymentTerms || "", paymentMode: inv.paymentMode || "CASH", deliveryNote: inv.deliveryNote || "",
@@ -495,7 +511,9 @@ export default function InvoiceView() {
         treatmentReference: inv.treatmentReference || "", referringDoctor: inv.referringDoctor || "",
       });
       buyerSnapshotRef.current = {
-        name: inv.customerName || "", phone: "", email: "", billingAddress: "", gstIn: "",
+        name: inv.customerName || "",
+        phone: customer?.phone || "", email: customer?.email || "",
+        billingAddress: customer?.billingAddress || "", gstIn: customer?.gstIn || "",
       };
       setItems((inv.items || []).length > 0 ? inv.items.map((i) => ({
         id: uid(),
@@ -503,24 +521,6 @@ export default function InvoiceView() {
         gstPercentage: String(i.gstPercentage), taxableValue: String(i.taxableValue || 0),
         taxAmount: String(i.taxAmount || 0), total: String(i.total || 0),
       })) : [{ ...emptyItem() }]);
-      if (inv.customerId) {
-        customerAPI.getById(inv.customerId)
-          .then((cRes) => {
-            const c = cRes.data.data;
-            setForm((p) => ({
-              ...p, customerEmail: c.email || "", customerPhone: c.phone || "",
-              billingAddress: c.billingAddress || "", customerGstIn: c.gstIn || "",
-            }));
-            if (buyerSnapshotRef.current) {
-              buyerSnapshotRef.current = {
-                ...buyerSnapshotRef.current,
-                phone: c.phone || "", email: c.email || "",
-                billingAddress: c.billingAddress || "", gstIn: c.gstIn || "",
-              };
-            }
-          })
-          .catch(() => {});
-      }
     })
     .catch(() => setError("Failed to load invoice"))
     .finally(() => setLoading(false));

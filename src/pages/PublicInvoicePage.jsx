@@ -676,19 +676,28 @@ export default function PublicInvoicePage() {
       return;
     }
 
-    // iOS Safari tab: window.print() opens the native print sheet. It must run
-    // synchronously inside the tap gesture, so we print the DOM (the hidden
-    // unscaled renderer) instead of an async-generated PDF.
+    // iOS Safari tab: window.print() lays the page out at the device viewport
+    // and never shrink-to-fits the 794px-wide paper, so the right side of the
+    // invoice is cut off in the print sheet (desktop browsers shrink-to-fit,
+    // which is why only iPhone clipped the page). Hand Safari the real
+    // generated PDF instead — the same route the logged-in viewer (InvoiceView)
+    // uses: its native PDF viewer shows the exact A4 geometry and
+    // Share → Print prints the document 1:1. Unlike the standalone branch
+    // above, a blob: URL works here because the viewer shares this tab's
+    // process.
     if (isIOS) {
-      document.body.classList.add("pip-printing");
-      const cleanup = () => document.body.classList.remove("pip-printing");
-      window.addEventListener("afterprint", cleanup, { once: true });
-      setTimeout(cleanup, 60_000);
+      const pdf = await generateExact("print");
+      if (!pdf) return;
+      const blobUrl = URL.createObjectURL(pdf.output("blob"));
+      // PDF generation is async, so the popup may be blocked: try a window
+      // first, fall back to same-tab navigation (Back returns to the viewer).
+      let win = null;
       try {
-        window.print();
+        win = window.open(blobUrl, "_blank");
       } catch {
-        cleanup();
+        win = null;
       }
+      if (!win) window.location.href = blobUrl;
       return;
     }
 

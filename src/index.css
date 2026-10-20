@@ -367,31 +367,7 @@ html {
 }
 
 /* ---- Public share page: native iOS printing -------------------------------------------- */
-/* iOS can only window.print() the CURRENT document inside the tap gesture (PDF
-   blob windows are popup-blocked after async generation, and home-screen web
-   apps cannot open them at all). The share page therefore drops a print-mode
-   class on <body> and prints the hidden UNSCALED renderer (pip-print-source)
-   that the PDF path already uses for rasterisation — only that node is laid
-   out, at natural A4 size, one page per sheet. */
-@page { size: A4; margin: 0; }
-
-@media print {
-  body.pip-printing { background: #fff; }
-  body.pip-printing #root { padding: 0 !important; background: #fff; }
-  /* only the dedicated unscaled document source survives print */
-  body.pip-printing #root > div > *:not(.pip-print-source) { display: none !important; }
-  body.pip-printing .pip-print-source {
-    position: static !important;
-    left: auto !important;
-    top: auto !important;
-    pointer-events: auto !important;
-    overflow: visible !important;
-    width: 794px !important;
-    max-width: 794px !important;
-  }
-  body.pip-printing .pip-print-source > div { overflow: visible !important; width: 100% !important; }
-  body.pip-printing .pip-print-source > div > div { width: 794px !important; max-width: 794px !important; margin: 0 auto !important; }
-  body.pip-printing .pip-print-source [id^="ent-page-"] { break-after: page; page-break-after: always; }
-  body.pip-printing .pip-print-source [id^="ent-page-"]:last-of-type { break-after: auto; page-break-after: auto; }
-  body.pip-printing * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-}
+/* Print pipeline note: iOS (Safari tab and standalone) never prints this DOM —
+   both paths hand the generated PDF to Safari's native viewer instead (see
+   printPdf in PublicInvoicePage / InvoiceView), so no print-mode CSS lives
+   here anymore. Android/desktop print the PDF inside a hidden iframe. */

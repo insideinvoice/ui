@@ -25,8 +25,10 @@ export const INVOICE_ROW_SELECTORS = [
 // Measure every page-break anchor and the invoice box in one synchronous
 // pass, BEFORE html2canvas runs. Measuring after the async capture lets any
 // scroll/layout change shift the cut points mid-flight, which is how a page
-// boundary ends up inside the seal or an item row.
-function collectGeometry(element) {
+// boundary ends up inside the seal or an item row. `scale` is the capture
+// scale about to be used, so each CSS-pixel boundary lands on its exact
+// raster row — the cut points and the canvas share one coordinate system.
+function collectGeometry(element, scale) {
   const invoiceRect = element.getBoundingClientRect();
   // Enterprise frames ARE the pages: each ent-page-* frame is one logical
   // invoice page with its own header/footer. Cutting anywhere else (item-row
@@ -38,8 +40,8 @@ function collectGeometry(element) {
   const rects = rowEls.map((el) => {
     const r = el.getBoundingClientRect();
     return {
-      top: Math.floor((r.top - invoiceRect.top) * 2),
-      bottom: Math.ceil((r.bottom - invoiceRect.top) * 2),
+      top: Math.floor((r.top - invoiceRect.top) * scale),
+      bottom: Math.ceil((r.bottom - invoiceRect.top) * scale),
     };
   });
   return { rects };
@@ -54,12 +56,29 @@ const FIT_TO_PAGE_FLOOR = 0.92;
 // Rasterize the invoice and slice it into pages, cutting only on section
 // boundaries so blocks (item rows, totals, the seal/stamp footer) stay whole.
 // A block that does not fit moves entirely to the next page.
+
+// Print-grade capture: ~300 DPI against the 190mm A4 content box, so hairlines
+// and type are crisp on paper and in zoomed viewers. The scale is derived ONLY
+// from the document's own pixel size — never from the device's DPR or screen —
+// so a phone and a laptop produce the same resolution: one invoice, one PDF,
+// everywhere. The area cap keeps tall invoices inside the canvas limits of
+// older iOS (≈16.7 Mpx); below it the capture degrades to the old 2× rather
+// than failing outright.
+const TARGET_CAPTURE_SCALE = 3;
+const MIN_CAPTURE_SCALE = 2;
+const MAX_CAPTURE_AREA = 16_000_000;
+
 export async function buildInvoicePdf(element, paperSizeId, fit = 1) {
   const dim = getPaperDimensions(paperSizeId);
-  const SCALE = 2;
   const PAGE_H = dim.usableH;
 
-  const { rects } = collectGeometry(element);
+  const elRect = element.getBoundingClientRect();
+  const natW = element.offsetWidth || elRect.width;
+  const natH = element.offsetHeight || elRect.height;
+  const areaScale = natW * natH > 0 ? Math.sqrt(MAX_CAPTURE_AREA / (natW * natH)) : TARGET_CAPTURE_SCALE;
+  const SCALE = Math.min(TARGET_CAPTURE_SCALE, Math.max(MIN_CAPTURE_SCALE, areaScale));
+
+  const { rects } = collectGeometry(element, SCALE);
 
   // Opt into the line-height-independent font baseline: without it
   // html2canvas paints every text run ~6px too low on a Tailwind page
@@ -162,8 +181,14 @@ export async function buildInvoicePdf(element, paperSizeId, fit = 1) {
       ctx.fillRect(0, sliceHeightPx - 2, canvas.width, 2);
     }
 
+    // Maximum-quality JPEG. Lossless PNG was measured here and rejected on
+    // evidence: the browser encodes this capture to a compact 559 KB PNG, but
+    // jsPDF re-encodes it (alpha split + its own deflate) into a 17 MB page.
+    // JPEG at quality 1.0 passes through verbatim — 767 KB final — and at the
+    // 300-DPI capture resolution its DCT artifacts sit far below one screen
+    // pixel, so the page on paper is visually the page on screen.
     pdf.addImage(
-      sliceCanvas.toDataURL("image/jpeg", 0.95),
+      sliceCanvas.toDataURL("image/jpeg", 1.0),
       "JPEG",
       LEFT,
       10,

@@ -138,17 +138,6 @@ function StatusCard({ icon, title, body, action }) {
 
 const PAPER_WIDTH = { A4_PORTRAIT: 794, A4_LANDSCAPE: 1123, A5: 559, LETTER: 816 };
 
-// Scale the fixed-width paper down so it fits the viewport on phones/tablets.
-// Capped at 1 so wide screens never upscale the document. All interactive
-// zoom (pinch, ctrl/cmd+scroll, double-tap) is left to the native browser
-// gestures, which work identically on every device.
-const computeFitScale = (widthPx) => {
-  if (typeof window === "undefined") return 1;
-  const padding = window.innerWidth < 640 ? 24 : 48;
-  const availableWidth = window.innerWidth - padding;
-  return Math.min(1, Math.max(0.2, availableWidth / widthPx));
-};
-
 export default function PublicInvoicePage() {
   const { shareToken } = useParams();
   // ?type=PROFORMA_INVOICE (or TAX_INVOICE) renders the other document from the same
@@ -164,8 +153,22 @@ export default function PublicInvoicePage() {
   const [actionBusy, setActionBusy] = useState("");
   
   const pdfCaptureRef = useRef(null);
-
-  const [fitScale, setFitScale] = useState(1);
+  // The visible paper: laid out at natural A4 pixels and scaled VISUALLY with
+  // `transform` (never CSS `zoom`). At fit-scale 0.48 a zoomed `border: 1px`
+  // rounds to 0px in WebKit/Android layout, so every divider disappeared on
+  // phones while text kept painting. With transform the layout stays exactly
+  // 794px wide with true 1px rules, and only the rendered surface is scaled —
+  // hairlines antialias instead of vanishing, identically on every device.
+  const paperRef = useRef(null);
+  const [naturalH, setNaturalH] = useState(0);
+  // The viewer container is the measuring stick: the paper scales to ITS exact
+  // width, so it always fills the page and stays perfectly centred — no fixed
+  // gutters to drift out of sync with the responsive padding. The observer
+  // re-measures on window resize and rotation, and deliberately NOT on browser
+  // (ctrl/cmd) zoom, which leaves CSS-pixel widths untouched — so the user's
+  // own zoom is never cancelled.
+  const containerRef = useRef(null);
+  const [containerW, setContainerW] = useState(0);
 
   const load = useCallback(async () => {
     setStatus("loading");
@@ -198,28 +201,47 @@ export default function PublicInvoicePage() {
   const paperSize = data?.paperSize || "A4_PORTRAIT";
   const widthPx = PAPER_WIDTH[paperSize] || 794;
 
-  // Fit-to-width when the document loads and when the screen rotates so the
-  // paper is always readable on phones/tablets. Deliberately NOT re-fitting on
-  // every window resize: browser (ctrl/cmd) zoom fires resize, and re-fitting
-  // then would cancel the user's zoom.
   useEffect(() => {
-    if (!data) return undefined;
-    const applyFit = () => {
-      const s = computeFitScale(widthPx);
-      setFitScale(s);
+    if (!data || !containerRef.current) return undefined;
+    const el = containerRef.current;
+    const measure = () => {
+      const w = el.clientWidth;
+      setContainerW((prev) => (prev === w ? prev : w));
     };
-    applyFit();
-    const mq = window.matchMedia("(orientation: portrait)");
-    const onOrientationChange = () => applyFit();
-    mq.addEventListener("change", onOrientationChange);
-    return () => mq.removeEventListener("change", onOrientationChange);
-  }, [data, widthPx]);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [data]);
+
+  // Scale = container width / paper width, capped at 1 only for the tiniest
+  // viewports (the floor keeps an A4 legible instead of shrinking to a stamp).
+  const fitScale = containerW ? Math.max(0.2, containerW / widthPx) : 1;
+
+  // Measure the paper's natural (unscaled) height so the layout container can
+  // reserve exactly the scaled footprint — the scaled paper is absolutely
+  // positioned and would otherwise leave a full natural-height hole below it.
+  useEffect(() => {
+    if (!data || !paperRef.current) return undefined;
+    const el = paperRef.current;
+    const measure = () => {
+      const h = el.offsetHeight;
+      setNaturalH((prev) => (prev === h ? prev : h));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [data]);
 
   const buildPdf = async () => {
     const el = pdfCaptureRef.current;
     if (!el) throw new Error("Invoice not rendered yet");
     const { buildInvoicePdf } = await import("../utils/invoicePdf");
-    return buildInvoicePdf(el, paperSize, 0.95);
+    // fit = 1: the PDF is placed at the paper's exact natural geometry, so the
+    // downloaded document is 1:1 with the paper on screen — same theme, same
+    // rules, same layout, no 5% shrink.
+    return buildInvoicePdf(el, paperSize, 1);
   };
 
   const generateExact = async (busyKey) => {
@@ -404,7 +426,7 @@ export default function PublicInvoicePage() {
           // the strip into it.
           top: "var(--status-bar-offset, 0px)",
         }}>
-        <div className="max-w-[1200px] mx-auto px-3 sm:px-4 py-2.5 flex items-center justify-between gap-3">
+        <div className="w-full px-3 sm:px-5 py-2.5 flex items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="text-[11px] uppercase tracking-wide text-slate-400 font-semibold">Shared invoice</p>
             <p className="text-sm font-bold text-slate-800 truncate">{data.invoiceNumber}</p>
@@ -437,40 +459,53 @@ export default function PublicInvoicePage() {
         )}
       </header>
 
-      <main className="flex-1 max-w-[1200px] w-full mx-auto px-2 sm:px-4 py-3 sm:py-6">
-        {/* Native-zoom viewer: the document is fitted to the screen with CSS
-            `zoom` and the browser's own pinch/pan/double-tap handle the rest
-            — no wrapping scroll container, so zooming/panning never gets
-            trapped inside a box. */}
-        <div
-          className="min-w-full flex items-start justify-center pt-8 sm:pt-12 pb-6 sm:pb-10 px-2 sm:px-5"
-        >
+      <main className="flex-1 w-full px-2 sm:px-4 py-5 sm:py-8">
+        {/* Full-page viewer: the paper takes the whole container width, sits
+            centred with breathing room above and below, and is scaled with
+            `transform` (see paperRef) so its 1px rules survive at every size.
+            The sizer reserves the paper's exact scaled footprint; the browser's
+            native pinch / double-tap zoom does the rest — no inner scroll box
+            to trap gestures. */}
+        <div ref={containerRef} className="w-full flex justify-center">
           <div
             style={{
-              width: `${widthPx}px`,
-              zoom: fitScale,
+              width: naturalH ? `${widthPx * fitScale}px` : `${widthPx}px`,
+              height: naturalH ? `${naturalH * fitScale}px` : undefined,
+              position: "relative",
               background: "#ffffff",
-              boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -2px rgba(0, 0, 0, 0.06)",
+              boxShadow: "0 12px 32px -10px rgba(15, 23, 42, 0.25), 0 2px 8px -2px rgba(15, 23, 42, 0.08)",
             }}
           >
-            <InvoiceTemplateRenderer
-              business={templateProps.business}
-              customer={templateProps.customer}
-              form={templateProps.form}
-              items={templateProps.items}
-              totals={templateProps.totals}
-              discountPercent={data.discountPercent != null ? String(data.discountPercent) : "0"}
-              type={renderType}
-              invoiceNumber={data.invoiceNumber}
-              paperSize={paperSize}
-              template={data.template || undefined}
-            />
+            <div
+              ref={paperRef}
+              style={{
+                width: `${widthPx}px`,
+                position: "absolute",
+                top: 0,
+                left: 0,
+                transform: `scale(${fitScale})`,
+                transformOrigin: "top left",
+              }}
+            >
+              <InvoiceTemplateRenderer
+                business={templateProps.business}
+                customer={templateProps.customer}
+                form={templateProps.form}
+                items={templateProps.items}
+                totals={templateProps.totals}
+                discountPercent={data.discountPercent != null ? String(data.discountPercent) : "0"}
+                type={renderType}
+                invoiceNumber={data.invoiceNumber}
+                paperSize={paperSize}
+                template={data.template || undefined}
+              />
+            </div>
           </div>
         </div>
 
-        <p className="text-center text-xs text-slate-400 mt-3 sm:mt-4">
+        <p className="text-center text-xs text-slate-400 mt-4 sm:mt-5">
           Computer-generated copy of a shared invoice &middot; Powered by Inside Invoice
-          <span className="block mt-1 text-[10px] text-slate-300">Pinch to zoom · double-tap to fit</span>
+          <span className="block mt-1 text-[10px] text-slate-300">Pinch to zoom &middot; double-tap to fit</span>
         </p>
       </main>
     </div>

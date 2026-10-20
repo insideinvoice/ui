@@ -214,9 +214,12 @@ export default function PublicInvoicePage() {
     return () => ro.disconnect();
   }, [data]);
 
-  // Scale = container width / paper width, capped at 1 only for the tiniest
-  // viewports (the floor keeps an A4 legible instead of shrinking to a stamp).
-  const fitScale = containerW ? Math.max(0.2, containerW / widthPx) : 1;
+  // Scale = container width / paper width, floored so an A4 stays legible on
+  // a watch-sized viewport, and CAPPED so a wide monitor shows the sheet as a
+  // page with breathing room instead of a 2.4x wall of type bleeding off both
+  // edges (the customer's PDF-in-hand reference is a page, not a mural).
+  const MAX_FIT_SCALE = 0.7;
+  const fitScale = containerW ? Math.min(MAX_FIT_SCALE, Math.max(0.2, containerW / widthPx)) : 1;
 
   // Measure the paper's natural (unscaled) height so the layout container can
   // reserve exactly the scaled footprint — the scaled paper is absolutely

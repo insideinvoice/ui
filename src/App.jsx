@@ -75,7 +75,10 @@ function PrivateRoute({ children }) {
 
 /** Routes that never rendered app chrome (public share, landing, docs, auth). */
 const PUBLIC_PATHS = [
-  "/", "/i/", "/login", "/forgot-password", "/change-password",
+  // "/i" — NOT "/i/": the matcher below tests startsWith(path + "/"), so a
+  // trailing-slash entry would demand "/i//<token>" and never match, which is
+  // how the logged-in owner's own share link ended up wearing the app sidebar.
+  "/", "/i", "/login", "/forgot-password", "/change-password",
   "/privacy-policy", "/terms-and-condition", "/refund-policy", "/updates",
   "/contact", "/documentation", "/help", "/video", "/gst-calculator",
   "/qr-generator", "/barcode-generator", "/business-card",

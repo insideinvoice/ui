@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
-import { Download, Printer, RefreshCw, ShieldAlert, Clock, ZoomIn, ZoomOut, Scan } from "lucide-react";
+import { Download, Printer, RefreshCw, ShieldAlert, Clock } from "lucide-react";
 import InvoiceTemplateRenderer from "../components/InvoiceTemplateRenderer";
 import LoadingDots from "../components/LoadingDots";
 import { publicInvoiceAPI } from "../api/public";
@@ -173,8 +173,6 @@ export default function PublicInvoicePage() {
   // Interactive zoom state, owned by the gesture engine below and written
   // straight to the DOM (see apply): { s: scale, x, y: pan }.
   const viewRef = useRef({ s: 1, x: 0, y: 0 });
-  const engineRef = useRef(null);   // zoomBy/fit handles for the on-screen controls
-  const pctRef = useRef(null);      // live percentage label (DOM text, no re-render)
   const surfaceRef = useRef(null);  // gesture surface
   // The viewer container is the measuring stick: the paper scales to ITS exact
   // width, so it always fills the page and stays perfectly centred — no fixed
@@ -270,7 +268,6 @@ export default function PublicInvoicePage() {
       paperRef.current.style.transform = `translate3d(${v.x}px, ${v.y}px, 0) scale(${v.s})`;
     }
     if (surfaceRef.current) surfaceRef.current.classList.remove("is-zoomed", "is-grabbing");
-    if (pctRef.current) pctRef.current.textContent = `${Math.round(fitScale * 100)}%`;
   }, [fitScale, data]);
 
   // ------------------------------------------------------------------ zoom
@@ -321,7 +318,6 @@ export default function PublicInvoicePage() {
       paper.style.transform = `translate3d(${view.x}px, ${view.y}px, 0) scale(${view.s})`;
       const zoomed = view.s > fitScaleRef.current + 1e-3;
       surface.classList.toggle("is-zoomed", zoomed);
-      if (pctRef.current) pctRef.current.textContent = `${Math.round(view.s * 100)}%`;
     };
     const schedule = () => {
       if (!raf) raf = requestAnimationFrame(apply);
@@ -595,9 +591,6 @@ export default function PublicInvoicePage() {
     };
     window.addEventListener("keydown", onKey);
 
-    // On-screen controls (the pill) read their handlers off the ref.
-    engineRef.current = { zoomIn: () => zoomStep(1.3), zoomOut: () => zoomStep(1 / 1.3), fit: doFit, reclamp };
-
     // The paper's natural height shifts after mount (late fonts, images,
     // multi-page splits): re-clamp in place — the user's zoom is never reset.
     const paperRO = new ResizeObserver(() => reclamp());
@@ -618,7 +611,6 @@ export default function PublicInvoicePage() {
       surface.removeEventListener("gesturechange", stopSysPinch);
       window.removeEventListener("keydown", onKey);
       stopInertia();
-      engineRef.current = null;
     };
   }, [data]);
 
@@ -899,43 +891,9 @@ export default function PublicInvoicePage() {
         </div>
       </main>
 
-      {/* Zoom controls — same affordance as a system/PDF viewer, for pointers
-          and keyboards that have no pinch gesture. Floating, small, and above
-          everything; the document itself is the only content below the bar.
-          Live % label is written straight to the DOM by the engine. */}
-      <div className="fixed bottom-4 z-30 flex justify-center pointer-events-none inset-x-0 px-4">
-        <div className="pointer-events-auto flex items-center gap-1 rounded-full border border-slate-200 bg-white/95 px-2 py-1.5 shadow-lg backdrop-blur">
-          <button
-            type="button"
-            aria-label="Zoom out"
-            onClick={() => engineRef.current?.zoomOut()}
-            className="p-2 rounded-full text-slate-600 hover:bg-slate-100 active:bg-slate-200 transition-colors"
-          >
-            <ZoomOut className="w-4 h-4" />
-          </button>
-          <span ref={pctRef} className="w-12 text-center text-xs font-semibold text-slate-700 tabular-nums select-none">
-            {Math.round(fitScale * 100)}%
-          </span>
-          <button
-            type="button"
-            aria-label="Zoom in"
-            onClick={() => engineRef.current?.zoomIn()}
-            className="p-2 rounded-full text-slate-600 hover:bg-slate-100 active:bg-slate-200 transition-colors"
-          >
-            <ZoomIn className="w-4 h-4" />
-          </button>
-          <div className="w-px h-5 bg-slate-200 mx-0.5" />
-          <button
-            type="button"
-            aria-label="Fit to screen"
-            onClick={() => engineRef.current?.fit()}
-            className="p-2 rounded-full text-slate-600 hover:bg-slate-100 active:bg-slate-200 transition-colors"
-            title="Fit to screen"
-          >
-            <Scan className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
+      {/* No on-screen zoom controls (− / % / + / fit pill removed by request):
+          enterprise-level zoom only — pinch, drag/flick, double-tap, wheel,
+          ctrl+wheel and ctrl +/−/0 all live on the document surface itself. */}
     </div>
   );
 }

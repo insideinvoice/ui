@@ -71,6 +71,11 @@ export const invoiceAPI = {
   // demand). `pdfFile` is the SAME client-rendered PDF the Download button
   // produces (seal/stamp included), attached so the emailed document matches
   // the download exactly. Sent as multipart because of the file part.
+  //
+  // ASYNC CONTRACT: validation is synchronous (401/404/400 unchanged), but the
+  // Resend call runs on a backend thread — a 200 here means QUEUED, with
+  // data = { status: "PENDING", recipient }. Poll getInvoiceEmailStatus (or use
+  // waitForInvoiceEmail below) for the delivery verdict.
   sendInvoiceEmail: (id, origin, pdfFile) => {
     const form = new FormData();
     form.append("frontendOrigin", origin || "");
@@ -83,7 +88,39 @@ export const invoiceAPI = {
       timeout: 120000,
     });
   },
+  // Final verdict for a queued email: data = { status: "PENDING"|"SENT"|
+  // "FAILED", error, emailedAt }. 401 anonymous, 404 unknown/cross-tenant.
+  getInvoiceEmailStatus: (id) => api.get(`/invoices/${id}/email-status`, { timeout: 10000 }),
 };
+
+/**
+ * Polls the queued invoice email until it settles. Resolves one of:
+ *   { status: "SENT", emailedAt }  — delivered
+ *   { status: "FAILED", error }    — provider refused (or status unavailable)
+ *   { status: "TIMEOUT" }          — still PENDING after timeoutMs
+ * Network blips and 5xx keep polling until the deadline; 401/404 end the wait
+ * as FAILED (there is nothing left to poll for).
+ */
+export async function waitForInvoiceEmail(id, { intervalMs = 2500, timeoutMs = 90000 } = {}) {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    if (Date.now() >= deadline) return { status: "TIMEOUT" };
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+    try {
+      const res = await invoiceAPI.getInvoiceEmailStatus(id);
+      const data = res.data?.data || {};
+      if (data.status === "SENT") return { status: "SENT", emailedAt: data.emailedAt };
+      if (data.status === "FAILED") return { status: "FAILED", error: data.error };
+      // PENDING — still on the backend's executor queue; keep waiting.
+    } catch (err) {
+      const code = err?.response?.status;
+      if (code === 401 || code === 404) {
+        return { status: "FAILED", error: "Email status unavailable" };
+      }
+      // transient network/5xx — keep polling until the deadline
+    }
+  }
+}
 
 export const deliveryChallanAPI = {
   create: (data) => api.post("/delivery-challans", data),

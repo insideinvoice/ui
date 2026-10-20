@@ -52,6 +52,7 @@ import DeliveryChallansList from "./pages/DeliveryChallansList";
 import DeliveryChallanView from "./pages/DeliveryChallanView";
 import MorePage from "./pages/MorePage";
 import PublicInvoicePage from "./pages/PublicInvoicePage";
+import ZoomLab from "./pages/ZoomLab";
 import SeoHead from "./components/SeoHead";
 
 function ScrollToTop() {
@@ -82,6 +83,8 @@ const PUBLIC_PATHS = [
   "/privacy-policy", "/terms-and-condition", "/refund-policy", "/updates",
   "/contact", "/documentation", "/help", "/video", "/gst-calculator",
   "/qr-generator", "/barcode-generator", "/business-card",
+  // Dev-only zoom gesture bench (route only exists when import.meta.env.DEV).
+  "/__zoomlab",
 ];
 
 function isPublicPath(pathname) {
@@ -122,6 +125,8 @@ function AppRoutes() {
       <Route path="/business-card" element={<BusinessCardMaker />} />
       {/* Token-gated public share - must stay outside PrivateRoute (no login) */}
       <Route path="/i/:shareToken" element={<PublicInvoicePage />} />
+      {/* Dev-only DocZoomSurface gesture bench for scripts/zoomGesture.test.mjs */}
+      {import.meta.env.DEV && <Route path="/__zoomlab" element={<ZoomLab />} />}
       <Route path="/business-setup" element={<PrivateRoute><BusinessSetup /></PrivateRoute>} />
       <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
       <Route path="/invoice" element={<PrivateRoute><InvoiceForm /></PrivateRoute>} />

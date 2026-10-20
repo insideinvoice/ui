@@ -8,7 +8,7 @@ import ConfirmModal from "../components/ConfirmModal";
 import { invoiceAPI } from "../api/auth";
 import { resolveBusinessProfile } from "../utils/businessProfile";
 import toast from "react-hot-toast";
-import { ArrowLeft, FileText, Download, Eye, PlusCircle, Share2, Trash2, Search, X, Link2, ChevronDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, FileSpreadsheet, Loader2 } from "lucide-react";
+import { ArrowLeft, FileText, Download, Eye, PlusCircle, Share2, Trash2, Search, X, Link2, ChevronDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, FileSpreadsheet, Loader2, MessageSquare } from "lucide-react";
 import WhatsAppIcon from "../components/WhatsAppIcon";
 import { downloadInvoicePDF } from "../utils/downloadInvoicePdf";
 import { exportInvoicesExcel, invoiceMatchesFilters } from "../utils/exportInvoicesExcel";
@@ -303,6 +303,17 @@ export default function InvoicesList() {
     setSheetShareToken(null);
   }, [shareBusy]);
 
+  // Issue 1: with the share sheet open the invoice list behind it must NEVER
+  // scroll (rows used to slide around under the sheet). Same lock class as
+  // InvoiceView's overlays and the public share page — html/body overflow
+  // hidden (index.css .pip-locked). The scroll position is preserved: closing
+  // the sheet resumes exactly where the user left off.
+  useEffect(() => {
+    if (!shareSheetInvoice) return undefined;
+    document.documentElement.classList.add("pip-locked");
+    return () => document.documentElement.classList.remove("pip-locked");
+  }, [shareSheetInvoice]);
+
   const ensureSheetShareToken = async () => {
     if (sheetShareToken) return sheetShareToken;
     const cached = readCachedShareToken(shareSheetInvoice.id);
@@ -453,6 +464,56 @@ export default function InvoicesList() {
     } catch (err) {
       if (err?.response?.status === 404) toast.error("Invoice not found");
       else toast.error("Could not create the proforma link");
+    } finally {
+      setShareBusy("");
+    }
+  };
+
+  // Issue 2: "share invoice via message" — the same Text Message (SMS) option
+  // InvoiceView's sheet has, mirrored here for the list's share sheet.
+  const shareFromSheetSms = async () => {
+    if (shareBusy || !shareSheetInvoice) return;
+    const invoice = shareSheetInvoice;
+    const phone = (invoice.customerPhone || "").trim().replace(/[\s\-()]/g, "");
+    if (!phone) {
+      toast.error("Customer phone number is missing");
+      return;
+    }
+    setShareBusy("sms");
+    try {
+      const url = await sheetShareLink();
+      const name = (invoice.customerName || "").trim();
+      const label = invoice.invoiceType === "PROFORMA_INVOICE" ? "Proforma Invoice" : "Tax Invoice";
+      const invNo = (invoice.invoiceNumber || "").trim();
+      const amount = parseFloat(invoice.grandTotal);
+      const totalStr = !Number.isNaN(amount) && amount >= 0
+        ? `Rs. ${amount.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+        : "";
+      // Compact, single-segment-friendly message (the WhatsApp message is too
+      // long and gets split into multiple SMS segments).
+      const smsLines = [];
+      smsLines.push(name ? `Hi ${name},` : "Hello,");
+      const invLine = invNo ? `${label} ${invNo}` : label;
+      smsLines.push(totalStr ? `${invLine}, Total: ${totalStr}.` : `${invLine}.`);
+      if (url) {
+        // Zero-width space stops SMS apps from generating a link-preview card
+        // (the link still opens normally).
+        smsLines.push(`View invoice: ${url.replace("https://", "https://\u200B")}`);
+      }
+      const text = smsLines.join(" ");
+      // sms: opens the default SMS app with recipient + body pre-filled.
+      // Android uses `?body=`, iOS historically uses `&body=`.
+      const isIOS =
+        /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+        (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+      setSheetShareToken(null);
+      setShareSheetInvoice(null);
+      // Navigate (not a programmatic anchor click) to avoid the "Open in
+      // Messages?" confirmation prompt on iOS/Android.
+      window.location.href = `sms:${phone}${isIOS ? "&" : "?"}body=${encodeURIComponent(text)}`;
+    } catch (err) {
+      if (err?.response?.status === 404) toast.error("Invoice not found");
+      else toast.error("Could not open the SMS app");
     } finally {
       setShareBusy("");
     }
@@ -894,7 +955,7 @@ export default function InvoicesList() {
           onClick={closeShareSheet}
         >
           <div
-            className="w-full sm:max-w-md bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl border border-slate-200 pb-[max(env(safe-area-inset-bottom),16px)] sm:pb-4"
+            className="w-full sm:max-w-md bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl border border-slate-200 max-h-[85dvh] overflow-y-auto pb-[max(env(safe-area-inset-bottom),16px)] sm:pb-4"
             onClick={(e) => e.stopPropagation()}
             role="dialog"
             aria-modal="true"
@@ -965,6 +1026,29 @@ export default function InvoicesList() {
                   </span>
                   <span className="block text-xs text-slate-400">
                     Send the invoice link in a chat
+                  </span>
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={shareFromSheetSms}
+                disabled={!!shareBusy}
+                className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-slate-50 disabled:opacity-60 transition-colors text-left"
+              >
+                <span className="w-10 h-10 shrink-0 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center">
+                  {shareBusy === "sms" ? (
+                    <Spinner size={18} />
+                  ) : (
+                    <MessageSquare className="w-5 h-5" />
+                  )}
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-sm font-semibold text-slate-800">
+                    Text Message
+                  </span>
+                  <span className="block text-xs text-slate-400">
+                    Send the invoice link via SMS
                   </span>
                 </span>
               </button>

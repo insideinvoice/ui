@@ -3,11 +3,12 @@ import { useParams, useNavigate } from "react-router-dom";
 import LoadingDots from "../components/LoadingDots";
 import Spinner from "../components/Spinner";
 import PageHeader from "../components/PageHeader";
-import { invoiceAPI, businessAPI, customerAPI } from "../api/auth";
+import { invoiceAPI, businessAPI, customerAPI, waitForInvoiceEmail } from "../api/auth";
 import toast from "react-hot-toast";
 import { ArrowLeft, Download, Save, Edit3, Plus, Trash2, FileText, AlertCircle, User, Building2, Phone, MapPin, Hash, Package, Mail, Globe, X, Share2, Smartphone, Link2, Copy, RotateCw, Unlink, ChevronDown, Printer, MessageSquare } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import InvoiceTemplateRenderer from "../components/InvoiceTemplateRenderer";
+import DocZoomSurface from "../components/DocZoomSurface";
 import WhatsAppIcon from "../components/WhatsAppIcon";
 import { processQueue } from "../utils/retryQueue";
 import { processPrint } from "../utils/printInvoice";
@@ -24,9 +25,31 @@ import { getIndustryConfig, isFieldHidden, fieldLabel, getExtendedFields, isExte
 const uid = () => (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `i${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`);
 const emptyItem = () => ({ id: uid(), itemName: "", hsn: "", unit: "", qty: "1", rate: "", gstPercentage: "18", taxableValue: "0", taxAmount: "0", total: "0" });
 const fmt = (v) => parseFloat(v || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 });
+// Screen (CSS px) width of each paper — mirrors InvoiceTemplateRenderer's map;
+// sizes the zoomable document inside DocZoomSurface (modal + mobile screen).
+const PAPER_WIDTH_PX = { A4_PORTRAIT: 794, A4_LANDSCAPE: 1123, A5: 559, LETTER: 816 };
+
+// Minimal matchMedia hook (this codebase has no useMediaQuery) — drives the
+// mobile PDF-first layout below md (768px), matching Tailwind's `md:` break.
+function useMediaQuery(query) {
+  const [matches, setMatches] = useState(() =>
+    typeof window !== "undefined" && typeof window.matchMedia === "function"
+      ? window.matchMedia(query).matches
+      : false);
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return undefined;
+    const mql = window.matchMedia(query);
+    const onChange = (e) => setMatches(e.matches);
+    mql.addEventListener("change", onChange);
+    return () => mql.removeEventListener("change", onChange);
+  }, [query]);
+  return matches;
+}
 const inputClass = "w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-400/30 focus:border-slate-400";
 const selectClass = "w-full pl-3 pr-9 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-400/30 focus:border-slate-400 bg-white appearance-none cursor-pointer text-slate-800";
 const labelClass = "block text-xs font-semibold text-slate-600 mb-1.5";
+// Compact horizontal-scrolling action chips for the mobile PDF-first strip.
+const chipClass = "shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all active:scale-95 disabled:opacity-50 disabled:active:scale-100";
 
 // Declared at module scope so React keeps the same component type across renders
 // (an inner declaration remounts every row on each parent render).
@@ -194,7 +217,16 @@ export default function InvoiceView() {
   // snapshot there is no way to tell whether it actually changed.
   const buyerSnapshotRef = useRef(null);
   const [showPdfPreview, setShowPdfPreview] = useState(false);
-  const [pdfPreviewUrl, setPdfPreviewUrl] = useState(null);
+  // No pdfPreviewUrl blob state any more: the modal renders the LIVE document
+  // inside DocZoomSurface (opens instantly); Print builds its own blob on
+  // demand in printFromPreview, Download uses the capture flow.
+  //
+  // Mobile PDF-first screen (issues 3/4/5): below md the invoice opens as ONE
+  // zoomable document under a compact identity+actions strip; `details` swaps
+  // in the familiar cards (and edit forms).
+  const isMobile = useMediaQuery("(max-width: 767px)");
+  const [mobileScreen, setMobileScreen] = useState("pdf"); // "pdf" | "details"
+  const pdfScreen = isMobile && mobileScreen === "pdf";
 
   // Public share link: created lazily on the first explicit user action, so invoices
   // are private by default and never become link-accessible without consent.
@@ -393,12 +425,12 @@ export default function InvoiceView() {
       setEmailBusy(false);
       return;
     }
-    // Link ready — release the button; the document render + SMTP round-trip
-    // continues detached so the UI never waits for it.
+    // Link ready — release the button; the document render and the backend's
+    // queued provider call both continue detached so the UI never waits.
     setEmailBusy(false);
     if (emailJobRef.current) return;
     emailJobRef.current = true;
-    toast("Preparing the invoice email in the background", { icon: "📨" });
+    toast("Invoice email queued — sending in the background", { icon: "📨" });
     (async () => {
       // Build the SAME PDF the Download button produces (it reads the
       // seal/stamp preference from localStorage) and attach it, so the
@@ -416,10 +448,21 @@ export default function InvoiceView() {
         releaseCapture();
       }
       const res = await invoiceAPI.sendInvoiceEmail(id, window.location.origin, pdfFile);
+      const queuedTo = res.data?.data?.recipient || form.customerEmail || "the customer";
       const attachNote = pdfFile ? ` — PDF attached (${Math.round(pdfFile.size / 1024)} KB)` : "";
-      toast.success((res.data?.message || "Invoice emailed to the customer") + attachNote);
+      toast.success((res.data?.message || `Invoice email queued for ${queuedTo}`) + attachNote);
       if (!pdfFile) {
         toast("Emailed WITHOUT the PDF attachment — the render failed; see the browser console", { icon: "⚠️" });
+      }
+      // The POST only QUEUES (async Resend dispatch on the backend): wait for
+      // the delivery verdict instead of claiming success up-front.
+      const verdict = await waitForInvoiceEmail(id);
+      if (verdict.status === "SENT") {
+        toast.success(`Invoice email delivered to ${queuedTo}`);
+      } else if (verdict.status === "FAILED") {
+        toast.error(`Invoice email to ${queuedTo} failed${verdict.error ? ` — ${verdict.error}` : ""}`);
+      } else if (verdict.status === "TIMEOUT") {
+        toast(`Invoice email to ${queuedTo} is still processing — try Send Email again in a moment to check`, { icon: "⏳" });
       }
     })()
       .catch((err) => {
@@ -513,6 +556,25 @@ export default function InvoiceView() {
   useEffect(() => {
     if (showShareSheet) prefetchInvoicePdf();
   }, [showShareSheet]);
+
+  // Issue 1 / issue 5: while the share sheet, the PDF modal, or the mobile
+  // PDF-first screen is up, the page behind must NEVER scroll (the invoice
+  // list used to slide around under the share sheet). Same lock class the
+  // public share page uses — html/body overflow hidden, index.css .pip-locked.
+  useEffect(() => {
+    if (!(pdfScreen || showShareSheet || showPdfPreview)) return undefined;
+    document.documentElement.classList.add("pip-locked");
+    return () => document.documentElement.classList.remove("pip-locked");
+  }, [pdfScreen, showShareSheet, showPdfPreview]);
+
+  // Entering the fixed-height mobile PDF screen from a scrolled position must
+  // start at the top: `overflow: hidden` freezes whatever offset the page had.
+  // (Sheet/modal locks deliberately keep the user's scroll position — they
+  // resume exactly where they left off on close.)
+  useEffect(() => {
+    if (!pdfScreen) return;
+    window.scrollTo(0, 0);
+  }, [pdfScreen]);
 
   useEffect(() => {
     processQueue(
@@ -822,32 +884,49 @@ export default function InvoiceView() {
     }
   };
 
+  // Opens the zoomable document INSTANTLY — no PDF bytes are built here. The
+  // modal renders the live invoice inside DocZoomSurface (pinch/pan/zoom); the
+  // PDF blob is only built on demand for Print (printFromPreview) or Download.
   const viewPDF = async () => {
     if (!(await persistDiscount())) return;
-    setBusyAction("view");
+    setShowPdfPreview(true);
+  };
+
+  // Desktop/tablet opens the PDF modal; on mobile the invoice IS the PDF
+  // screen (issue 5) — the View button just flips back to it.
+  const openViewer = async () => {
+    if (isMobile) {
+      setMobileScreen("pdf");
+      return;
+    }
+    await viewPDF();
+  };
+
+  // Builds a fresh PDF blob and hands it to the printer. Called from the
+  // preview modal's Print button (the modal itself holds no blob any more).
+  const printFromPreview = async () => {
+    if (busyAction) return;
+    setBusyAction("print-preview");
     try {
       const { buildInvoicePdf } = await import("../utils/invoicePdf");
-      const ps = (getPrintSettings()[invoiceType] || {}).paperSize || "A4_PORTRAIT";
       const captureRef = await mountCapture(invoiceType);
-      const pdf = await buildInvoicePdf(captureRef.current, ps);
-      const blob = pdf.output("blob");
-      const blobUrl = URL.createObjectURL(blob) + "#toolbar=0";
-      setPdfPreviewUrl(blobUrl);
-      setShowPdfPreview(true);
+      const pdf = await buildInvoicePdf(captureRef.current, previewPaperSize);
+      const blobUrl = URL.createObjectURL(pdf.output("blob"));
+      printPdfUrl(blobUrl);
+      // The hidden iframe keeps the blob alive while the print dialog is open.
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 120000);
     } catch {
-      toast.error("Failed to generate PDF preview");
+      toast.error("Failed to generate the PDF for printing");
     } finally {
       releaseCapture();
       setBusyAction("");
     }
   };
 
-  // Sends the already-generated PDF (the one shown in the preview modal) to
-  // the printer via a hidden iframe — this prints the PDF document itself,
-  // never the surrounding HTML page.
-  const printPreviewPdf = () => {
-    if (!pdfPreviewUrl) return;
-    const url = pdfPreviewUrl.split("#")[0];
+  // Sends a PDF blob URL to the printer via a hidden iframe — this prints the
+  // PDF document itself, never the surrounding HTML page.
+  const printPdfUrl = (url) => {
+    if (!url) return;
     const isIOS =
       /iPad|iPhone|iPod/.test(navigator.userAgent) ||
       (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
@@ -957,6 +1036,132 @@ export default function InvoiceView() {
           />
         </div>
       )}
+      {/* ===== Mobile PDF-first screen (issues 3/4/5) =====
+          One compact strip (invoice identity + actions) directly under the top
+          nav, then a single zoomable document filling the rest of the
+          viewport. The page is scroll-locked while this screen is up
+          (pip-locked), so the DocZoomSurface engine owns every gesture —
+          pinch, free pan, flick, double-tap. md+ (and mobile `details` mode)
+          keep the familiar card layout in the container below. */}
+      {pdfScreen && (
+        <div
+          className="flex flex-col"
+          style={{ height: "calc(100dvh - var(--app-nav-height, 56px) - env(safe-area-inset-bottom, 0px) - 64px)" }}
+        >
+          {/* Identity strip: number + type/status pills + customer/date/amount */}
+          <div className="shrink-0 bg-white/95 backdrop-blur border-b border-slate-200/70 px-3 py-2">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => goBack(navigate, "/invoices")}
+                aria-label="Back to invoices"
+                className="p-2 -ml-2 shrink-0 rounded-lg text-slate-500 hover:bg-slate-100 active:bg-slate-200 transition-colors"
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </button>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span className="font-mono text-sm font-bold text-slate-800 truncate">
+                    {form.invoiceNumber || "Draft"}
+                  </span>
+                  <span className={`shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
+                    invoiceType === "PROFORMA_INVOICE"
+                      ? "bg-emerald-100 text-emerald-700"
+                      : "bg-blue-100 text-blue-700"}`}>
+                    {invoiceType === "PROFORMA_INVOICE" ? "Proforma" : "Tax"} Invoice
+                  </span>
+                  <span className={`shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
+                    form.status === "PAID" ? "bg-emerald-100 text-emerald-700"
+                      : form.status === "PENDING" ? "bg-amber-100 text-amber-700"
+                      : form.status === "DRAFT" ? "bg-slate-100 text-slate-600"
+                      : "bg-rose-100 text-rose-700"}`}>
+                    {form.status}
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500 truncate">
+                  {[form.customerName, form.invoiceDate, `Rs. ${fmt(totals.grandTotal)}`]
+                    .filter(Boolean).join(" · ")}
+                </p>
+              </div>
+            </div>
+            {/* Action chips — horizontally scrollable, never wrap */}
+            <div className="mt-2 flex items-center gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              {isEditing ? (
+                <>
+                  <button type="button" onClick={handleSave} disabled={saving}
+                    className={`${chipClass} bg-slate-800 text-white`}>
+                    {saving ? <LoadingDots className="text-white" /> : <Save className="w-3.5 h-3.5" />}
+                    {saving ? "Saving..." : "Save"}
+                  </button>
+                  <button type="button" onClick={() => setIsEditing(false)}
+                    className={`${chipClass} border border-slate-300 text-slate-700 bg-white`}>
+                    <X className="w-3.5 h-3.5" /> Cancel
+                  </button>
+                  <button type="button" onClick={() => setMobileScreen("details")}
+                    className={`${chipClass} border border-slate-300 text-slate-700 bg-white`}>
+                    <ChevronDown className="w-3.5 h-3.5" /> Details
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button type="button"
+                    onClick={() => { setIsEditing(true); setMobileScreen("details"); }}
+                    className={`${chipClass} bg-slate-800 text-white`}>
+                    <Edit3 className="w-3.5 h-3.5" /> Edit
+                  </button>
+                  <button type="button" onClick={() => setMobileScreen("details")}
+                    className={`${chipClass} border border-slate-300 text-slate-700 bg-white`}>
+                    <ChevronDown className="w-3.5 h-3.5" /> Details
+                  </button>
+                  <button type="button" onClick={() => downloadPDF(invoiceType)}
+                    disabled={sealRequired || !!busyAction}
+                    className={`${chipClass} bg-indigo-600 text-white`}>
+                    {busyAction === `download:${invoiceType}` ? <Spinner size={14} /> : <Download className="w-3.5 h-3.5" />}
+                    {busyAction === `download:${invoiceType}` ? "Preparing..." : "Download PDF"}
+                  </button>
+                  <button type="button" onClick={sendInvoiceEmailToCustomer}
+                    disabled={emailBusy || !!busyAction}
+                    className={`${chipClass} bg-indigo-500 text-white`}>
+                    {emailBusy ? <Spinner size={14} /> : <Mail className="w-3.5 h-3.5" />}
+                    {emailBusy ? "Emailing..." : "Send Email"}
+                  </button>
+                  <button type="button" onClick={() => setShowShareSheet(true)} disabled={!!busyAction}
+                    className={`${chipClass} bg-emerald-600 text-white`}>
+                    <Share2 className="w-3.5 h-3.5" /> Share
+                  </button>
+                  <button type="button" onClick={shareViaWhatsApp}
+                    disabled={sealRequired || !!busyAction}
+                    className={`${chipClass} bg-[#25D366] text-white`}>
+                    {busyAction === "whatsapp" ? <Spinner size={14} /> : <WhatsAppIcon className="w-3.5 h-3.5" />}
+                    WhatsApp
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+          {/* THE single container: everything below the strip is the document */}
+          <DocZoomSurface
+            paperWidth={PAPER_WIDTH_PX[previewPaperSize] || 794}
+            fitCap={1}
+            className="min-h-0 w-full flex-1 bg-white"
+          >
+            <InvoiceTemplateRenderer
+              business={business}
+              customer={previewCustomer}
+              form={form}
+              items={items}
+              totals={totals}
+              discountPercent={discountEnabled ? discountPercent : "0"}
+              taxMode={form.taxMode}
+              type={invoiceType}
+              invoiceNumber={form.invoiceNumber}
+              paperSize={previewPaperSize}
+              template={previewTemplate}
+            />
+          </DocZoomSurface>
+        </div>
+      )}
+      {!pdfScreen && (
       <div className="max-w-[1900px] mx-auto px-4 sm:px-5 lg:px-6 py-3 sm:py-4 lg:py-5">
         {/* In-flow header (same pattern as the View Invoices list page) — it
             scrolls away with the content instead of staying pinned; the user
@@ -972,6 +1177,12 @@ export default function InvoiceView() {
             }`}>
               {invoiceType === "PROFORMA_INVOICE" ? "Proforma" : "Tax"} Invoice
             </span>
+            {isMobile && (
+              <button type="button" onClick={() => setMobileScreen("pdf")} title="View PDF" aria-label="View PDF"
+                className="flex items-center justify-center w-9 h-9 rounded-full bg-indigo-600 text-white hover:bg-indigo-700 transition-all shadow-sm">
+                <FileText className="w-4 h-4" />
+              </button>
+            )}
             <button type="button" onClick={shareViaWhatsApp} disabled={sealRequired || !!busyAction} title="Share on WhatsApp" aria-label="Share on WhatsApp"
               className="flex items-center justify-center w-9 h-9 rounded-full bg-[#25D366] text-white hover:bg-[#1ebe5b] disabled:opacity-60 transition-all shadow-sm">
               {busyAction === "whatsapp" ? <Spinner size={18} /> : <WhatsAppIcon className="w-5 h-5" />}
@@ -1555,9 +1766,9 @@ export default function InvoiceView() {
                       <Edit3 className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
                       <span className="text-xs sm:text-sm font-semibold whitespace-nowrap">Edit</span>
                     </button>
-                    <button onClick={() => viewPDF(invoiceType)} disabled={sealRequired || !!busyAction} title="View PDF"
+                    <button onClick={openViewer} disabled={sealRequired || !!busyAction} title="View PDF"
                       className="min-w-0 flex items-center justify-center gap-1 sm:gap-1.5 px-1.5 sm:px-3 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-all shadow-sm">
-                      {busyAction === "view" ? <Spinner size={14} className="shrink-0" /> : <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />}
+                      <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
                       <span className="text-xs sm:text-sm font-semibold whitespace-nowrap">View</span>
                     </button>
                     <button onClick={() => setShowShareSheet(true)} disabled={!!busyAction} title="Share"
@@ -1689,41 +1900,74 @@ export default function InvoiceView() {
           </div>
         </div>
       </div>
+      )}
 
-      {showPdfPreview && pdfPreviewUrl && (
-        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-0 sm:p-4" onClick={() => { setShowPdfPreview(false); URL.revokeObjectURL(pdfPreviewUrl.split("#")[0]); setPdfPreviewUrl(null); }}>
-          <div className="bg-white shadow-xl border-slate-200 w-full flex flex-col rounded-none sm:rounded-2xl sm:border h-full sm:h-[90vh] max-w-full sm:max-w-4xl" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-200 flex-shrink-0 gap-2">
+      {showPdfPreview && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[1200] flex items-center justify-center p-0 sm:p-4" onClick={() => setShowPdfPreview(false)}>
+          <div className="bg-white shadow-xl w-full flex flex-col rounded-none sm:rounded-2xl sm:border border-slate-200 h-full sm:h-[92vh] max-w-full sm:max-w-5xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-3 sm:px-6 py-3 border-b border-slate-200 flex-shrink-0 gap-2">
               <div className="flex items-center gap-2.5 min-w-0">
                 <FileText className="w-5 h-5 text-indigo-600 shrink-0" />
-                <h2 className="text-sm font-bold text-slate-800 truncate">Invoice PDF</h2>
+                <div className="min-w-0">
+                  <h2 className="text-sm font-bold text-slate-800 truncate font-mono">{form.invoiceNumber || "Draft"}</h2>
+                  <p className="text-xs text-slate-400 truncate">
+                    {invoiceType === "PROFORMA_INVOICE" ? "Proforma Invoice" : "Tax Invoice"}
+                    {form.customerName ? ` · ${form.customerName}` : ""} · Rs. {fmt(totals.grandTotal)}
+                  </p>
+                </div>
               </div>
               <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-                <button onClick={() => setShowShareSheet(true)} disabled={!!busyAction}
+                <button onClick={() => setShowShareSheet(true)} disabled={!!busyAction} title="Share"
                   className="flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-indigo-600 text-white text-xs sm:text-sm font-semibold rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-all shadow-sm">
                   <Share2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span className="hidden sm:inline">Share</span>
                 </button>
-                <button onClick={printPreviewPdf} disabled={!!busyAction} title="Print PDF"
+                <button onClick={printFromPreview} disabled={!!busyAction} title="Print PDF"
                   className="flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-slate-800 text-white text-xs sm:text-sm font-semibold rounded-lg hover:bg-slate-700 disabled:opacity-50 transition-all shadow-sm">
-                  <Printer className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span className="hidden sm:inline">Print</span>
+                  {busyAction === "print-preview"
+                    ? <Spinner size={16} className="shrink-0" />
+                    : <Printer className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
+                  <span className="hidden sm:inline">Print</span>
                 </button>
-                <button onClick={() => { setShowPdfPreview(false); setPdfPreviewUrl(null); }}
+                <button onClick={() => downloadPDF(invoiceType)} disabled={sealRequired || !!busyAction} title="Download PDF"
+                  className="flex items-center gap-1.5 px-3 sm:px-4 py-2 border border-slate-300 text-slate-700 text-xs sm:text-sm font-semibold rounded-lg hover:bg-slate-50 disabled:opacity-50 transition-all">
+                  <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span className="hidden sm:inline">Download</span>
+                </button>
+                <button onClick={() => setShowPdfPreview(false)} aria-label="Close PDF preview"
                   className="p-2 hover:bg-slate-100 rounded-lg transition-colors text-slate-400 hover:text-slate-600">
                   <X className="w-5 h-5" />
                 </button>
               </div>
             </div>
-            <div className="flex-1 p-2 sm:p-4 bg-slate-100/50">
-              <embed src={pdfPreviewUrl} className="w-full h-full rounded-lg border border-slate-200" type="application/pdf" />
-            </div>
+            {/* Live zoomable document — opens instantly (no <embed>, no blob);
+                pinch/ctrl+wheel/double-click own the zoom, page behind is
+                scroll-locked and this modal sits above nav + tab bar. */}
+            <DocZoomSurface
+              paperWidth={PAPER_WIDTH_PX[previewPaperSize] || 794}
+              fitCap={1}
+              className="min-h-0 w-full flex-1 bg-slate-200/60"
+            >
+              <InvoiceTemplateRenderer
+                business={business}
+                customer={previewCustomer}
+                form={form}
+                items={items}
+                totals={totals}
+                discountPercent={discountEnabled ? discountPercent : "0"}
+                taxMode={form.taxMode}
+                type={invoiceType}
+                invoiceNumber={form.invoiceNumber}
+                paperSize={previewPaperSize}
+                template={previewTemplate}
+              />
+            </DocZoomSurface>
           </div>
         </div>
       )}
 
       {showShareSheet && (
-        <div className="fixed inset-0 z-[1100] bg-black/40 backdrop-blur-[2px] flex items-end sm:items-center justify-center" onClick={() => !shareBusy && setShowShareSheet(false)}>
+        <div className="fixed inset-0 z-[1300] bg-black/40 backdrop-blur-[2px] flex items-end sm:items-center justify-center" onClick={() => !shareBusy && setShowShareSheet(false)}>
           <div
-            className="w-full sm:max-w-md bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl border border-slate-200 pb-[max(env(safe-area-inset-bottom),16px)] sm:pb-4"
+            className="w-full sm:max-w-md bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl border border-slate-200 max-h-[85dvh] overflow-y-auto pb-[max(env(safe-area-inset-bottom),16px)] sm:pb-4"
             onClick={(e) => e.stopPropagation()}
             role="dialog"
             aria-modal="true"

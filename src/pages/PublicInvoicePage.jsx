@@ -218,7 +218,7 @@ export default function PublicInvoicePage() {
   // a watch-sized viewport, and CAPPED so a wide monitor shows the sheet as a
   // page with breathing room instead of a 2.4x wall of type bleeding off both
   // edges (the customer's PDF-in-hand reference is a page, not a mural).
-  const MAX_FIT_SCALE = 0.7;
+  const MAX_FIT_SCALE = 0.9;
   const fitScale = containerW ? Math.min(MAX_FIT_SCALE, Math.max(0.2, containerW / widthPx)) : 1;
 
   // Measure the paper's natural (unscaled) height so the layout container can

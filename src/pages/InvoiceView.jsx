@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import LoadingDots from "../components/LoadingDots";
 import Spinner from "../components/Spinner";
 import PageHeader from "../components/PageHeader";
-import { invoiceAPI, businessAPI, customerAPI, waitForInvoiceEmail } from "../api/auth";
+import { invoiceAPI, businessAPI, customerAPI } from "../api/auth";
 import toast from "react-hot-toast";
 import { ArrowLeft, Download, Save, Edit3, Plus, Trash2, FileText, AlertCircle, User, Building2, Phone, MapPin, Hash, Package, Mail, Globe, X, Share2, Smartphone, Link2, Copy, RotateCw, Unlink, ChevronDown, Printer, MessageSquare } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
@@ -400,12 +400,12 @@ export default function InvoiceView() {
       setEmailBusy(false);
       return;
     }
-    // Link ready — release the button; the document render and the backend's
-    // queued provider call both continue detached so the UI never waits.
+    // Link ready — release the button; the document render + SMTP round-trip
+    // continues detached so the UI never waits for it.
     setEmailBusy(false);
     if (emailJobRef.current) return;
     emailJobRef.current = true;
-    toast("Invoice email queued — sending in the background", { icon: "📨" });
+    toast("Preparing the invoice email in the background", { icon: "📨" });
     (async () => {
       // Build the SAME PDF the Download button produces (it reads the
       // seal/stamp preference from localStorage) and attach it, so the
@@ -423,21 +423,10 @@ export default function InvoiceView() {
         releaseCapture();
       }
       const res = await invoiceAPI.sendInvoiceEmail(id, window.location.origin, pdfFile);
-      const queuedTo = res.data?.data?.recipient || form.customerEmail || "the customer";
       const attachNote = pdfFile ? ` — PDF attached (${Math.round(pdfFile.size / 1024)} KB)` : "";
-      toast.success((res.data?.message || `Invoice email queued for ${queuedTo}`) + attachNote);
+      toast.success((res.data?.message || "Invoice emailed to the customer") + attachNote);
       if (!pdfFile) {
         toast("Emailed WITHOUT the PDF attachment — the render failed; see the browser console", { icon: "⚠️" });
-      }
-      // The POST only QUEUES (async Resend dispatch on the backend): wait for
-      // the delivery verdict instead of claiming success up-front.
-      const verdict = await waitForInvoiceEmail(id);
-      if (verdict.status === "SENT") {
-        toast.success(`Invoice email delivered to ${queuedTo}`);
-      } else if (verdict.status === "FAILED") {
-        toast.error(`Invoice email to ${queuedTo} failed${verdict.error ? ` — ${verdict.error}` : ""}`);
-      } else if (verdict.status === "TIMEOUT") {
-        toast(`Invoice email to ${queuedTo} is still processing — try Send Email again in a moment to check`, { icon: "⏳" });
       }
     })()
       .catch((err) => {

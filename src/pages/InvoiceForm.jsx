@@ -3,7 +3,7 @@ import { useLocation } from "react-router-dom";
 import LoadingDots from "../components/LoadingDots";
 import Spinner from "../components/Spinner";
 import PageHeader from "../components/PageHeader";
-import { invoiceAPI, customerAPI, businessAPI, productAPI, deliveryChallanAPI, waitForInvoiceEmail } from "../api/auth";
+import { invoiceAPI, customerAPI, businessAPI, productAPI, deliveryChallanAPI } from "../api/auth";
 import toast from "react-hot-toast";
 import {
   ArrowLeft, Plus, Trash2, Zap, FileText, Download,
@@ -869,20 +869,9 @@ export default function InvoiceForm() {
       const pdfFile = await buildTaxInvoicePdfFile(invNo);
       await invoiceAPI.sendInvoiceEmail(invoiceId, window.location.origin, pdfFile);
       const attachNote = pdfFile ? ` — PDF attached (${Math.round(pdfFile.size / 1024)} KB)` : "";
-      // The POST only QUEUES — the backend dispatches to Resend on an async
-      // thread (see waitForInvoiceEmail in api/auth.js).
-      toast.success(`Tax Invoice ${invNo} queued for ${email}${attachNote}`);
+      toast.success(`Tax Invoice ${invNo} emailed to ${email}${attachNote}`);
       if (!pdfFile) {
         toast("Emailed WITHOUT the PDF attachment — the render failed; see the browser console", { icon: "⚠️" });
-      }
-      // Wait for the delivery verdict instead of claiming success up-front.
-      const verdict = await waitForInvoiceEmail(invoiceId);
-      if (verdict.status === "SENT") {
-        toast.success(`Tax Invoice ${invNo} emailed to ${email}`);
-      } else if (verdict.status === "FAILED") {
-        toast.error(`Tax Invoice ${invNo} email failed${verdict.error ? ` — ${verdict.error}` : ""}`);
-      } else if (verdict.status === "TIMEOUT") {
-        toast(`Tax Invoice ${invNo} email is still processing — try Send Email again in a moment`, { icon: "⏳" });
       }
     })()
       .catch((err) => {

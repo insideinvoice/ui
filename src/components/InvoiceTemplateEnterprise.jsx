@@ -115,9 +115,13 @@ const Letterhead = ({ business, title, subNote, headH }) => {
   const addr1 = [business?.addressLine1, business?.addressLine2].filter(Boolean).join(", ");
   const addr2 = [business?.city, business?.state, business?.pincode ? "-" + business.pincode : ""]
     .filter(Boolean).join(", ");
+  // GSTIN · phone · email share ONE contact line (the email used to start on a
+  // separate line directly under the phone — that line-break is what made it
+  // look pasted-on/underlined in the rendered invoice).
   const contact = [
     business?.gstIn ? `GSTIN: ${business.gstIn}` : "",
     business?.phone ? `Ph: ${business.phone}` : "",
+    business?.email || "",
   ].filter(Boolean).join("  ·  ");
   const specialist = getSpecialistInLine(business);
 
@@ -148,9 +152,6 @@ const Letterhead = ({ business, title, subNote, headH }) => {
           ))}
           {contact && (
             <div style={{ fontSize: "9.5px", color: MUTED, lineHeight: "13px", overflowWrap: "anywhere", wordBreak: "break-word" }}>{contact}</div>
-          )}
-          {business?.email && (
-            <div style={{ fontSize: "9.5px", color: MUTED, lineHeight: "13px", overflowWrap: "anywhere", wordBreak: "break-word" }}>{business.email}</div>
           )}
           {specialist && (
             <div style={{ fontSize: "9px", fontWeight: 700, letterSpacing: "0.8px", lineHeight: "12px", marginTop: "2px", overflowWrap: "anywhere", wordBreak: "break-word" }}>
@@ -204,8 +205,8 @@ const PartyCell = ({ label, children }) => (
   </div>
 );
 
-const InfoLine = ({ children }) => (
-  <div style={{ fontSize: "9.5px", color: MUTED, lineHeight: "13px", wordBreak: "break-word" }}>{children}</div>
+const InfoLine = ({ children, size }) => (
+  <div style={{ fontSize: size || "9.5px", color: MUTED, lineHeight: "13px", wordBreak: "break-word" }}>{children}</div>
 );
 
 const PartyRow = ({
@@ -218,6 +219,15 @@ const PartyRow = ({
     ["Payment Terms", form?.paymentTerms || "-", false],
     ["Place of Supply", form?.placeOfSupply || "-", false],
   ];
+
+  // "Ph: … · email" must START on the same line as the phone inside the
+  // equal-third Bill To cell (213px of content). Step the font down by text
+  // length so a long phone+email stays on ONE line instead of wrapping — the
+  // email starting a line below the phone read as an underline artifact.
+  // Measured widths: 40ch@9.5 ≈ 207px · 44ch@8.5 ≈ 203px · 52ch@7.5 ≈ 212px.
+  const billToContact = `Ph: ${customer?.phone || "-"}${customer?.email ? ` · ${customer.email}` : ""}`;
+  const billToContactSize = billToContact.length > 44 ? "7.5px"
+    : billToContact.length > 40 ? "8.5px" : undefined;
 
   return (
     <div style={{
@@ -241,7 +251,7 @@ const PartyRow = ({
           {customer?.name || "Customer Name"}
         </div>
         <InfoLine>{[customer?.billingAddress].filter(Boolean).join(", ") || "-"}</InfoLine>
-        <InfoLine>Ph: {customer?.phone || "-"}{customer?.email ? ` · ${customer.email}` : ""}</InfoLine>
+        <InfoLine size={billToContactSize}>{billToContact}</InfoLine>
         <InfoLine>GSTIN: {customer?.gstIn || "-"}</InfoLine>
         <InfoLine>State: {customer?.state || "-"}</InfoLine>
       </PartyCell>

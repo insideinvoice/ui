@@ -176,8 +176,15 @@ const InvoiceTemplateVariants = React.memo(React.forwardRef(({ theme, business, 
       <div style={{ fontSize: baseFS, lineHeight: "1.45" }}>
         {[business?.city, business?.state, business?.pincode].filter(Boolean).join(", ")}
       </div>
-      {business?.phone ? <div style={{ fontSize: baseFS, lineHeight: "1.45" }}>Ph: {business.phone}</div> : null}
-      {business?.email ? <div style={{ fontSize: baseFS, lineHeight: "1.45" }}>{business.email}</div> : null}
+      {/* phone and email share one line — an email on its own line under the
+          phone read as an underlined/pasted-on artifact in the rendered doc */}
+      {(business?.phone || business?.email) ? (
+        <div style={{ fontSize: baseFS, lineHeight: "1.45" }}>
+          {business?.phone ? `Ph: ${business.phone}` : ""}
+          {business?.phone && business?.email ? " · " : ""}
+          {business?.email || ""}
+        </div>
+      ) : null}
       {business?.gstIn ? <div style={{ fontSize: baseFS, lineHeight: "1.45" }}>GSTIN/UIN: {business.gstIn}</div> : null}
       {business?.state ? <div style={{ fontSize: baseFS, lineHeight: "1.45" }}>State: {business.state} Code: {business.gstIn?.substring(0, 2) || ""}</div> : null}
       </div>
@@ -198,8 +205,13 @@ const InvoiceTemplateVariants = React.memo(React.forwardRef(({ theme, business, 
         {customer?.name || "Customer Name"}
       </div>
       {customer?.billingAddress ? <div style={{ fontSize: baseFS, lineHeight: "1.45" }}>{customer.billingAddress}</div> : null}
-      {customer?.phone ? <div style={{ fontSize: baseFS, lineHeight: "1.45" }}>Ph: {customer.phone}</div> : null}
-      {customer?.email ? <div style={{ fontSize: baseFS, lineHeight: "1.45" }}>{customer.email}</div> : null}
+      {(customer?.phone || customer?.email) ? (
+        <div style={{ fontSize: baseFS, lineHeight: "1.45" }}>
+          {customer?.phone ? `Ph: ${customer.phone}` : ""}
+          {customer?.phone && customer?.email ? " · " : ""}
+          {customer?.email || ""}
+        </div>
+      ) : null}
       {customer?.gstIn ? <div style={{ fontSize: baseFS, lineHeight: "1.45" }}>GSTIN/UIN: {customer.gstIn}</div> : null}
       {customer?.state ? <div style={{ fontSize: baseFS, lineHeight: "1.45" }}>State: {customer.state}</div> : null}
     </div>
@@ -608,12 +620,12 @@ const InvoiceTemplateVariants = React.memo(React.forwardRef(({ theme, business, 
                   <div style={{ fontSize: "9px", color: "rgba(255,255,255,0.75)", lineHeight: "1.5" }}>
                     {[business?.city, business?.state, business?.pincode].filter(Boolean).join(", ")}
                   </div>
-                  <div style={{ fontSize: "9px", color: "rgba(255,255,255,0.75)", lineHeight: "1.5", marginTop: "4px" }}>
-                    {business?.phone ? `Ph: ${business.phone}` : ""}
-                  </div>
-                  <div style={{ fontSize: "9px", color: "rgba(255,255,255,0.75)", lineHeight: "1.5" }}>
-                    {business?.email || ""}
-                  </div>
+                  {/* phone and email share one line — see the seller block rule */}
+                  {(business?.phone || business?.email) ? (
+                    <div style={{ fontSize: "9px", color: "rgba(255,255,255,0.75)", lineHeight: "1.5", marginTop: "4px" }}>
+                      {[business?.phone ? `Ph: ${business.phone}` : "", business?.email || ""].filter(Boolean).join(" · ")}
+                    </div>
+                  ) : null}
                   <div style={{ fontSize: "9px", color: "rgba(255,255,255,0.75)", lineHeight: "1.5" }}>
                     {business?.gstIn ? `GST: ${business.gstIn}` : ""}
                   </div>

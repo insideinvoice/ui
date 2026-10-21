@@ -183,8 +183,15 @@ const InvoicePDF = React.memo(React.forwardRef(({ business, customer, form, item
                       {getSpecialistInLine(business) ? (
                         <div style={{ fontSize: "10px", lineHeight: "1.45" }}>SPECIALIST IN : {getSpecialistInLine(business)}</div>
                       ) : null}
-                      {business?.phone ? <div style={{ fontSize: "10px", lineHeight: "1.45" }}>Ph: {business.phone}</div> : null}
-                      {business?.email ? <div style={{ fontSize: "10px", lineHeight: "1.45" }}>{business.email}</div> : null}
+                      {/* phone and email share one line (see seller block in
+                          InvoiceTemplateVariants — same rule everywhere) */}
+                      {(business?.phone || business?.email) ? (
+                        <div style={{ fontSize: "10px", lineHeight: "1.45" }}>
+                          {business?.phone ? `Ph: ${business.phone}` : ""}
+                          {business?.phone && business?.email ? " · " : ""}
+                          {business?.email || ""}
+                        </div>
+                      ) : null}
                       {business?.gstIn ? <div style={{ fontSize: "10px", lineHeight: "1.45" }}>GSTIN/UIN: {business.gstIn}</div> : null}
                       {business?.state ? <div style={{ fontSize: "10px", lineHeight: "1.45" }}>State: {business.state} Code: {business.gstIn?.substring(0, 2) || ""}</div> : null}
                         </div>
@@ -200,8 +207,13 @@ const InvoicePDF = React.memo(React.forwardRef(({ business, customer, form, item
                         {customer?.name || "Customer Name"}
                       </div>
                       {customer?.billingAddress ? <div style={{ fontSize: "10px", lineHeight: "1.45" }}>{customer.billingAddress}</div> : null}
-                      {customer?.phone ? <div style={{ fontSize: "10px", lineHeight: "1.45" }}>Ph: {customer.phone}</div> : null}
-                      {customer?.email ? <div style={{ fontSize: "10px", lineHeight: "1.45" }}>{customer.email}</div> : null}
+                      {(customer?.phone || customer?.email) ? (
+                        <div style={{ fontSize: "10px", lineHeight: "1.45" }}>
+                          {customer?.phone ? `Ph: ${customer.phone}` : ""}
+                          {customer?.phone && customer?.email ? " · " : ""}
+                          {customer?.email || ""}
+                        </div>
+                      ) : null}
                       {customer?.gstIn ? <div style={{ fontSize: "10px", lineHeight: "1.45" }}>GSTIN/UIN: {customer.gstIn}</div> : null}
                       {customer?.state ? <div style={{ fontSize: "10px", lineHeight: "1.45" }}>State: {customer.state}</div> : null}
                     </td>

@@ -205,8 +205,8 @@ const PartyCell = ({ label, children }) => (
   </div>
 );
 
-const InfoLine = ({ children, size }) => (
-  <div style={{ fontSize: size || "9.5px", color: MUTED, lineHeight: "13px", wordBreak: "break-word" }}>{children}</div>
+const InfoLine = ({ children }) => (
+  <div style={{ fontSize: "9.5px", color: MUTED, lineHeight: "13px", wordBreak: "break-word" }}>{children}</div>
 );
 
 const PartyRow = ({
@@ -219,15 +219,6 @@ const PartyRow = ({
     ["Payment Terms", form?.paymentTerms || "-", false],
     ["Place of Supply", form?.placeOfSupply || "-", false],
   ];
-
-  // "Ph: … · email" must START on the same line as the phone inside the
-  // equal-third Bill To cell (213px of content). Step the font down by text
-  // length so a long phone+email stays on ONE line instead of wrapping — the
-  // email starting a line below the phone read as an underline artifact.
-  // Measured widths: 40ch@9.5 ≈ 207px · 44ch@8.5 ≈ 203px · 52ch@7.5 ≈ 212px.
-  const billToContact = `Ph: ${customer?.phone || "-"}${customer?.email ? ` · ${customer.email}` : ""}`;
-  const billToContactSize = billToContact.length > 44 ? "7.5px"
-    : billToContact.length > 40 ? "8.5px" : undefined;
 
   return (
     <div style={{
@@ -251,7 +242,11 @@ const PartyRow = ({
           {customer?.name || "Customer Name"}
         </div>
         <InfoLine>{[customer?.billingAddress].filter(Boolean).join(", ") || "-"}</InfoLine>
-        <InfoLine size={billToContactSize}>{billToContact}</InfoLine>
+        {/* Phone and email each get their OWN line at the normal size —
+            packing them into one line forced shrink-to-fit text that was
+            unreadable in the equal-third cell. */}
+        <InfoLine>Ph: {customer?.phone || "-"}</InfoLine>
+        {customer?.email && <InfoLine>{customer.email}</InfoLine>}
         <InfoLine>GSTIN: {customer?.gstIn || "-"}</InfoLine>
         <InfoLine>State: {customer?.state || "-"}</InfoLine>
       </PartyCell>

@@ -243,6 +243,15 @@ div:has(> label + input[type="date"]) {
     display: flex;
   }
 
+  /* Height pinned in BOTH states: the X is 36px tall whether folded or open,
+     so the header row — and everything below it — never resizes. Without the
+     always-on pin, the collapsed-rule pin vanishes the moment the class
+     flips and the row grows 32→36 as the padding transitions, pushing the
+     whole nav down 4px mid-animation. */
+  .rail-expanded-toggle {
+    height: 36px;
+  }
+
   /* ---- Smooth open/close: every state change below shares ONE duration and
      curve — the same cubic-bezier Tailwind's ease-out uses — so the panel
      width, the page offset, the label reveal and the header unfold move in
@@ -265,17 +274,17 @@ div:has(> label + input[type="date"]) {
       padding 200ms cubic-bezier(0, 0, 0.2, 1), color 150ms ease,
       background-color 150ms ease;
   }
-  /* Labels never display:none — they clip to zero width/height and fade in
-     sync with the panel. nowrap keeps each label on ONE line so it uncovers
-     smoothly instead of re-wrapping as the width animates (border-box makes
-     max-height: 0 a true zero-height, padding included). */
+  /* Labels never display:none — they clip to zero width and fade in sync
+     with the panel. HEIGHT never animates: the Admin badge and the logo text
+     keep their exact height in BOTH states, so the header band and the nav
+     below it never move vertically — opening/closing reveals HORIZONTALLY
+     only, like ChatGPT. nowrap keeps each label on ONE line so it uncovers
+     smoothly instead of re-wrapping as the width animates. */
   .rail-hide {
     overflow: hidden;
     white-space: nowrap;
     max-width: 12rem;
-    max-height: 4rem;
-    transition: max-width 200ms cubic-bezier(0, 0, 0.2, 1),
-      max-height 200ms cubic-bezier(0, 0, 0.2, 1), opacity 150ms ease;
+    transition: max-width 200ms cubic-bezier(0, 0, 0.2, 1), opacity 150ms ease;
   }
 
   html.rail-collapsed aside.app-side-nav {
@@ -298,11 +307,12 @@ div:has(> label + input[type="date"]) {
 
   html.rail-collapsed .rail-hide {
     max-width: 0;
-    max-height: 0;
     opacity: 0;
-    /* The Admin badge's mt-2 must go too — a zero-height box still carries
-       its margin, which would make the collapsed header 8px taller. */
-    margin-top: 0;
+    /* Deliberately NO max-height / margin-top collapse: the Admin badge keeps
+       its band in the collapsed rail too, so the header is the SAME height in
+       both states and the nav never shifts vertically on toggle. An earlier
+       version clipped the badge's height and made the whole sidebar content
+       glide down ~25px as it opened. */
   }
 
   /* Collapsed rail header: tighter padding so the logo fits in 64px */
@@ -325,7 +335,9 @@ div:has(> label + input[type="date"]) {
   }
 
   /* The X folds away (width + opacity) instead of display:none popping it
-     out of the row in one frame; overflow clips its 20px icon as it shrinks. */
+     out of the row in one frame; overflow clips its 20px icon as it shrinks.
+     Height stays pinned by the always-on .rail-expanded-toggle rule above —
+     only the WIDTH may move. */
   html.rail-collapsed .rail-expanded-toggle {
     width: 0;
     padding: 0;

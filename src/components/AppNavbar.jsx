@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef, memo } from "react";
+import { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef, memo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import {
@@ -162,13 +162,86 @@ export default memo(function AppNavbar() {
   }, []);
   useNavbarHeightVar();
 
-  useEffect(() => {
+  const prevRailCollapsedRef = useRef(railCollapsed);
+
+  // MUST be a layout effect: the class flip (margin jumps to its target) and
+  // the inverse transform compensation have to land in the SAME paint. As a
+  // passive effect the browser could paint the jumped margin for a frame or
+  // two before the transform snaps the content back — a visible
+  // teleport/glitch that reads as "stuck" right before the slide begins.
+  useLayoutEffect(() => {
     const root = document.documentElement;
     root.classList.toggle("rail-collapsed", railMode && railCollapsed);
     root.classList.toggle("rail-expanded", railExpanded);
-    return () => {
+
+    // ---- ChatGPT-style content slide (desktop rail widths only) ----
+    // The class flip above moved .app-shell's margin-left to its TARGET in a
+    // SINGLE reflow — no per-frame layout of the page content (animating
+    // margin-left re-laid-out charts/tables/forms every frame = jank). The
+    // slide is pure compositor work instead: compensate the visual jump with
+    // an inverse transform in this same frame, then release the transform so
+    // it glides on the same curve/duration as the panel's width transition
+    // (both defined in index.css — keep the JS strip timeout above the CSS
+    // duration). Read the current tx so a re-toggle mid-slide continues from
+    // wherever it is instead of snapping.
+    const toggled = prevRailCollapsedRef.current !== railCollapsed;
+    prevRailCollapsedRef.current = railCollapsed;
+    const clearRootClasses = () => {
       root.classList.remove("rail-collapsed");
       root.classList.remove("rail-expanded");
+    };
+    if (!railMode || !toggled) return clearRootClasses;
+
+    const shell = document.querySelector(".app-shell");
+    if (!shell) return clearRootClasses;
+    const currentTx = new DOMMatrixReadOnly(
+      getComputedStyle(shell).transform || "none"
+    ).m41;
+    // rem-based, same as the CSS rail widths (4rem collapsed / 15rem expanded).
+    const rem = parseFloat(getComputedStyle(root).fontSize) || 16;
+    const delta = (15 - 4) * rem;
+    // Clean toggle: the layout has just jumped from the OTHER state's static
+    // position — start the visual THERE (∓delta) and glide to 0. A re-toggle
+    // mid-slide keeps the current visual (currentTx) so motion reverses
+    // smoothly instead of snapping.
+    const startTx = currentTx !== 0 ? currentTx : railCollapsed ? delta : -delta;
+    // Synchronous FLIP: invert, flush, release - all before this commit's
+    // paint, so the content glide and the panel's width transition start on
+    // the SAME frame (a rAF-delayed release lagged 2 frames, up to ~35px
+    // behind the panel edge mid-flight). The flush is a one-time reflow.
+    // Promote the shell to its own compositor layer BEFORE the glide starts -
+    // without this, the first glide frames rasterize lazily and heavy pages
+    // (items tables, charts) stutter mid-slide.
+    shell.style.willChange = "transform";
+    shell.style.transition = "none";
+    shell.style.transform = `translateX(${startTx}px)`;
+    void shell.offsetWidth; // flush the inverted position as the start value
+    shell.style.transition = "";
+    shell.style.transform = "";
+
+    // Opening: the content's right edge sits `delta` short of the viewport
+    // while translated back to its old position — fill that strip with the
+    // page background (z-index:-1 paints over the canvas but under the app).
+    // Closing needs no strip: the fixed sidebar itself covers the gap.
+    let strip = null;
+    if (!railCollapsed) {
+      strip = document.createElement("div");
+      strip.className = "rail-slide-strip";
+      document.body.appendChild(strip);
+    }
+
+    // Both the strip and the will-change promotion outlive the slide
+    // (--rail-dur in index.css) by a small buffer: the covered gap can never
+    // flash early, and the compositor layer is dropped once gliding ends.
+    const stripTimer = setTimeout(() => {
+      strip?.remove();
+      shell.style.willChange = "";
+    }, 340);
+    return () => {
+      clearTimeout(stripTimer);
+      strip?.remove();
+      shell.style.willChange = "";
+      clearRootClasses();
     };
   }, [railMode, railCollapsed, railExpanded]);
 
@@ -268,49 +341,56 @@ export default memo(function AppNavbar() {
       <div className="rail-head px-4 py-4 border-b border-slate-100">
         <div className="rail-head-row flex items-center justify-between gap-2">
           <div
-            className="rail-logo-wrap"
+            className="rail-logo-wrap relative min-w-0"
             onMouseEnter={handleRailLogoMouseEnter}
             onMouseLeave={handleRailLogoMouseLeave}
             onFocus={handleRailLogoFocus}
             onBlur={handleRailLogoBlur}
           >
-            {railCollapsed && railLogoHovered ? (
-              <button
-                type="button"
-                onClick={() => {
-                  setRailCollapsed(false);
-                  setRailLogoHovered(false);
-                  setRailTip(null);
-                }}
-                aria-label="Expand sidebar"
-                className="rail-logo-toggle rail-toggle items-center justify-center rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors"
-              >
-                <Menu className="w-5 h-5" />
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => handleNav("/dashboard")}
-                className="rail-logo flex items-center gap-2.5 hover:opacity-80 transition-opacity min-w-0"
-              >
-                <img
-                  src={insideInvoiceLogo}
-                  alt="Inside Invoice"
-                  className="w-8 h-8 shrink-0"
-                />
-                <div className="flex flex-col rail-hide">
-                  <span
-                    className="font-bold text-slate-800 text-sm leading-tight"
-                    style={{ fontFamily: "'Space Grotesk', sans-serif" }}
-                  >
-                    Inside Invoice
-                  </span>
-                  <span className="text-[8px] text-slate-500 font-medium tracking-widest text-left">
-                    BY GRITX
-                  </span>
-                </div>
-              </button>
-            )}
+            {/* Logo button stays mounted in BOTH rail states — the old
+                swap (menu button <-> logo) popped the head contents in a
+                single frame mid-animation. The collapsed-rail hamburger is
+                an overlay that crossfades above it instead. */}
+            <button
+              type="button"
+              onClick={() => handleNav("/dashboard")}
+              className="rail-logo flex items-center gap-2.5 hover:opacity-80 transition-opacity min-w-0"
+            >
+              <img
+                src={insideInvoiceLogo}
+                alt="Inside Invoice"
+                className="w-8 h-8 shrink-0"
+              />
+              <div className="flex flex-col rail-hide">
+                <span
+                  className="font-bold text-slate-800 text-sm leading-tight"
+                  style={{ fontFamily: "'Space Grotesk', sans-serif" }}
+                >
+                  Inside Invoice
+                </span>
+                <span className="text-[8px] text-slate-500 font-medium tracking-widest text-left">
+                  BY GRITX
+                </span>
+              </div>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setRailCollapsed(false);
+                setRailLogoHovered(false);
+                setRailTip(null);
+              }}
+              aria-label="Expand sidebar"
+              aria-hidden={!(railCollapsed && railLogoHovered)}
+              tabIndex={railCollapsed ? 0 : -1}
+              className={`rail-logo-toggle rail-toggle absolute left-0 top-1/2 -translate-y-1/2 items-center justify-center rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-opacity duration-150 ease-out ${
+                railCollapsed && railLogoHovered
+                  ? "opacity-100"
+                  : "opacity-0 pointer-events-none"
+              }`}
+            >
+              <Menu className="w-5 h-5" />
+            </button>
           </div>
           <button
             type="button"
@@ -403,7 +483,7 @@ export default memo(function AppNavbar() {
     <>
       {/* ===== DESKTOP SIDEBAR (md+) ===== */}
       <aside
-        className="app-side-nav hidden md:flex md:flex-col md:fixed md:inset-y-0 md:left-0 md:z-50 md:w-60 md:bg-white md:border-r md:border-slate-200 transition-[width] duration-200 ease-out"
+        className="app-side-nav hidden md:flex md:flex-col md:fixed md:inset-y-0 md:left-0 md:z-50 md:w-60 md:bg-white md:border-r md:border-slate-200 transition-[width] duration-300 ease-out"
       >
         {sidebarContent}
         {railTip && (

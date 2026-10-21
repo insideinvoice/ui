@@ -53,6 +53,7 @@ import DeliveryChallanView from "./pages/DeliveryChallanView";
 import MorePage from "./pages/MorePage";
 import PublicInvoicePage from "./pages/PublicInvoicePage";
 import ZoomLab from "./pages/ZoomLab";
+import RailLab from "./pages/__RailLab"; // TEMP rail bench — remove
 import SeoHead from "./components/SeoHead";
 
 function ScrollToTop() {
@@ -85,6 +86,8 @@ const PUBLIC_PATHS = [
   "/qr-generator", "/barcode-generator", "/business-card",
   // Dev-only zoom gesture bench (route only exists when import.meta.env.DEV).
   "/__zoomlab",
+  // TEMP rail sidebar bench — remove.
+  "/__raillab",
 ];
 
 function isPublicPath(pathname) {
@@ -127,6 +130,7 @@ function AppRoutes() {
       <Route path="/i/:shareToken" element={<PublicInvoicePage />} />
       {/* Dev-only DocZoomSurface gesture bench for scripts/zoomGesture.test.mjs */}
       {import.meta.env.DEV && <Route path="/__zoomlab" element={<ZoomLab />} />}
+      {import.meta.env.DEV && <Route path="/__raillab" element={<RailLab />} />}
       <Route path="/business-setup" element={<PrivateRoute><BusinessSetup /></PrivateRoute>} />
       <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
       <Route path="/invoice" element={<PrivateRoute><InvoiceForm /></PrivateRoute>} />

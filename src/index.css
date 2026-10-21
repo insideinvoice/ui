@@ -237,41 +237,72 @@ div:has(> label + input[type="date"]) {
   padding: 0;
   background: #ffffff;
 }
-
 @media (min-width: 768px) and (max-width: 1535.98px) {
+  /* ONE motion language for the whole rail: a balanced accelerate/decelerate
+     curve (the Notion/Linear-family standard) over 350ms — a deliberate,
+     medium-pace glide (250ms read as "too fast"). JS reads these vars too
+     (AppNavbar strip timeout) — keep them in sync. */
+  :root {
+    --rail-ease: cubic-bezier(0.32, 0.72, 0, 1);
+    --rail-dur: 350ms;
+  }
+
   .rail-toggle {
     display: flex;
   }
 
-  /* Height pinned in BOTH states: the X is 36px tall whether folded or open,
-     so the header row — and everything below it — never resizes. Without the
-     always-on pin, the collapsed-rule pin vanishes the moment the class
-     flips and the row grows 32→36 as the padding transitions, pushing the
-     whole nav down 4px mid-animation. */
+  /* Height AND width pinned in BOTH states: the X is 36px x 36px whether
+     folded or open, so the header row — and everything below it — never
+     resizes. Without the always-on pin, the collapsed-rule pin vanishes the
+     moment the class flips and the row grows 32→36 as the padding
+     transitions, pushing the whole nav down 4px mid-animation. The explicit
+     WIDTH (matches the natural p-2 + w-5 footprint) also lets the fold
+     interpolate: width auto -> 0 cannot animate and used to snap. */
   .rail-expanded-toggle {
     height: 36px;
+    width: 2.25rem;
   }
 
-  /* ---- Smooth open/close: every state change below shares ONE duration and
-     curve — the same cubic-bezier Tailwind's ease-out uses — so the panel
-     width, the page offset, the label reveal and the header unfold move in
-     lockstep. Everything that used to flip instantly (display / justify-
-     content) popped in a single frame mid-animation: labels vanished the
-     moment you closed, and on open the logo text re-wrapped while the panel
-     was still narrow — "BY GRITX" dropped onto its own line. ---- */
-  .app-shell {
-    transition: margin-left 200ms cubic-bezier(0, 0, 0.2, 1);
+  /* The panel glides its width on the main thread (cheap: ~20 nowrap nodes)
+     and doubles as the clip edge that reveals the labels. */
+  .app-side-nav {
+    transition: width var(--rail-dur) var(--rail-ease);
   }
+
+  /* The PAGE CONTENT never animates layout. AppNavbar's rail effect flips
+     margin-left to its target in one reflow and slides the shell with a
+     compositor transform on this exact curve — so heavy pages (charts,
+     tables, invoice forms) stay at 60fps. */
+  .app-shell {
+    transition: transform var(--rail-dur) var(--rail-ease);
+  }
+
+  /* Open-only filler: while the shell is translated back to its old
+     position, its right edge sits 11rem short of the viewport — this strip
+     paints the page background there (z:-1 = above the canvas, under the
+     app) so no blank gap flashes. */
+  .rail-slide-strip {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 4rem;
+    width: 11rem;
+    background-color: #f8fafc;
+    z-index: -1;
+    pointer-events: none;
+  }
+
   .rail-head {
-    transition: padding-left 200ms cubic-bezier(0, 0, 0.2, 1),
-      padding-right 200ms cubic-bezier(0, 0, 0.2, 1);
+    transition: padding-left var(--rail-dur) var(--rail-ease),
+      padding-right var(--rail-dur) var(--rail-ease);
   }
   .rail-head-row {
-    transition: padding-left 200ms cubic-bezier(0, 0, 0.2, 1);
+    transition: padding-left var(--rail-dur) var(--rail-ease);
   }
   .rail-toggle {
-    transition: opacity 150ms ease, width 200ms cubic-bezier(0, 0, 0.2, 1),
-      padding 200ms cubic-bezier(0, 0, 0.2, 1), color 150ms ease,
+    transition: opacity var(--rail-dur) var(--rail-ease),
+      width var(--rail-dur) var(--rail-ease),
+      padding var(--rail-dur) var(--rail-ease), color 150ms ease,
       background-color 150ms ease;
   }
   /* Labels never display:none — they clip to zero width and fade in sync
@@ -284,7 +315,8 @@ div:has(> label + input[type="date"]) {
     overflow: hidden;
     white-space: nowrap;
     max-width: 12rem;
-    transition: max-width 200ms cubic-bezier(0, 0, 0.2, 1), opacity 150ms ease;
+    transition: max-width var(--rail-dur) var(--rail-ease),
+      opacity var(--rail-dur) var(--rail-ease);
   }
 
   html.rail-collapsed aside.app-side-nav {
@@ -329,10 +361,11 @@ div:has(> label + input[type="date"]) {
     padding-left: 0.5rem;
   }
 
-  html.rail-collapsed .rail-logo-toggle {
-    display: flex;
-    margin: 0;
-  }
+  /* The collapsed-rail hamburger no longer display-flips — it is ALWAYS
+     rendered as an absolute overlay over the logo and revealed with an
+     opacity crossfade (display:none -> flex can't animate and popped in a
+     single frame). Visibility is controlled from JSX via opacity +
+     pointer-events. */
 
   /* The X folds away (width + opacity) instead of display:none popping it
      out of the row in one frame; overflow clips its 20px icon as it shrinks.

@@ -243,6 +243,41 @@ div:has(> label + input[type="date"]) {
     display: flex;
   }
 
+  /* ---- Smooth open/close: every state change below shares ONE duration and
+     curve — the same cubic-bezier Tailwind's ease-out uses — so the panel
+     width, the page offset, the label reveal and the header unfold move in
+     lockstep. Everything that used to flip instantly (display / justify-
+     content) popped in a single frame mid-animation: labels vanished the
+     moment you closed, and on open the logo text re-wrapped while the panel
+     was still narrow — "BY GRITX" dropped onto its own line. ---- */
+  .app-shell {
+    transition: margin-left 200ms cubic-bezier(0, 0, 0.2, 1);
+  }
+  .rail-head {
+    transition: padding-left 200ms cubic-bezier(0, 0, 0.2, 1),
+      padding-right 200ms cubic-bezier(0, 0, 0.2, 1);
+  }
+  .rail-head-row {
+    transition: padding-left 200ms cubic-bezier(0, 0, 0.2, 1);
+  }
+  .rail-toggle {
+    transition: opacity 150ms ease, width 200ms cubic-bezier(0, 0, 0.2, 1),
+      padding 200ms cubic-bezier(0, 0, 0.2, 1), color 150ms ease,
+      background-color 150ms ease;
+  }
+  /* Labels never display:none — they clip to zero width/height and fade in
+     sync with the panel. nowrap keeps each label on ONE line so it uncovers
+     smoothly instead of re-wrapping as the width animates (border-box makes
+     max-height: 0 a true zero-height, padding included). */
+  .rail-hide {
+    overflow: hidden;
+    white-space: nowrap;
+    max-width: 12rem;
+    max-height: 4rem;
+    transition: max-width 200ms cubic-bezier(0, 0, 0.2, 1),
+      max-height 200ms cubic-bezier(0, 0, 0.2, 1), opacity 150ms ease;
+  }
+
   html.rail-collapsed aside.app-side-nav {
     width: 4rem;
   }
@@ -262,29 +297,26 @@ div:has(> label + input[type="date"]) {
   }
 
   html.rail-collapsed .rail-hide {
-    display: none;
+    max-width: 0;
+    max-height: 0;
+    opacity: 0;
+    /* The Admin badge's mt-2 must go too — a zero-height box still carries
+       its margin, which would make the collapsed header 8px taller. */
+    margin-top: 0;
   }
 
-  /* Keep the square logo visible in the collapsed rail. Only hovering/focusing
-     this logo area reveals the toggle overlay. */
+  /* Collapsed rail header: tighter padding so the logo fits in 64px */
+  html.rail-collapsed .rail-head {
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+  }
+
+  /* Logo centred in the 64px rail via PADDING (animatable) instead of the
+     old justify-content: center, which can't interpolate and snapped at
+     toggle time. With the head padding also easing 1rem → 0.5rem the logo
+     stays parked at the SAME x (16px) through the whole transition. */
   html.rail-collapsed .rail-head-row {
-    justify-content: center;
-  }
-
-  html.rail-collapsed .rail-logo-wrap {
-    flex: 0 0 2rem;
-    width: 2rem;
-    height: 2rem;
-  }
-
-  html.rail-collapsed .rail-logo {
-    width: 2rem;
-    height: 2rem;
-    justify-content: center;
-  }
-
-  html.rail-collapsed .rail-toggle {
-    display: none;
+    padding-left: 0.5rem;
   }
 
   html.rail-collapsed .rail-logo-toggle {
@@ -292,21 +324,21 @@ div:has(> label + input[type="date"]) {
     margin: 0;
   }
 
-  html.rail-collapsed .rail-item {
-    justify-content: center;
-    gap: 0;
-    padding-left: 0;
-    padding-right: 0;
+  /* The X folds away (width + opacity) instead of display:none popping it
+     out of the row in one frame; overflow clips its 20px icon as it shrinks. */
+  html.rail-collapsed .rail-expanded-toggle {
+    width: 0;
+    padding: 0;
+    opacity: 0;
+    overflow: hidden;
+    pointer-events: none;
   }
 
-}
-
-/* Collapsed rail header: tighter padding so the logo fits in 64px */
-@media (min-width: 768px) and (max-width: 1535.98px) {
-  html.rail-collapsed .rail-head {
-    padding-left: 0.5rem;
-    padding-right: 0.5rem;
-  }
+  /* Deliberately NO collapsed-state overrides for .rail-item / .rail-logo /
+     .rail-logo-wrap: keeping the item's own px-3 puts the icon at exactly the
+     same x as the old justify-content:center + padding:0 rule (24px), and the
+     logo now shrinks naturally as its text clips — the old fixed 2rem widths
+     snapped mid-animation. */
 }
 
 /* Right-side panel (View Invoice + New Invoice) stays a FIXED 340px while the

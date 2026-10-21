@@ -369,10 +369,14 @@ div:has(> label + input[type="date"]) {
   }
 }
 
-/* Sidebar still scrolls, but the scrollbar itself is fully hidden. */
+/* Sidebar still scrolls, but the scrollbar itself is fully hidden.
+   overscroll-behavior: contain — when the sidebar list hits its top/bottom
+   edge, further wheel/trackpad scrolling must NOT chain to the main page
+   behind it (the page used to scroll while the cursor was over the sidebar). */
 .app-side-nav nav {
   scrollbar-width: none;
   -ms-overflow-style: none;
+  overscroll-behavior: contain;
 }
 
 .app-side-nav nav::-webkit-scrollbar {

@@ -420,7 +420,7 @@ export default function Dashboard() {
                     <ChartSkeleton />
                   ) : (
                     <div className="h-40 sm:h-48">
-                      <ResponsiveContainer width="100%" height="100%">
+                      <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 320, height: 224 }}>
                         <BarChart data={activitySeries} margin={{ top: 5, right: 10, left: 8, bottom: 5 }}>
                           <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                           <XAxis dataKey="day" tick={{ fontSize: 9, fill: '#94a3b8' }} interval={4} />
@@ -444,7 +444,7 @@ export default function Dashboard() {
                     <ChartSkeleton />
                   ) : (
                     <div className="h-40 sm:h-48">
-                      <ResponsiveContainer width="100%" height="100%">
+                      <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 320, height: 224 }}>
                         <BarChart data={activitySeries} margin={{ top: 5, right: 10, left: 8, bottom: 5 }}>
                           <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                           <XAxis dataKey="day" tick={{ fontSize: 9, fill: '#94a3b8' }} interval={4} />
@@ -472,7 +472,7 @@ export default function Dashboard() {
                     <ChartSkeleton />
                   ) : (
                     <div className="h-40 sm:h-48">
-                      <ResponsiveContainer width="100%" height="100%">
+                      <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 320, height: 224 }}>
                         <BarChart data={newUsersSeries} margin={{ top: 5, right: 10, left: 8, bottom: 5 }}>
                           <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                           <XAxis dataKey="label" tick={{ fontSize: 9, fill: '#94a3b8' }} />
@@ -495,7 +495,7 @@ export default function Dashboard() {
                     <ChartSkeleton />
                   ) : (
                     <div className="h-40 sm:h-48">
-                      <ResponsiveContainer width="100%" height="100%">
+                      <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 320, height: 224 }}>
                         <BarChart data={ownInvoicesSeries} margin={{ top: 5, right: 10, left: 8, bottom: 5 }}>
                           <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                           <XAxis dataKey="label" tick={{ fontSize: 9, fill: '#94a3b8' }} interval={1} />
@@ -522,7 +522,7 @@ export default function Dashboard() {
                 <ChartSkeleton />
               ) : chartAnalytics.salesByMonth.length > 0 ? (
                 <div className="h-44 sm:h-56">
-                  <ResponsiveContainer width="100%" height="100%">
+                  <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 320, height: 224 }}>
                     <LineChart data={chartAnalytics.salesByMonth} margin={{ top: 5, right: 10, left: 8, bottom: 5 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                       <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#64748b' }} />
@@ -547,7 +547,7 @@ export default function Dashboard() {
                 <ChartSkeleton />
               ) : chartAnalytics.last7Days.length > 0 ? (
                 <div className="h-44 sm:h-56">
-                  <ResponsiveContainer width="100%" height="100%">
+                  <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 320, height: 224 }}>
                     <BarChart data={chartAnalytics.last7Days} margin={{ top: 5, right: 10, left: 8, bottom: 5 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                       <XAxis dataKey="day" tick={{ fontSize: 10, fill: '#64748b' }} />
@@ -574,7 +574,7 @@ export default function Dashboard() {
                 <ChartSkeleton />
               ) : chartAnalytics.salesByMonth.length > 0 ? (
                 <div className="h-44 sm:h-56">
-                  <ResponsiveContainer width="100%" height="100%">
+                  <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 320, height: 224 }}>
                     <BarChart data={chartAnalytics.salesByMonth} margin={{ top: 5, right: 10, left: 8, bottom: 5 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                       <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#64748b' }} />

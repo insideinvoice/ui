@@ -416,7 +416,7 @@ export default function AdminUserWorkspace() {
                   </div>
                   {sales.monthlyTrend.length > 0 ? (
                     <div className="h-44 sm:h-52">
-                      <ResponsiveContainer width="100%" height="100%">
+                      <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 320, height: 224 }}>
                         <LineChart data={sales.monthlyTrend} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
                           <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                           <XAxis dataKey="month" tick={{ fontSize: 10, fill: "#64748b" }} />
@@ -438,7 +438,7 @@ export default function AdminUserWorkspace() {
                   </div>
                   {sales.last30 > 0 ? (
                     <div className="h-44 sm:h-52">
-                      <ResponsiveContainer width="100%" height="100%">
+                      <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 320, height: 224 }}>
                         <BarChart data={sales.dailyTrend} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
                           <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                           <XAxis dataKey="day" tick={{ fontSize: 9, fill: "#64748b" }} interval={4} />

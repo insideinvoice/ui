@@ -235,7 +235,7 @@ export default function InvoiceView() {
         setShareToken(token);
         writeCachedShareToken(id, token);
         await copyShareUrl(`${window.location.origin}/i/${token}`);
-        toast("Previous link disabled — only the new one works", { icon: "🔑" });
+        toast("Previous link disabled — only the new one works");
       } else if (action === "revoke") {
         await invoiceAPI.revokeShare(id);
         setShareToken(null);
@@ -378,35 +378,19 @@ export default function InvoiceView() {
 
   // ---------- Send email (re-trigger) ----------
   const [emailBusy, setEmailBusy] = useState(false);
-  // In-flight guard for the background email job (render + SMTP run detached
-  // from the UI; two overlapping calls must never double-email).
-  const emailJobRef = useRef(false);
 
   const sendInvoiceEmailToCustomer = async () => {
     if (emailBusy || busyAction) return;
+    // Fully synchronous: discount persist → share link → PDF render → email
+    // send, all while the button stays busy; one result toast at the end.
     setEmailBusy(true);
     try {
-      if (!(await persistDiscount())) {
-        setEmailBusy(false);
-        return;
-      }
+      if (!(await persistDiscount())) return;
       // Make sure the panel shows the same link the email will carry.
       if (!shareToken) {
         const res = await invoiceAPI.createShare(id);
         setShareToken(res.data?.data?.token);
       }
-    } catch (err) {
-      toast.error(err.response?.data?.message || "Could not create the share link for the email");
-      setEmailBusy(false);
-      return;
-    }
-    // Link ready — release the button; the document render + SMTP round-trip
-    // continues detached so the UI never waits for it.
-    setEmailBusy(false);
-    if (emailJobRef.current) return;
-    emailJobRef.current = true;
-    toast("Preparing the invoice email in the background", { icon: "📨" });
-    (async () => {
       // Build the SAME PDF the Download button produces (it reads the
       // seal/stamp preference from localStorage) and attach it, so the
       // document the customer receives by email is identical to the one
@@ -417,24 +401,20 @@ export default function InvoiceView() {
         const ps = (getPrintSettings()[invoiceType] || {}).paperSize || "A4_PORTRAIT";
         const filename = `${invoiceType === "PROFORMA_INVOICE" ? "Proforma" : "Tax"}_Invoice_${form.invoiceNumber}.pdf`;
         pdfFile = await createInvoicePdfFile(captureRef.current, ps, filename);
-      } catch {
+      } catch (renderErr) {
+        console.error("Invoice PDF render failed:", renderErr);
         pdfFile = null; // attachment is best-effort; the email still sends
       } finally {
         releaseCapture();
       }
-      const res = await invoiceAPI.sendInvoiceEmail(id, window.location.origin, pdfFile);
-      const attachNote = pdfFile ? ` — PDF attached (${Math.round(pdfFile.size / 1024)} KB)` : "";
-      toast.success((res.data?.message || "Invoice emailed to the customer") + attachNote);
-      if (!pdfFile) {
-        toast("Emailed WITHOUT the PDF attachment — the render failed; see the browser console", { icon: "⚠️" });
-      }
-    })()
-      .catch((err) => {
-        toast.error(err.response?.data?.message || "Could not send the invoice email");
-      })
-      .finally(() => {
-        emailJobRef.current = false;
-      });
+      await invoiceAPI.sendInvoiceEmail(id, window.location.origin, pdfFile);
+      toast.success(`Email sent to ${form.customerEmail || "the customer"}`);
+    } catch (err) {
+      console.error("Invoice email failed:", err);
+      toast.error("Email failed");
+    } finally {
+      setEmailBusy(false);
+    }
   };
 
 

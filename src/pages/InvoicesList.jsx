@@ -5,7 +5,7 @@ import LoadingDots from "../components/LoadingDots";
 import Spinner from "../components/Spinner";
 import PageHeader from "../components/PageHeader";
 import ConfirmModal from "../components/ConfirmModal";
-import { invoiceAPI } from "../api/auth";
+import { invoiceAPI, customerAPI } from "../api/auth";
 import { resolveBusinessProfile } from "../utils/businessProfile";
 import toast from "react-hot-toast";
 import { ArrowLeft, FileText, Download, Eye, PlusCircle, Share2, Trash2, Search, X, Link2, ChevronDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, FileSpreadsheet, Loader2, MessageSquare } from "lucide-react";
@@ -474,13 +474,24 @@ export default function InvoicesList() {
   const shareFromSheetSms = async () => {
     if (shareBusy || !shareSheetInvoice) return;
     const invoice = shareSheetInvoice;
-    const phone = (invoice.customerPhone || "").trim().replace(/[\s\-()]/g, "");
-    if (!phone) {
-      toast.error("Customer phone number is missing");
-      return;
-    }
     setShareBusy("sms");
     try {
+      let phone = (invoice.customerPhone || "").trim().replace(/[\s\-()]/g, "");
+      // List rows can lack the phone (e.g. a backend build without the
+      // phone-on-row payload). Fall back to the customer record before
+      // giving up — the buyer's phone lives on the CUSTOMER, not the row.
+      if (!phone && invoice.customerId) {
+        try {
+          const res = await customerAPI.getById(invoice.customerId);
+          phone = (res.data?.data?.phone || "").trim().replace(/[\s\-()]/g, "");
+        } catch {
+          // Customer lookup failed — the missing-phone error below covers it.
+        }
+      }
+      if (!phone) {
+        toast.error("Customer phone number is missing");
+        return;
+      }
       const url = await sheetShareLink();
       const name = (invoice.customerName || "").trim();
       const label = invoice.invoiceType === "PROFORMA_INVOICE" ? "Proforma Invoice" : "Tax Invoice";

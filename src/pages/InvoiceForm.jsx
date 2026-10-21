@@ -846,17 +846,13 @@ export default function InvoiceForm() {
     }
   };
 
-  // Background PDF-email job: the share link, the hidden-capture render and
-  // the email POST all run detached from the UI. Callers finish immediately
-  // after their synchronous part (the save); milestones and failures surface
-  // as toasts. An in-flight guard serialises jobs — two overlapping calls can
-  // never double-email an invoice.
-  const pdfEmailJobRef = useRef(false);
-  const runPdfEmailJob = (invoiceId, invNo) => {
-    if (pdfEmailJobRef.current) return;
-    pdfEmailJobRef.current = true;
+  // PDF-email send: create the share link, render the SAME client PDF the
+  // Download button produces (seal/stamp included) and POST it. Fully
+  // synchronous — the caller's busy state holds until the backend reports
+  // the email as sent; the single success/failure toast lives here.
+  const runPdfEmailJob = async (invoiceId, invNo) => {
     const email = (customer.email || "").trim();
-    (async () => {
+    try {
       // The email carries the same public link the Share Link panel shows;
       // createShare is idempotent and the backend also creates it on demand.
       if (!shareToken) {
@@ -868,28 +864,18 @@ export default function InvoiceForm() {
       // included) so the emailed document matches the download exactly.
       const pdfFile = await buildTaxInvoicePdfFile(invNo);
       await invoiceAPI.sendInvoiceEmail(invoiceId, window.location.origin, pdfFile);
-      const attachNote = pdfFile ? ` — PDF attached (${Math.round(pdfFile.size / 1024)} KB)` : "";
-      toast.success(`Tax Invoice ${invNo} emailed to ${email}${attachNote}`);
-      if (!pdfFile) {
-        toast("Emailed WITHOUT the PDF attachment — the render failed; see the browser console", { icon: "⚠️" });
-      }
-    })()
-      .catch((err) => {
-        toast.error(err.response?.data?.message || "Invoice saved, but the email could not be sent — retry with Send Email below");
-      })
-      .finally(() => {
-        pdfEmailJobRef.current = false;
-      });
+      toast.success(`Email sent to ${email}`);
+    } catch (err) {
+      console.error("Invoice email failed:", err);
+      toast.error("Email failed");
+    }
   };
 
   // Generate Tax Invoice — one action that saves the invoice to the DB
   // (create or update) and emails it to the customer's registered email with
-  // its share link. The save is awaited (the record must exist before the
-  // email job can reference it) — but the PDF render and the SMTP round-trip
-  // are a BACKGROUND job: the button flips to "Download Tax Invoice PDF" as
-  // soon as the save lands, the user is free to keep working, and progress
-  // arrives as toasts. Editing the invoice brings Generate back (see
-  // contentSignature).
+  // its share link. Sync end-to-end: save → PDF render → email send, all
+  // awaited while the button is busy. Editing the invoice brings Generate
+  // back (see contentSignature).
   const handleGenerateTaxInvoice = async () => {
     if (saving) return;
     // Without validate(), an invalid save still reached saveInvoice(), which
@@ -913,18 +899,17 @@ export default function InvoiceForm() {
       return;
     }
 
-    // Save landed — release the UI immediately and hand the rest to the
-    // background runner.
+    // Save landed — keep the busy states on while the render + email send
+    // run to completion (fully synchronous).
     setGeneratedSignature(signature);
+    toast.success(`Tax Invoice ${invNo} saved`);
+    if (customer.email?.trim()) {
+      await runPdfEmailJob(invoiceId, invNo);
+    } else {
+      toast("Customer has no email on record — add one to email the invoice");
+    }
     setGenerating(false);
     setSaving(false);
-    if (customer.email?.trim()) {
-      toast(`Saved ${invNo} — preparing the email in the background`, { icon: "📨" });
-      runPdfEmailJob(invoiceId, invNo);
-    } else {
-      toast.success(`Tax Invoice ${invNo} saved`);
-      toast("Customer has no email on record — add one to email the invoice", { icon: "📧" });
-    }
   };
 
   const generateDeliveryChallanPdf = async () => {
@@ -1113,7 +1098,7 @@ export default function InvoiceForm() {
         if (!token) throw new Error("no token");
         setShareToken(token);
         await copyShareUrl(`${window.location.origin}/i/${token}`);
-        toast("Previous link disabled — only the new one works", { icon: "🔑" });
+        toast("Previous link disabled — only the new one works");
       } else if (action === "revoke") {
         await invoiceAPI.revokeShare(savedInvoiceId);
         setShareToken(null);
@@ -1129,24 +1114,14 @@ export default function InvoiceForm() {
 
   const sendInvoiceEmailToCustomer = async () => {
     if (emailBusy || !savedInvoiceId) return;
+    // Fully synchronous: share link → PDF render → email send all run while
+    // the button stays busy; runPdfEmailJob surfaces the single result toast.
     setEmailBusy(true);
     try {
-      // Make sure the email carries the same link the panel shows.
-      if (!shareToken) {
-        const res = await invoiceAPI.createShare(savedInvoiceId);
-        const token = res.data?.data?.token;
-        if (token) setShareToken(token);
-      }
-    } catch (err) {
-      toast.error(err.response?.data?.message || "Could not create the share link for the email");
+      await runPdfEmailJob(savedInvoiceId, savedInvoiceNumber);
+    } finally {
       setEmailBusy(false);
-      return;
     }
-    // Link is ready — release the button and let the PDF render + SMTP run
-    // detached (runPdfEmailJob guards against duplicate sends).
-    setEmailBusy(false);
-    toast("Preparing the invoice email in the background", { icon: "📨" });
-    runPdfEmailJob(savedInvoiceId, savedInvoiceNumber);
   };
 
   if (loading) {

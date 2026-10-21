@@ -147,7 +147,7 @@ export async function openWhatsApp({ text, getPdfFile } = {}) {
   if (!(text || "").includes("/i/")) {
     // No share link in the message and no file attached — point the user at the
     // right buttons instead of silently producing a file.
-    toast("Tip: use Share → Copy link to send a link they can open online", { icon: "🔗", duration: 6000 });
+    toast("Tip: use Share → Copy link to send a link they can open online", { duration: 6000 });
   }
   return true;
 }

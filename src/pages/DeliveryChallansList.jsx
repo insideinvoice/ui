@@ -119,7 +119,7 @@ export default function DeliveryChallansList() {
 
   if (loading) {
     return (
-      <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-gray-100">
+      <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 via-slate-50 to-violet-50/40">
         <div
           className="flex items-center justify-center"
           style={{ minHeight: "calc(100dvh - 80px)" }}
@@ -131,34 +131,33 @@ export default function DeliveryChallansList() {
   }
 
   return (
-    <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-gray-100">
+    <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 via-slate-50 to-violet-50/40">
       <div className="px-4 sm:px-5 lg:px-6 py-3 sm:py-4 lg:py-5 max-w-[1900px] mx-auto">
         <PageHeader title="Delivery Challans" />
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-          {/* Card header — title + count, then search and primary action */}
-          <div className="px-4 sm:px-6 py-4 border-b border-slate-200 flex flex-wrap items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-teal-500 to-teal-600 flex items-center justify-center shadow-sm shrink-0">
-              <ClipboardList className="w-5 h-5 text-white" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <h1 className="text-base sm:text-lg font-semibold text-slate-900 whitespace-nowrap">
+          {/* Card header — inline icon, search and primary action */}
+          <div className="px-5 sm:px-6 pt-5 pb-4 flex flex-wrap items-center gap-2.5">
+            <ClipboardList className="w-4 h-4 text-violet-600 shrink-0" />
+            <div className="min-w-0">
+              <h2 className="text-sm sm:text-base font-semibold tracking-tight text-slate-900 whitespace-nowrap">
                 All Delivery Challans
-              </h1>
-              <p className="text-xs text-slate-500">
+              </h2>
+              <p className="text-xs text-slate-500 mt-0.5">
                 {query
                   ? `${filtered.length} of ${challans.length} shown`
                   : `${challans.length} total`}
               </p>
             </div>
+            <div className="w-full sm:w-auto sm:ml-auto flex items-center gap-2.5">
             {challans.length > 0 && (
-              <div className="relative w-full sm:w-48 md:w-56">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+              <div className="relative flex-1 sm:flex-none">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                 <input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Search"
                   aria-label="Search delivery challans"
-                  className="w-full pl-8 pr-8 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-400/30 focus:border-teal-400 bg-white text-slate-800 placeholder:text-slate-400 min-h-[40px]"
+                  className="w-full md:w-56 h-10 pl-9 pr-8 text-sm text-slate-900 placeholder:text-slate-400/80 bg-white border border-slate-300 rounded-lg hover:border-slate-400 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/15 transition-all duration-200"
                 />
                 {search && (
                   <button
@@ -174,11 +173,12 @@ export default function DeliveryChallansList() {
             {canCreate && (
               <button
                 onClick={() => navigate("/delivery-challans/new")}
-                className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 bg-teal-600 text-white text-sm font-semibold rounded-lg hover:bg-teal-700 active:scale-[0.98] transition-all shadow-sm min-h-[40px] shrink-0"
+                className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 min-h-[40px] text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-all duration-150 shrink-0"
               >
                 <Plus className="w-4 h-4" /> New Challan
               </button>
             )}
+            </div>
           </div>
 
           {challans.length === 0 ? (
@@ -195,7 +195,7 @@ export default function DeliveryChallansList() {
               {canCreate && (
                 <button
                   onClick={() => navigate("/delivery-challans/new")}
-                  className="mt-4 px-4 py-2 bg-teal-600 text-white text-sm font-semibold rounded-lg hover:bg-teal-700 transition-all"
+                  className="mt-4 inline-flex items-center justify-center gap-2 px-5 py-2.5 min-h-[40px] text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-all duration-150"
                 >
                   New Delivery Challan
                 </button>
@@ -258,7 +258,7 @@ export default function DeliveryChallansList() {
                             onClick={() =>
                               navigate(`/delivery-challans/${dc.id}`)
                             }
-                            className="inline-flex items-center font-mono text-xs font-bold text-teal-700 bg-teal-50 hover:bg-teal-100 px-2.5 py-1 rounded-md border border-teal-200 hover:border-teal-300 transition-all"
+                            className="inline-flex items-center font-mono text-xs font-bold text-violet-700 bg-violet-50 hover:bg-violet-100 px-2.5 py-1 rounded-md border border-violet-200 hover:border-violet-300 transition-all"
                           >
                             {dc.challanNumber}
                           </button>
@@ -275,7 +275,7 @@ export default function DeliveryChallansList() {
                           )}
                         </td>
                         <td className="py-3 px-4 text-center">
-                          <span className="inline-flex items-center justify-center min-w-[24px] text-[11px] font-semibold px-2 py-0.5 rounded-full bg-teal-50 text-teal-700 border border-teal-100">
+                          <span className="inline-flex items-center justify-center min-w-[24px] text-[11px] font-semibold px-2 py-0.5 rounded-full bg-violet-50 text-violet-700 border border-violet-100">
                             {dc.items?.length || 0}
                           </span>
                         </td>
@@ -293,7 +293,7 @@ export default function DeliveryChallansList() {
                             <button
                               onClick={() => handleDownload(dc)}
                               disabled={downloadingId === dc.id}
-                              className="p-2 rounded-lg text-slate-500 hover:text-teal-600 hover:bg-teal-50 disabled:opacity-50 transition-colors"
+                              className="p-2 rounded-lg text-slate-500 hover:text-violet-600 hover:bg-violet-50 disabled:opacity-50 transition-colors"
                               title="Download PDF"
                             >
                               <Download className="w-4 h-4" />
@@ -323,7 +323,7 @@ export default function DeliveryChallansList() {
                     <div className="flex items-center justify-between mb-2">
                       <button
                         onClick={() => navigate(`/delivery-challans/${dc.id}`)}
-                        className="inline-flex items-center font-mono text-xs font-bold text-teal-700 bg-teal-50 px-2.5 py-1 rounded-md border border-teal-200"
+                        className="inline-flex items-center font-mono text-xs font-bold text-violet-700 bg-violet-50 px-2.5 py-1 rounded-md border border-violet-200"
                       >
                         {dc.challanNumber}
                       </button>
@@ -349,7 +349,7 @@ export default function DeliveryChallansList() {
                       <button
                         onClick={() => handleDownload(dc)}
                         disabled={downloadingId === dc.id}
-                        className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold text-teal-700 bg-teal-50 hover:bg-teal-100 rounded-lg disabled:opacity-50 transition-colors min-h-[44px]"
+                        className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold text-violet-700 bg-violet-50 hover:bg-violet-100 rounded-lg disabled:opacity-50 transition-colors min-h-[44px]"
                       >
                         <Download className="w-3.5 h-3.5" /> PDF
                       </button>

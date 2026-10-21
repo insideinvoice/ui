@@ -4,7 +4,15 @@ import LoadingDots from "../components/LoadingDots";
 import PageHeader from "../components/PageHeader";
 import { customerAPI } from "../api/auth";
 import toast from "react-hot-toast";
-import { ArrowLeft, Building2, Phone, MapPin, Hash, Save, User, Mail, X } from "lucide-react";
+import { Building2, Phone, MapPin, Hash, Save, User, Mail, X } from "lucide-react";
+
+// Shared form tokens — same medium scale (40px controls) and violet focus
+// language as AddProduct, so every "add" page feels identical.
+const inputClass =
+  "w-full h-10 pl-10 pr-3.5 text-sm text-slate-900 placeholder:text-slate-400/80 bg-white border border-slate-300 rounded-lg hover:border-slate-400 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/15 transition-all duration-200";
+const textareaClass =
+  "w-full min-h-[76px] pl-10 pr-3.5 py-2.5 text-sm text-slate-900 placeholder:text-slate-400/80 bg-white border border-slate-300 rounded-lg hover:border-slate-400 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/15 transition-all duration-200 resize-none";
+const labelClass = "block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5";
 
 export default function AddCustomer() {
   const navigate = useNavigate();
@@ -37,42 +45,39 @@ export default function AddCustomer() {
     }
   };
 
-  const inputClass = "w-full px-4 py-3 border border-slate-200 rounded-xl text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 bg-white transition-all duration-150";
-  const labelClass = "block text-sm font-medium text-slate-700 mb-2";
-
   return (
-    <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-gray-100">
+    <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 via-slate-50 to-violet-50/40">
       <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 max-w-2xl mx-auto">
         <PageHeader title="Add New Customer" />
 
-        <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+        {/* One card, one border — same layout rhythm as AddProduct. */}
+        <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
           {/* Form Header */}
-          <div className="px-6 sm:px-8 pt-6 sm:pt-8 pb-4 border-b border-slate-100">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center">
-                <User className="w-5 h-5 text-indigo-600" />
-              </div>
-              <div>
-                <h2 className="text-lg font-semibold text-slate-900">Customer Information</h2>
-                <p className="text-sm text-slate-500">Enter the customer details below</p>
-              </div>
+          <div className="px-5 sm:px-6 pt-5 pb-4 flex items-center gap-2.5">
+            <User className="w-4 h-4 text-violet-600 shrink-0" />
+            <div className="min-w-0">
+              <h2 className="text-sm sm:text-base font-semibold tracking-tight text-slate-900">Customer Information</h2>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Buyer record — appears on your invoices
+              </p>
             </div>
           </div>
 
           {/* Form Body */}
-          <div className="px-6 sm:px-8 py-6 space-y-6">
+          <div className="px-5 sm:px-6 pb-5 space-y-4">
             {/* Customer Name */}
             <div>
-              <label className={labelClass}>
-                Customer Name <span className="text-red-500">*</span>
+              <label htmlFor="customer-name" className={labelClass}>
+                Customer Name <span className="text-rose-500">*</span>
               </label>
               <div className="relative">
-                <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+                <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4 pointer-events-none" />
                 <input
+                  id="customer-name"
                   name="name"
                   value={form.name}
                   onChange={handleChange}
-                  className={inputClass + " pl-11"}
+                  className={inputClass}
                   placeholder="e.g. Good Luck Enterprises"
                 />
               </div>
@@ -81,30 +86,33 @@ export default function AddCustomer() {
             {/* Email & Phone Row */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className={labelClass}>Email</label>
+                <label htmlFor="customer-email" className={labelClass}>Email</label>
                 <div className="relative">
-                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4 pointer-events-none" />
                   <input
+                    id="customer-email"
                     name="email"
+                    type="email"
                     value={form.email}
                     onChange={handleChange}
-                    type="email"
-                    className={inputClass + " pl-11"}
+                    className={inputClass}
                     placeholder="customer@email.com"
                   />
                 </div>
               </div>
               <div>
-                <label className={labelClass}>Phone</label>
+                <label htmlFor="customer-phone" className={labelClass}>Phone</label>
                 <div className="relative">
-                  <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+                  <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4 pointer-events-none" />
                   <input
+                    id="customer-phone"
                     name="phone"
+                    type="tel"
+                    inputMode="numeric"
+                    maxLength={10}
                     value={form.phone}
                     onChange={handleChange}
-                    maxLength={10}
-                    inputMode="numeric"
-                    className={inputClass + " pl-11"}
+                    className={inputClass + " tabular-nums"}
                     placeholder="e.g. 9036843735"
                   />
                 </div>
@@ -113,42 +121,45 @@ export default function AddCustomer() {
 
             {/* GSTIN */}
             <div>
-              <label className={labelClass}>GSTIN</label>
+              <label htmlFor="customer-gstin" className={labelClass}>GSTIN</label>
               <div className="relative">
-                <Hash className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+                <Hash className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4 pointer-events-none" />
                 <input
+                  id="customer-gstin"
                   name="gstIn"
                   value={form.gstIn}
                   onChange={handleChange}
-                  className={inputClass + " pl-11 font-mono uppercase tracking-wider"}
+                  className={inputClass + " font-mono uppercase tracking-widest placeholder:tracking-normal"}
                   placeholder="e.g. 29AEQPJ1655J1Z0"
+                  autoComplete="off"
                 />
               </div>
             </div>
 
             {/* Billing Address */}
             <div>
-              <label className={labelClass}>Billing Address</label>
+              <label htmlFor="customer-address" className={labelClass}>Billing Address</label>
               <div className="relative">
-                <MapPin className="absolute left-4 top-4 text-slate-400 w-4 h-4" />
+                <MapPin className="absolute left-4 top-3 text-slate-400 w-4 h-4 pointer-events-none" />
                 <textarea
+                  id="customer-address"
                   name="billingAddress"
+                  rows={3}
                   value={form.billingAddress}
                   onChange={handleChange}
-                  rows={3}
-                  className={inputClass + " pl-11 resize-none"}
+                  className={textareaClass}
                   placeholder="Enter complete billing address"
                 />
               </div>
             </div>
           </div>
 
-          {/* Form Footer */}
-          <div className="px-6 sm:px-8 py-5 bg-slate-50/50 border-t border-slate-100 flex flex-col sm:flex-row gap-3 justify-end">
+          {/* Form Footer — flat, no band or divider line */}
+          <div className="px-5 sm:px-6 pb-5 flex flex-col sm:flex-row gap-2.5 justify-end">
             <button
               type="button"
               onClick={() => navigate("/customers")}
-              className="inline-flex items-center justify-center gap-2 px-5 py-3 min-h-[48px] text-sm font-medium text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 hover:text-slate-700 rounded-xl transition-all duration-150 shadow-sm"
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 min-h-[40px] text-sm font-medium text-slate-600 bg-white border border-slate-300 hover:bg-slate-50 hover:text-slate-700 rounded-lg transition-all duration-150"
             >
               <X className="w-4 h-4" />
               Cancel
@@ -156,7 +167,7 @@ export default function AddCustomer() {
             <button
               type="submit"
               disabled={saving || !form.name.trim()}
-              className="inline-flex items-center justify-center gap-2 px-6 py-3 min-h-[48px] text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl transition-all duration-150 shadow-sm shadow-indigo-600/25 hover:shadow-indigo-600/40 active:scale-[0.98]"
+              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 min-h-[40px] text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-all duration-150"
             >
               {saving ? <LoadingDots className="text-white" /> : <Save className="w-4 h-4" />}
               {saving ? "Saving..." : "Save Customer"}

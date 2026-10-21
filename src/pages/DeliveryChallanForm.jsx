@@ -9,10 +9,12 @@ import { goBack } from "../utils/navigation";
 import toast from "react-hot-toast";
 import { ArrowLeft, Plus, Trash2, Download, ClipboardList, X, UserPlus } from "lucide-react";
 
+// Same medium-scale form tokens as AddProduct: 40px controls, one border per
+// element, violet focus language.
 const inputClass =
-  "w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-400/30 focus:border-slate-400 bg-white transition-all min-h-[44px]";
+  "w-full h-10 px-3.5 text-sm text-slate-900 placeholder:text-slate-400/80 bg-white border border-slate-300 rounded-lg hover:border-slate-400 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/15 transition-all duration-200";
 const labelClass =
-  "block text-xs font-semibold text-slate-600 mb-1.5 tracking-wide uppercase";
+  "block text-xs font-semibold uppercase tracking-wider text-slate-500";
 
 const todayIso = () => new Date().toISOString().split("T")[0];
 
@@ -185,7 +187,7 @@ export default function DeliveryChallanForm() {
 
   if (loading) {
     return (
-      <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-gray-100">
+      <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 via-slate-50 to-violet-50/40">
         <div
           className="flex items-center justify-center"
           style={{ minHeight: "calc(100dvh - 80px)" }}
@@ -197,29 +199,29 @@ export default function DeliveryChallanForm() {
   }
 
   return (
-    <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-gray-100">
+    <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 via-slate-50 to-violet-50/40">
       <div className="px-4 sm:px-5 lg:px-6 py-3 sm:py-4 lg:py-5 max-w-[1400px] mx-auto">
         <PageHeader title="New Delivery Challan" />
 
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 mb-4">
-          <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100">
-            <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-teal-500 to-teal-600 flex items-center justify-center shadow-sm shrink-0">
-              <ClipboardList className="w-4.5 h-4.5 text-white" />
-            </div>
-            <div>
-              <h2 className="text-sm font-bold text-slate-800">
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+          {/* Card header — inline icon, same rhythm as AddProduct */}
+          <div className="px-5 sm:px-6 pt-5 pb-4 flex items-center gap-2.5">
+            <ClipboardList className="w-4 h-4 text-violet-600 shrink-0" />
+            <div className="min-w-0">
+              <h2 className="text-sm sm:text-base font-semibold tracking-tight text-slate-900">
                 Challan Details
               </h2>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-500 mt-0.5">
                 Creates the record and instantly downloads the PDF
               </p>
             </div>
           </div>
 
+          <div className="px-5 sm:px-6 pb-5 space-y-5">
           {/* Template + seal */}
-          <div className="flex flex-wrap items-end gap-6 mb-5">
+          <div className="flex flex-wrap items-end gap-6">
             <div>
-              <span className={labelClass}>Template</span>
+              <span className={labelClass + " mb-1.5 block"}>Template</span>
               <div className="flex gap-2">
                 {[
                   { id: "classic", label: "Classic" },
@@ -231,7 +233,7 @@ export default function DeliveryChallanForm() {
                     onClick={() => setTemplate(t.id)}
                     className={`px-4 py-2 rounded-lg text-sm font-semibold border transition-all min-h-[40px] ${
                       template === t.id
-                        ? "bg-teal-600 text-white border-teal-600 shadow-sm"
+                        ? "bg-violet-600 text-white border-violet-600 shadow-sm"
                         : "bg-white text-slate-600 border-slate-300 hover:bg-slate-50"
                     }`}
                   >
@@ -245,13 +247,13 @@ export default function DeliveryChallanForm() {
                 type="checkbox"
                 checked={sealOn}
                 onChange={(e) => setSealOn(e.target.checked)}
-                className="w-4.5 h-4.5 accent-teal-600"
+                className="w-4.5 h-4.5 accent-violet-600"
               />
               Seal / Rubber stamp on PDF
             </label>
             {sealOn && (
               <div className="pb-1.5">
-                <span className={labelClass}>Stamp type</span>
+                <span className={labelClass + " mb-1.5 block"}>Stamp type</span>
                 <div className="flex gap-2">
                   {[
                     { id: "round", label: "Round Seal" },
@@ -266,7 +268,7 @@ export default function DeliveryChallanForm() {
                       }}
                       className={`px-4 py-2 rounded-lg text-sm font-semibold border transition-all min-h-[40px] ${
                         sealType === s.id
-                          ? "bg-teal-600 text-white border-teal-600 shadow-sm"
+                          ? "bg-violet-600 text-white border-violet-600 shadow-sm"
                           : "bg-white text-slate-600 border-slate-300 hover:bg-slate-50"
                       }`}
                     >
@@ -278,9 +280,9 @@ export default function DeliveryChallanForm() {
             )}
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <div>
-              <label className={labelClass}>Challan No.</label>
+              <label className={labelClass + " mb-1.5"}>Challan No.</label>
               <input
                 type="text"
                 value={form.challanNumber}
@@ -290,7 +292,7 @@ export default function DeliveryChallanForm() {
               />
             </div>
             <div>
-              <label className={labelClass}>Challan Date</label>
+              <label className={labelClass + " mb-1.5"}>Challan Date</label>
               <input
                 type="date"
                 value={form.challanDate}
@@ -299,7 +301,9 @@ export default function DeliveryChallanForm() {
               />
             </div>
             <div>
-              <label className={labelClass}>Customer *</label>
+              <label className={labelClass + " mb-1.5"}>
+                Customer <span className="text-rose-500">*</span>
+              </label>
               {/* SelectMenu instead of native <select>: options can carry a
                   real lucide icon, so "New Customer…" shows the same
                   UserPlus icon the rest of the app uses (native <option>
@@ -324,7 +328,7 @@ export default function DeliveryChallanForm() {
               />
             </div>
             <div>
-              <label className={labelClass}>Your P.O No (optional)</label>
+              <label className={labelClass + " mb-1.5"}>Your P.O No (optional)</label>
               <input
                 type="text"
                 value={form.poNumber}
@@ -334,7 +338,7 @@ export default function DeliveryChallanForm() {
               />
             </div>
             <div>
-              <label className={labelClass}>P.O Date (optional)</label>
+              <label className={labelClass + " mb-1.5"}>P.O Date (optional)</label>
               <input
                 type="date"
                 value={form.poDate}
@@ -345,13 +349,15 @@ export default function DeliveryChallanForm() {
           </div>
 
           {/* Items */}
-          <div className="mb-5">
+          <div>
             <div className="flex items-center justify-between mb-2">
-              <span className={labelClass + " mb-0"}>Items *</span>
+              <span className={labelClass}>
+                Items <span className="text-rose-500">*</span>
+              </span>
               <button
                 type="button"
                 onClick={addItem}
-                className="flex items-center gap-1.5 text-xs font-semibold text-teal-700 bg-teal-50 hover:bg-teal-100 px-3 py-1.5 rounded-lg transition-colors"
+                className="flex items-center gap-1.5 text-xs font-semibold text-violet-700 bg-violet-50 hover:bg-violet-100 px-3 py-1.5 rounded-lg transition-colors"
               >
                 <Plus className="w-3.5 h-3.5" /> Add Item
               </button>
@@ -413,12 +419,20 @@ export default function DeliveryChallanForm() {
               ))}
             </div>
           </div>
+          </div>
 
-          <div className="flex flex-wrap gap-3 pt-3 border-t border-slate-100">
+          {/* Form Footer — flat, same rhythm as AddProduct */}
+          <div className="px-5 sm:px-6 pb-5 flex flex-col sm:flex-row gap-2.5 justify-end">
+            <button
+              onClick={() => goBack(navigate, "/delivery-challans")}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 min-h-[40px] text-sm font-medium text-slate-600 bg-white border border-slate-300 hover:bg-slate-50 hover:text-slate-700 rounded-lg transition-all duration-150"
+            >
+              <ArrowLeft className="w-4 h-4" /> Back to list
+            </button>
             <button
               onClick={handleCreate}
               disabled={saving}
-              className="flex items-center justify-center gap-2 px-5 py-2.5 bg-teal-600 text-white text-sm font-semibold rounded-lg hover:bg-teal-700 disabled:opacity-50 transition-all shadow-sm min-h-[44px]"
+              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 min-h-[40px] text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-all duration-150"
             >
               {saving ? (
                 <LoadingDots className="text-white" />
@@ -426,12 +440,6 @@ export default function DeliveryChallanForm() {
                 <Download className="w-4 h-4" />
               )}
               {saving ? "Creating…" : "Create & Download PDF"}
-            </button>
-            <button
-              onClick={() => goBack(navigate, "/delivery-challans")}
-              className="flex items-center justify-center gap-2 px-5 py-2.5 bg-white text-slate-700 text-sm font-semibold rounded-lg border border-slate-300 hover:bg-slate-50 transition-all min-h-[44px]"
-            >
-              <ArrowLeft className="w-4 h-4" /> Back to list
             </button>
           </div>
         </div>
@@ -449,8 +457,8 @@ export default function DeliveryChallanForm() {
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center gap-3 px-5 py-4 border-b border-slate-100">
-                <div className="w-9 h-9 rounded-lg bg-teal-50 border border-teal-100 flex items-center justify-center shrink-0">
-                  <UserPlus className="w-4.5 h-4.5 text-teal-600" />
+                <div className="w-9 h-9 rounded-lg bg-violet-50 border border-violet-100 flex items-center justify-center shrink-0">
+                  <UserPlus className="w-4.5 h-4.5 text-violet-600" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <h3 className="text-sm font-bold text-slate-900">
@@ -473,7 +481,7 @@ export default function DeliveryChallanForm() {
 
               <div className="px-5 py-4 space-y-3 max-h-[65vh] overflow-y-auto">
                 <div>
-                  <label className={labelClass}>Name *</label>
+                  <label className={labelClass + " mb-1.5"}>Name <span className="text-rose-500">*</span></label>
                   <input
                     autoFocus
                     value={newCustomer.name}
@@ -492,7 +500,7 @@ export default function DeliveryChallanForm() {
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className={labelClass}>Phone</label>
+                    <label className={labelClass + " mb-1.5"}>Phone</label>
                     <input
                       type="tel"
                       inputMode="numeric"
@@ -511,7 +519,7 @@ export default function DeliveryChallanForm() {
                     />
                   </div>
                   <div>
-                    <label className={labelClass}>Email</label>
+                    <label className={labelClass + " mb-1.5"}>Email</label>
                     <input
                       type="email"
                       value={newCustomer.email}
@@ -524,7 +532,7 @@ export default function DeliveryChallanForm() {
                   </div>
                 </div>
                 <div>
-                  <label className={labelClass}>GSTIN</label>
+                  <label className={labelClass + " mb-1.5"}>GSTIN</label>
                   <input
                     type="text"
                     value={newCustomer.gstIn}
@@ -536,7 +544,7 @@ export default function DeliveryChallanForm() {
                   />
                 </div>
                 <div>
-                  <label className={labelClass}>Billing address</label>
+                  <label className={labelClass + " mb-1.5"}>Billing address</label>
                   <textarea
                     rows={2}
                     value={newCustomer.billingAddress}
@@ -553,7 +561,7 @@ export default function DeliveryChallanForm() {
                 <button
                   onClick={createCustomerOnTheFly}
                   disabled={creatingCustomer || !newCustomer.name.trim()}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-teal-600 text-white text-sm font-semibold rounded-lg hover:bg-teal-700 disabled:opacity-50 transition-all shadow-sm min-h-[44px]"
+                  className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 min-h-[40px] bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-150"
                 >
                   {creatingCustomer ? (
                     <LoadingDots className="text-white" />
@@ -565,7 +573,7 @@ export default function DeliveryChallanForm() {
                 <button
                   onClick={() => setShowCustomerModal(false)}
                   disabled={creatingCustomer}
-                  className="px-4 py-2.5 bg-white text-slate-700 text-sm font-semibold rounded-lg border border-slate-300 hover:bg-slate-50 transition-all min-h-[44px]"
+                  className="inline-flex items-center justify-center gap-2 px-4 py-2.5 min-h-[40px] bg-white text-slate-600 text-sm font-medium rounded-lg border border-slate-300 hover:bg-slate-50 hover:text-slate-700 transition-all duration-150"
                 >
                   Cancel
                 </button>

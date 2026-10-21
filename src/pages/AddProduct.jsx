@@ -11,6 +11,11 @@ export default function AddProduct() {
   const { id: editId } = useParams();
   const isEdit = Boolean(editId);
   const hsnRef = useRef(null);
+  const nameRef = useRef(null);
+  const rateRef = useRef(null);
+  // Cache of the last HSN lookup so the Enter-key check and the follow-up
+  // blur (focus moves to the next field) don't fire the same API call twice.
+  const lastHsnCheck = useRef({ value: "", ok: true });
   const [form, setForm] = useState({ name: "", hsn: "", rate: "", gstPercentage: "18" });
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(isEdit);
@@ -54,33 +59,42 @@ export default function AddProduct() {
   const checkHsnUnique = async (value) => {
     const hsn = (value || "").trim();
     setHsnError("");
-    if (!hsn) return true;
+    if (!hsn) {
+      lastHsnCheck.current = { value: "", ok: true };
+      return true;
+    }
+    // Same value already verified this session (Enter → blur double-fire) — reuse it.
+    if (lastHsnCheck.current.value === hsn) return lastHsnCheck.current.ok;
     try {
       const res = await productAPI.findByHsn(hsn);
       const existing = res.data?.data;
       // In edit mode the match may be this very product — that's not a conflict.
       if (existing && String(existing.id) !== String(editId)) {
         setHsnError(`HSN/SAC "${hsn}" is already used by "${existing.name}"`);
+        lastHsnCheck.current = { value: hsn, ok: false };
         return false;
       }
+      lastHsnCheck.current = { value: hsn, ok: true };
+      return true;
     } catch {
       /* lookup failed - let the server-side check decide on save */
+      lastHsnCheck.current = { value: hsn, ok: true };
+      return true;
     }
-    return true;
   };
 
   const handleHsnKeyDown = async (e) => {
     if (e.key === "Enter" && form.hsn) {
       e.preventDefault();
       const ok = await checkHsnUnique(form.hsn);
-      if (ok) document.querySelector("[name='name']")?.focus();
+      if (ok) nameRef.current?.focus();
     }
   };
 
   const handleNameKeyDown = (e) => {
     if (e.key === "Enter") {
       e.preventDefault();
-      document.querySelector("[name='rate']")?.focus();
+      rateRef.current?.focus();
     }
   };
 
@@ -88,6 +102,8 @@ export default function AddProduct() {
     e.preventDefault();
     if (!form.name.trim()) { toast.error("Product name is required"); return; }
     if (!parseFloat(form.rate) || parseFloat(form.rate) <= 0) { toast.error("Rate must be greater than 0"); return; }
+    const gst = parseFloat(form.gstPercentage) || 0;
+    if (gst < 0 || gst > 100) { toast.error("GST % must be between 0 and 100"); return; }
     const hsnOk = await checkHsnUnique(form.hsn);
     if (!hsnOk) { hsnRef.current?.focus(); return; }
     setSaving(true);
@@ -98,7 +114,7 @@ export default function AddProduct() {
         // persists (the backend mapper skips null fields).
         hsn: isEdit ? (form.hsn || "") : (form.hsn || undefined),
         rate: parseFloat(form.rate),
-        gstPercentage: parseFloat(form.gstPercentage) || 0,
+        gstPercentage: gst,
       };
       if (isEdit) {
         await productAPI.update(editId, payload);
@@ -122,7 +138,7 @@ export default function AddProduct() {
 
   if (loading) {
     return (
-      <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-gray-100">
+      <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 via-slate-50 to-violet-50/40">
         <div className="flex items-center justify-center" style={{ minHeight: "calc(100dvh - 80px)" }}>
           <LoadingDots className="text-slate-400" />
         </div>
@@ -132,7 +148,7 @@ export default function AddProduct() {
 
   if (loadError) {
     return (
-      <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-gray-100">
+      <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 via-slate-50 to-violet-50/40">
         <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 max-w-3xl mx-auto">
           <PageHeader title="Edit Product" />
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8 text-center">
@@ -155,8 +171,8 @@ export default function AddProduct() {
   const labelClass = "flex items-baseline justify-between mb-1.5";
   const labelText = "block text-xs font-semibold uppercase tracking-wider text-slate-500";
   const inputClass = "w-full h-10 pl-10 pr-3.5 text-sm text-slate-900 placeholder:text-slate-400/80 bg-white border border-slate-300 rounded-lg hover:border-slate-400 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/15 transition-all duration-200";
-  const fieldRow = (label, required, helper) => (
-    <label className={labelClass}>
+  const fieldRow = (label, htmlFor, required, helper) => (
+    <label htmlFor={htmlFor} className={labelClass}>
       <span className={labelText}>
         {label} {required && <span className="text-rose-500">*</span>}
       </span>
@@ -187,10 +203,12 @@ export default function AddProduct() {
           <div className="px-5 sm:px-6 pb-5 space-y-4">
             {/* Product Name */}
             <div>
-              {fieldRow("Product Name", true)}
+              {fieldRow("Product Name", "product-name", true)}
               <div className="relative">
                 <Package className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4 pointer-events-none" />
                 <input
+                  id="product-name"
+                  ref={nameRef}
                   name="name"
                   value={form.name}
                   onChange={handleChange}
@@ -203,10 +221,11 @@ export default function AddProduct() {
 
             {/* HSN/SAC */}
             <div>
-              {fieldRow("HSN/SAC", false, "Barcode scan & Enter to verify")}
+              {fieldRow("HSN/SAC", "product-hsn", false, "Barcode scan & Enter to verify")}
               <div className="relative">
                 <Hash className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4 pointer-events-none" />
                 <input
+                  id="product-hsn"
                   ref={hsnRef}
                   name="hsn"
                   value={form.hsn}
@@ -227,10 +246,12 @@ export default function AddProduct() {
             {/* Rate & GST Row */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                {fieldRow("Rate (Rs.)", true)}
+                {fieldRow("Rate (Rs.)", "product-rate", true)}
                 <div className="relative">
                   <IndianRupee className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4 pointer-events-none" />
                   <input
+                    id="product-rate"
+                    ref={rateRef}
                     type="number"
                     step="0.01"
                     min="0"
@@ -244,10 +265,11 @@ export default function AddProduct() {
                 </div>
               </div>
               <div>
-                {fieldRow("GST %", false, "Applied per line item")}
+                {fieldRow("GST %", "product-gst", false, "Applied per line item")}
                 <div className="relative">
                   <Percent className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4 pointer-events-none" />
                   <input
+                    id="product-gst"
                     type="number"
                     step="0.01"
                     min="0"

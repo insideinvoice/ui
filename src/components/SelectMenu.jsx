@@ -44,11 +44,11 @@ export default function SelectMenu({
         aria-haspopup="listbox"
         aria-label={ariaLabel}
         onClick={() => setOpen((o) => !o)}
-        className="w-full flex items-center justify-between gap-2 px-3 py-2 min-h-[40px] border border-slate-300 rounded-lg bg-white text-xs font-semibold text-slate-700 hover:border-slate-400 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-400/30 focus:border-teal-400 transition-colors"
+        className="w-full flex items-center justify-between gap-2 px-3 py-2 min-h-[40px] border border-slate-300 rounded-lg bg-white text-xs font-semibold text-slate-700 hover:border-slate-400 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-violet-500/15 focus:border-violet-500 transition-colors"
       >
         <span className="flex items-center gap-1.5 truncate">
           {selected?.icon ? (
-            <selected.icon className="w-3.5 h-3.5 text-teal-600 shrink-0" />
+            <selected.icon className="w-3.5 h-3.5 text-violet-600 shrink-0" />
           ) : null}
           <span className="truncate">{selected?.label}</span>
         </span>
@@ -79,17 +79,17 @@ export default function SelectMenu({
                 }}
                 className={`w-full flex items-center gap-2 px-3 py-2 min-h-[40px] text-left text-xs transition-colors ${
                   active
-                    ? "text-teal-700 bg-teal-50 font-bold"
+                    ? "text-violet-700 bg-violet-50 font-bold"
                     : "text-slate-700 hover:bg-slate-50 font-semibold"
                 }`}
               >
                 {opt.icon ? (
                   <opt.icon
-                    className={`w-3.5 h-3.5 shrink-0 ${active ? "text-teal-600" : "text-slate-400"}`}
+                    className={`w-3.5 h-3.5 shrink-0 ${active ? "text-violet-600" : "text-slate-400"}`}
                   />
                 ) : null}
                 <span className="flex-1 truncate">{opt.label}</span>
-                {active && <Check className="w-3.5 h-3.5 shrink-0 text-teal-600" />}
+                {active && <Check className="w-3.5 h-3.5 shrink-0 text-violet-600" />}
               </button>
             );
           })}

@@ -7,6 +7,7 @@ import DeliveryChallanDoc from "../components/DeliveryChallanDoc";
 import SelectMenu from "../components/SelectMenu";
 import { renderDeliveryChallanPdf } from "../components/DeliveryChallanDownload";
 import { chunkDcItems, DC_PAGE_W, DC_PAGE_H } from "../utils/deliveryChallanPdf";
+import { resolveSealConfig } from "../utils/sealConfig";
 import { deliveryChallanAPI, businessAPI } from "../api/auth";
 import toast from "react-hot-toast";
 import {
@@ -73,6 +74,15 @@ export default function DeliveryChallanView() {
     () => localStorage.getItem("seal_type") || "round"
   );
 
+  // Keep the per-document pick aligned with the business profile, which is the
+  // source of truth when the owner configured the seal on another device.
+  useEffect(() => {
+    if (!business?.sealType) return;
+    const next = business.sealType === "stamp" ? "stamp" : "round";
+    setSealType(next);
+    localStorage.setItem("seal_type", next);
+  }, [business?.sealType]);
+
   useEffect(() => {
     Promise.all([
       deliveryChallanAPI.getById(id),
@@ -90,6 +100,7 @@ export default function DeliveryChallanView() {
   // toggle) and keep referential identity so the memoized document skips
   // re-renders when nothing it renders actually changed.
   const chunks = useMemo(() => chunkDcItems(dc?.items || []), [dc]);
+  const sealConfig = useMemo(() => resolveSealConfig(business), [business]);
   const previewCustomer = useMemo(() => ({
     name: dc?.customerName,
     billingAddress: dc?.customerAddress,
@@ -351,6 +362,8 @@ export default function DeliveryChallanView() {
                     items={chunk}
                     showSeal={sealOn}
                     sealType={sealType}
+                    sealAllPages={sealConfig.allPages !== false}
+                    pageIndex={i}
                   />
                 </div>
               ))}

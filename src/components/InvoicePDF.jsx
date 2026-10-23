@@ -1,8 +1,8 @@
 import React, { useMemo } from "react";
 import { QRCodeSVG } from "qrcode.react";
-import CompanySeal from "./CompanySeal";
-import CompanyStamp from "./CompanyStamp";
+import SealOverlay from "./SealOverlay";
 import { resolveSeal } from "../utils/seal";
+import { sealSpecAttribute } from "../utils/sealConfig";
 import { asImageSrc } from "../utils/imageSrc";
 import { getSpecialistInLine } from "../utils/specialistIn";
 import { computeInvoiceTotals } from "../utils/invoiceTotals";
@@ -126,13 +126,12 @@ const InvoicePDF = React.memo(React.forwardRef(({ business, customer, form, item
   // persisted configuration — "" when the owner switched the line off or no
   // city is saved. Never a hardcoded default.
   const jurLine = jurisdictionLine(business);
-  const stampAddress1 = business?.addressLine1 || "";
-  const stampAddress2 = [business?.addressLine2, business?.city, business?.state, business?.pincode ? "-" + business.pincode : ""].filter(Boolean).join(", ");
-  const stampPhone = business?.phone ? `Ph: ${business.phone}` : "";
-  const stampEmail = business?.email ? `E-Mail: ${business.email}` : "";
 
   return (
-    <div ref={ref} style={{
+    <div
+      ref={ref}
+      data-ii-seal-spec={sealSpecAttribute(business)}
+      style={{
       width: `${TABLE_W + 2}px`,
       margin: "0 auto",
       background: "#fff",
@@ -141,6 +140,7 @@ const InvoicePDF = React.memo(React.forwardRef(({ business, customer, form, item
       fontSize: "10px",
       lineHeight: "1.35",
       boxSizing: "border-box",
+      position: "relative",
     }}>
       <table style={tStyle}>
         <tbody>
@@ -625,39 +625,13 @@ const InvoicePDF = React.memo(React.forwardRef(({ business, customer, form, item
                       <div style={{ fontSize: "10px", marginTop: "1px" }}>{isProforma ? "This is a Computer Generated Proforma Invoice" : "This is a Computer Generated Invoice"}</div>
                     </td>
                   </tr>
-                  <tr>
-                    <td style={{ textAlign: "right", padding: 0, paddingTop: "10px" }}>
-                      {sealVisible && sealType === "round" && (
-                        <div style={{ display: "inline-block" }}>
-                          <CompanySeal
-                            companyName={business?.businessName || "COMPANY NAME"}
-                            year={new Date().getFullYear()}
-                            size={80}
-                            color="#0A4BFF"
-                          />
-                        </div>
-                      )}
-                      {sealVisible && sealType === "stamp" && (
-                        <div style={{ display: "inline-block" }}>
-                          <CompanyStamp
-                            companyName={business?.businessName || "COMPANY NAME"}
-                            addressLine1={stampAddress1}
-                            addressLine2={stampAddress2}
-                            phone={stampPhone}
-                            email={stampEmail}
-                            width={240}
-                            color="#0000cc"
-                          />
-                        </div>
-                      )}
-                    </td>
-                  </tr>
                 </tbody>
               </table>
             </td>
           </tr>
         </tbody>
       </table>
+      {sealVisible && <SealOverlay business={business} type={sealType} />}
     </div>
   );
 }));

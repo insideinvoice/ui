@@ -8,9 +8,9 @@ import ConfirmModal from "../components/ConfirmModal";
 import { invoiceAPI, customerAPI } from "../api/auth";
 import { resolveBusinessProfile } from "../utils/businessProfile";
 import toast from "react-hot-toast";
-import { ArrowLeft, FileText, Download, Eye, PlusCircle, Share2, Trash2, Search, X, Link2, ChevronDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, FileSpreadsheet, Loader2, MessageSquare } from "lucide-react";
+import { ArrowLeft, FileText, Download, PlusCircle, Share2, Trash2, Search, X, Link2, ChevronDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, FileSpreadsheet, Loader2, MessageSquare } from "lucide-react";
 import WhatsAppIcon from "../components/WhatsAppIcon";
-import { downloadInvoicePDF } from "../utils/downloadInvoicePdf";
+import { downloadInvoicePDF, preloadInvoicePdf } from "../utils/downloadInvoicePdf";
 import { exportInvoicesExcel, invoiceMatchesFilters } from "../utils/exportInvoicesExcel";
 import InvoiceTemplateRenderer from "../components/InvoiceTemplateRenderer";
 import { getInvoiceTemplate } from "../constants/paperSizes";
@@ -122,6 +122,18 @@ export default function InvoicesList() {
   }, []);
 
   useEffect(() => { fetchInvoices(); }, [fetchInvoices]);
+
+  // Warm the PDF engine (jspdf + html2canvas chunk) while the list is idle so
+  // the first download click doesn't wait on a network fetch before rendering.
+  useEffect(() => {
+    const warm = () => preloadInvoicePdf();
+    if (typeof requestIdleCallback === "function") {
+      const id = requestIdleCallback(warm, { timeout: 3000 });
+      return () => cancelIdleCallback(id);
+    }
+    const t = setTimeout(warm, 1500);
+    return () => clearTimeout(t);
+  }, []);
 
   const [pageSize, setPageSize] = useState(25);
   const [currentPage, setCurrentPage] = useState(1);
@@ -571,7 +583,7 @@ export default function InvoicesList() {
                     aria-label="Filter by period"
                     className="w-full pl-3 pr-8 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400/30 focus:border-indigo-400 bg-white appearance-none cursor-pointer text-slate-700 font-medium min-h-[40px]"
                   >
-                    <option value="">All periods</option>
+                    <option value="">All Time</option>
                     {availablePeriods.map((p) => (
                       <option key={p.value} value={p.value}>
                         {p.label}
@@ -605,7 +617,7 @@ export default function InvoicesList() {
                   type="button"
                   onClick={handleExportExcel}
                   disabled={exporting || invoices.length === 0}
-                  className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-semibold bg-emerald-600 text-white hover:bg-emerald-700 active:scale-[0.98] transition-all shadow-sm disabled:opacity-60 disabled:cursor-not-allowed min-h-[40px] shrink-0"
+                  className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-semibold bg-emerald-600 text-white hover:bg-emerald-700 active:scale-[0.98] transition-all shadow-sm disabled:opacity-60 disabled:cursor-not-allowed min-h-[40px] shrink-0 ml-auto"
                 >
                   {exporting ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -670,7 +682,7 @@ export default function InvoicesList() {
                         <td className="py-3 px-4">
                           <button
                             onClick={() => navigate(`/invoice/${inv.id}`)}
-                            className="inline-flex items-center font-mono text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1 rounded-md border border-indigo-200 hover:border-indigo-300 transition-all"
+                            className="link-underline text-sm font-semibold text-indigo-600 tabular-nums hover:text-indigo-700 transition-colors"
                           >
                             {inv.invoiceNumber}
                           </button>
@@ -755,7 +767,7 @@ export default function InvoicesList() {
                     onClick={() => goToInvoice(inv)}
                   >
                     <div className="flex items-center justify-between mb-2">
-                      <span className="inline-flex items-center font-mono text-xs font-bold text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded-md border border-indigo-200">
+                      <span className="text-sm font-semibold text-indigo-600 tabular-nums">
                         {inv.invoiceNumber}
                       </span>
                       {isBusy(inv.id, "view") ? (
@@ -790,22 +802,6 @@ export default function InvoicesList() {
                       </span>
                     </div>
                     <div className="flex items-center gap-2 mt-3 pt-2 border-t border-slate-100">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          goToInvoice(inv);
-                        }}
-                        disabled={rowBusy(inv.id)}
-                        className="flex-1 flex items-center justify-center p-2 rounded-lg text-indigo-600 bg-indigo-50 hover:bg-indigo-100 transition-colors min-h-[44px] disabled:opacity-60"
-                        title="View"
-                        aria-label="View invoice"
-                      >
-                        {isBusy(inv.id, "view") ? (
-                          <Spinner size={14} />
-                        ) : (
-                          <Eye className="w-4 h-4" />
-                        )}
-                      </button>
                       <button
                         onClick={(e) => {
                           e.stopPropagation();

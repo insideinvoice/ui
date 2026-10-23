@@ -1,6 +1,7 @@
 import html2canvas from "../vendor/html2canvas.esm.js";
 import { jsPDF } from "jspdf";
 import { getPaperDimensions } from "../constants/paperSizes";
+import { stampSealOnEveryPage } from "./sealPdf";
 
 // Sections that must never be cut in half (item rows, totals, footer, seal).
 export const INVOICE_ROW_SELECTORS = [
@@ -91,6 +92,10 @@ export async function buildInvoicePdf(element, paperSizeId, fit = 1) {
       useCORS: true,
       logging: false,
       backgroundColor: "#ffffff",
+      // The on-screen seal is a placement preview. The PDF gets its own copy
+      // stamped onto every page (configured size/tilt/edge offsets), so the
+      // preview must not be baked into the captured raster.
+      ignoreElements: (node) => node?.classList?.contains?.("ii-seal-dom"),
     });
   } finally {
     window.__II_H2C_ASCENT_FIX = false;
@@ -199,6 +204,10 @@ export async function buildInvoicePdf(element, paperSizeId, fit = 1) {
     pageStartPx = pageEndPx;
     isFirstPage = false;
   }
+
+  // Every page gets the seal at the configured size/tilt, anchored to the
+  // paper's right/bottom edge — not just the last page's footer.
+  await stampSealOnEveryPage(pdf, element);
 
   return pdf;
 }

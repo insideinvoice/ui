@@ -1,12 +1,9 @@
 import React from "react";
-import CompanySeal from "./CompanySeal";
-import CompanyStamp from "./CompanyStamp";
+import SealOverlay from "./SealOverlay";
 import { getSpecialistInLine } from "../utils/specialistIn";
 import {
   DC_PAGE_W,
   DC_PAGE_H,
-  DC_SEAL_MM,
-  DC_STAMP_MM,
   fmtDate,
   fmtQty,
   panFromGstin,
@@ -779,41 +776,17 @@ function DeliveryChallanDoc({
   items = [],
   showSeal = false,
   sealType = "round",
+  sealAllPages = true,
+  pageIndex = 0,
 }) {
   const challan = { challanNumber, challanDate, poNumber, poDate };
   const Page = variant === "royal" ? RoyalPage : ClassicPage;
-  const stampBox = sealType === "stamp" ? DC_STAMP_MM : DC_SEAL_MM;
 
   return (
     <div style={{ position: "relative", width: DC_PAGE_W, flexShrink: 0 }}>
       <Page business={business} customer={customer} challan={challan} items={items} />
-      {showSeal && (
-        <div
-          style={{
-            position: "absolute",
-            right: 10 * MM,
-            bottom: 6 * MM,
-            width: stampBox.w * MM,
-            height: stampBox.h * MM,
-            pointerEvents: "none",
-          }}
-        >
-          {sealType === "stamp" ? (
-            <CompanyStamp
-              companyName={business?.businessName}
-              addressLine1={business?.addressLine1 || ""}
-              addressLine2={[business?.addressLine2, business?.city, business?.state].filter(Boolean).join(", ")}
-              phone={business?.phone ? `Ph: ${business.phone}` : ""}
-              email={business?.email || ""}
-              width={Math.round(stampBox.w * MM)}
-            />
-          ) : (
-            <CompanySeal
-              companyName={business?.businessName}
-              size={Math.round(stampBox.w * MM)}
-            />
-          )}
-        </div>
+      {showSeal && (sealAllPages || pageIndex === 0) && (
+        <SealOverlay business={business} type={sealType} pxPerMm={MM} insetMm={10} />
       )}
     </div>
   );

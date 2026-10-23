@@ -11,6 +11,7 @@ import InvoiceTemplateRenderer from "../components/InvoiceTemplateRenderer";
 import DocZoomSurface from "../components/DocZoomSurface";
 import WhatsAppIcon from "../components/WhatsAppIcon";
 import { processQueue } from "../utils/retryQueue";
+import { invalidateBusinessProfile } from "../utils/businessProfile";
 import { processPrint } from "../utils/printInvoice";
 import { buildInvoiceWhatsAppMessage, openWhatsAppChat, createInvoicePdfFile, probeFileShare, prefetchInvoicePdf } from "../utils/whatsapp";
 import { shareLinkToUser, proformaShareUrl, readCachedShareToken, writeCachedShareToken, clearCachedShareToken } from "../utils/shareLink";
@@ -163,7 +164,10 @@ export default function InvoiceView() {
     setSealType(type);
     localStorage.setItem("seal_type", type);
     setBusiness((b) => (b ? { ...b, sealType: type } : b));
-    businessAPI.update({ sealType: type }).catch(() => {});
+    businessAPI
+      .update({ sealType: type })
+      .then(() => invalidateBusinessProfile())
+      .catch(() => {});
   }, []);
   const industryConfig = useMemo(
     () => business?.industryConfig || getIndustryConfig(business?.industry),

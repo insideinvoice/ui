@@ -13,6 +13,31 @@
 
 export const VELOCITY_EPS = 0.02; // px/ms below which a flick is finished
 
+/** Ease-out cubic — the one easing curve for every programmatic zoom. */
+export function easeOutCubic(t) {
+  const k = Math.max(0, Math.min(1, t));
+  return 1 - Math.pow(1 - k, 3);
+}
+
+/** Overscroll resistance for ONE axis value: beyond the bound the translate
+ * travels asymptotically less the further it goes (rubber band) — used while
+ * a gesture is LIVE only; the settle path uses hard clampPan. */
+function rubberValue(v, min, max, dim) {
+  const reach = Math.max(60, dim * 0.35);
+  const soft = (excess) => reach * (1 - 1 / (excess / reach + 1));
+  if (v < min) return min - soft(min - v);
+  if (v > max) return max + soft(v - max);
+  return v;
+}
+
+/** Soft-clamp a translate pair while dragging/pinching past the edges. */
+export function rubberPan(view, bounds, surfaceW, surfaceH) {
+  return {
+    x: rubberValue(view.x, bounds.xMin, bounds.xMax, surfaceW),
+    y: rubberValue(view.y, bounds.yMin, bounds.yMax, surfaceH),
+  };
+}
+
 /**
  * Pan range for a given scale. A document that fits stays PINNED (centred
  * horizontally, flush under the top bar vertically — pinned means both range

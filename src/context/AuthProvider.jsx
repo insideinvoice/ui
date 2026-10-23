@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { authAPI, businessAPI } from "../api/auth";
+import { invalidateBusinessProfile } from "../utils/businessProfile";
 import { setAuthToken } from "../api/axios";
 import { sanitizeTemplate, clearTemplateOverrides } from "../constants/paperSizes";
 import { getIndustryConfig } from "../constants/industryConfig";
@@ -173,6 +174,7 @@ export function AuthProvider({ children }) {
         invoiceTemplate: tpl,
         printSettings: localStorage.getItem("print_settings") || "",
       });
+      invalidateBusinessProfile();
     } catch (err) {
       console.warn("Could not sync invoice template settings to server:", err?.response?.data || err?.message);
       // Roll back the optimistic local update so local always mirrors the
@@ -188,6 +190,7 @@ export function AuthProvider({ children }) {
 
   const setupBusiness = useCallback(async (businessData) => {
     const res = await businessAPI.setup(businessData);
+    invalidateBusinessProfile();
     const updatedUser = { ...user, businessSetupCompleted: true };
     writeStorage(USER_KEY, JSON.stringify(updatedUser));
     setUser(updatedUser);
@@ -204,6 +207,7 @@ export function AuthProvider({ children }) {
     }
     setAuthToken(null);
     clearAuthStorage();
+    invalidateBusinessProfile();
     localStorage.removeItem("invoice_template");
     localStorage.removeItem("mustChangePassword");
     setToken(null);

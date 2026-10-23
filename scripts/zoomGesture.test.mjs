@@ -8,10 +8,11 @@
 // on a desktop viewport (wheel / ctrl+wheel / mouse drag / double-click).
 //
 // Every scenario asserts, after every gesture:
-//   - scale stays inside [0.35, 5]
+//   - scale stays inside the fit-relative band [fit, 5×fit]
 //   - translate stays inside the surface-relative pan bounds (panZoom.js math)
 //   - everything finite (no NaN), touch-action stays "none"
-//   - ZERO buttons inside the surface (enterprise zoom = no on-screen controls)
+//   - ZERO buttons inside the lab surface (enterprise zoom = no on-screen
+//     controls; the share page's desktop-only +/−/Reset live in ZoomPanViewer)
 //
 // Exits non-zero if any check in any of the 20 fresh-page runs fails.
 
@@ -27,8 +28,7 @@ const BASE_URL = process.env.ZOOMLAB_URL || `http://localhost:${PORT}`;
 const LAB_URL = `${BASE_URL}/__zoomlab`;
 const ITERATIONS = 10;
 const PAPER_W = 794;
-const MIN_ZOOM = 0.35;
-const MAX_ZOOM = 5;
+const MAX_ZOOM_FACTOR = 5; // viewer band: min = fit (1×), max = 5× fit
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -92,7 +92,12 @@ function inBounds(v, tol = 2) {
   );
 }
 
-const scaleOk = (v) => v.s >= MIN_ZOOM - 0.01 && v.s <= MAX_ZOOM + 0.01;
+// The zoom band is fit-RELATIVE: [fit, 5×fit] — "1×" is fit-to-width, and a
+// settled view can never sit below fit or above 5× it.
+const scaleOk = (v) => {
+  const fit = expectFit(v);
+  return v.s >= fit - 0.02 && v.s <= fit * MAX_ZOOM_FACTOR + 0.02;
+};
 const finite = (v) => [v.s, v.x, v.y].every(Number.isFinite);
 const expectFit = (v) => Math.min(1, Math.max(0.2, v.surfW / PAPER_W));
 
@@ -259,10 +264,10 @@ async function mobileSuite(browser, iter) {
   check("mobile", iter, "ctrl+0 returns to fit", Math.abs(v.s - fit) < 0.05, `s=${v.s} fit=${fit}`);
   check("mobile", iter, "fit view in bounds", inBounds(v));
 
-  // 6. Double-tap toggles fit ↔ 100% (both directions).
+  // 6. Double-tap toggles fit ↔ 2.5×fit at the tap point (both directions).
   await doubleTap(cdp, cx, cy);
   v = await assertHealthy(page, "mobile", iter, "after 1st double-tap");
-  check("mobile", iter, "double-tap → 100%", Math.abs(v.s - 1) < 0.05, `s=${v.s}`);
+  check("mobile", iter, "double-tap → 2.5× fit", Math.abs(v.s - fit * 2.5) < 0.05, `s=${v.s} want=${fit * 2.5}`);
   await doubleTap(cdp, cx, cy);
   v = await assertHealthy(page, "mobile", iter, "after 2nd double-tap");
   check("mobile", iter, "double-tap → back to fit", Math.abs(v.s - fit) < 0.05, `s=${v.s} fit=${fit}`);
@@ -337,11 +342,12 @@ async function desktopSuite(browser, iter) {
   v = await assertHealthy(page, "desktop", iter, "after ctrl+wheel zoom-out");
   check("desktop", iter, "ctrl+wheel zooms OUT", v.s < s1 * 0.7, `s=${v.s} was=${s1}`);
 
-  // 5. Double-click toggles: below fit → 100% (drive scale under 0.97 first).
+  // 5. Double-click toggles: at fit (min) → 2.5× fit (drive scale to the min
+  //    clamp first).
   await cdp.send("Input.dispatchMouseEvent", { type: "mouseWheel", x: cx, y: cy, deltaX: 0, deltaY: 3000, modifiers: 2 });
   await sleep(300);
   v = await readState(page);
-  check("desktop", iter, "ctrl+wheel clamps at MIN_ZOOM", Math.abs(v.s - MIN_ZOOM) < 0.02, `s=${v.s}`);
+  check("desktop", iter, "ctrl+wheel clamps at fit (min = 1×)", Math.abs(v.s - fit) < 0.02, `s=${v.s} fit=${fit}`);
   // Two raw CDP clicks (clickCount 1 then 2) — Blink synthesizes `dblclick`
   // deterministically on the clickCount=2 release (page.mouse.click's
   // clickCount option is not reliably forwarded across puppeteer versions).
@@ -352,7 +358,7 @@ async function desktopSuite(browser, iter) {
   }
   await sleep(350);
   v = await assertHealthy(page, "desktop", iter, "after double-click");
-  check("desktop", iter, "double-click → 100%", Math.abs(v.s - 1) < 0.05, `s=${v.s}`);
+  check("desktop", iter, "double-click → 2.5× fit", Math.abs(v.s - fit * 2.5) < 0.05, `s=${v.s} want=${fit * 2.5}`);
 
   // 6. Stress: 12 seeded-random wheel/drag ops.
   const rng = makeRng(5000 + iter);
@@ -388,7 +394,7 @@ async function desktopSuite(browser, iter) {
 // ------------------------------------------------------------------- statics
 function staticChecks() {
   const share = readFileSync(path.join(ROOT, "src/pages/PublicInvoicePage.jsx"), "utf8");
-  check("static", 0, "share page: zoom pill removed", !/aria-label="Zoom in"/.test(share) && !/aria-label="Zoom out"/.test(share));
+  check("static", 0, "share page: renders via ZoomPanViewer", share.includes("<ZoomPanViewer"));
   const view = readFileSync(path.join(ROOT, "src/pages/InvoiceView.jsx"), "utf8");
   check("static", 0, "invoice view: modal uses DocZoomSurface", /showPdfPreview &&\s*\(/.test(view) && view.includes("<DocZoomSurface"));
   check("static", 0, "invoice view: no embedded PDF viewer", !view.includes('type="application/pdf"'));

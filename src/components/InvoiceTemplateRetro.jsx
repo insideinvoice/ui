@@ -1,7 +1,7 @@
 import React from "react";
-import CompanySeal from "./CompanySeal";
-import CompanyStamp from "./CompanyStamp";
+import SealOverlay from "./SealOverlay";
 import { resolveSeal } from "../utils/seal";
+import { resolveSealConfig, sealSpecAttribute } from "../utils/sealConfig";
 import { asImageSrc } from "../utils/imageSrc";
 import { numberToWords, formatINR } from "../utils/invoiceFormat";
 import { computeInvoiceTotals } from "../utils/invoiceTotals";
@@ -67,6 +67,42 @@ const Dots = ({ flex = 1, width }) => (
   </span>
 );
 
+/* Auto-fit a single line: the text starts at `base` px and the font shrinks
+   (never wraps, never clips, no ellipsis) until the rendered width fits the
+   padded box. Measured in a layout effect against the real DOM, so both the
+   on-screen share page and the html2canvas PDF capture always see the final
+   size — the letterhead's fixed pixel budget is untouched (height stays
+   pinned by the wrapper, only the glyphs shrink). */
+const FitLine = ({ base, min = 10, text, style }) => {
+  const ref = React.useRef(null);
+  React.useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const parent = el.parentElement;
+    const cs = getComputedStyle(parent);
+    const avail =
+      parent.clientWidth -
+      (parseFloat(cs.paddingLeft) || 0) -
+      (parseFloat(cs.paddingRight) || 0);
+    if (!(avail > 0)) return;
+    let size = base;
+    el.style.fontSize = `${size}px`;
+    // A couple of passes: letter-spacing is constant px, so the first
+    // proportional guess slightly overshoots — re-measure and settle.
+    for (let i = 0; i < 4; i++) {
+      const w = el.offsetWidth;
+      if (w <= avail || size <= min) break;
+      size = Math.max(min, Math.floor(((size * avail) / w) * 10) / 10);
+      el.style.fontSize = `${size}px`;
+    }
+  }, [text, base, min]);
+  return (
+    <span ref={ref} data-fitline="" style={{ display: "inline-block", whiteSpace: "nowrap", ...style }}>
+      {text}
+    </span>
+  );
+};
+
 const Frame = ({ children, pageId }) => (
   <div
     id={pageId}
@@ -114,18 +150,22 @@ const Letterhead = ({ business, title, subNote }) => {
           </div>
         )}
       </div>
-      <div style={{ textAlign: "center", fontSize: twoLine ? "27px" : "31px", fontWeight: 800, letterSpacing: "1.5px", marginTop: twoLine ? "12px" : "6px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", lineHeight: twoLine ? 1 : 1.1, paddingLeft: 62, paddingRight: 62 }}>
-        {(business?.businessName || "BUSINESS NAME").toUpperCase()}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: twoLine ? "27px" : "34.1px", marginTop: twoLine ? "12px" : "6px", whiteSpace: "nowrap", overflow: "hidden", paddingLeft: 62, paddingRight: 62 }}>
+        <FitLine base={twoLine ? 27 : 31} min={10} text={(business?.businessName || "BUSINESS NAME").toUpperCase()} style={{ fontWeight: 800, letterSpacing: "1.5px", lineHeight: twoLine ? 1 : 1.1 }} />
       </div>
       {/* specialist sits directly under the company name, address follows */}
       {specialist && (
-        <div style={{ fontSize: "12.5px", lineHeight: "17px", marginTop: "3px", textAlign: "center", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", paddingLeft: 62, paddingRight: 62 }}>
-          SPECIALIST IN : {specialist}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "17px", marginTop: "3px", whiteSpace: "nowrap", overflow: "hidden", paddingLeft: 62, paddingRight: 62 }}>
+          <FitLine base={12.5} min={8} text={`SPECIALIST IN : ${specialist}`} style={{ lineHeight: "17px" }} />
         </div>
       )}
-      <div style={{ fontSize: "12.5px", lineHeight: "17px", marginTop: "3px", textAlign: "center", paddingLeft: 62, paddingRight: 62 }}>
-        <div style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{addr1}</div>
-        <div style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{addrLine}</div>
+      <div style={{ fontSize: "12.5px", marginTop: "3px", textAlign: "center", paddingLeft: 62, paddingRight: 62 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "17px", whiteSpace: "nowrap", overflow: "hidden" }}>
+          <FitLine base={12.5} min={8} text={addr1} style={{ lineHeight: "17px" }} />
+        </div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "17px", whiteSpace: "nowrap", overflow: "hidden" }}>
+          <FitLine base={12.5} min={8} text={addrLine} style={{ lineHeight: "17px" }} />
+        </div>
       </div>
     </div>
   );
@@ -457,7 +497,7 @@ const Totals = ({ gross, discAmt, discPct, cgst, sgst, igst, igstMode = false, g
 
 /* -------------------------------------------------------------- footer */
 
-const FooterBand = ({ business, terms, sealVisible, sealType, sigSrc, layout }) => (
+const FooterBand = ({ business, terms, sigSrc, layout }) => (
   <div style={{ height: RETRO_PAGE_METRICS.footer, display: "flex", boxSizing: "border-box", position: "relative" }}>
     <div style={{ width: layout.cols.no + layout.cols.particulars, boxSizing: "border-box", padding: "7px 10px", overflow: "hidden" }}>
       <div style={{ fontSize: "13px", fontWeight: 700, marginBottom: "4px" }}>Terms &amp; Conditions :</div>
@@ -488,24 +528,6 @@ const FooterBand = ({ business, terms, sealVisible, sealType, sigSrc, layout }) 
         />
       )}
       <div style={{ position: "absolute", left: 0, right: 0, bottom: "1px", textAlign: "center", fontSize: "12.5px" }}>Signature</div>
-      {sealVisible && sealType === "stamp" && (
-        <div style={{ position: "absolute", right: "10px", top: "36px", zIndex: 2 }}>
-          <CompanyStamp
-            companyName={business?.businessName || "COMPANY NAME"}
-            addressLine1={business?.addressLine1 || ""}
-            addressLine2={[business?.addressLine2, business?.city, business?.state].filter(Boolean).join(", ")}
-            phone={business?.phone ? `Ph: ${business.phone}` : ""}
-            email={business?.email || ""}
-            width={150}
-            color="#0A4BFF"
-          />
-        </div>
-      )}
-      {sealVisible && sealType !== "stamp" && (
-        <div style={{ position: "absolute", right: "16px", top: "33px", zIndex: 2 }}>
-          <CompanySeal companyName={business?.businessName || "COMPANY NAME"} year={new Date().getFullYear()} size={74} color="#0A4BFF" />
-        </div>
-      )}
     </div>
     <div style={{ position: "absolute", top: 0, bottom: -BOTTOM_SPACER, left: `${layout.cols.no + layout.cols.particulars}px`, width: "1px", background: "#000000" }} />
   </div>
@@ -513,7 +535,7 @@ const FooterBand = ({ business, terms, sealVisible, sealType, sigSrc, layout }) 
 
 /* --------------------------------------------------------------- page */
 
-const RetroPage = ({ pageId, chunks, startIndex, shared }) => (
+const RetroPage = ({ pageId, chunks, startIndex, shared, pageIndex = 0 }) => (
   <Frame pageId={pageId}>
     <Letterhead business={shared.business} title={shared.title} subNote={shared.subNote} />
     <Details invoiceNumber={shared.displayInvNo} form={shared.form} customer={shared.customer} />
@@ -536,13 +558,14 @@ const RetroPage = ({ pageId, chunks, startIndex, shared }) => (
     <FooterBand
       business={shared.business}
       terms={shared.terms}
-      sealVisible={shared.sealVisible}
-      sealType={shared.sealType}
       sigSrc={shared.sigSrc}
       layout={shared.layout}
     />
     {/* breathing room between the terms/signature band and the frame edge */}
     <div style={{ height: `${BOTTOM_SPACER}px`, boxSizing: "border-box" }} />
+    {shared.sealVisible && (shared.sealAllPages || pageIndex === 0) && (
+      <SealOverlay business={shared.business} type={shared.sealType} />
+    )}
   </Frame>
 );
 
@@ -614,6 +637,7 @@ const InvoiceTemplateRetro = React.forwardRef(
       pctLabel,
       terms: (form?.notes && form.notes.trim()) || "Goods once sold cannot be taken back or exchanged.",
       ...resolveSeal(business),
+      sealAllPages: resolveSealConfig(business).allPages !== false,
       sigSrc: asImageSrc(business?.signature),
     };
 
@@ -622,7 +646,7 @@ const InvoiceTemplateRetro = React.forwardRef(
       return acc;
     }, []);
     return (
-      <div ref={ref} style={{ width: RETRO_PAGE_METRICS.width, margin: "0 auto", background: "#ffffff" }}>
+      <div ref={ref} data-ii-seal-spec={sealSpecAttribute(business)} style={{ width: RETRO_PAGE_METRICS.width, margin: "0 auto", background: "#ffffff", position: "relative" }}>
         {chunks.map((chunk, i) => {
           const startIndex = offsets[i];
           return (
@@ -632,6 +656,7 @@ const InvoiceTemplateRetro = React.forwardRef(
                 chunks={pageItems(chunk)}
                 startIndex={startIndex}
                 shared={shared}
+                pageIndex={i}
               />
             </div>
           );

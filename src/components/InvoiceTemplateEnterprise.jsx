@@ -1,8 +1,8 @@
 import React, { useMemo, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
-import CompanySeal from "./CompanySeal";
-import CompanyStamp from "./CompanyStamp";
+import SealOverlay from "./SealOverlay";
 import { resolveSeal } from "../utils/seal";
+import { resolveSealConfig, sealSpecAttribute } from "../utils/sealConfig";
 import { numberToWords, formatINR } from "../utils/invoiceFormat";
 import { computeInvoiceTotals } from "../utils/invoiceTotals";
 import { jurisdictionLine } from "../utils/jurisdiction";
@@ -45,7 +45,6 @@ const PANEL = "#f1f1f1";    // table header fill
 const TOTAL_BG = "#f7f7f7"; // summary total-row fill
 const MUTED = "#585858";    // small-print text
 const FAINT = "#8a8a8a";    // caps labels
-const STAMP_BLUE = "#0A4BFF"; // rubber-stamp ink (same blue as Retro/Original)
 
 const FONT = "'Segoe UI', Arial, Helvetica, sans-serif";
 
@@ -659,7 +658,7 @@ const WordsStrip = ({ isProforma, words, showTax, taxAmount }) => {
 
 /* --------------------------------------------------------------- band */
 
-const BankBand = ({ business, sigSrc, sealVisible, sealType, isProforma, payAmount, payRef }) => (
+const BankBand = ({ business, sigSrc, isProforma, payAmount, payRef }) => (
   <div style={{
     height: M.band, boxSizing: "border-box", display: "flex",
     // The band sits directly under the words strip (whose bottom rule is its
@@ -731,32 +730,6 @@ const BankBand = ({ business, sigSrc, sealVisible, sealType, isProforma, payAmou
       }}>
         Authorised Signatory
       </div>
-      {/* the stamp/seal is inked OVER the uploaded signature (z-index keeps it
-          on top), the way a rubber stamp lands on a signed copy — blue like
-          every other template's stamp */}
-      {sealVisible && sealType === "stamp" && (
-        <div style={{ position: "absolute", right: "6px", top: "26px", zIndex: 2 }}>
-          <CompanyStamp
-            companyName={business?.businessName || "COMPANY NAME"}
-            addressLine1={business?.addressLine1 || ""}
-            addressLine2={[business?.addressLine2, business?.city, business?.state].filter(Boolean).join(", ")}
-            phone={business?.phone ? `Ph: ${business.phone}` : ""}
-            email={business?.email || ""}
-            width={160}
-            color={STAMP_BLUE}
-          />
-        </div>
-      )}
-      {sealVisible && sealType !== "stamp" && (
-        <div style={{ position: "absolute", right: "12px", top: "16px", zIndex: 2 }}>
-          <CompanySeal
-            companyName={business?.businessName || "COMPANY NAME"}
-            year={new Date().getFullYear()}
-            size={80}
-            color={STAMP_BLUE}
-          />
-        </div>
-      )}
     </div>
   </div>
 );
@@ -864,8 +837,6 @@ const EntPage = ({ pageId, showItems, sumRows, sumWithTotal, closing, chunkItems
           <BankBand
             business={business}
             sigSrc={shared.sigSrc}
-            sealVisible={shared.sealVisible}
-            sealType={shared.sealType}
             isProforma={shared.isProforma}
             payAmount={shared.calc.grandTotal}
             payRef={shared.displayInvNo}
@@ -883,6 +854,9 @@ const EntPage = ({ pageId, showItems, sumRows, sumWithTotal, closing, chunkItems
         pageNo={pageKind.pageNo}
         totalPages={pageKind.totalPages}
       />
+      {shared.sealVisible && (shared.sealAllPages || pageKind.isFirst) && (
+        <SealOverlay business={business} type={shared.sealType} />
+      )}
     </div>
   );
 };
@@ -1045,6 +1019,7 @@ const InvoiceTemplateEnterprise = React.forwardRef(
     const subNote = isProforma ? "— NOT A TAX INVOICE —" : null;
 
     const { sealVisible, sealType } = resolveSeal(business);
+    const sealAllPages = resolveSealConfig(business).allPages !== false;
 
     /* Render list: items pages, then any breakup-continuation pages (each
        repeating the table header), then a closing-only page when the block
@@ -1078,7 +1053,7 @@ const InvoiceTemplateEnterprise = React.forwardRef(
     }
 
     return (
-      <div ref={ref} style={{ width: `${M.width}px`, margin: "0 auto", background: "#ffffff" }}>
+      <div ref={ref} data-ii-seal-spec={sealSpecAttribute(business)} style={{ width: `${M.width}px`, margin: "0 auto", background: "#ffffff", position: "relative" }}>
         {pages.map((p, i) => {
           const isFirst = i === 0;
           const isLast = i === pages.length - 1;
@@ -1107,7 +1082,7 @@ const InvoiceTemplateEnterprise = React.forwardRef(
                 calc, title, subNote, displayInvNo, isProforma,
                 showTax, summaryFirstLabel, totalsRows, words, taxMode,
                 jurLine, cols, descLabel,
-                headH, sigSrc, sealVisible, sealType,
+                headH, sigSrc, sealVisible, sealType, sealAllPages,
               }}
             />
           );

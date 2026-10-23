@@ -83,6 +83,15 @@ export default function DeliveryChallanForm() {
     localStorage.setItem("ii_dc_seal", sealOn ? "on" : "off");
   }, [sealOn]);
 
+  // The business profile is the source of truth across devices; mirror its
+  // saved variant into the local pick once the profile arrives.
+  useEffect(() => {
+    if (!business?.sealType) return;
+    const next = business.sealType === "stamp" ? "stamp" : "round";
+    setSealType(next);
+    localStorage.setItem("seal_type", next);
+  }, [business?.sealType]);
+
   const setField = (name, value) => setForm((f) => ({ ...f, [name]: value }));
 
   const handleCustomerSelect = (value) => {

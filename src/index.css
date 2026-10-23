@@ -75,16 +75,32 @@ html.pip-locked #root {
 }
 
 /* Document viewer gesture surface. `touch-action: none` hands EVERY touch to
-   the page's own zoom engine (PublicInvoicePage): with anything less, Android
-   and iOS recognise a two-finger spread as the browser's own pinch BEFORE the
-   second pointer ever moves and fire pointercancel — the engine dies at
-   gesture start and pinch appears to "do nothing" on the phone. The engine
-   compensates for the lost native behaviour itself: one-finger drags pan the
-   document (with flick momentum) at every zoom level. */
+   the page's own zoom engine: with anything less, Android and iOS recognise a
+   two-finger spread as the browser's own pinch BEFORE the second pointer ever
+   moves and fire pointercancel — the engine dies at gesture start and pinch
+   appears to "do nothing" on the phone. The engine compensates for the lost
+   native behaviour itself: one-finger drags pan the document (with flick
+   momentum) at every zoom level. */
 .doc-pan {
   cursor: grab;
   touch-action: none;
   overscroll-behavior: contain;
+}
+/* `touch-action` does NOT inherit, and Chrome grades the gesture from the
+   element actually TOUCHED: template children (default `auto`) let the
+   browser claim a drag a few frames in and fire pointercancel — the engine
+   then only ever saw ONE move per gesture ("can't pan, jump, dead"). Every
+   touched pixel inside the surface must therefore be gesture-captive. This
+   one rule fixed the share-link viewer panning on real phones. */
+.doc-pan,
+.doc-pan * {
+  touch-action: none;
+}
+/* Layer-promote the paper only while a gesture/tween runs: the promoted
+   layer keeps pinch frames on the compositor (no per-scale repaints), and
+   the memory cost disappears when the surface is idle. */
+.doc-pan .zp-paper.is-gesturing {
+  will-change: transform;
 }
 .doc-pan.is-grabbing { cursor: grabbing; }
 .doc-pan.is-grabbing * { cursor: grabbing; }
@@ -385,6 +401,38 @@ div:has(> label + input[type="date"]) {
      logo now shrinks naturally as its text clips — the old fixed 2rem widths
      snapped mid-animation. */
 }
+
+/* Enterprise-style link underline (Material/Stripe tabs): a hairline that
+   grows from the LEFT edge on hover and retracts the same way on leave —
+   not a static underline popping in. Uses currentColor so it always matches
+   the link's own text colour, including its hover shade. Reusable on any
+   inline link/button that should read as a reference number or text link. */
+.link-underline {
+  position: relative;
+}
+.link-underline::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -2px;
+  width: 100%;
+  height: 1.5px;
+  background: currentColor;
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 700ms linear;
+  pointer-events: none;
+}
+.link-underline:hover::after,
+.link-underline:focus-visible::after {
+  transform: scaleX(1);
+}
+/* NOTE: deliberately NO prefers-reduced-motion opt-out here. A 1.5px hairline
+   growing under a text link is not a vestibular trigger, and this draw IS the
+   feature — an earlier `transition: none` override made the line pop in
+   INSTANTLY for anyone with macOS "Reduce motion" on, silently killing the
+   left-to-right animation (no timing change could ever fix it, because the
+   transition never ran at all). Do not re-add that override here. */
 
 /* Right-side panel (View Invoice + New Invoice) stays a FIXED 340px while the
    icon rail is active, so the middle section — items table / tax invoice —

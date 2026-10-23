@@ -10,12 +10,6 @@ export const DC_ITEMS_PER_PAGE = 20;
 export const DC_PAGE_W = 714;
 export const DC_PAGE_H = 1040;
 
-// Bottom-right seal/stamp footprint in mm (page coordinates). The round seal
-// is a 26×26 square; the rubber stamp is rectangular (2.5:1, CompanyStamp's
-// viewBox aspect) and sits in the same corner.
-export const DC_SEAL_MM = { w: 26, h: 26 };
-export const DC_STAMP_MM = { w: 40, h: 16 };
-
 export function fmtDate(iso) {
   if (!iso) return "";
   const [y, m, d] = String(iso).split("-");
@@ -72,6 +66,8 @@ export async function buildDeliveryChallanPdf(pageElements, options = {}) {
     stampHMm = stampSizeMm,
     stampRightMm = 10,
     stampBottomMm = 6,
+    // false = seal the first page only; continuation pages stay clean
+    stampAllPages = true,
   } = options;
 
   const dim = getPaperDimensions("A4_PORTRAIT");
@@ -84,16 +80,20 @@ export async function buildDeliveryChallanPdf(pageElements, options = {}) {
 
   let stampPng = null;
   if (stampSvg) {
-    // rasterize at the stamp's own aspect so the rubber stamp isn't squashed
-    const pxW = 512;
+    // rasterize at the stamp's own aspect so the rubber stamp isn't squashed;
+    // ~300 DPI at the configured physical width, with a 512 px floor
+    const pxW = Math.min(2400, Math.max(512, Math.round(stampWMm * 12)));
     const pxH = Math.max(1, Math.round((pxW * stampHMm) / stampWMm));
     stampPng = await svgToPngDataUrl(stampSvg, pxW, pxH);
   }
 
-  // Fixed stamp position in page coordinates: bottom-right of the content
-  // area, identical on every page (page 1, overflow pages, single pages).
-  const stampX = LEFT + CONTENT_W - stampRightMm - stampWMm;
-  const stampY = 10 + PAGE_H - stampBottomMm - stampHMm;
+  // Fixed stamp position in page coordinates: the configured gap from the
+  // paper's right/bottom edge, identical on every page (page 1, overflow pages,
+  // single pages).
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const pageHeight = pdf.internal.pageSize.getHeight();
+  const stampX = pageWidth - stampRightMm - stampWMm;
+  const stampY = pageHeight - stampBottomMm - stampHMm;
 
   let firstPage = true;
 
@@ -109,6 +109,7 @@ export async function buildDeliveryChallanPdf(pageElements, options = {}) {
         useCORS: true,
         logging: false,
         backgroundColor: "#ffffff",
+        ignoreElements: (node) => node?.classList?.contains?.("ii-seal-dom"),
       });
     } finally {
       window.__II_H2C_ASCENT_FIX = false;
@@ -161,7 +162,7 @@ export async function buildDeliveryChallanPdf(pageElements, options = {}) {
         sliceHeightMM
       );
 
-      if (stampPng) {
+      if (stampPng && (stampAllPages || firstPage)) {
         pdf.addImage(stampPng, "PNG", stampX, stampY, stampWMm, stampHMm);
       }
 

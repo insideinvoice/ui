@@ -2,13 +2,16 @@ import { useState, useEffect, useRef } from "react";
 import { useAuth } from "../context/AuthContext";
 import PrintSettings from "./PrintSettings";
 import JurisdictionRegionSelect from "../components/JurisdictionRegionSelect";
+import SealMark from "../components/SealMark";
 import { authAPI, businessAPI } from "../api/auth";
+import { invalidateBusinessProfile } from "../utils/businessProfile";
+import { normalizeSealConfig, sealBoxMm, SEAL_LIMITS } from "../utils/sealConfig";
 import { formatInvoiceNumber } from "../utils/invoiceConvention";
 import { formatJurisdiction } from "../utils/jurisdiction";
 import { JURISDICTION_CENTRES } from "../constants/indianRegions";
 import { INDUSTRY_LIST, DEFAULT_INDUSTRY, INDUSTRY_PROFILES } from "../constants/industryConfig";
 import toast from "react-hot-toast";
-import { User, Lock, Upload, Trash2, Pen, Eye, EyeOff, Landmark, Building, Image as ImageIcon, MapPin, Globe, Phone, Mail, Hash, FileText } from "lucide-react";
+import { User, Lock, Upload, Trash2, Pen, Eye, EyeOff, Landmark, Building, Image as ImageIcon, MapPin, Globe, Phone, Mail, Hash, Stamp } from "lucide-react";
 
 export default function Profile() {
   const { user, setUser, refreshBusiness } = useAuth();
@@ -24,6 +27,10 @@ export default function Profile() {
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [ghostMode, setGhostMode] = useState(localStorage.getItem("ghost_mode") === "true");
   const [sealEnabled, setSealEnabled] = useState(localStorage.getItem("show_seal") === "true");
+  const [sealType, setSealType] = useState(localStorage.getItem("seal_type") === "stamp" ? "stamp" : "round");
+  const [sealConfig, setSealConfig] = useState(() => normalizeSealConfig(localStorage.getItem("seal_config")));
+  const [showSealPreview, setShowSealPreview] = useState(true);
+  const [savingSeal, setSavingSeal] = useState(false);
   const [businessData, setBusinessData] = useState(null);
   const [bankForm, setBankForm] = useState({ bankName: "", accountNo: "", branch: "", ifsc: "", bankAddress: "", upiId: "" });
   const [savingBank, setSavingBank] = useState(false);
@@ -41,8 +48,16 @@ export default function Profile() {
         setBusinessData(b);
         // The seal preference is stored on the business so the emailed PDF and
         // the public share page (customer's device) match the owner's choice.
-        if (typeof b?.sealEnabled === "boolean") setSealEnabled(b.sealEnabled);
-        if (b?.sealType) localStorage.setItem("seal_type", b.sealType);
+        if (typeof b?.sealEnabled === "boolean") {
+          setSealEnabled(b.sealEnabled);
+          localStorage.setItem("show_seal", String(b.sealEnabled));
+        }
+        if (b?.sealType) {
+          const savedType = b.sealType === "stamp" ? "stamp" : "round";
+          setSealType(savedType);
+          localStorage.setItem("seal_type", savedType);
+        }
+        setSealConfig(normalizeSealConfig(b?.sealConfig ?? localStorage.getItem("seal_config")));
         setBankForm({
           bankName: b?.bankName || "",
           accountNo: b?.accountNo || "",
@@ -75,6 +90,56 @@ export default function Profile() {
       })
       .catch(() => {});
   }, []);
+
+  const setSealField = (field, value) => {
+    setSealConfig((current) => ({
+      ...current,
+      [sealType]: { ...current[sealType], [field]: value },
+    }));
+  };
+
+  const chooseSealType = (type) => {
+    setSealType(type);
+    localStorage.setItem("seal_type", type);
+    setBusinessData((d) => (d ? { ...d, sealType: type } : d));
+    // Switching the active variant should take effect on the next download
+    // even before the placement values are saved.
+    businessAPI
+      .update({ sealType: type })
+      .then(() => invalidateBusinessProfile())
+      .catch(() => {});
+  };
+
+  const handleSaveSeal = async () => {
+    setSavingSeal(true);
+    try {
+      // Normalise/clamp before saving: empty or out-of-range inputs become the
+      // page-safe values every renderer expects (same rules as the backend).
+      const normalized = normalizeSealConfig(sealConfig);
+      const res = await businessAPI.update({
+        sealEnabled: true,
+        sealType,
+        sealConfig: normalized,
+      });
+      setSealConfig(normalized);
+      setSealEnabled(true);
+      localStorage.setItem("seal_config", JSON.stringify(normalized));
+      localStorage.setItem("seal_type", sealType);
+      localStorage.setItem("show_seal", "true");
+      setBusinessData(res.data.data);
+      invalidateBusinessProfile();
+      await refreshBusiness?.();
+      toast.success(res.data.message || "Seal settings saved");
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to save seal settings");
+    } finally {
+      setSavingSeal(false);
+    }
+  };
+
+  const resetSealConfig = () => {
+    setSealConfig(normalizeSealConfig(null));
+  };
 
   const handleUpdateName = async (e) => {
     e.preventDefault();
@@ -242,6 +307,7 @@ export default function Profile() {
       const res = await businessAPI.update(bizForm);
       const updated = res?.data?.data;
       if (updated) setBusinessData(updated);
+      invalidateBusinessProfile();
       refreshBusiness?.();
       toast.success("Business information updated");
     } catch (err) {
@@ -287,7 +353,7 @@ export default function Profile() {
           </form>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 gap-6">
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
             <div className="flex items-center justify-between mb-5">
               <div className="flex items-center gap-2">
@@ -313,7 +379,7 @@ export default function Profile() {
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
             <div className="flex items-center justify-between mb-5">
               <div className="flex items-center gap-2">
-                <FileText className="w-5 h-5 text-slate-600" />
+                <Stamp className="w-5 h-5 text-slate-600" />
                 <h2 className="text-base font-semibold text-slate-900">Company Seal</h2>
               </div>
               <button onClick={() => {
@@ -323,15 +389,159 @@ export default function Profile() {
                 setBusinessData((d) => (d ? { ...d, sealEnabled: next } : d));
                 // Persist server-side: this is what the emailed PDF and the
                 // public share page read, so the toggle must not stay local.
-                businessAPI.update({ sealEnabled: next }).catch(() => {});
+                businessAPI
+                  .update({ sealEnabled: next })
+                  .then(() => invalidateBusinessProfile())
+                  .catch(() => {});
               }}
                 className={`relative w-11 h-6 rounded-full transition-colors ${sealEnabled ? "bg-blue-500" : "bg-slate-300"}`}>
                 <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform ${sealEnabled ? "translate-x-5" : ""}`} />
               </button>
             </div>
             <p className="text-xs text-slate-500">
-              When enabled, select the seal type on the invoice page before downloading.
+              {sealEnabled
+                ? "Set where the seal sits on the page, how big it is and how far it is tilted. The same mark is stamped on every page."
+                : "Turn on to stamp your company seal on invoices, delivery challans and shared links."}
             </p>
+
+            {sealEnabled && (
+              <div className="mt-5 pt-5 border-t border-slate-100">
+                <div className="mb-4">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-2">Seal type</p>
+                  <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5">
+                    {[
+                      { id: "round", label: "Round Seal" },
+                      { id: "stamp", label: "Rubber Stamp" },
+                    ].map((option) => (
+                      <button
+                        key={option.id}
+                        type="button"
+                        onClick={() => chooseSealType(option.id)}
+                        className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${
+                          sealType === option.id
+                            ? "bg-white text-slate-900 shadow-sm"
+                            : "text-slate-500 hover:text-slate-700"
+                        }`}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="mb-4 flex items-center justify-between gap-4 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5">
+                  <div>
+                    <p className="text-xs font-semibold text-slate-700">Multi-page</p>
+                    <p className="text-[11px] text-slate-500">
+                      Stamp the seal on every page. Turn off to stamp only the first page.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={sealConfig.allPages}
+                    onClick={() => setSealConfig((c) => ({ ...c, allPages: !c.allPages }))}
+                    className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
+                      sealConfig.allPages ? "bg-blue-500" : "bg-slate-300"
+                    }`}
+                  >
+                    <span
+                      className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${
+                        sealConfig.allPages ? "translate-x-5" : ""
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <SealNumberField
+                    label={sealType === "stamp" ? "Width (mm)" : "Size (mm)"}
+                    value={sealConfig[sealType].sizeMm}
+                    min={sealType === "stamp" ? SEAL_LIMITS.stamp.minSize : SEAL_LIMITS.round.minSize}
+                    max={sealType === "stamp" ? SEAL_LIMITS.stamp.maxSize : SEAL_LIMITS.round.maxSize}
+                    step={0.5}
+                    onChange={(value) => setSealField("sizeMm", value)}
+                  />
+                  <SealNumberField
+                    label="Tilt (°)"
+                    value={sealConfig[sealType].tilt}
+                    min={SEAL_LIMITS.minTilt}
+                    max={SEAL_LIMITS.maxTilt}
+                    step={1}
+                    onChange={(value) => setSealField("tilt", value)}
+                  />
+                  <SealNumberField
+                    label="From right (mm)"
+                    value={sealConfig[sealType].rightMm}
+                    min={SEAL_LIMITS.minEdge}
+                    max={SEAL_LIMITS.maxEdge}
+                    step={1}
+                    onChange={(value) => setSealField("rightMm", value)}
+                  />
+                  <SealNumberField
+                    label="From bottom (mm)"
+                    value={sealConfig[sealType].bottomMm}
+                    min={SEAL_LIMITS.minEdge}
+                    max={SEAL_LIMITS.maxEdge}
+                    step={1}
+                    onChange={(value) => setSealField("bottomMm", value)}
+                  />
+                </div>
+
+                <div className="mt-5 flex items-center justify-between">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                    Page preview
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setShowSealPreview((visible) => !visible)}
+                    className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500 transition-colors hover:text-slate-700"
+                  >
+                    {showSealPreview ? (
+                      <>
+                        <EyeOff className="h-3.5 w-3.5" /> Hide preview
+                      </>
+                    ) : (
+                      <>
+                        <Eye className="h-3.5 w-3.5" /> Show preview
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {showSealPreview && (
+                  <div className="mt-2 flex items-center justify-center rounded-lg bg-slate-50 py-4">
+                    <SealPreview
+                      business={{ ...businessData, businessName: bizForm.businessName || businessData?.businessName }}
+                      type={sealType}
+                      config={sealConfig}
+                    />
+                  </div>
+                )}
+
+                <div className="mt-4 flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleSaveSeal}
+                    disabled={savingSeal}
+                    className="px-4 py-2 bg-slate-800 text-white text-xs font-semibold rounded-lg hover:bg-slate-700 disabled:opacity-50 transition-all shadow-sm"
+                  >
+                    {savingSeal ? "Saving..." : "Save seal settings"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={resetSealConfig}
+                    disabled={savingSeal}
+                    className="px-3 py-2 text-xs font-semibold text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50 disabled:opacity-50 transition-all"
+                  >
+                    Reset to default
+                  </button>
+                </div>
+                <p className="text-[11px] text-slate-400 mt-3">
+                  Applied to every page of invoices, delivery challans, emailed PDFs and shared links.
+                </p>
+              </div>
+            )}
           </div>
         </div>
 
@@ -691,6 +901,83 @@ export default function Profile() {
         h2, h3 { font-family: 'Space Grotesk', sans-serif; }
         input, select, textarea, button { font-family: inherit; }
       `}</style>
+    </div>
+  );
+}
+
+function SealNumberField({ label, value, onChange, min, max, step = 1 }) {
+  return (
+    <label className="block">
+      <span className="mb-1 block text-[11px] font-semibold text-slate-500">{label}</span>
+      <input
+        type="number"
+        value={value}
+        min={min}
+        max={max}
+        step={step}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 transition-all focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-400/30"
+      />
+    </label>
+  );
+}
+
+// Mini A4 sheet (168 px ≈ 210 mm) with the seal placed at the configured
+// right/bottom edge and size, so the four numbers have an immediate visual.
+function SealPreview({ business, type, config }) {
+  const pageWidth = 168;
+  const scale = pageWidth / 210;
+  const pageHeight = 297 * scale;
+  const cfg = normalizeSealConfig(config);
+  const variant = type === "stamp" ? "stamp" : "round";
+  const variantCfg = cfg[variant];
+  const box = sealBoxMm(variant, cfg);
+
+  return (
+    <div className="flex flex-col items-center gap-2">
+      <div
+        style={{
+          position: "relative",
+          width: pageWidth,
+          height: pageHeight,
+          background: "#ffffff",
+          border: "1px solid #cbd5e1",
+          borderRadius: 4,
+          boxShadow: "0 1px 3px rgba(15, 23, 42, 0.08)",
+          overflow: "hidden",
+        }}
+      >
+        <span
+          style={{
+            position: "absolute",
+            inset: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: 10,
+            color: "#cbd5e1",
+            letterSpacing: "0.08em",
+            textTransform: "uppercase",
+            pointerEvents: "none",
+          }}
+        >
+          A4 preview
+        </span>
+        <div
+          style={{
+            position: "absolute",
+            right: variantCfg.rightMm * scale,
+            bottom: variantCfg.bottomMm * scale,
+            width: box.w * scale,
+            height: box.h * scale,
+          }}
+        >
+          <SealMark business={business} type={variant} config={cfg} pxWidth={box.w * scale} />
+        </div>
+      </div>
+      <p className="text-[10px] text-slate-400">
+        {box.w.toFixed(0)}×{box.h.toFixed(0)} mm · {variantCfg.tilt}° · {variantCfg.rightMm}/{variantCfg.bottomMm} mm from edges
+      </p>
     </div>
   );
 }

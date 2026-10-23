@@ -15,6 +15,7 @@ import InvoiceTemplateRenderer from "../components/InvoiceTemplateRenderer";
 import { renderDeliveryChallanPdf } from "../components/DeliveryChallanDownload";
 import WhatsAppIcon from "../components/WhatsAppIcon";
 import { processQueue } from "../utils/retryQueue";
+import { invalidateBusinessProfile } from "../utils/businessProfile";
 import { processPrint } from "../utils/printInvoice";
 import { buildInvoiceWhatsAppMessage, openWhatsAppChat, createInvoicePdfFile } from "../utils/whatsapp";
 import { getPrintSettings, getInvoiceTemplate } from "../constants/paperSizes";
@@ -321,8 +322,31 @@ export default function InvoiceForm() {
   // seal (the same fallback resolveSeal and the delivery-challan flow use) so
   // Share/WhatsApp/Proforma aren't blocked waiting for a manual pick.
   const [sealType, setSealType] = useState(localStorage.getItem("seal_type") || "round");
-  const sealEnabled = localStorage.getItem("show_seal") === "true";
+  const sealEnabled = typeof business?.sealEnabled === "boolean" ? business.sealEnabled : localStorage.getItem("show_seal") === "true";
   const sealRequired = sealEnabled && !sealType;
+  // Keep the per-invoice pick and the business profile in sync: the downloaded
+  // PDF reads `business.sealType`, and the public share page only gets what the
+  // server stored. Previously the create form wrote localStorage only, so the
+  // chosen type never reached the emailed/shared document.
+  const chooseSealType = (type) => {
+    setSealType(type);
+    localStorage.setItem("seal_type", type);
+    setBusiness((b) => (b ? { ...b, sealType: type } : b));
+    businessAPI
+      .update({ sealType: type })
+      .then(() => invalidateBusinessProfile())
+      .catch(() => {});
+  };
+  useEffect(() => {
+    if (!business) return;
+    if (business.sealType) {
+      setSealType(business.sealType);
+      localStorage.setItem("seal_type", business.sealType);
+    }
+    if (typeof business.sealEnabled === "boolean") {
+      localStorage.setItem("show_seal", String(business.sealEnabled));
+    }
+  }, [business]);
   const [discountPercent, setDiscountPercent] = useState("");
   const [discountEnabled, setDiscountEnabled] = useState(false);
   // Construction billing representation. COMPLETE_PROJECT bills one agreed
@@ -1900,10 +1924,7 @@ export default function InvoiceForm() {
                       name="sealType"
                       value="round"
                       checked={sealType === "round"}
-                      onChange={() => {
-                        setSealType("round");
-                        localStorage.setItem("seal_type", "round");
-                      }}
+                      onChange={() => chooseSealType("round")}
                       className="accent-blue-500"
                     />
                     <span className="text-sm text-slate-700">Round Seal</span>
@@ -1914,10 +1935,7 @@ export default function InvoiceForm() {
                       name="sealType"
                       value="stamp"
                       checked={sealType === "stamp"}
-                      onChange={() => {
-                        setSealType("stamp");
-                        localStorage.setItem("seal_type", "stamp");
-                      }}
+                      onChange={() => chooseSealType("stamp")}
                       className="accent-blue-500"
                     />
                     <span className="text-sm text-slate-700">Rubber Stamp</span>

@@ -11,12 +11,25 @@ export const PX_PER_MM = 96 / 25.4;
  * Built-in defaults. These reproduce the historical look: the round seal at
  * its 80 px A4 diameter, the rubber stamp at its 240 px width, both in the
  * bottom-right corner with the components' hand-stamped tilts.
+ *
+ * allPages defaults to OFF — a fresh business stamps only the final page, the
+ * one carrying the grand total and the signature band. Owners opt into
+ * repeating the mark on every continuation page.
  */
 export const SEAL_DEFAULTS = Object.freeze({
-  allPages: true,
+  allPages: false,
   round: Object.freeze({ sizeMm: 21, tilt: -8, rightMm: 10, bottomMm: 8 }),
   stamp: Object.freeze({ sizeMm: 64, tilt: -6, rightMm: 10, bottomMm: 8 }),
 });
+
+/**
+ * A4 portrait in millimetres. The seal offsets are measured from the paper's
+ * right/bottom edge, so the usable range depends on the paper AND on the seal's
+ * own footprint: a 64 mm stamp can only travel 210-64 = 146 mm to the left
+ * before its edge reaches x=0. Renderers clamp against this so a saved config
+ * can never push the mark off the sheet.
+ */
+export const SEAL_PAGE = Object.freeze({ widthMm: 210, heightMm: 297 });
 
 export const SEAL_LIMITS = Object.freeze({
   round: Object.freeze({ minSize: 5, maxSize: 120 }),
@@ -24,7 +37,9 @@ export const SEAL_LIMITS = Object.freeze({
   minTilt: -45,
   maxTilt: 45,
   minEdge: 0,
-  maxEdge: 100,
+  // Coarse ceiling only (the whole page); per-variant travel is tighter and is
+  // derived from the seal footprint in sealEdgeRange().
+  maxEdge: SEAL_PAGE.widthMm,
 });
 
 const toNumber = (value) => {
@@ -47,17 +62,24 @@ const toBoolean = (value, fallback) => {
   return fallback;
 };
 
-function normaliseVariant(raw, defaults, limits) {
+function normaliseVariant(raw, defaults, limits, variant) {
   const size = toNumber(raw?.sizeMm);
   const tilt = toNumber(raw?.tilt);
   const right = toNumber(raw?.rightMm);
   const bottom = toNumber(raw?.bottomMm);
 
+  const sizeMm = roundTo2(clamp(size == null ? defaults.sizeMm : size, limits.minSize, limits.maxSize));
+  // Edge travel is capped by the page minus the seal's own footprint, so the
+  // mark can reach every point of the sheet but never hang off it.
+  const box = sealBoxMm(variant, { [variant]: { sizeMm } });
+  const maxRight = Math.max(0, SEAL_PAGE.widthMm - box.w);
+  const maxBottom = Math.max(0, SEAL_PAGE.heightMm - box.h);
+
   return {
-    sizeMm: roundTo2(clamp(size == null ? defaults.sizeMm : size, limits.minSize, limits.maxSize)),
+    sizeMm,
     tilt: roundTo2(clamp(tilt == null ? defaults.tilt : tilt, SEAL_LIMITS.minTilt, SEAL_LIMITS.maxTilt)),
-    rightMm: roundTo2(clamp(right == null ? defaults.rightMm : right, SEAL_LIMITS.minEdge, SEAL_LIMITS.maxEdge)),
-    bottomMm: roundTo2(clamp(bottom == null ? defaults.bottomMm : bottom, SEAL_LIMITS.minEdge, SEAL_LIMITS.maxEdge)),
+    rightMm: roundTo2(clamp(right == null ? defaults.rightMm : right, SEAL_LIMITS.minEdge, maxRight)),
+    bottomMm: roundTo2(clamp(bottom == null ? defaults.bottomMm : bottom, SEAL_LIMITS.minEdge, maxBottom)),
   };
 }
 
@@ -78,8 +100,8 @@ export function normalizeSealConfig(raw) {
 
   return {
     allPages: toBoolean(value?.allPages, SEAL_DEFAULTS.allPages),
-    round: normaliseVariant(value?.round, SEAL_DEFAULTS.round, SEAL_LIMITS.round),
-    stamp: normaliseVariant(value?.stamp, SEAL_DEFAULTS.stamp, SEAL_LIMITS.stamp),
+    round: normaliseVariant(value?.round, SEAL_DEFAULTS.round, SEAL_LIMITS.round, "round"),
+    stamp: normaliseVariant(value?.stamp, SEAL_DEFAULTS.stamp, SEAL_LIMITS.stamp, "stamp"),
   };
 }
 
@@ -107,6 +129,19 @@ export function sealBoxMm(type, config) {
   return variant === "stamp"
     ? { w: width, h: width * 0.4 }
     : { w: width, h: width };
+}
+
+/**
+ * How far the active seal can travel from the right/bottom edge before part of
+ * it leaves the page. Used by the Settings inputs as their `max`, so a user can
+ * drag the mark to every reachable point of an A4 sheet and no further.
+ */
+export function sealEdgeRange(type, config) {
+  const box = sealBoxMm(type, config);
+  return {
+    rightMm: Math.max(0, roundTo2(SEAL_PAGE.widthMm - box.w)),
+    bottomMm: Math.max(0, roundTo2(SEAL_PAGE.heightMm - box.h)),
+  };
 }
 
 /**

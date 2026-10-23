@@ -364,6 +364,7 @@ export default function DeliveryChallanView() {
                     sealType={sealType}
                     sealAllPages={sealConfig.allPages !== false}
                     pageIndex={i}
+                    pageCount={chunks.length}
                   />
                 </div>
               ))}

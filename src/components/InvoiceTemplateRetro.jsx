@@ -535,7 +535,7 @@ const FooterBand = ({ business, terms, sigSrc, layout }) => (
 
 /* --------------------------------------------------------------- page */
 
-const RetroPage = ({ pageId, chunks, startIndex, shared, pageIndex = 0 }) => (
+const RetroPage = ({ pageId, chunks, startIndex, shared, isLast = false }) => (
   <Frame pageId={pageId}>
     <Letterhead business={shared.business} title={shared.title} subNote={shared.subNote} />
     <Details invoiceNumber={shared.displayInvNo} form={shared.form} customer={shared.customer} />
@@ -563,7 +563,7 @@ const RetroPage = ({ pageId, chunks, startIndex, shared, pageIndex = 0 }) => (
     />
     {/* breathing room between the terms/signature band and the frame edge */}
     <div style={{ height: `${BOTTOM_SPACER}px`, boxSizing: "border-box" }} />
-    {shared.sealVisible && (shared.sealAllPages || pageIndex === 0) && (
+    {shared.sealVisible && (shared.sealAllPages || isLast) && (
       <SealOverlay business={shared.business} type={shared.sealType} />
     )}
   </Frame>
@@ -656,7 +656,7 @@ const InvoiceTemplateRetro = React.forwardRef(
                 chunks={pageItems(chunk)}
                 startIndex={startIndex}
                 shared={shared}
-                pageIndex={i}
+                isLast={i === chunks.length - 1}
               />
             </div>
           );

@@ -19,11 +19,16 @@ export function readSealSpec(element) {
 }
 
 /**
- * Stamps the configured seal/stamp onto EVERY page of a jsPDF document.
+ * Stamps the configured seal/stamp onto the invoice's jsPDF.
  *
  * Position is measured in millimetres from the page's right/bottom edge, so a
- * 4-page invoice gets the same hand-stamped mark on pages 1–4, and changing
- * paper size keeps the seal anchored to the paper edge rather than drifting.
+ * 4-page invoice gets the same hand-stamped mark at the same spot on every
+ * page, and changing paper size keeps the seal anchored to the paper edge
+ * rather than drifting.
+ *
+ * With multi-page OFF the seal is stamped only on the LAST page — the one that
+ * carries the grand total and the signature band. A seal on the cover page of a
+ * multi-page invoice is meaningless, so the mark follows the money.
  */
 export async function stampSealOnEveryPage(pdf, element) {
   const spec = readSealSpec(element);
@@ -43,10 +48,10 @@ export async function stampSealOnEveryPage(pdf, element) {
   const y = pageHeight - spec.bottomMm - box.h;
 
   const pages = pdf.getNumberOfPages();
-  // Multi-page is the default. When the owner turns it off, the seal is only
-  // stamped on page 1 and continuation pages stay clean.
-  const lastPage = spec.allPages === false ? Math.min(1, pages) : pages;
-  for (let page = 1; page <= lastPage; page += 1) {
+  // Multi-page is the default. When the owner turns it off, only the final
+  // page (grand total + signature) carries the mark.
+  const firstStamped = spec.allPages === false ? Math.max(1, pages) : 1;
+  for (let page = firstStamped; page <= pages; page += 1) {
     pdf.setPage(page);
     pdf.addImage(png, "PNG", x, y, box.w, box.h);
   }

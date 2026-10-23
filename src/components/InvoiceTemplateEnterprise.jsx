@@ -854,7 +854,7 @@ const EntPage = ({ pageId, showItems, sumRows, sumWithTotal, closing, chunkItems
         pageNo={pageKind.pageNo}
         totalPages={pageKind.totalPages}
       />
-      {shared.sealVisible && (shared.sealAllPages || pageKind.isFirst) && (
+      {shared.sealVisible && (shared.sealAllPages || isLast) && (
         <SealOverlay business={business} type={shared.sealType} />
       )}
     </div>

@@ -5,7 +5,7 @@ import JurisdictionRegionSelect from "../components/JurisdictionRegionSelect";
 import SealMark from "../components/SealMark";
 import { authAPI, businessAPI } from "../api/auth";
 import { invalidateBusinessProfile } from "../utils/businessProfile";
-import { normalizeSealConfig, sealBoxMm, SEAL_LIMITS } from "../utils/sealConfig";
+import { normalizeSealConfig, sealBoxMm, sealEdgeRange, SEAL_LIMITS } from "../utils/sealConfig";
 import { formatInvoiceNumber } from "../utils/invoiceConvention";
 import { formatJurisdiction } from "../utils/jurisdiction";
 import { JURISDICTION_CENTRES } from "../constants/indianRegions";
@@ -29,7 +29,12 @@ export default function Profile() {
   const [sealEnabled, setSealEnabled] = useState(localStorage.getItem("show_seal") === "true");
   const [sealType, setSealType] = useState(localStorage.getItem("seal_type") === "stamp" ? "stamp" : "round");
   const [sealConfig, setSealConfig] = useState(() => normalizeSealConfig(localStorage.getItem("seal_config")));
-  const [showSealPreview, setShowSealPreview] = useState(true);
+  // How far the CURRENT seal can travel before it leaves the page. Recomputed
+  // on every size change so the inputs can never push the mark off-sheet.
+  const sealTravel = sealEdgeRange(sealType, sealConfig);
+  // The A4 preview is opt-in: the controls themselves are the primary surface,
+  // and the preview costs a real SealMark render on every keystroke.
+  const [showSealPreview, setShowSealPreview] = useState(false);
   const [savingSeal, setSavingSeal] = useState(false);
   const [businessData, setBusinessData] = useState(null);
   const [bankForm, setBankForm] = useState({ bankName: "", accountNo: "", branch: "", ifsc: "", bankAddress: "", upiId: "" });
@@ -433,7 +438,7 @@ export default function Profile() {
                   <div>
                     <p className="text-xs font-semibold text-slate-700">Multi-page</p>
                     <p className="text-[11px] text-slate-500">
-                      Stamp the seal on every page. Turn off to stamp only the first page.
+                      Stamp the seal on every page. Turn off to stamp only the final page, next to the grand total.
                     </p>
                   </div>
                   <button
@@ -474,7 +479,7 @@ export default function Profile() {
                     label="From right (mm)"
                     value={sealConfig[sealType].rightMm}
                     min={SEAL_LIMITS.minEdge}
-                    max={SEAL_LIMITS.maxEdge}
+                    max={sealTravel.rightMm}
                     step={1}
                     onChange={(value) => setSealField("rightMm", value)}
                   />
@@ -482,7 +487,7 @@ export default function Profile() {
                     label="From bottom (mm)"
                     value={sealConfig[sealType].bottomMm}
                     min={SEAL_LIMITS.minEdge}
-                    max={SEAL_LIMITS.maxEdge}
+                    max={sealTravel.bottomMm}
                     step={1}
                     onChange={(value) => setSealField("bottomMm", value)}
                   />

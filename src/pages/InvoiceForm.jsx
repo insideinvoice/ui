@@ -117,7 +117,7 @@ const ItemRow = memo(({ item, calc, idx, onItemChange, onRemove, onAdd, onHsnLoo
           handleKeyDown(e, "hsn");
         }}
         onBlur={(e) => { if (e.target.value && !e.target.dataset.enterPressed) onHsnLookup(idx, e.target.value); delete e.target.dataset.enterPressed; }}
-        className="w-full min-w-[100px] px-2.5 py-2 border border-slate-200 rounded text-sm focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono"
+        className="w-full min-w-0 px-2.5 py-2 border border-slate-200 rounded text-sm focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono"
         placeholder="Scan or type" />
     </td>
     )}
@@ -126,22 +126,22 @@ const ItemRow = memo(({ item, calc, idx, onItemChange, onRemove, onAdd, onHsnLoo
         onChange={(e) => onItemChange(idx, "itemName", e.target.value)}
         onKeyDown={(e) => handleKeyDown(e, "desc")}
         readOnly={locked}
-        className={`w-full min-w-[160px] px-2.5 py-2 border border-slate-200 rounded text-sm focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white ${locked ? "bg-slate-50 text-slate-500 cursor-not-allowed" : ""}`}
+        className={`w-full min-w-[120px] px-2.5 py-2 border border-slate-200 rounded text-sm focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white ${locked ? "bg-slate-50 text-slate-500 cursor-not-allowed" : ""}`}
         placeholder="Item name" />
     </td>
     <td className="py-3 px-2 border-b border-slate-100">
-      <div className="flex items-center gap-1.5 w-full min-w-[140px]">
+      <div className="flex items-center gap-1.5 w-full min-w-[110px]">
         <input type="number" step="1" min="0" value={item.qty} name={`qty-${idx + 1}`}
           onChange={(e) => onItemChange(idx, "qty", e.target.value)}
           onKeyDown={(e) => handleKeyDown(e, "qty")}
           inputMode="decimal"
           placeholder="Qty"
-          className="flex-[7] min-w-[50px] w-0 px-2 py-2 border border-slate-200 rounded text-sm text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
+          className="flex-[7] min-w-[40px] w-0 px-2 py-2 border border-slate-200 rounded text-sm text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
         <select value={item.unit ?? "Unit"} name={`unit-${idx + 1}`}
           onChange={(e) => onItemChange(idx, "unit", e.target.value)}
           onKeyDown={(e) => handleKeyDown(e, "unit")}
           title="Unit of measurement"
-          className="flex-[10] min-w-[75px] w-0 px-1 py-2 border border-slate-200 rounded text-xs focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white text-slate-600">
+          className="flex-[10] min-w-[64px] w-0 px-1 py-2 border border-slate-200 rounded text-xs focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white text-slate-600">
           {UNITS.map((u) => (
             <option key={u} value={u}>{u === "" ? "No unit" : u}</option>
           ))}
@@ -154,7 +154,7 @@ const ItemRow = memo(({ item, calc, idx, onItemChange, onRemove, onAdd, onHsnLoo
         onKeyDown={(e) => handleKeyDown(e, "rate")}
         readOnly={locked}
         placeholder="0.00"
-        className="w-full min-w-[85px] px-2.5 py-2 border border-slate-200 rounded text-sm text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
+        className="w-full min-w-[70px] px-2.5 py-2 border border-slate-200 rounded text-sm text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
     </td>
     <td className="py-3 px-1 border-b border-slate-100 text-center">
       <div className="relative w-[56px] min-w-[56px] mx-auto">
@@ -165,13 +165,13 @@ const ItemRow = memo(({ item, calc, idx, onItemChange, onRemove, onAdd, onHsnLoo
         <span className="absolute right-1 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none">%</span>
       </div>
     </td>
-    <td className="py-3 px-3 text-right font-mono text-sm text-slate-700 border-b border-slate-100 whitespace-nowrap tabular-nums min-w-[160px]">
+    <td className="py-3 px-3 text-right font-mono text-sm text-slate-700 border-b border-slate-100 whitespace-nowrap tabular-nums min-w-0">
       {((calc?.taxable ?? parseFloat(item.taxableValue)) || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
     </td>
-    <td className="py-3 px-3 text-right font-mono text-sm text-slate-600 border-b border-slate-100 whitespace-nowrap tabular-nums min-w-[145px]">
+    <td className="py-3 px-3 text-right font-mono text-sm text-slate-600 border-b border-slate-100 whitespace-nowrap tabular-nums min-w-0">
       {((calc?.tax ?? parseFloat(item.taxAmount)) || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
     </td>
-    <td className="py-3 px-3 text-right font-mono text-sm font-semibold text-slate-900 border-b border-slate-100 whitespace-nowrap tabular-nums min-w-[170px]">
+    <td className="py-3 px-3 text-right font-mono text-sm font-semibold text-slate-900 border-b border-slate-100 whitespace-nowrap tabular-nums min-w-0">
       {((calc?.total ?? parseFloat(item.total)) || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
     </td>
     <td className="py-3 px-1 text-center border-b border-slate-100 w-[45px] min-w-[45px]">
@@ -598,6 +598,12 @@ export default function InvoiceForm() {
       // Integers only: no decimals, no negatives, no exponent notation.
       const n = parseFloat(value);
       value = value.trim() === "" || Number.isNaN(n) ? "" : String(Math.max(0, Math.floor(n)));
+    }
+    if (field === "rate" || field === "gstPercentage") {
+      // No negatives: strip the minus while keeping the digits. Partial input
+      // ("", "-", "0.") is left alone so decimal typing keeps working.
+      const n = parseFloat(value);
+      if (!Number.isNaN(n) && n < 0) value = value.replace("-", "");
     }
     setItems((prev) => prev.map((item, i) => {
       if (i !== idx) return item;
@@ -2078,7 +2084,7 @@ export default function InvoiceForm() {
 
           {/* Desktop table */}
           <div className="hidden md:block border border-slate-200 rounded-lg w-full overflow-x-auto">
-            <table className="w-full min-w-[1260px] text-sm border-collapse" style={{ tableLayout: "auto" }}>
+            <table className="w-full min-w-[880px] text-sm border-collapse" style={{ tableLayout: "auto" }}>
               <colgroup>
                 <col style={{ width: "2.5%" }} />
                 <col style={{ width: showHnSac ? "13%" : "0%" }} />
@@ -2094,14 +2100,14 @@ export default function InvoiceForm() {
               <thead>
                 <tr className="bg-slate-800">
                   <th className="text-white text-xs font-semibold py-3.5 px-2 text-center whitespace-nowrap w-[36px] min-w-[36px]">#</th>
-                  {showHnSac && <th className="text-white text-xs font-semibold py-3.5 px-2 text-left whitespace-nowrap min-w-[120px]">HSN/SAC</th>}
-                  <th className="text-white text-xs font-semibold py-3.5 px-2 text-left whitespace-nowrap min-w-[180px]">{labelFor("itemName", "Description")}</th>
-                  <th className="text-white text-xs font-semibold py-3.5 px-2 text-center whitespace-nowrap min-w-[140px]">Qty</th>
-                  <th className="text-white text-xs font-semibold py-3.5 px-2 text-center whitespace-nowrap min-w-[95px]">Rate</th>
-                  <th className="text-white text-xs font-semibold py-3.5 px-1 text-center whitespace-nowrap min-w-[65px]">GST %</th>
-                  <th className="text-white text-xs font-semibold py-3.5 px-3 text-right whitespace-nowrap min-w-[160px]">Taxable</th>
-                  <th className="text-white text-xs font-semibold py-3.5 px-3 text-right whitespace-nowrap min-w-[145px]">Tax</th>
-                  <th className="text-white text-xs font-semibold py-3.5 px-3 text-right whitespace-nowrap min-w-[170px]">Total</th>
+                  {showHnSac && <th className="text-white text-xs font-semibold py-3.5 px-2 text-left whitespace-nowrap min-w-[100px]">HSN/SAC</th>}
+                  <th className="text-white text-xs font-semibold py-3.5 px-2 text-left whitespace-nowrap min-w-[150px]">{labelFor("itemName", "Description")}</th>
+                  <th className="text-white text-xs font-semibold py-3.5 px-2 text-center whitespace-nowrap min-w-[120px]">Qty</th>
+                  <th className="text-white text-xs font-semibold py-3.5 px-2 text-center whitespace-nowrap min-w-[85px]">Rate</th>
+                  <th className="text-white text-xs font-semibold py-3.5 px-1 text-center whitespace-nowrap min-w-[56px]">GST %</th>
+                  <th className="text-white text-xs font-semibold py-3.5 px-3 text-right whitespace-nowrap min-w-[110px]">Taxable</th>
+                  <th className="text-white text-xs font-semibold py-3.5 px-3 text-right whitespace-nowrap min-w-[100px]">Tax</th>
+                  <th className="text-white text-xs font-semibold py-3.5 px-3 text-right whitespace-nowrap min-w-[120px]">Total</th>
                   <th className="text-white py-3.5 px-1 w-[45px] min-w-[45px]"></th>
                 </tr>
               </thead>
@@ -2149,8 +2155,10 @@ export default function InvoiceForm() {
 
       {/* Terms & Conditions — the business's saved defaults (Settings owns
           them), so the user sees what will print on the document while
-          composing it. */}
-      <TermsCard business={business} className="w-full p-6" />
+          composing it. my-6 like the other full-width cards here: these
+          trailing cards live in the bare page container (below the two-column
+          grid), where spacing comes from explicit margins, not space-y. */}
+      <TermsCard business={business} className="w-full p-6 my-6" />
 
       {/* Notes — full width below Items */}
       <div className="w-full bg-white rounded-xl shadow-sm border border-slate-200 p-6">

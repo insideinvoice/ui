@@ -58,7 +58,7 @@ const breakAtGroups = (s) => String(s).replace(/,(?=\d)/g, ",\u200B");
 // Enterprise editable-cell chrome: the input reads as plain text until
 // hovered (hairline border) or focused (white field, blue ring) — no grid of
 // boxes. Every cell in the row shares the same 12px typography.
-const cellInput = "w-full min-w-0 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-xs hover:border-slate-300 focus:border-blue-400 focus:ring-2 focus:ring-blue-500/15 focus:outline-none";
+const cellInput = "w-full min-w-0 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs hover:border-slate-300 focus:border-blue-400 focus:ring-2 focus:ring-blue-500/15 focus:outline-none";
 const cellTd = "py-1 px-1 border-b border-slate-100 text-xs focus-within:bg-blue-50/40";
 
 const ViewItemRow = memo(({ item, calc, idx, isEditing, onItemChange, onRemove, onAddRowAndFocus, showHnSac = true }) => {
@@ -121,7 +121,7 @@ const ViewItemRow = memo(({ item, calc, idx, isEditing, onItemChange, onRemove, 
           <select value={item.unit || ""} name={`unit-${idx + 1}`}
             onChange={(e) => onItemChange(idx, "unit", e.target.value)}
             title="Unit of measurement"
-            className="min-w-0 flex-1 px-1 py-1.5 rounded border border-slate-200 bg-white text-xs text-slate-600 cursor-pointer">
+            className="min-w-0 flex-1 px-2 py-2 rounded-lg border border-slate-200 bg-white text-xs text-slate-600 cursor-pointer">
             {UNITS.map((u) => (
               <option key={u} value={u}>{u === "" ? "No unit" : u}</option>
             ))}
@@ -145,13 +145,13 @@ const ViewItemRow = memo(({ item, calc, idx, isEditing, onItemChange, onRemove, 
           <span className="shrink-0 text-xs text-slate-400">%</span>
         </div>
       </td>
-      <td className="py-1 px-1 text-center font-mono text-xs border-b border-slate-100 [overflow-wrap:anywhere] text-slate-700">
+      <td className="py-2 px-2 text-center font-mono text-xs border-b border-slate-100 [overflow-wrap:anywhere] text-slate-700">
         {breakAtGroups(fmt(calc?.taxable ?? item.taxableValue))}
       </td>
-      <td className="py-1 px-1 text-center font-mono text-xs border-b border-slate-100 [overflow-wrap:anywhere] text-slate-600">
+      <td className="py-2 px-2 text-center font-mono text-xs border-b border-slate-100 [overflow-wrap:anywhere] text-slate-600">
         {breakAtGroups(fmt(calc?.tax ?? item.taxAmount))}
       </td>
-      <td className="py-1 px-2 text-center font-mono text-xs font-semibold border-b border-slate-100 [overflow-wrap:anywhere] text-slate-900">
+      <td className="py-2 px-2 text-center font-mono text-xs font-semibold border-b border-slate-100 [overflow-wrap:anywhere] text-slate-900">
         {breakAtGroups(fmt(calc?.total ?? item.total))}
       </td>
       <td className="py-1 px-1 text-center border-b border-slate-100">
@@ -1051,7 +1051,10 @@ export default function InvoiceView() {
           </div>
         </div>
 
-        <div className={`grid grid-cols-1 gap-6 ${isEditing ? "" : "xl:grid-cols-[minmax(0,1fr)_minmax(0,0.34fr)] side-fixed-grid"}`}>
+        {/* Two columns in BOTH modes: the right rail (Discount / Company
+            Stamp / Actions) stays visible while editing — the Actions card
+            carries Save/Cancel in edit mode. */}
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.34fr)] side-fixed-grid">
           <div ref={leftPaneRef} className="space-y-6">
             {/* Seller & Buyer Info */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1560,10 +1563,10 @@ export default function InvoiceView() {
             </div>
           </div>
 
-          {/* Right Sidebar — its own scroll surface at xl: wheeling anywhere
-              over the discount/actions column moves ONLY this column, never
-              the invoice content behind it (overscroll-behavior: contain). */}
-          <div ref={rightPaneRef} className={isEditing ? "hidden" : "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-1 items-start side-fixed"}>
+          {/* Right Sidebar — visible in BOTH modes (the Actions card switches
+              to Save/Cancel while editing). Stacks below the content below xl;
+              cards sit side-by-side there via the responsive grid. */}
+          <div ref={rightPaneRef} className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-1 items-start side-fixed">
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Discount</h3>

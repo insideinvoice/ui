@@ -84,7 +84,7 @@ const ViewItemRow = memo(({ item, calc, idx, isEditing, onItemChange, onRemove, 
             <select value={item.unit || ""} name={`unit-${idx + 1}`}
               onChange={(e) => onItemChange(idx, "unit", e.target.value)}
               title="Unit of measurement"
-              className="shrink-0 w-[56px] px-1 py-1.5 border border-slate-200 rounded text-xs focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white text-slate-600">
+              className="shrink-0 w-[40px] px-1 py-1.5 border border-slate-200 rounded text-xs focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white text-slate-600">
               {UNITS.map((u) => (
                 <option key={u} value={u}>{u === "" ? "No unit" : u}</option>
               ))}
@@ -1432,15 +1432,15 @@ export default function InvoiceView() {
                         numbers never wrap — percentage alone (~3%) is too narrow
                         once padding is paid. Description funds the difference. */}
                     <col style={{ width: "6%" }} />
-                    <col style={{ width: isEditing ? (showHnSac ? "24%" : "33%") : (showHnSac ? "29%" : "38%") }} />
+                    <col style={{ width: isEditing ? (showHnSac ? "22.5%" : "31.5%") : (showHnSac ? "29%" : "38%") }} />
                     {showHnSac && <col style={{ width: isEditing ? "8%" : "9%" }} />}
-                    <col style={{ width: isEditing ? "15.75%" : "8%" }} />
+                    <col style={{ width: isEditing ? "14%" : "8%" }} />
                     <col style={{ width: isEditing ? "8%" : "10%" }} />
-                    <col style={{ width: isEditing ? "10%" : "7%" }} />
-                    <col style={{ width: isEditing ? "7.92%" : "11%" }} />
-                    <col style={{ width: isEditing ? "7.92%" : "11%" }} />
-                    <col style={{ width: isEditing ? "7.92%" : "11%" }} />
-                    {isEditing && <col style={{ width: "4.25%" }} />}
+                    <col style={{ width: isEditing ? "8.5%" : "7%" }} />
+                    <col style={{ width: isEditing ? "9%" : "11%" }} />
+                    <col style={{ width: isEditing ? "9%" : "11%" }} />
+                    <col style={{ width: isEditing ? "9%" : "11%" }} />
+                    {isEditing && <col style={{ width: "5.75%" }} />}
                   </colgroup>
                   <thead>
                     <tr className="bg-slate-800">

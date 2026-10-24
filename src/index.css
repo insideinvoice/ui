@@ -420,7 +420,7 @@ div:has(> label + input[type="date"]) {
   background: currentColor;
   transform: scaleX(0);
   transform-origin: left center;
-  transition: transform 700ms linear;
+  transition: transform 900ms linear;
   pointer-events: none;
 }
 .link-underline:hover::after,

@@ -1,12 +1,24 @@
 import assert from "node:assert/strict";
-import { normalizeSealConfig, SEAL_DEFAULTS, sealBoxMm, sealEdgeRange, sealSpecAttribute } from "../src/utils/sealConfig.js";
+import { normalizeSealConfig, normalizeSealColor, SEAL_DEFAULTS, sealBoxMm, sealEdgeRange, sealSpecAttribute } from "../src/utils/sealConfig.js";
 
 // Defaults preserve the historical round/stamp geometry, but multi-page is OFF:
 // a fresh business stamps only the final page (grand total + signature).
 const defaults = normalizeSealConfig(null);
 assert.equal(defaults.allPages, false);
-assert.deepEqual(defaults.round, { sizeMm: 21, tilt: -8, rightMm: 10, bottomMm: 8 });
-assert.deepEqual(defaults.stamp, { sizeMm: 64, tilt: -6, rightMm: 10, bottomMm: 8 });
+assert.deepEqual(defaults.round, { sizeMm: 21, tilt: -8, rightMm: 10, bottomMm: 8, color: "#0A4BFF" });
+assert.deepEqual(defaults.stamp, { sizeMm: 64, tilt: -6, rightMm: 10, bottomMm: 8, color: "#0000CC" });
+
+// Colour normalises to upper-case #RRGGBB; the historical inks are the
+// fallback, so a config saved before colour existed renders unchanged.
+assert.equal(normalizeSealColor("#0a4bff", "#FFF"), "#0A4BFF");
+assert.equal(normalizeSealColor("#abc", "#FFF"), "#AABBCC");
+assert.equal(normalizeSealColor("red", "#0A4BFF"), "#0A4BFF");
+assert.equal(normalizeSealColor("", "#0A4BFF"), "#0A4BFF");
+assert.equal(normalizeSealColor(null, "#0000CC"), "#0000CC");
+// A picked colour survives a round trip through the stored config.
+const picked = normalizeSealConfig({ stamp: { color: "#12ab9f" } });
+assert.equal(picked.stamp.color, "#12AB9F");
+assert.equal(picked.round.color, "#0A4BFF");
 
 // Backend JSON strings are parsed, partial objects keep defaults per field.
 const parsed = normalizeSealConfig('{"allPages":false,"round":{"sizeMm":30,"rightMm":4}}');

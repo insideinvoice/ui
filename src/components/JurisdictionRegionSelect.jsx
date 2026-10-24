@@ -115,7 +115,7 @@ export default function JurisdictionRegionSelect({ value, onChange, disabled = f
         aria-haspopup="listbox"
         disabled={disabled}
         onClick={() => (open ? setOpen(false) : openPanel())}
-        className={`w-full px-3 py-2.5 border rounded-lg text-sm bg-white text-left flex items-center justify-between gap-2 transition-all focus:outline-none focus:ring-2 focus:ring-indigo-400/30 focus:border-indigo-400 disabled:bg-slate-50 disabled:text-slate-400 ${
+        className={`w-full pl-3 pr-4 py-2.5 border rounded-lg text-sm bg-white text-left flex items-center justify-between gap-2 transition-all focus:outline-none focus:ring-2 focus:ring-indigo-400/30 focus:border-indigo-400 disabled:bg-slate-50 disabled:text-slate-400 ${
           value ? "border-slate-300 text-slate-800" : "border-slate-300 text-slate-400"
         }`}
       >

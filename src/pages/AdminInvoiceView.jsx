@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import LoadingDots from "../components/LoadingDots";
 import { adminAPI } from "../api/auth";
 import toast from "react-hot-toast";
-import { ArrowLeft, FileText, Save, Edit2, Download } from "lucide-react";
+import { ArrowLeft, FileText, Save, Edit2, Download, X } from "lucide-react";
 import PageHeader from "../components/PageHeader";
 import InvoiceTemplateRenderer from "../components/InvoiceTemplateRenderer";
 import { processPrint } from "../utils/printInvoice";
@@ -392,8 +392,10 @@ export default function AdminInvoiceView() {
                         <td className="py-2 px-2 text-xs text-slate-600 text-right">₹{(totals.perItem[idx]?.tax ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
                         <td className="py-2 px-2 text-xs text-slate-800 font-medium text-right">₹{(totals.perItem[idx]?.total ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
                         <td className="py-2 px-2">
-                          <button onClick={() => removeItem(idx)}
-                            className="text-red-400 hover:text-red-600 text-xs">✕</button>
+                          <button onClick={() => removeItem(idx)} title="Remove item"
+                            className="text-red-400 hover:text-red-600 p-1">
+                            <X className="w-3.5 h-3.5" />
+                          </button>
                         </td>
                       </>
                     ) : (

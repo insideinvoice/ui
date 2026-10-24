@@ -12,6 +12,9 @@ import CompanyStamp from "../components/CompanyStamp";
 export function sealSvgMarkup(spec) {
   const type = spec?.type === "stamp" ? "stamp" : "round";
   const tilt = Number.isFinite(spec?.tilt) ? spec.tilt : type === "stamp" ? -6 : -8;
+  // Ink colour follows the saved config; the components' own defaults remain
+  // the fallback so an older spec without a colour renders unchanged.
+  const color = typeof spec?.color === "string" && spec.color ? spec.color : undefined;
 
   if (type === "stamp") {
     return renderToStaticMarkup(
@@ -23,6 +26,7 @@ export function sealSvgMarkup(spec) {
         email={spec?.email || ""}
         width={512}
         tilt={tilt}
+        color={color}
       />
     );
   }
@@ -33,6 +37,7 @@ export function sealSvgMarkup(spec) {
       year={new Date().getFullYear()}
       size={512}
       tilt={tilt}
+      color={color}
     />
   );
 }

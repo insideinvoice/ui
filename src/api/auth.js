@@ -6,7 +6,12 @@ export const authAPI = {
   forgotPassword: (data) => api.post("/auth/forgot-password", data),
   resetPassword: (data) => api.post("/auth/reset-password", data),
   updateProfile: (data) => api.put("/auth/profile", data),
+  // Fresh current-user profile: the stored snapshot is only written at login,
+  // so the app re-reads it on boot (profile edits show without a re-login).
+  me: () => api.get("/auth/me"),
   changePassword: (data) => api.put("/auth/change-password", data),
+  // Instagram-style handle availability (case-insensitive server-side).
+  checkUsername: (username) => api.get(`/auth/username-available?username=${encodeURIComponent(username)}`),
   // Explicit bearer: storage is wiped synchronously right after this call, so we
   // cannot rely on the axios request interceptor to still find the token.
   logout: (token) =>

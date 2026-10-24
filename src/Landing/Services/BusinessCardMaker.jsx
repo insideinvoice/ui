@@ -7,6 +7,7 @@ import {
   MapPin,
   Upload,
   Download,
+  ArrowLeft,
   Check,
   Sparkles,
   Zap,
@@ -1255,7 +1256,7 @@ const BusinessCardMaker = () => {
       <div className="min-h-screen bg-gray-100 p-3 sm:p-6 mt-20">
         <div className="max-w-7xl mx-auto pt-24">
         <Link to="/" className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 font-medium mb-6 transition-colors">
-          <span aria-hidden="true">←</span> Back to Home
+          <span aria-hidden="true"><ArrowLeft className="w-4 h-4" /></span> Back to Home
         </Link>
           <div className="mb-6 sm:mb-8">
             <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">

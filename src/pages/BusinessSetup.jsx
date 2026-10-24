@@ -193,18 +193,21 @@ export default function BusinessSetup() {
               {/* Invoice Jurisdiction — optional at onboarding; omitted fields
                   fall back to the same legacy defaults Settings uses. */}
               <div className="sm:col-span-2 rounded-lg border border-slate-200 p-4">
+                {/* Mobile-safe header (same pattern as Settings): caption sits
+                    UNDER the title, only the switch is pinned right — the old
+                    caption-beside-toggle layout overflowed on phones. */}
                 <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
                     <MapPin className="w-4 h-4 text-slate-500 shrink-0" />
-                    <span className="text-xs font-semibold text-slate-700 uppercase tracking-wide">Invoice Jurisdiction</span>
+                    <div className="min-w-0">
+                      <span className="block text-xs font-semibold text-slate-700 uppercase tracking-wide">Invoice Jurisdiction</span>
+                      <span className="block text-[10px] text-slate-400 uppercase tracking-wider mt-0.5">Show jurisdiction on invoice</span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-[10px] text-slate-400 uppercase tracking-wider">Show jurisdiction on invoice</span>
-                    <button type="button" onClick={handleJurisdictionToggle} aria-label="Show jurisdiction on invoice"
-                      className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${formData.jurisdictionEnabled ? "bg-blue-500" : "bg-slate-300"}`}>
-                      <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform ${formData.jurisdictionEnabled ? "translate-x-5" : ""}`} />
-                    </button>
-                  </div>
+                  <button type="button" onClick={handleJurisdictionToggle} aria-label="Show jurisdiction on invoice"
+                    className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${formData.jurisdictionEnabled ? "bg-blue-500" : "bg-slate-300"}`}>
+                    <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform ${formData.jurisdictionEnabled ? "translate-x-5" : ""}`} />
+                  </button>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-3">

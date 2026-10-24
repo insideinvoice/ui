@@ -18,9 +18,32 @@ export const PX_PER_MM = 96 / 25.4;
  */
 export const SEAL_DEFAULTS = Object.freeze({
   allPages: false,
-  round: Object.freeze({ sizeMm: 21, tilt: -8, rightMm: 10, bottomMm: 8 }),
-  stamp: Object.freeze({ sizeMm: 64, tilt: -6, rightMm: 10, bottomMm: 8 }),
+  round: Object.freeze({ sizeMm: 21, tilt: -8, rightMm: 10, bottomMm: 8, color: "#0A4BFF" }),
+  stamp: Object.freeze({ sizeMm: 64, tilt: -6, rightMm: 10, bottomMm: 8, color: "#0000CC" }),
 });
+
+/**
+ * The ink colour each variant has always used. "Reset to default" restores
+ * these, and a missing/invalid stored value falls back to them so an older
+ * seal_config (saved before colour existed) keeps looking unchanged.
+ */
+export const SEAL_DEFAULT_COLOR = Object.freeze({
+  round: "#0A4BFF",
+  stamp: "#0000CC",
+});
+
+/** Accepts #RGB or #RRGGBB (either case); anything else returns the fallback. */
+export function normalizeSealColor(value, fallback) {
+  if (typeof value !== "string") return fallback;
+  const trimmed = value.trim();
+  const short = /^#([0-9a-fA-F]{3})$/.exec(trimmed);
+  if (short) {
+    const [r, g, b] = short[1].split("");
+    return `#${r}${r}${g}${g}${b}${b}`.toUpperCase();
+  }
+  const full = /^#([0-9a-fA-F]{6})$/.exec(trimmed);
+  return full ? `#${full[1]}`.toUpperCase() : fallback;
+}
 
 /**
  * A4 portrait in millimetres. The seal offsets are measured from the paper's
@@ -80,6 +103,7 @@ function normaliseVariant(raw, defaults, limits, variant) {
     tilt: roundTo2(clamp(tilt == null ? defaults.tilt : tilt, SEAL_LIMITS.minTilt, SEAL_LIMITS.maxTilt)),
     rightMm: roundTo2(clamp(right == null ? defaults.rightMm : right, SEAL_LIMITS.minEdge, maxRight)),
     bottomMm: roundTo2(clamp(bottom == null ? defaults.bottomMm : bottom, SEAL_LIMITS.minEdge, maxBottom)),
+    color: normalizeSealColor(raw?.color, defaults.color),
   };
 }
 
@@ -164,6 +188,7 @@ export function sealSpecFor(business) {
     tilt: variant.tilt,
     rightMm: variant.rightMm,
     bottomMm: variant.bottomMm,
+    color: variant.color,
     companyName: business?.businessName || business?.name || "COMPANY NAME",
     addressLine1: business?.addressLine1 || "",
     addressLine2: [business?.addressLine2, business?.city, business?.state, business?.pincode ? "-" + business.pincode : ""]

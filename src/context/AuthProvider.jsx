@@ -110,6 +110,15 @@ export function AuthProvider({ children }) {
         }).catch(() => {});
       }
     }).catch(() => {});
+
+    // The stored user snapshot is only written at login — re-read it on boot
+    // so profile edits (email / name / username) show without a re-login.
+    authAPI.me().then((r) => {
+      const fresh = r.data?.data;
+      if (!fresh) return;
+      setUser((prev) => ({ ...(prev || session.user || {}), ...fresh }));
+      writeStorage(USER_KEY, JSON.stringify({ ...(session.user || {}), ...fresh }));
+    }).catch(() => {});
   }, [session]);
 
   const login = useCallback(async (email, password, rememberMe = false) => {

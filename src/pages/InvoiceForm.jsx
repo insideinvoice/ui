@@ -360,10 +360,16 @@ export default function InvoiceForm() {
   const [showPrefillBanner, setShowPrefillBanner] = useState(!!prefilledData);
   const discountVal = parseFloat(discountPercent) || 0;
   const invoiceRef = useRef(null);
-  // Invoice-level GST tax mode. Once the user flips the IGST toggle the
-  // derivation effect must stop touching it — a manual choice is law and is
-  // never silently overridden (only an explicit flip changes it).
-  const taxModeTouchedRef = useRef(prefilledData?.taxMode === "IGST" || prefilledData?.taxMode === "CGST_SGST");
+  // Invoice-level GST tax mode. Manual flips are remembered PER place of
+  // supply: the auto-switch never silently overrides a choice made for the
+  // current PoS, but selecting a NEW place of supply re-evaluates the
+  // condition fresh (inter-state → IGST auto-on again, and any earlier
+  // decision for that same PoS is restored).
+  const taxModeOverridesRef = useRef(
+    prefilledData?.taxMode === "IGST" || prefilledData?.taxMode === "CGST_SGST"
+      ? { [prefilledData.placeOfSupply || ""]: prefilledData.taxMode }
+      : {},
+  );
   // The hidden A4 invoice preview is only mounted while a PDF is being generated.
   // Re-rendering it on every keystroke was the main source of typing lag.
   const [showPdfPreview, setShowPdfPreview] = useState(false);
@@ -718,18 +724,29 @@ export default function InvoiceForm() {
   const previewPaperSize = useMemo(() => (getPrintSettings()[effectiveType] || {}).paperSize || "A4_PORTRAIT", [effectiveType]);
   const previewTemplate = useMemo(() => getInvoiceTemplate(effectiveType), [effectiveType]);
 
-  // Initial tax-mode default — derived from the SUPPLIER's (business) state
-  // vs the legally applicable Place of Supply, never from the customer's
-  // billing address or Destination. Re-derives while the user hasn't touched
-  // the toggle (e.g. they are still picking the place of supply); after the
-  // first manual flip it never runs again for this invoice.
+  // Auto-switch — the IGST condition is INTER-STATE supply: place of supply
+  // differing from the business (supplier) state switches IGST ON by default.
+  // The control itself is only RENDERED under that condition (see
+  // showTaxModeToggle); intra-state supply asks nothing and gets the split
+  // mode deterministically. A manual choice recorded for the current place of
+  // supply always wins; when the info needed to establish the condition is
+  // missing, the selection is left exactly as-is.
   useEffect(() => {
-    if (taxModeTouchedRef.current || !business) return;
-    const derived = determineTaxMode(business.state, form.placeOfSupply);
-    if (derived && derived !== form.taxMode) {
-      setForm((f) => ({ ...f, taxMode: derived }));
+    if (!business) return;
+    const applicable = determineTaxMode(business.state, form.placeOfSupply);
+    if (applicable === "IGST") {
+      const next = taxModeOverridesRef.current[form.placeOfSupply] || "IGST";
+      if (next !== form.taxMode) setForm((f) => ({ ...f, taxMode: next }));
+    } else if (applicable === "CGST_SGST" && form.taxMode !== "CGST_SGST") {
+      setForm((f) => ({ ...f, taxMode: "CGST_SGST" }));
     }
   }, [business, form.placeOfSupply, form.taxMode]);
+
+  // The toggle exists only under the condition it governs: inter-state
+  // supply (place of supply ≠ business state). Intra-state — or missing info
+  // that makes it undeterminable — hides the control entirely.
+  const showTaxModeToggle =
+    determineTaxMode(business?.state, form.placeOfSupply) === "IGST";
 
   // Live rule-check of the selection vs the applicable GST structure. Used by
   // the helper text under the toggle and by validate() to gate finalization.
@@ -739,8 +756,12 @@ export default function InvoiceForm() {
   );
 
   const toggleTaxMode = () => {
-    taxModeTouchedRef.current = true;
-    setForm((f) => ({ ...f, taxMode: f.taxMode === "IGST" ? "CGST_SGST" : "IGST" }));
+    // Complete user authority: the flip is recorded for THIS place of supply,
+    // so the auto-switch respects it from now on — while picking a different
+    // place of supply re-derives the condition fresh.
+    const next = form.taxMode === "IGST" ? "CGST_SGST" : "IGST";
+    taxModeOverridesRef.current = { ...taxModeOverridesRef.current, [form.placeOfSupply]: next };
+    setForm((f) => ({ ...f, taxMode: next }));
   };
 
   const validate = () => {
@@ -1733,12 +1754,14 @@ export default function InvoiceForm() {
                     <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                   </div>
                 </div>
-                {/* Invoice-level GST tax mode — immediately beside Payment Mode
-                    in the same grid. ON = IGST (inter-state), OFF = CGST +
-                    SGST/UTGST (intra-state). The default is derived from the
-                    business state vs the legally applicable place of supply;
-                    the helper text flags any conflict with GST rules but the
-                    user's selection is never silently changed. */}
+                {/* Invoice-level GST tax mode — ONLY rendered for the condition
+                    it governs: inter-state supply (place of supply differs from
+                    the business state), where IGST auto-switches ON. Intra-state
+                    supply has nothing to choose — CGST + SGST/UTGST is the only
+                    legal answer — so the control stays hidden. While shown, the
+                    user can always switch IGST OFF; that choice is remembered
+                    for this place of supply. */}
+                {showTaxModeToggle && (
                 <div>
                   <label className={labelClass} id="tax-mode-label">Tax Mode <span className="normal-case font-normal text-slate-400">(GST)</span></label>
                   <button
@@ -1768,6 +1791,7 @@ export default function InvoiceForm() {
                     {taxValidation.message || "Inter-state supplies use IGST; intra-state use CGST + SGST/UTGST."}
                   </p>
                 </div>
+                )}
               </div>
             </div>
 

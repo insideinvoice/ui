@@ -60,7 +60,7 @@ export default function Profile() {
   const [businessData, setBusinessData] = useState(null);
   const [bankForm, setBankForm] = useState({ bankName: "", accountNo: "", branch: "", ifsc: "", bankAddress: "", upiId: "" });
   const [savingBank, setSavingBank] = useState(false);
-  const [bizForm, setBizForm] = useState({ businessName: "", industry: DEFAULT_INDUSTRY, gstIn: "", phone: "", email: "", website: "", addressLine1: "", addressLine2: "", city: "", state: "", country: "", pincode: "", invoicePrefix: "", specialistIn: "", specialistInEnabled: false, showHnSac: true, jurisdictionEnabled: true, jurisdictionRegion: "", jurisdictionCity: "" });
+  const [bizForm, setBizForm] = useState({ businessName: "", industry: DEFAULT_INDUSTRY, gstIn: "", phone: "", additionalPhone: "", email: "", website: "", addressLine1: "", addressLine2: "", city: "", state: "", country: "", pincode: "", invoicePrefix: "", specialistIn: "", specialistInEnabled: false, showHnSac: true, jurisdictionEnabled: true, jurisdictionRegion: "", jurisdictionCity: "" });
   const [savingBiz, setSavingBiz] = useState(false);
   const fileInputRef = useRef(null);
   const logoInputRef = useRef(null);
@@ -97,6 +97,7 @@ export default function Profile() {
           industry: b?.industry || DEFAULT_INDUSTRY,
           gstIn: b?.gstIn || "",
           phone: b?.phone || "",
+          additionalPhone: b?.additionalPhone || "",
           email: b?.email || "",
           website: b?.website || "",
           addressLine1: b?.addressLine1 || "",
@@ -1148,6 +1149,7 @@ export default function Profile() {
               {bizField("Industry", industryName)}
               {bizField("GSTIN", dv(bizForm.gstIn))}
               {bizField("Phone", dv(bizForm.phone))}
+              {bizField("Alternate Phone", dv(bizForm.additionalPhone))}
               {bizField("Email", dv(bizForm.email))}
               {bizField("Website", dv(bizForm.website))}
               {bizField("Invoice Convention", bizInvoicePrefix)}
@@ -1192,6 +1194,12 @@ export default function Profile() {
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1.5 tracking-wide uppercase">Phone</label>
                 <input type="text" name="phone" value={bizForm.phone} onChange={handleBizChange} inputMode="numeric"
+                  className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400/30 focus:border-indigo-400 bg-white transition-all" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1.5 tracking-wide uppercase">Alternate Phone</label>
+                <input type="text" name="additionalPhone" value={bizForm.additionalPhone} onChange={handleBizChange} inputMode="numeric"
+                  placeholder="Optional"
                   className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400/30 focus:border-indigo-400 bg-white transition-all" />
               </div>
               <div>

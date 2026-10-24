@@ -65,25 +65,48 @@ export const retroRuleX = (cols = COLS) => {
 };
 
 export const ROW_H = 26;
-const EST_ROW = 27;          // measured floor for one-line particular
-const EST_WRAP = 16;         // each wrapped line
-const CHARS_PER_LINE = 34;   // 264px text area at 12.5px Arial (one line of safety margin)
+const EST_ROW = 26;          // measured floor for one-line particular (td min-height)
+const EST_WRAP = 16;         // each text line
+const ROW_PADDING = 8;       // td padding 4px top + 4px bottom
 const BODY_BUDGET = RETRO_PAGE_METRICS.body - 4; // safety lip above the frame
+
+/* Width-aware wrap estimate, not a blunt character count. A 34-chars/line
+   rule (the old model) assumed every glyph is a wide capital, so mixed-case
+   names were budgeted 30-50% taller than they render — pages broke at ~70%
+   full. Per-class widths below track 12.5px Arial closely while still
+   rounding in the safe direction (slightly wide). */
+const CHAR_W_CAPITAL = 7.7;  // A-Z, digits, & @ # %
+const CHAR_W_WIDE = 10.2;    // m M W w
+const CHAR_W_NARROW = 3.7;   // i l j t f . , ' ! : ;
+const CHAR_W_SPACE = 3.4;
+const CHAR_W_AVG = 6.0;      // remaining lowercase
+
+export const retroTextWidth = (text) => {
+  let w = 0;
+  for (const ch of String(text || "")) {
+    if (/[A-Z0-9&@#%]/.test(ch)) w += CHAR_W_CAPITAL;
+    else if (/[mMW]/.test(ch)) w += CHAR_W_WIDE;
+    else if (ch === "w") w += 8.4;
+    else if (/[iljtf.,'!:;]/.test(ch)) w += CHAR_W_NARROW;
+    else if (ch === " ") w += CHAR_W_SPACE;
+    else w += CHAR_W_AVG;
+  }
+  return w;
+};
 
 // Text area grows with PARTICULARS when HSN is hidden, so the wrap estimate
 // must follow it or long names would over-chunk onto extra pages.
-export const retroCharsPerLine = (cols = COLS) => {
-  const textW = cols.particulars - 12; // td padding 6px each side
-  return Math.max(1, Math.round((CHARS_PER_LINE * textW) / (COLS.particulars - 12)));
-};
+export const retroTextArea = (cols = COLS) => Math.max(40, cols.particulars - 12); // td padding 6px each side
 
 // Worst case (all one-line particulars): how many rows one page holds.
 export const RETRO_CAPACITY_NOTE = Math.floor(BODY_BUDGET / EST_ROW);
 
-const linesFor = (name) => Math.max(1, Math.ceil(String(name || "").length / CHARS_PER_LINE));
+const linesFor = (name, areaW) => Math.max(1, Math.ceil(retroTextWidth(name) / areaW));
 
-/** Estimated rendered height of one particular (never overstates a line). */
-export const estimateRow = (name) => EST_ROW + EST_WRAP * (linesFor(name) - 1);
+/** Estimated rendered height of one particular: text lines + padding, never
+ *  below the td's own min-height (a one-line row is exactly ROW_H tall). */
+export const estimateRow = (name, areaW = retroTextArea()) =>
+  Math.max(EST_ROW, EST_WRAP * linesFor(name, areaW) + ROW_PADDING);
 
 /**
  * Pack items into fixed pages. A page takes as many rows as fit inside
@@ -92,10 +115,9 @@ export const estimateRow = (name) => EST_ROW + EST_WRAP * (linesFor(name) - 1);
  * header grows (e.g. the Specialist In line) so the outer frame height
  * never exceeds one A4 page.
  */
-export function chunkRetroItems(items, bodyH = RETRO_PAGE_METRICS.body, charsPerLine = CHARS_PER_LINE) {
+export function chunkRetroItems(items, bodyH = RETRO_PAGE_METRICS.body, areaW = retroTextArea()) {
   const budget = bodyH - 4; // safety lip above the frame
-  const linesFor = (name) => Math.max(1, Math.ceil(String(name || "").length / charsPerLine));
-  const estimate = (name) => EST_ROW + EST_WRAP * (linesFor(name) - 1);
+  const estimate = (name) => estimateRow(name, areaW);
   const pages = [];
   let current = [];
   let used = 0;

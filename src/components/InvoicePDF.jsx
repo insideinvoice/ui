@@ -7,7 +7,7 @@ import { sealSpecAttribute } from "../utils/sealConfig";
 import { asImageSrc } from "../utils/imageSrc";
 import { getSpecialistInLine } from "../utils/specialistIn";
 import { computeInvoiceTotals } from "../utils/invoiceTotals";
-import { formatPhone } from "../utils/phoneDisplay";
+import { mobileLine } from "../utils/phoneDisplay";
 import { numberToWords, formatINR } from "../utils/invoiceFormat";
 import { jurisdictionLine } from "../utils/jurisdiction";
 import { getIndustryConfig, getTemplateRightRows, fieldLabel } from "../constants/industryConfig";
@@ -163,8 +163,7 @@ const InvoicePDF = React.memo(React.forwardRef(({ business, customer, form, item
                       {getSpecialistInLine(business) ? (
                         <div style={{ fontSize: "10px", lineHeight: "1.45" }}>SPECIALIST IN : {getSpecialistInLine(business)}</div>
                       ) : null}
-                      {business?.phone ? <div style={{ fontSize: "10px", lineHeight: "1.45" }}>Ph: {formatPhone(business.phone)}</div> : null}
-                      {business?.additionalPhone ? <div style={{ fontSize: "10px", lineHeight: "1.45" }}>Ph: {formatPhone(business.additionalPhone)}</div> : null}
+                      {mobileLine(business) ? <div style={{ fontSize: "10px", lineHeight: "1.45" }}>{mobileLine(business)}</div> : null}
                       {business?.email ? <div style={{ fontSize: "10px", lineHeight: "1.45" }}>{business.email}</div> : null}
                       {business?.gstIn ? <div style={{ fontSize: "10px", lineHeight: "1.45" }}>GSTIN/UIN: {business.gstIn}</div> : null}
                       {business?.state ? <div style={{ fontSize: "10px", lineHeight: "1.45" }}>State: {business.state} Code: {business.gstIn?.substring(0, 2) || ""}</div> : null}

@@ -1423,82 +1423,7 @@ export default function InvoiceView() {
           {/* Right Sidebar — visible in BOTH modes (the Actions card switches
               to Save/Cancel while editing). Stacks below the content below xl;
               cards sit side-by-side there via the responsive grid. */}
-              <div className="md:hidden space-y-3">
-                {items.map((item, idx) => (
-                  <div key={item.id ?? idx} className="bg-slate-50 rounded-lg border border-slate-200 p-3 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-slate-400">Item #{idx + 1}</span>
-                      {isEditing && (
-                        <button type="button" onClick={() => removeItem(idx)} aria-label={`Remove item ${idx + 1}`}
-                          className="p-1.5 hover:bg-red-50 rounded transition-colors text-slate-400 hover:text-red-500 min-h-[44px] min-w-[44px] flex items-center justify-center">
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      )}
-                    </div>
-                    {isEditing ? (
-                      <>
-                        <div>
-                          <label className="text-[10px] font-semibold text-slate-500 uppercase">{labelFor("itemName", "Description")}</label>
-                          <input type="text" value={item.itemName}
-                            onChange={(e) => handleItemChange(idx, "itemName", e.target.value)}
-                            className="w-full px-3 py-2 border border-slate-200 rounded text-sm bg-white min-h-[44px]" placeholder="Item name" />
-                        </div>
-                        <div className={showHnSac ? "grid grid-cols-2 gap-2" : "grid grid-cols-1 gap-2"}>
-                          {showHnSac && (
-                          <div>
-                            <label className="text-[10px] font-semibold text-slate-500 uppercase">HSN/SAC</label>
-                            <input type="text" value={item.hsn}
-                              onChange={(e) => handleItemChange(idx, "hsn", e.target.value)}
-                              className="w-full px-3 py-2 border border-slate-200 rounded text-sm bg-white font-mono min-h-[44px]" />
-                          </div>
-                          )}
-                          <div>
-                            <label className="text-[10px] font-semibold text-slate-500 uppercase">GST %</label>
-                            <input type="text" value={item.gstPercentage}
-                              onChange={(e) => handleItemChange(idx, "gstPercentage", e.target.value)}
-                              inputMode="decimal"
-                              className="w-full px-3 py-2 border border-slate-200 rounded text-sm text-right bg-white font-mono min-h-[44px]" />
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-3 gap-2">
-                          <div>
-                            <label className="text-[10px] font-semibold text-slate-500 uppercase">Qty</label>
-                            <input type="text" value={item.qty}
-                              onChange={(e) => handleItemChange(idx, "qty", e.target.value)}
-                              inputMode="numeric"
-                              className="w-full px-3 py-2 border border-slate-200 rounded text-sm text-right bg-white font-mono min-h-[44px]" />
-                          </div>
-                          <div>
-                            <label className="text-[10px] font-semibold text-slate-500 uppercase">Rate</label>
-                            <input type="text" value={item.rate}
-                              onChange={(e) => handleItemChange(idx, "rate", e.target.value)}
-                              inputMode="decimal"
-                              className="w-full px-3 py-2 border border-slate-200 rounded text-sm text-right bg-white font-mono min-h-[44px]" />
-                          </div>
-                          <div className={fmt(item.total).length > 8 ? "col-span-3" : ""}>
-                            <label className="text-[10px] font-semibold text-slate-500 uppercase">Total</label>
-                            <div className="w-full px-3 py-2 border border-slate-200 rounded text-sm text-right bg-slate-100 font-mono min-h-[44px] flex items-center justify-end text-slate-700">
-                              Rs. {fmt(item.total)}
-                            </div>
-                          </div>
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <div className="text-sm font-medium text-slate-800">{item.itemName}</div>
-                        <div className="grid grid-cols-3 gap-2 text-xs">
-                          {showHnSac && <div><span className="text-slate-400">HSN:</span> <span className="font-mono">{item.hsn || "-"}</span></div>}
-                          <div><span className="text-slate-400">Qty:</span> <span className="font-mono">{item.qty}</span></div>
-                          <div><span className="text-slate-400">Rate:</span> <span className="font-mono">{fmt(item.rate)}</span></div>
-                          <div><span className="text-slate-400">GST:</span> <span className="font-mono">{item.gstPercentage}%</span></div>
-                          <div className="col-span-2"><span className="text-slate-400">Total:</span> <span className="font-mono font-semibold">{fmt(item.total)}</span></div>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                ))}
-              </div>
-          <div ref={rightPaneRef} className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-1 xl:content-start items-start side-fixed">
+          <div ref={rightPaneRef} className="order-3 xl:order-none grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-1 xl:content-start items-start side-fixed">
             {/* Discount + Company Stamp are EDIT-ONLY controls: set them here,
                 save, then come back and download — the read-only rail keeps
                 just the actions and the invoice facts. */}
@@ -1724,105 +1649,182 @@ export default function InvoiceView() {
               </div>
             </div>
           </div>
+          {/* Items — a grid child so mobile can reorder it ABOVE the rail:
+              on phones/tablets the order is Seller/Details → Items (with the
+              Grand Total) → Company Stamp/Actions; at xl it spans both
+              columns below them (order reset, visual identical to before). */}
+              <div className="w-full order-2 xl:order-none xl:col-span-2 bg-white rounded-xl shadow-sm border border-slate-200 p-4 sm:p-6">
+                <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
+                  <div className="flex items-center gap-2.5">
+                    <Package className="w-4 h-4 text-slate-600" />
+                    <h2 className="text-sm font-bold text-slate-800">Items</h2>
+                    {isConstruction && !isEditing && form.billingMode && form.billingMode !== "ITEMIZED" && (
+                      <span className="text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded-full bg-blue-50 text-blue-600 border border-blue-100">
+                        {form.billingMode === "COMPLETE_PROJECT" ? "Complete Project Cost" : form.billingMode}
+                      </span>
+                    )}
+                    {isConstruction && isEditing && (
+                      <select name="billingMode" value={form.billingMode || "ITEMIZED"} onChange={handleFieldChange}
+                        title="Billing mode"
+                        className="ml-2 text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-white text-slate-600 focus:outline-none focus:border-slate-400">
+                        <option value="ITEMIZED">Itemized Cost Breakdown</option>
+                        <option value="COMPLETE_PROJECT">Complete Project Cost</option>
+                      </select>
+                    )}
+                  </div>
+                  {isEditing && (
+                    <button onClick={addItem}
+                      className="flex items-center gap-1.5 text-xs font-semibold px-4 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-700 transition-all shadow-sm min-h-[44px]">
+                      <Plus className="w-3.5 h-3.5" /> Add Item
+                    </button>
+                  )}
+                </div>
+
+                {/* Desktop table — fixed layout in BOTH modes, so no column can
+                    stretch the table: the description wraps, and the money
+                    columns keep their share. Editing gets its own shares sized
+                    for TYPING: every input shows 4+ digits (qty/rate/gst/hsn)
+                    and the description 25+ letters, at any width from md to a
+                    15.5" screen. The 850px min-width guarantees those minimums
+                    on the md→lg range — below it the wrapper scrolls as the
+                    deliberate fallback instead of crushing the inputs. */}
+                <div className={`hidden md:block border border-slate-200 rounded-lg ${isEditing ? "overflow-x-auto lg:overflow-x-hidden xl:overflow-hidden" : "overflow-hidden"}`}>
+                  <table className={`w-full text-sm border-collapse table-fixed ${isEditing ? "min-w-[780px]" : ""}`}>
+                    <colgroup>
+                      {/* # is floored at 44px (min-w on th/td below) so 3-digit row
+                          numbers never wrap — percentage alone (~3%) is too narrow
+                          once padding is paid. Description funds the difference. */}
+                      <col style={{ width: "6%" }} />
+                      <col style={{ width: isEditing ? (showHnSac ? "20.5%" : "29.5%") : (showHnSac ? "29%" : "38%") }} />
+                      {showHnSac && <col style={{ width: isEditing ? "8%" : "9%" }} />}
+                      <col style={{ width: isEditing ? "14%" : "8%" }} />
+                      <col style={{ width: isEditing ? "8%" : "10%" }} />
+                      <col style={{ width: isEditing ? "8.5%" : "7%" }} />
+                      <col style={{ width: isEditing ? "9.75%" : "11%" }} />
+                      <col style={{ width: isEditing ? "9.75%" : "11%" }} />
+                      <col style={{ width: isEditing ? "9.75%" : "11%" }} />
+                      {isEditing && <col style={{ width: "5.75%" }} />}
+                    </colgroup>
+                    <thead>
+                      <tr className="bg-slate-800">
+                        <th className="text-white text-xs font-semibold py-3.5 px-2 text-center whitespace-nowrap w-[44px] min-w-[44px]">#</th>
+                        <th className="text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">{labelFor("itemName", "Description")}</th>
+                        {showHnSac && <th className="text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">HSN/SAC</th>}
+                        <th className="text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">Qty</th>
+                        <th className="text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">Rate</th>
+                        <th className="text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">GST %</th>
+                        <th className="text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">Taxable</th>
+                        <th className="text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">Tax</th>
+                        {/* Centered over its column; the values keep text-right
+                            with pr-6 so amounts stay clear of the border. */}
+                        <th className="text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">Total</th>
+                        {isEditing && <th className="text-white"></th>}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {items.map((item, idx) => (
+                        <ViewItemRow key={item.id ?? idx} item={item} calc={totals.perItem[idx]} idx={idx} isEditing={isEditing} onItemChange={handleItemChange} onRemove={removeItem} onAddRowAndFocus={addRowAndFocus} showHnSac={showHnSac} />
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="md:hidden space-y-3">
+                  {items.map((item, idx) => (
+                    <div key={item.id ?? idx} className="bg-slate-50 rounded-lg border border-slate-200 p-3 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-400">Item #{idx + 1}</span>
+                        {isEditing && (
+                          <button type="button" onClick={() => removeItem(idx)} aria-label={`Remove item ${idx + 1}`}
+                            className="p-1.5 hover:bg-red-50 rounded transition-colors text-slate-400 hover:text-red-500 min-h-[44px] min-w-[44px] flex items-center justify-center">
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                      {isEditing ? (
+                        <>
+                          <div>
+                            <label className="text-[10px] font-semibold text-slate-500 uppercase">{labelFor("itemName", "Description")}</label>
+                            <input type="text" value={item.itemName}
+                              onChange={(e) => handleItemChange(idx, "itemName", e.target.value)}
+                              className="w-full px-3 py-2 border border-slate-200 rounded text-sm bg-white min-h-[44px]" placeholder="Item name" />
+                          </div>
+                          <div className={showHnSac ? "grid grid-cols-2 gap-2" : "grid grid-cols-1 gap-2"}>
+                            {showHnSac && (
+                            <div>
+                              <label className="text-[10px] font-semibold text-slate-500 uppercase">HSN/SAC</label>
+                              <input type="text" value={item.hsn}
+                                onChange={(e) => handleItemChange(idx, "hsn", e.target.value)}
+                                className="w-full px-3 py-2 border border-slate-200 rounded text-sm bg-white font-mono min-h-[44px]" />
+                            </div>
+                            )}
+                            <div>
+                              <label className="text-[10px] font-semibold text-slate-500 uppercase">GST %</label>
+                              <input type="text" value={item.gstPercentage}
+                                onChange={(e) => handleItemChange(idx, "gstPercentage", e.target.value)}
+                                inputMode="decimal"
+                                className="w-full px-3 py-2 border border-slate-200 rounded text-sm text-right bg-white font-mono min-h-[44px]" />
+                            </div>
+                          </div>
+                          {/* Qty + Rate split the width 50/50; Total always gets
+                              its own full-width line below them. */}
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <label className="text-[10px] font-semibold text-slate-500 uppercase">Qty</label>
+                              <input type="text" value={item.qty}
+                                onChange={(e) => handleItemChange(idx, "qty", e.target.value)}
+                                inputMode="numeric"
+                                className="w-full px-3 py-2 border border-slate-200 rounded text-sm text-right bg-white font-mono min-h-[44px]" />
+                            </div>
+                            <div>
+                              <label className="text-[10px] font-semibold text-slate-500 uppercase">Rate</label>
+                              <input type="text" value={item.rate}
+                                onChange={(e) => handleItemChange(idx, "rate", e.target.value)}
+                                inputMode="decimal"
+                                className="w-full px-3 py-2 border border-slate-200 rounded text-sm text-right bg-white font-mono min-h-[44px]" />
+                            </div>
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-semibold text-slate-500 uppercase">Total</label>
+                            <div className="w-full px-3 py-2 border border-slate-200 rounded text-sm text-right bg-slate-100 font-mono min-h-[44px] flex items-center justify-end text-slate-700">
+                              Rs. {fmt(item.total)}
+                            </div>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="text-sm font-medium text-slate-800">{item.itemName}</div>
+                          <div className="grid grid-cols-3 gap-2 text-xs">
+                            {showHnSac && <div><span className="text-slate-400">HSN:</span> <span className="font-mono">{item.hsn || "-"}</span></div>}
+                            <div><span className="text-slate-400">Qty:</span> <span className="font-mono">{item.qty}</span></div>
+                            <div><span className="text-slate-400">Rate:</span> <span className="font-mono">{fmt(item.rate)}</span></div>
+                            <div><span className="text-slate-400">GST:</span> <span className="font-mono">{item.gstPercentage}%</span></div>
+                            <div className="col-span-2"><span className="text-slate-400">Total:</span> <span className="font-mono font-semibold">{fmt(item.total)}</span></div>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <div className="flex justify-end mt-4 pt-3 border-t border-slate-200">
+                  <div className="w-full sm:w-72 space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-slate-500">Subtotal:</span>
+                      <span className="font-mono font-medium text-slate-700">Rs. {fmt(totals.subtotal)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-slate-500">Tax Amount:</span>
+                      <span className="font-mono font-medium text-slate-700">Rs. {fmt(totals.taxAmount)}</span>
+                    </div>
+                    <div className="flex justify-between text-base font-bold pt-2 border-t-2 border-slate-800">
+                      <span className="text-slate-800">Grand Total:</span>
+                      <span className="font-mono text-slate-800">Rs. {fmt(totals.grandTotal)}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
         </div>
-        {/* Items — full width below the two-column grid (the rail's
-            Business card is the last card above it). */}
-            <div className="w-full my-6 bg-white rounded-xl shadow-sm border border-slate-200 p-4 sm:p-6">
-              <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
-                <div className="flex items-center gap-2.5">
-                  <Package className="w-4 h-4 text-slate-600" />
-                  <h2 className="text-sm font-bold text-slate-800">Items</h2>
-                  {isConstruction && !isEditing && form.billingMode && form.billingMode !== "ITEMIZED" && (
-                    <span className="text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded-full bg-blue-50 text-blue-600 border border-blue-100">
-                      {form.billingMode === "COMPLETE_PROJECT" ? "Complete Project Cost" : form.billingMode}
-                    </span>
-                  )}
-                  {isConstruction && isEditing && (
-                    <select name="billingMode" value={form.billingMode || "ITEMIZED"} onChange={handleFieldChange}
-                      title="Billing mode"
-                      className="ml-2 text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-white text-slate-600 focus:outline-none focus:border-slate-400">
-                      <option value="ITEMIZED">Itemized Cost Breakdown</option>
-                      <option value="COMPLETE_PROJECT">Complete Project Cost</option>
-                    </select>
-                  )}
-                </div>
-                {isEditing && (
-                  <button onClick={addItem}
-                    className="flex items-center gap-1.5 text-xs font-semibold px-4 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-700 transition-all shadow-sm min-h-[44px]">
-                    <Plus className="w-3.5 h-3.5" /> Add Item
-                  </button>
-                )}
-              </div>
-
-              {/* Desktop table — fixed layout in BOTH modes, so no column can
-                  stretch the table: the description wraps, and the money
-                  columns keep their share. Editing gets its own shares sized
-                  for TYPING: every input shows 4+ digits (qty/rate/gst/hsn)
-                  and the description 25+ letters, at any width from md to a
-                  15.5" screen. The 850px min-width guarantees those minimums
-                  on the md→lg range — below it the wrapper scrolls as the
-                  deliberate fallback instead of crushing the inputs. */}
-              <div className={`hidden md:block border border-slate-200 rounded-lg ${isEditing ? "overflow-x-auto lg:overflow-x-hidden xl:overflow-hidden" : "overflow-hidden"}`}>
-                <table className={`w-full text-sm border-collapse table-fixed ${isEditing ? "min-w-[780px]" : ""}`}>
-                  <colgroup>
-                    {/* # is floored at 44px (min-w on th/td below) so 3-digit row
-                        numbers never wrap — percentage alone (~3%) is too narrow
-                        once padding is paid. Description funds the difference. */}
-                    <col style={{ width: "6%" }} />
-                    <col style={{ width: isEditing ? (showHnSac ? "20.5%" : "29.5%") : (showHnSac ? "29%" : "38%") }} />
-                    {showHnSac && <col style={{ width: isEditing ? "8%" : "9%" }} />}
-                    <col style={{ width: isEditing ? "14%" : "8%" }} />
-                    <col style={{ width: isEditing ? "8%" : "10%" }} />
-                    <col style={{ width: isEditing ? "8.5%" : "7%" }} />
-                    <col style={{ width: isEditing ? "9.75%" : "11%" }} />
-                    <col style={{ width: isEditing ? "9.75%" : "11%" }} />
-                    <col style={{ width: isEditing ? "9.75%" : "11%" }} />
-                    {isEditing && <col style={{ width: "5.75%" }} />}
-                  </colgroup>
-                  <thead>
-                    <tr className="bg-slate-800">
-                      <th className="text-white text-xs font-semibold py-3.5 px-2 text-center whitespace-nowrap w-[44px] min-w-[44px]">#</th>
-                      <th className="text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">{labelFor("itemName", "Description")}</th>
-                      {showHnSac && <th className="text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">HSN/SAC</th>}
-                      <th className="text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">Qty</th>
-                      <th className="text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">Rate</th>
-                      <th className="text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">GST %</th>
-                      <th className="text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">Taxable</th>
-                      <th className="text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">Tax</th>
-                      {/* Centered over its column; the values keep text-right
-                          with pr-6 so amounts stay clear of the border. */}
-                      <th className="text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">Total</th>
-                      {isEditing && <th className="text-white"></th>}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {items.map((item, idx) => (
-                      <ViewItemRow key={item.id ?? idx} item={item} calc={totals.perItem[idx]} idx={idx} isEditing={isEditing} onItemChange={handleItemChange} onRemove={removeItem} onAddRowAndFocus={addRowAndFocus} showHnSac={showHnSac} />
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Mobile cards */}
-
-              <div className="flex justify-end mt-4 pt-3 border-t border-slate-200">
-                <div className="w-full sm:w-72 space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-slate-500">Subtotal:</span>
-                    <span className="font-mono font-medium text-slate-700">Rs. {fmt(totals.subtotal)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-slate-500">Tax Amount:</span>
-                    <span className="font-mono font-medium text-slate-700">Rs. {fmt(totals.taxAmount)}</span>
-                  </div>
-                  <div className="flex justify-between text-base font-bold pt-2 border-t-2 border-slate-800">
-                    <span className="text-slate-800">Grand Total:</span>
-                    <span className="font-mono text-slate-800">Rs. {fmt(totals.grandTotal)}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
         {/* Terms & Conditions — the last card on the page, below the UPI +
             Business strip (Settings owns the data; this page renders it). */}
         <TermsCard business={business} className="w-full my-6 p-4 sm:p-6" />

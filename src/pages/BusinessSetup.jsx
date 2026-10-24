@@ -19,6 +19,7 @@ export default function BusinessSetup() {
     industry: DEFAULT_INDUSTRY,
     gstIn: "",
     phone: "",
+    additionalPhone: "",
     email: "",
     website: "",
     addressLine1: "",
@@ -131,6 +132,11 @@ export default function BusinessSetup() {
                 <label className="block text-xs font-medium text-slate-600 mb-1">Phone</label>
                 <input type="text" name="phone" value={formData.phone} onChange={handleChange} inputMode="numeric"
                   className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-slate-400" placeholder="+919876543210" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">Alternate Phone</label>
+                <input type="text" name="additionalPhone" value={formData.additionalPhone} onChange={handleChange} inputMode="numeric"
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-slate-400" placeholder="Optional" />
               </div>
               <div>
                 <label className="block text-xs font-medium text-slate-600 mb-1">Email</label>

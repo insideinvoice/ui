@@ -5,7 +5,7 @@ import { resolveSeal } from "../utils/seal";
 import { resolveSealConfig, sealSpecAttribute } from "../utils/sealConfig";
 import { numberToWords, formatINR } from "../utils/invoiceFormat";
 import { computeInvoiceTotals } from "../utils/invoiceTotals";
-import { formatPhone, ADDITIONAL_PHONE_EXTRA_H } from "../utils/phoneDisplay";
+import { mobileLine } from "../utils/phoneDisplay";
 import { jurisdictionLine } from "../utils/jurisdiction";
 import { getSpecialistInLine, SPECIALIST_IN_EXTRA_H } from "../utils/specialistIn";
 import {
@@ -118,16 +118,13 @@ const Letterhead = ({ business, title, subNote, headH }) => {
   // GSTIN · phone · email share ONE contact line (the email used to start on a
   // separate line directly under the phone — that line-break is what made it
   // look pasted-on/underlined in the rendered invoice).
+  // Single contact line; the alternate mobile joins the primary after a
+  // comma ("Mob.: +91 A, +91 B") so the fixed-height letterhead never grows.
   const contact = [
     business?.gstIn ? `GSTIN: ${business.gstIn}` : "",
-    business?.phone ? `Ph: ${formatPhone(business.phone)}` : "",
+    mobileLine(business),
     business?.email || "",
   ].filter(Boolean).join("  ·  ");
-  // The alternate phone always prints on its OWN line under the primary
-  // number; headH grows by ADDITIONAL_PHONE_EXTRA_H when it is present.
-  const contact2 = business?.additionalPhone
-    ? `Ph: ${formatPhone(business.additionalPhone)}`
-    : "";
   const specialist = getSpecialistInLine(business);
 
   return (
@@ -157,9 +154,6 @@ const Letterhead = ({ business, title, subNote, headH }) => {
           ))}
           {contact && (
             <div style={{ fontSize: "9.5px", color: MUTED, lineHeight: "13px", overflowWrap: "anywhere", wordBreak: "break-word" }}>{contact}</div>
-          )}
-          {contact2 && (
-            <div style={{ fontSize: "9.5px", color: MUTED, lineHeight: "13px", overflowWrap: "anywhere", wordBreak: "break-word" }}>{contact2}</div>
           )}
           {specialist && (
             <div style={{ fontSize: "9px", fontWeight: 700, letterSpacing: "0.8px", lineHeight: "12px", marginTop: "2px", overflowWrap: "anywhere", wordBreak: "break-word" }}>
@@ -890,8 +884,7 @@ const InvoiceTemplateEnterprise = React.forwardRef(
     const igstMode = taxMode === "IGST";
     const jurLine = jurisdictionLine(business);
     const specialist = getSpecialistInLine(business);
-    const headH = M.head + (specialist ? SPECIALIST_IN_EXTRA_H : 0)
-      + (business?.additionalPhone ? ADDITIONAL_PHONE_EXTRA_H : 0);
+    const headH = M.head + (specialist ? SPECIALIST_IN_EXTRA_H : 0);
     const descLabel = "Description of Goods";
 
     const sigSrc = asDataUri(business?.signature);

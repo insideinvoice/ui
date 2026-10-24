@@ -1781,7 +1781,20 @@ export default function InvoiceForm() {
                     for this place of supply. */}
                 {showTaxModeToggle && (
                 <div>
-                  <label className={labelClass} id="tax-mode-label">Tax Mode <span className="normal-case font-normal text-slate-400">(GST)</span></label>
+                  <label className={labelClass} id="tax-mode-label">Tax Mode <span className="normal-case font-normal text-slate-400">(GST)</span>
+                    {/* Rules tooltip — the long GST explanation lives here instead
+                        of as inline helper text under the toggle. Hover or focus
+                        (tap on touch) reveals it; amber when it's a warning. */}
+                    <span className="relative ml-1 inline-flex align-middle group/ttip">
+                      <button type="button" aria-label="Tax mode rules"
+                        className="inline-flex rounded-full focus:outline-none focus:ring-2 focus:ring-slate-400/30">
+                        <Info className={`w-3.5 h-3.5 ${taxValidation.level === "warning" ? "text-amber-500" : "text-slate-400"} group-hover/ttip:text-slate-600 group-focus-within/ttip:text-slate-600`} />
+                      </button>
+                      <span className="pointer-events-none absolute left-1/2 top-full z-30 mt-1.5 w-60 -translate-x-1/2 rounded-lg bg-slate-900 px-3 py-2 text-[11px] font-normal leading-snug text-white normal-case opacity-0 shadow-lg transition-opacity group-hover/ttip:opacity-100 group-focus-within/ttip:opacity-100">
+                        {taxValidation.message || "Inter-state supplies use IGST; intra-state use CGST + SGST/UTGST."}
+                      </span>
+                    </span>
+                  </label>
                   <button
                     type="button"
                     role="switch"
@@ -1794,20 +1807,11 @@ export default function InvoiceForm() {
                     }`}>
                     <span className="text-sm font-medium text-slate-700">IGST</span>
                     <span className="flex items-center gap-2">
-                      <span className={`text-[11px] font-semibold ${form.taxMode === "IGST" ? "text-emerald-600" : "text-slate-500"}`}>
-                        {form.taxMode === "IGST" ? "ON · IGST" : "OFF · CGST + SGST"}
-                      </span>
                       <span className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${form.taxMode === "IGST" ? "bg-emerald-500" : "bg-slate-300"}`}>
                         <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${form.taxMode === "IGST" ? "translate-x-4" : "translate-x-0.5"}`} />
                       </span>
                     </span>
                   </button>
-                  <p className={`mt-1.5 text-[11px] leading-snug ${
-                    taxValidation.level === "warning" ? "text-amber-600 font-medium"
-                      : taxValidation.level === "info" ? "text-slate-500 italic" : "text-slate-500"
-                  }`}>
-                    {taxValidation.message || "Inter-state supplies use IGST; intra-state use CGST + SGST/UTGST."}
-                  </p>
                 </div>
                 )}
               </div>

@@ -5,9 +5,10 @@ import Spinner from "../components/Spinner";
 import PageHeader from "../components/PageHeader";
 import { invoiceAPI, businessAPI, customerAPI } from "../api/auth";
 import toast from "react-hot-toast";
-import { ArrowLeft, Download, Save, Edit3, Plus, Trash2, FileText, AlertCircle, User, Building2, Phone, MapPin, Hash, Package, Mail, Globe, X, Share2, Smartphone, Link2, Copy, RotateCw, Unlink, ChevronDown, Printer, MessageSquare, ScrollText } from "lucide-react";
+import { ArrowLeft, Download, Save, Edit3, Plus, Trash2, FileText, AlertCircle, User, Building2, Phone, MapPin, Hash, Package, Mail, Globe, X, Share2, Smartphone, Link2, Copy, RotateCw, Unlink, ChevronDown, MessageSquare } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import InvoiceTemplateRenderer from "../components/InvoiceTemplateRenderer";
+import TermsCard from "../components/TermsCard";
 import DocZoomSurface from "../components/DocZoomSurface";
 import WhatsAppIcon from "../components/WhatsAppIcon";
 import { processQueue } from "../utils/retryQueue";
@@ -25,6 +26,15 @@ import { getIndustryConfig, isFieldHidden, fieldLabel, getExtendedFields, isExte
 
 const uid = () => (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `i${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`);
 const emptyItem = () => ({ id: uid(), itemName: "", hsn: "", unit: "", qty: "1", rate: "", gstPercentage: "18", taxableValue: "0", taxAmount: "0", total: "0" });
+// Serialized snapshot of everything the Save button persists (invoice fields,
+// line items, discount). Save/Cancel stay disabled until the live state
+// diverges from the last-saved baseline.
+const serializeEditableState = (form, items, discountEnabled, discountPercent) => JSON.stringify({
+  form,
+  items,
+  discountEnabled,
+  discountPercent: discountEnabled ? String(parseFloat(discountPercent) || 0) : "",
+});
 const fmt = (v) => parseFloat(v || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 });
 // Screen (CSS px) width of each paper — mirrors InvoiceTemplateRenderer's map;
 // sizes the zoomable document inside DocZoomSurface (the PDF modal).
@@ -152,6 +162,9 @@ export default function InvoiceView() {
   const [discountPercent, setDiscountPercent] = useState("");
   const [discountEnabled, setDiscountEnabled] = useState(false);
   const [discountDirty, setDiscountDirty] = useState(false);
+  // Baseline for the Save/Cancel enable check: the editable state exactly as
+  // last loaded/saved. Null until the invoice finishes loading.
+  const [savedBaseline, setSavedBaseline] = useState(null);
   const discountVal = parseFloat(discountPercent) || 0;
   const [business, setBusiness] = useState(null);
   // NOTE: these must come after `business` is declared — reading `business` from
@@ -208,8 +221,7 @@ export default function InvoiceView() {
   // snapshot there is no way to tell whether it actually changed.
   const buyerSnapshotRef = useRef(null);
   // No pdfPreviewUrl blob state any more: the modal renders the LIVE document
-  // inside DocZoomSurface (opens instantly); Print builds its own blob on
-  // demand in printFromPreview, Download uses the capture flow.
+  // inside DocZoomSurface (opens instantly); Download uses the capture flow.
   const [showPdfPreview, setShowPdfPreview] = useState(false);
 
   // Public share link: created lazily on the first explicit user action, so invoices
@@ -458,12 +470,14 @@ export default function InvoiceView() {
       if (cachedToken) setShareToken(cachedToken);
       setInvoiceType(inv.invoiceType || "TAX_INVOICE");
       const dPct = parseFloat(inv.discountPercent);
-      setDiscountEnabled(!Number.isNaN(dPct) && dPct > 0);
-      setDiscountPercent(!Number.isNaN(dPct) && dPct > 0 ? String(inv.discountPercent) : "");
+      const dOn = !Number.isNaN(dPct) && dPct > 0;
+      const dVal = dOn ? String(inv.discountPercent) : "";
+      setDiscountEnabled(dOn);
+      setDiscountPercent(dVal);
       setDiscountDirty(false);
       // Tax mode: the stored selection wins outright; legacy invoices (null)
       // resolve via supplier state vs place of supply — never a silent change.
-      setForm({
+      const loadedForm = {
         customerId: inv.customerId || null, customerName: inv.customerName || "",
         customerEmail: customer?.email || "", customerPhone: customer?.phone || "",
         billingAddress: customer?.billingAddress || "", customerGstIn: customer?.gstIn || "",
@@ -487,18 +501,23 @@ export default function InvoiceView() {
         expectedReturnDate: inv.expectedReturnDate || "", depositReference: inv.depositReference || "",
         patientReference: inv.patientReference || "", serviceDate: inv.serviceDate || "",
         treatmentReference: inv.treatmentReference || "", referringDoctor: inv.referringDoctor || "",
-      });
+      };
+      setForm(loadedForm);
       buyerSnapshotRef.current = {
         name: inv.customerName || "",
         phone: customer?.phone || "", email: customer?.email || "",
         billingAddress: customer?.billingAddress || "", gstIn: customer?.gstIn || "",
       };
-      setItems((inv.items || []).length > 0 ? inv.items.map((i) => ({
+      const loadedItems = (inv.items || []).length > 0 ? inv.items.map((i) => ({
         id: uid(),
         itemName: i.itemName, hsn: i.hsn || "", unit: i.unit || "", qty: String(i.qty), rate: String(i.rate),
         gstPercentage: String(i.gstPercentage), taxableValue: String(i.taxableValue || 0),
         taxAmount: String(i.taxAmount || 0), total: String(i.total || 0),
-      })) : [{ ...emptyItem() }]);
+      })) : [{ ...emptyItem() }];
+      setItems(loadedItems);
+      // The just-loaded state IS the saved state — a no-op save would send it
+      // back unchanged, so Save/Cancel start out disabled.
+      setSavedBaseline(serializeEditableState(loadedForm, loadedItems, dOn, dVal));
     })
     .catch(() => setError("Failed to load invoice"))
     .finally(() => setLoading(false));
@@ -605,21 +624,6 @@ export default function InvoiceView() {
     });
   }, []);
 
-  // Default Terms & Conditions — owned by Settings (business profile), stored
-  // as a canonical JSON array string on businesses.terms_conditions (V40).
-  // Mirrors Profile.jsx's parse; a malformed legacy value degrades to no card
-  // content instead of crashing the invoice page.
-  const businessTerms = useMemo(() => {
-    const raw = business?.termsConditions;
-    if (!raw) return [];
-    try {
-      const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed.filter((t) => typeof t === "string" && t.trim()) : [];
-    } catch {
-      return [];
-    }
-  }, [business?.termsConditions]);
-
   const handleFieldChange = (e) => setForm((p) => ({ ...p, [e.target.name]: e.target.value }));
   const handleItemChange = useCallback((idx, field, value) => {
     setItems((prev) => prev.map((item, i) => {
@@ -692,6 +696,13 @@ export default function InvoiceView() {
   const toggleTaxMode = () => {
     setForm((p) => ({ ...p, taxMode: p.taxMode === "IGST" ? "CGST_SGST" : "IGST" }));
   };
+
+  // True once any editable field, line item or the discount drifted from the
+  // last-saved baseline. Gates the Save/Cancel buttons in edit mode.
+  const hasUnsavedChanges = useMemo(
+    () => savedBaseline !== null && serializeEditableState(form, items, discountEnabled, discountPercent) !== savedBaseline,
+    [savedBaseline, form, items, discountEnabled, discountPercent]
+  );
 
   const validate = () => {
     if (!form.customerName.trim()) { toast.error("Customer name is required"); return false; }
@@ -790,6 +801,9 @@ export default function InvoiceView() {
       toast.success("Invoice updated successfully");
       setIsEditing(false);
       setDiscountDirty(false);
+      // What was just written is the new saved baseline, so Save/Cancel go
+      // back to disabled until the next real edit.
+      setSavedBaseline(serializeEditableState(form, items, discountEnabled, discountPercent));
       return true;
     } catch (err) {
       const msg = err.response?.data?.message || err.response?.data?.error || "Failed to update invoice";
@@ -935,94 +949,10 @@ export default function InvoiceView() {
 
   // Opens the zoomable document INSTANTLY — no PDF bytes are built here. The
   // modal renders the live invoice inside DocZoomSurface (pinch/pan/zoom); the
-  // PDF blob is only built on demand for Print (printFromPreview) or Download.
+  // PDF blob is only built on demand for Download.
   const viewPDF = async () => {
     if (!(await persistDiscount())) return;
     setShowPdfPreview(true);
-  };
-
-  // Builds a fresh PDF blob and hands it to the printer. Called from the
-  // preview modal's Print button (the modal itself holds no blob any more).
-  const printFromPreview = async () => {
-    if (busyAction) return;
-    setBusyAction("print-preview");
-    try {
-      const { buildInvoicePdf } = await import("../utils/invoicePdf");
-      const captureRef = await mountCapture(invoiceType);
-      const pdf = await buildInvoicePdf(captureRef.current, previewPaperSize);
-      const blobUrl = URL.createObjectURL(pdf.output("blob"));
-      printPdfUrl(blobUrl);
-      // The hidden iframe keeps the blob alive while the print dialog is open.
-      setTimeout(() => URL.revokeObjectURL(blobUrl), 120000);
-    } catch {
-      toast.error("Failed to generate the PDF for printing");
-    } finally {
-      releaseCapture();
-      setBusyAction("");
-    }
-  };
-
-  // Sends a PDF blob URL to the printer.
-  //  - Android / desktop: a hidden iframe calls print() on the PDF document
-  //    itself, so the dialog previews and prints the PDF — never the app page.
-  //  - iOS Safari has no programmatic print for a PDF (window.print() is a
-  //    no-op; a PDF inside an iframe prints the surrounding page — which is
-  //    exactly how users used to get a clipped screenshot of the app). The
-  //    reliable iOS route is Safari's own PDF viewer: open the file there and
-  //    Share -> Print prints the actual PDF.
-  const printPdfUrl = (url) => {
-    if (!url) return;
-    const isIOS =
-      /iPad|iPhone|iPod/.test(navigator.userAgent) ||
-      (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-    if (isIOS) {
-      const isStandalone =
-        navigator.standalone === true ||
-        (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches);
-      const openInSafari = (href) => {
-        if (isStandalone) {
-          // blob: URLs don't survive the jump into Safari from a home-screen
-          // app; convert to a self-contained data: URL first.
-          toast("PDF opened in Safari — tap Share, then Print");
-          window.location.href = href;
-          return;
-        }
-        // Popup blockers allow this only during the click, and PDF generation
-        // is async — so try a window first and fall back to same-tab.
-        if (!window.open(href, "_blank")) window.location.href = href;
-        toast("PDF opened — tap Share, then Print");
-      };
-      if (isStandalone) {
-        fetch(url)
-          .then((r) => r.blob())
-          .then((blob) => {
-            const reader = new FileReader();
-            reader.onload = () => openInSafari(reader.result);
-            reader.readAsDataURL(blob);
-          })
-          .catch(() => openInSafari(url));
-        return;
-      }
-      openInSafari(url);
-      return;
-    }
-    const iframe = document.createElement("iframe");
-    iframe.setAttribute("title", "Print invoice PDF");
-    iframe.style.cssText =
-      "position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden;";
-    iframe.src = url;
-    iframe.onload = () => {
-      try {
-        iframe.contentWindow.focus();
-        iframe.contentWindow.print();
-      } catch {
-        // cross-viewers that block scripted print: hand the PDF to the user
-        window.open(url, "_blank");
-      }
-      // keep the frame alive while the print dialog is open, then clean up
-      setTimeout(() => iframe.remove(), 60 * 1000);
-    };
-    document.body.appendChild(iframe);
   };
 
   if (loading) {
@@ -1588,21 +1518,7 @@ export default function InvoiceView() {
             {/* Terms & Conditions — the business's default GST footer terms
                 (Settings owns the data; this page renders it), placed above
                 Notes as on a standard invoice footer. */}
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 sm:p-6">
-              <div className="flex items-center gap-2.5 mb-3">
-                <ScrollText className="w-4 h-4 text-slate-600" />
-                <h2 className="text-sm font-bold text-slate-800">Terms &amp; Conditions</h2>
-              </div>
-              {businessTerms.length > 0 ? (
-                <ol className="list-decimal list-inside space-y-1.5">
-                  {businessTerms.map((t, i) => (
-                    <li key={i} className="text-sm text-slate-600 leading-snug">{t}</li>
-                  ))}
-                </ol>
-              ) : (
-                <p className="text-sm text-slate-400 italic">No terms added yet.</p>
-              )}
-            </div>
+            <TermsCard business={business} className="p-4 sm:p-6" />
 
             {/* Notes */}
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 sm:p-6">
@@ -1694,8 +1610,8 @@ export default function InvoiceView() {
               <div className="flex flex-col sm:flex-row xl:flex-col gap-2 sm:flex-wrap">
                 {isEditing ? (
                   <>
-                    <button onClick={handleSave} disabled={saving}
-                      className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-800 text-white text-sm font-semibold rounded-lg hover:bg-slate-700 disabled:opacity-50 transition-all shadow-sm">
+                    <button onClick={handleSave} disabled={saving || !hasUnsavedChanges}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-800 text-white text-sm font-semibold rounded-lg hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm">
                       {saving ? <LoadingDots className="text-white" /> : <Save className="w-4 h-4" />}
                       {saving ? "Saving..." : "Save"}
                     </button>
@@ -1865,13 +1781,6 @@ export default function InvoiceView() {
                 <button onClick={() => setShowShareSheet(true)} disabled={!!busyAction} title="Share"
                   className="flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-indigo-600 text-white text-xs sm:text-sm font-semibold rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-all shadow-sm">
                   <Share2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span className="hidden sm:inline">Share</span>
-                </button>
-                <button onClick={printFromPreview} disabled={!!busyAction} title="Print PDF"
-                  className="flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-slate-800 text-white text-xs sm:text-sm font-semibold rounded-lg hover:bg-slate-700 disabled:opacity-50 transition-all shadow-sm">
-                  {busyAction === "print-preview"
-                    ? <Spinner size={16} className="shrink-0" />
-                    : <Printer className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
-                  <span className="hidden sm:inline">Print</span>
                 </button>
                 <button onClick={() => downloadPDF(invoiceType)} disabled={sealRequired || !!busyAction} title="Download PDF"
                   className="flex items-center gap-1.5 px-3 sm:px-4 py-2 border border-slate-300 text-slate-700 text-xs sm:text-sm font-semibold rounded-lg hover:bg-slate-50 disabled:opacity-50 transition-all">

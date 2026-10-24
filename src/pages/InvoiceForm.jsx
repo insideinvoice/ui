@@ -12,6 +12,7 @@ import {
   Link2, Copy, Mail, RotateCw, Unlink
 } from "lucide-react";
 import InvoiceTemplateRenderer from "../components/InvoiceTemplateRenderer";
+import TermsCard from "../components/TermsCard";
 import { renderDeliveryChallanPdf } from "../components/DeliveryChallanDownload";
 import WhatsAppIcon from "../components/WhatsAppIcon";
 import { processQueue } from "../utils/retryQueue";
@@ -825,7 +826,7 @@ export default function InvoiceForm() {
       // Unexposed fields stay "" -> undefined -> dropped by JSON serialization.
       ...Object.fromEntries(ALL_EXTENDED_FIELDS.map((f) => [f, form[f] || undefined])),
       ...(ghostMode && customInvoiceNumber.trim() ? { invoiceNumber: customInvoiceNumber.trim() } : {}),
-      discountPercent: discountEnabled ? parseFloat(discountPercent) || 0 : 0,
+      discountPercent: discountEnabled ? Math.min(Math.max(parseFloat(discountPercent) || 0, 0), 100) : 0,
       items: items.filter((i) => i.itemName.trim() && parseFloat(i.qty) > 0 && parseFloat(i.rate) > 0).map((i, idx) => ({
         sno: idx + 1, itemName: i.itemName, hsn: i.hsn || undefined, unit: i.unit || undefined,
         qty: Math.floor(parseFloat(i.qty)) || 0, rate: parseFloat(i.rate), gstPercentage: parseFloat(i.gstPercentage) || 0,
@@ -1905,7 +1906,7 @@ export default function InvoiceForm() {
             )}
           </div>
 
-            <div className="xl:sticky xl:top-6 space-y-4 side-fixed">
+            <div className="space-y-4 side-fixed">
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Discount</h3>
@@ -1925,7 +1926,11 @@ export default function InvoiceForm() {
                     min="0"
                     max="100"
                     value={discountPercent}
-                    onChange={(e) => setDiscountPercent(e.target.value)}
+                    onChange={(e) => setDiscountPercent(e.target.value.replace(/-/g, ""))}
+                    onBlur={() => {
+                      const n = parseFloat(discountPercent);
+                      if (!Number.isNaN(n)) setDiscountPercent(String(Math.min(Math.max(n, 0), 100)));
+                    }}
                     placeholder="0"
                     className="w-20 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-400/30 focus:border-slate-400 min-h-[44px]"
                   />
@@ -2141,6 +2146,11 @@ export default function InvoiceForm() {
       <div className="xl:hidden w-full my-6">
         {actionsCard}
       </div>
+
+      {/* Terms & Conditions — the business's saved defaults (Settings owns
+          them), so the user sees what will print on the document while
+          composing it. */}
+      <TermsCard business={business} className="w-full p-6" />
 
       {/* Notes — full width below Items */}
       <div className="w-full bg-white rounded-xl shadow-sm border border-slate-200 p-6">

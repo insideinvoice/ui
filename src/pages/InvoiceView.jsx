@@ -115,7 +115,7 @@ const ViewItemRow = memo(({ item, calc, idx, isEditing, onItemChange, onRemove, 
     </td>
     {isEditing && (
       <td className="py-3 px-2 text-center border-b border-slate-100">
-        <button onClick={() => onRemove(idx)}
+        <button type="button" onClick={() => onRemove(idx)} aria-label={`Remove item ${idx + 1}`}
           className="p-1.5 hover:bg-red-50 rounded transition-colors text-slate-400 hover:text-red-500">
           <Trash2 className="w-3.5 h-3.5" />
         </button>
@@ -135,6 +135,11 @@ export default function InvoiceView() {
   const [invoiceType, setInvoiceType] = useState("TAX_INVOICE");
   const invoiceRef = useRef(null);
   const proformaRef = useRef(null);
+  // Dual-pane wheel routing (xl) — the hover state lives in a ref, the two
+  // column elements in refs the effect binds listeners to.
+  const leftPaneRef = useRef(null);
+  const rightPaneRef = useRef(null);
+  const hoveredPaneRef = useRef(null);
   // The hidden A4 documents are only mounted while a PDF/print/share action is
   // running — keeping them permanently mounted meant every keystroke and every
   // busy-flag toggle re-rendered two full invoice documents.
@@ -516,6 +521,81 @@ export default function InvoiceView() {
     return () => document.documentElement.classList.remove("pip-locked");
   }, [showShareSheet, showPdfPreview]);
 
+  // Escape closes the top surface: the share sheet when it is stacked above
+  // the PDF modal, the PDF modal otherwise — and never mid-share (a stray
+  // Escape during a share is ignored, matching the click-away behaviour).
+  useEffect(() => {
+    if (!(showShareSheet || showPdfPreview)) return undefined;
+    const onKey = (e) => {
+      if (e.key !== "Escape") return;
+      if (showShareSheet) {
+        if (shareBusy) return;
+        setShowShareSheet(false);
+        return;
+      }
+      if (showPdfPreview) setShowPdfPreview(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [showShareSheet, showPdfPreview, shareBusy]);
+
+  // ----- Hover-wheel routing (xl dual-pane scroll) -----
+  // The browser natively wheels whichever overflow container sits under the
+  // cursor, but "dead zones" — the column gutter, the page padding, the
+  // header strip — scroll nothing, and a column whose content fits the window
+  // can't scroll at all. Together that reads as "I have to click a section
+  // first". One listener routes every wheel tick to the column under (or last
+  // under) the cursor, and never wastes a scroll: if the hovered column has
+  // nothing to scroll, the other one does.
+  useEffect(() => {
+    const left = leftPaneRef.current;
+    const right = rightPaneRef.current;
+    const surface = left?.parentElement;
+    if (!left || !right || !surface) return undefined;
+    hoveredPaneRef.current = left;
+    const hasOverflow = (el) => el.scrollHeight > el.clientHeight + 1;
+    const anyPaneScroll = (pane) => {
+      if (pane && hasOverflow(pane)) return pane;
+      const other = pane === left ? right : left;
+      return hasOverflow(other) ? other : null;
+    };
+    const markLeft = () => { hoveredPaneRef.current = left; };
+    const markRight = () => { hoveredPaneRef.current = right; };
+    const onWheel = (e) => {
+      if (e.ctrlKey) return; // ctrl+wheel / pinch = zoom, never scrolling
+      // Stacked layout (below xl): the page owns the wheel as usual.
+      if (!window.matchMedia("(min-width: 1280px)").matches) return;
+      const inLeft = left.contains(e.target);
+      const inRight = right.contains(e.target);
+      if (inLeft || inRight) {
+        // Inside a pane the browser scrolls it natively — unless this pane's
+        // content fits and nothing would move; then hand the tick to the
+        // sibling so the wheel is never dead.
+        const pane = inLeft ? left : right;
+        if (hasOverflow(pane)) return;
+        const other = anyPaneScroll(pane);
+        if (other) {
+          e.preventDefault();
+          other.scrollBy({ top: e.deltaY });
+        }
+        return;
+      }
+      // Dead zone (gutter / padding / header): route the wheel to the pane
+      // the cursor last hovered so ANY position always scrolls that column.
+      e.preventDefault();
+      const target = anyPaneScroll(hoveredPaneRef.current);
+      if (target) target.scrollBy({ top: e.deltaY });
+    };
+    left.addEventListener("mouseenter", markLeft);
+    right.addEventListener("mouseenter", markRight);
+    surface.addEventListener("wheel", onWheel, { passive: false });
+    return () => {
+      left.removeEventListener("mouseenter", markLeft);
+      right.removeEventListener("mouseenter", markRight);
+      surface.removeEventListener("wheel", onWheel);
+    };
+  }, [loading, error]);
+
   useEffect(() => {
     processQueue(
       (data) => customerAPI.create(data),
@@ -625,6 +705,20 @@ export default function InvoiceView() {
     }
     const validItems = items.filter((i) => i.itemName.trim() && parseFloat(i.qty) > 0 && parseFloat(i.rate) > 0);
     if (validItems.length === 0) { toast.error("At least one valid item required"); return false; }
+    // Data-loss guard: handleSave() silently DROPS rows that are not fully
+    // valid, so a half-typed row (rate but no name, qty but no name, …) used to
+    // vanish the moment the user saved — with a success toast. Blocked here,
+    // naming the row, the same way empty Term lines are blocked.
+    const incompleteIdx = items.findIndex((i) => {
+      const hasName = i.itemName.trim();
+      const hasQty = parseFloat(i.qty) > 0;
+      const hasRate = parseFloat(i.rate) > 0;
+      return (hasName || hasQty || hasRate) && !(hasName && hasQty && hasRate);
+    });
+    if (incompleteIdx !== -1) {
+      toast.error(`Row ${incompleteIdx + 1} is incomplete — fill its name, qty and rate, or remove it`);
+      return false;
+    }
     // Tax mode vs GST rules: conflicting selections require an explicit
     // override — never a silent switch behind the user's back.
     if (!taxValidation.ok && !window.confirm(`${taxValidation.message}\n\nSave with this tax mode anyway?`)) {
@@ -959,7 +1053,7 @@ export default function InvoiceView() {
   }
 
   return (
-    <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-gray-100">
+    <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-gray-100 xl:h-[calc(100dvh-var(--status-bar-offset,0px))] xl:overflow-hidden xl:flex xl:flex-col">
       {/* Hidden Invoice PDF for capture — mounted only while a PDF action runs */}
       {captureType && captureType !== "PROFORMA_INVOICE" && (
         <div style={{ position: "absolute", left: "-9999px", top: 0, pointerEvents: "none" }}>
@@ -998,13 +1092,13 @@ export default function InvoiceView() {
           />
         </div>
       )}
-      <div className="max-w-[1900px] mx-auto px-4 sm:px-5 lg:px-6 py-3 sm:py-4 lg:py-5">
+      <div className="max-w-[1900px] mx-auto w-full px-4 sm:px-5 lg:px-6 py-3 sm:py-4 lg:py-5 xl:flex xl:flex-1 xl:min-h-0 xl:flex-col">
         {/* In-flow header (same pattern as the View Invoices list page) — it
             scrolls away with the content instead of staying pinned; the user
             simply scrolls up to reach Back / WhatsApp. Previously it was
             position:fixed below the navbar, which slid under the navbar on
             mobile scroll-up (iOS Safari) and needed a compensating spacer. */}
-        <div className="mb-6 border-b border-slate-200/60 lg:border-0 py-2 lg:py-0 flex items-center justify-between">
+        <div className="mb-6 border-b border-slate-200/60 lg:border-0 py-2 lg:py-0 flex items-center justify-between shrink-0">
           <div className="w-full flex items-center justify-between">
           <PageHeader title="View Invoice" backTo="/invoices" className="" />
           <div className="flex items-center gap-2">
@@ -1021,8 +1115,8 @@ export default function InvoiceView() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.34fr)] side-fixed-grid gap-6">
-          <div className="space-y-6">
+        <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.34fr)] side-fixed-grid gap-6 xl:flex-1 xl:min-h-0 xl:grid-rows-1">
+          <div ref={leftPaneRef} className="space-y-6 pane-scroll xl:overflow-y-auto xl:min-h-0">
             {/* Seller & Buyer Info */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 sm:p-6">
@@ -1040,7 +1134,7 @@ export default function InvoiceView() {
                         {business.addressLine1 && <p className="text-xs text-slate-500 mt-1">{business.addressLine1}{business.city ? `, ${business.city}` : ""}{business.state ? `, ${business.state}` : ""}{business.pincode ? ` - ${business.pincode}` : ""}</p>}
                       </div>
                       {business.upiId && (
-                        <div className="mt-3 pt-3 border-t border-slate-100 flex flex-col items-center sm:items-start">
+                        <div className="mt-3 pt-3 border-t border-slate-100 flex flex-col items-center">
                           <div className="flex items-center gap-2 mb-2">
                             <Smartphone className="w-3.5 h-3.5 text-emerald-600" />
                             <span className="text-xs font-medium text-emerald-700">Pay via UPI</span>
@@ -1403,7 +1497,7 @@ export default function InvoiceView() {
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-bold text-slate-400">Item #{idx + 1}</span>
                       {isEditing && (
-                        <button onClick={() => removeItem(idx)}
+                        <button type="button" onClick={() => removeItem(idx)} aria-label={`Remove item ${idx + 1}`}
                           className="p-1.5 hover:bg-red-50 rounded transition-colors text-slate-400 hover:text-red-500 min-h-[44px] min-w-[44px] flex items-center justify-center">
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -1524,12 +1618,15 @@ export default function InvoiceView() {
             </div>
           </div>
 
-          {/* Right Sidebar */}
-          <div className="space-y-4 side-fixed">
+          {/* Right Sidebar — its own scroll surface at xl: wheeling anywhere
+              over the discount/actions column moves ONLY this column, never
+              the invoice content behind it (overscroll-behavior: contain). */}
+          <div ref={rightPaneRef} className="space-y-4 side-fixed pane-scroll xl:overflow-y-auto xl:min-h-0">
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Discount</h3>
-                <button onClick={() => {
+                <button type="button" role="switch" aria-checked={discountEnabled} aria-label="Invoice discount"
+                  onClick={() => {
                   const next = !discountEnabled;
                   setDiscountEnabled(next);
                   if (!next) setDiscountPercent("");
@@ -1615,7 +1712,7 @@ export default function InvoiceView() {
                       <Edit3 className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
                       <span className="text-xs sm:text-sm font-semibold whitespace-nowrap">Edit</span>
                     </button>
-                    <button onClick={() => viewPDF(invoiceType)} disabled={sealRequired || !!busyAction} title="View PDF"
+                    <button onClick={() => viewPDF()} disabled={sealRequired || !!busyAction} title="View PDF"
                       className="min-w-0 flex items-center justify-center gap-1 sm:gap-1.5 px-1.5 sm:px-3 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-all shadow-sm">
                       <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
                       <span className="text-xs sm:text-sm font-semibold whitespace-nowrap">View</span>

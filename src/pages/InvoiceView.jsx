@@ -1080,17 +1080,6 @@ export default function InvoiceView() {
                         <InfoRow label="Email" value={business.email} />
                         {business.addressLine1 && <p className="text-xs text-slate-500 mt-1">{business.addressLine1}{business.city ? `, ${business.city}` : ""}{business.state ? `, ${business.state}` : ""}{business.pincode ? ` - ${business.pincode}` : ""}</p>}
                       </div>
-                      {business.upiId && (
-                        <div className="mt-3 pt-3 border-t border-slate-100 flex flex-col items-center">
-                          <div className="flex items-center gap-2 mb-2">
-                            <Smartphone className="w-3.5 h-3.5 text-emerald-600" />
-                            <span className="text-xs font-medium text-emerald-700">Pay via UPI</span>
-                          </div>
-                          <div className="bg-white p-1.5 rounded-lg border border-slate-200 inline-flex overflow-hidden min-w-0">
-                            <QRCodeSVG value={`upi://pay?pa=${business.upiId}&pn=${encodeURIComponent(business.businessName || "")}&am=${totals.grandTotal.toFixed(2)}&tr=${encodeURIComponent(form.invoiceNumber)}&tn=${encodeURIComponent(`${form.invoiceNumber || ""} ${form.invoiceDate || ""}`.trim())}&cu=INR`} size={70} className="max-w-full h-auto" />
-                          </div>
-                        </div>
-                      )}
                     </div>
                   ) : (
                   <p className="text-sm text-slate-400">Business details not available</p>
@@ -1790,6 +1779,21 @@ export default function InvoiceView() {
                     <span className="font-mono">Rs. {fmt(totals.grandTotal)}</span>
                   </div>
                 </div>
+                {/* Pay via UPI — the QR sits under the total it pre-fills:
+                    scanning it opens the UPI app with the grand total and the
+                    invoice reference already set. */}
+                {business?.upiId && (
+                  <div className="mt-4 pt-4 border-t border-slate-100 flex flex-col items-center">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Smartphone className="w-3.5 h-3.5 text-emerald-600" />
+                      <span className="text-xs font-medium text-emerald-700">Pay via UPI — Rs. {fmt(totals.grandTotal)}</span>
+                    </div>
+                    <div className="bg-white p-2 rounded-lg border border-slate-200 inline-flex overflow-hidden">
+                      <QRCodeSVG value={`upi://pay?pa=${business.upiId}&pn=${encodeURIComponent(business.businessName || "")}&am=${totals.grandTotal.toFixed(2)}&tr=${encodeURIComponent(form.invoiceNumber)}&tn=${encodeURIComponent(`${form.invoiceNumber || ""} ${form.invoiceDate || ""}`.trim())}&cu=INR`} size={124} className="max-w-full h-auto" />
+                    </div>
+                    <p className="text-[10px] text-slate-400 mt-1.5 text-center">Scan with any UPI app{form.invoiceNumber ? ` · ${form.invoiceNumber}` : ""}{form.invoiceDate ? ` · ${form.invoiceDate}` : ""}</p>
+                  </div>
+                )}
               </div>
             </div>
           </div>

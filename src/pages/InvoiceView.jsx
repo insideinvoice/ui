@@ -55,93 +55,114 @@ const InfoRow = memo(({ label, value }) => value ? <p className="text-sm text-sl
 // never wrap at all.
 const breakAtGroups = (s) => String(s).replace(/,(?=\d)/g, ",\u200B");
 
-const ViewItemRow = memo(({ item, calc, idx, isEditing, onItemChange, onRemove, onAdd, showHnSac = true }) => (
-  <tr className={`${idx % 2 === 0 ? "bg-white" : "bg-slate-50/40"} ${isEditing ? "hover:bg-blue-50/20" : ""} transition-colors`}>
-    <td className="py-3 px-2 text-center text-slate-400 font-mono text-xs border-b border-slate-100 whitespace-nowrap w-[44px] min-w-[44px]">{idx + 1}</td>
-    {isEditing ? (
-      <>
-        <td className="py-3 px-2 border-b border-slate-100 text-xs">
-          <input type="text" value={item.itemName} name={`desc-${idx + 1}`}
-            onChange={(e) => onItemChange(idx, "itemName", e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); const next = document.querySelector(`input[name="${showHnSac ? "hsn" : "qty"}-${idx + 1}"]`); next?.focus(); } }}
-            className="w-full min-w-0 px-2 py-1.5 border border-slate-200 rounded text-xs focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white" placeholder="Item name" />
-        </td>
-        {showHnSac && (
-        <td className="py-3 px-2 border-b border-slate-100">
-          <input type="text" value={item.hsn} name={`hsn-${idx + 1}`}
-            onChange={(e) => onItemChange(idx, "hsn", e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); const qty = document.querySelector(`input[name="qty-${idx + 1}"]`); qty?.focus(); } }}
-            className="w-full min-w-0 px-2 py-1.5 border border-slate-200 rounded text-xs focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono" placeholder="Scan or type" />
-        </td>
-        )}
-        <td className="py-3 px-2 border-b border-slate-100 text-xs">
-          <div className="flex items-center gap-1.5">
-            <input type="text" value={item.qty} name={`qty-${idx + 1}`}
-              onChange={(e) => onItemChange(idx, "qty", e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); const rate = document.querySelector(`input[name="rate-${idx + 1}"]`); rate?.focus(); } }}
-              inputMode="numeric"
-              className="w-full max-w-[52px] min-w-0 px-2 py-1.5 border border-slate-200 rounded text-xs text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono" />
-            <select value={item.unit || ""} name={`unit-${idx + 1}`}
-              onChange={(e) => onItemChange(idx, "unit", e.target.value)}
-              title="Unit of measurement"
-              className="shrink-0 w-[40px] px-1 py-1.5 border border-slate-200 rounded text-xs focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white text-slate-600">
-              {UNITS.map((u) => (
-                <option key={u} value={u}>{u === "" ? "No unit" : u}</option>
-              ))}
-            </select>
-          </div>
-        </td>
-        <td className="py-3 px-2 border-b border-slate-100 text-xs">
-          <input type="text" value={item.rate} name={`rate-${idx + 1}`}
-            onChange={(e) => onItemChange(idx, "rate", e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); const gst = document.querySelector(`input[name="gst-${idx + 1}"]`); gst?.focus(); } }}
+// Enterprise editable-cell chrome: the input reads as plain text until
+// hovered (hairline border) or focused (white field, blue ring) — no grid of
+// boxes. Every cell in the row shares the same 12px typography.
+const cellInput = "w-full min-w-0 rounded-md border border-transparent bg-transparent px-2 py-1.5 text-xs hover:border-slate-300 focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-500/15 focus:outline-none";
+const cellTd = "py-1 px-1 border-b border-slate-100 text-xs focus-within:bg-blue-50/40";
+
+const ViewItemRow = memo(({ item, calc, idx, isEditing, onItemChange, onRemove, onAddRowAndFocus, showHnSac = true }) => {
+  // Spreadsheet navigation: Enter/↓ commits and drops to the same column of
+  // the next row, ↑ climbs back, and on the last row Enter spawns a new row
+  // with the cursor already in it. Tab keeps the browser's natural order.
+  const nav = (col) => (e) => {
+    if (e.key !== "Enter" && e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+    e.preventDefault();
+    const delta = e.key === "ArrowUp" ? -1 : 1;
+    const next = document.querySelector(`input[name="${col}-${idx + 1 + delta}"]`);
+    if (next) next.focus();
+    else if (delta > 0) onAddRowAndFocus(`${col}-${idx + 2}`);
+  };
+  if (!isEditing) return (
+    <tr className={`${idx % 2 === 0 ? "bg-white" : "bg-slate-50/40"} transition-colors`}>
+      <td className="py-3 px-2 text-center text-slate-400 font-mono text-xs border-b border-slate-100 whitespace-nowrap w-[44px] min-w-[44px]">{idx + 1}</td>
+      <td className="py-3 px-2 text-slate-800 border-b border-slate-100 break-words">{item.itemName}</td>
+      {showHnSac && (
+      <td className="py-3 px-3 text-center font-mono text-xs text-slate-500 border-b border-slate-100 whitespace-nowrap">{item.hsn || "-"}</td>
+      )}
+      <td className="py-3 px-2 text-center font-mono text-xs text-slate-700 border-b border-slate-100 whitespace-nowrap">{item.qty}</td>
+      <td className="py-3 px-2 text-center font-mono text-xs text-slate-700 border-b border-slate-100 [overflow-wrap:anywhere]">{breakAtGroups(fmt(item.rate))}</td>
+      <td className="py-3 px-2 text-center font-mono text-xs text-slate-600 border-b border-slate-100 whitespace-nowrap">{item.gstPercentage}%</td>
+      <td className="py-3 px-3 text-right font-mono text-xs border-b border-slate-100 [overflow-wrap:anywhere] text-slate-700">
+        {breakAtGroups(fmt(calc?.taxable ?? item.taxableValue))}
+      </td>
+      <td className="py-3 px-3 text-right font-mono text-xs border-b border-slate-100 [overflow-wrap:anywhere] text-slate-600">
+        {breakAtGroups(fmt(calc?.tax ?? item.taxAmount))}
+      </td>
+      <td className="py-3 pr-6 pl-3 text-right font-mono text-xs font-semibold border-b border-slate-100 [overflow-wrap:anywhere] text-slate-900">
+        {breakAtGroups(fmt(calc?.total ?? item.total))}
+      </td>
+    </tr>
+  );
+  return (
+    <tr className={`group ${idx % 2 === 0 ? "bg-white" : "bg-slate-50/40"} hover:bg-blue-50/20 transition-colors`}>
+      <td className="py-1 px-1 text-center text-slate-400 font-mono text-xs border-b border-slate-100 whitespace-nowrap w-[44px] min-w-[44px]">{idx + 1}</td>
+      <td className={cellTd}>
+        <input type="text" value={item.itemName} name={`desc-${idx + 1}`}
+          onChange={(e) => onItemChange(idx, "itemName", e.target.value)}
+          onKeyDown={nav("desc")}
+          className={cellInput} placeholder="Item name" />
+      </td>
+      {showHnSac && (
+      <td className={cellTd}>
+        <input type="text" value={item.hsn} name={`hsn-${idx + 1}`}
+          onChange={(e) => onItemChange(idx, "hsn", e.target.value)}
+          onKeyDown={nav("hsn")}
+          className={cellInput + " font-mono"} placeholder="Scan or type" />
+      </td>
+      )}
+      <td className={cellTd}>
+        <div className="flex items-center gap-1">
+          <input type="text" value={item.qty} name={`qty-${idx + 1}`}
+            onChange={(e) => onItemChange(idx, "qty", e.target.value)}
+            onKeyDown={nav("qty")}
+            inputMode="numeric"
+            className={cellInput + " max-w-[52px] text-right font-mono"} />
+          <select value={item.unit || ""} name={`unit-${idx + 1}`}
+            onChange={(e) => onItemChange(idx, "unit", e.target.value)}
+            title="Unit of measurement"
+            className="shrink-0 w-[40px] px-1 py-1.5 rounded text-xs text-slate-600 cursor-pointer bg-transparent">
+            {UNITS.map((u) => (
+              <option key={u} value={u}>{u === "" ? "No unit" : u}</option>
+            ))}
+          </select>
+        </div>
+      </td>
+      <td className={cellTd}>
+        <input type="text" value={item.rate} name={`rate-${idx + 1}`}
+          onChange={(e) => onItemChange(idx, "rate", e.target.value)}
+          onKeyDown={nav("rate")}
+          inputMode="decimal"
+          className={cellInput + " text-right font-mono"} />
+      </td>
+      <td className={cellTd}>
+        <div className="flex items-center gap-1">
+          <input type="text" value={item.gstPercentage} name={`gst-${idx + 1}`}
+            onChange={(e) => onItemChange(idx, "gstPercentage", e.target.value)}
+            onKeyDown={nav("gst")}
             inputMode="decimal"
-            className="w-full min-w-0 px-2 py-1.5 border border-slate-200 rounded text-xs text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono" />
-        </td>
-        <td className="py-3 px-2 border-b border-slate-100 text-xs">
-          <div className="flex items-center gap-1">
-            <input type="text" value={item.gstPercentage} name={`gst-${idx + 1}`}
-              onChange={(e) => onItemChange(idx, "gstPercentage", e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); onAdd(); } }}
-              inputMode="decimal"
-              className="w-full min-w-0 px-2 py-1.5 border border-slate-200 rounded text-xs text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono" />
-            <span className="shrink-0 text-xs text-slate-400">%</span>
-          </div>
-        </td>
-      </>
-    ) : (
-      <>
-        <td className="py-3 px-2 text-slate-800 border-b border-slate-100 break-words">{item.itemName}</td>
-        {showHnSac && (
-        <td className="py-3 px-3 text-center font-mono text-xs text-slate-500 border-b border-slate-100 whitespace-nowrap">{item.hsn || "-"}</td>
-        )}
-        <td className="py-3 px-2 text-center font-mono text-xs text-slate-700 border-b border-slate-100 whitespace-nowrap">{item.qty}</td>
-        <td className="py-3 px-2 text-center font-mono text-xs text-slate-700 border-b border-slate-100 [overflow-wrap:anywhere]">{breakAtGroups(fmt(item.rate))}</td>
-        <td className="py-3 px-2 text-center font-mono text-xs text-slate-600 border-b border-slate-100 whitespace-nowrap">{item.gstPercentage}%</td>
-      </>
-    )}
-    {/* Taxable / Tax / Total: values centered to share the header's center
-        axis (the headers are centered too). Symmetric px-3 keeps the Total
-        amount off the border line while matching the header exactly. */}
-    <td className={`py-3 px-3 text-center font-mono text-xs border-b border-slate-100 [overflow-wrap:anywhere] ${isEditing ? "text-slate-700" : "text-slate-700"}`}>
-      {breakAtGroups(fmt(calc?.taxable ?? item.taxableValue))}
-    </td>
-    <td className={`py-3 px-3 text-center font-mono text-xs border-b border-slate-100 [overflow-wrap:anywhere] ${isEditing ? "text-slate-600" : "text-slate-600"}`}>
-      {breakAtGroups(fmt(calc?.tax ?? item.taxAmount))}
-    </td>
-    <td className={`py-3 px-3 text-center font-mono text-xs font-semibold border-b border-slate-100 [overflow-wrap:anywhere] text-slate-900`}>
-      {breakAtGroups(fmt(calc?.total ?? item.total))}
-    </td>
-    {isEditing && (
-      <td className="py-3 px-2 text-center border-b border-slate-100">
-        <button type="button" onClick={() => onRemove(idx)} aria-label={`Remove item ${idx + 1}`}
-          className="p-1.5 hover:bg-red-50 rounded transition-colors text-slate-400 hover:text-red-500">
+            className={cellInput + " text-right font-mono"} />
+          <span className="shrink-0 text-xs text-slate-400">%</span>
+        </div>
+      </td>
+      <td className="py-1 px-1 text-right font-mono text-xs border-b border-slate-100 [overflow-wrap:anywhere] text-slate-700">
+        {breakAtGroups(fmt(calc?.taxable ?? item.taxableValue))}
+      </td>
+      <td className="py-1 px-1 text-right font-mono text-xs border-b border-slate-100 [overflow-wrap:anywhere] text-slate-600">
+        {breakAtGroups(fmt(calc?.tax ?? item.taxAmount))}
+      </td>
+      <td className="py-1 pl-1 pr-3 text-right font-mono text-xs font-semibold border-b border-slate-100 [overflow-wrap:anywhere] text-slate-900">
+        {breakAtGroups(fmt(calc?.total ?? item.total))}
+      </td>
+      <td className="py-1 px-1 text-center border-b border-slate-100">
+        <button type="button" onClick={() => onRemove(idx)} aria-label={`Remove item ${idx + 1}`} title="Remove item"
+          className="p-1.5 rounded text-slate-300 hover:bg-red-50 hover:text-red-500 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:text-red-500 focus-visible:bg-red-50 focus:outline-none transition-opacity pointer-events-none group-hover:pointer-events-auto">
           <Trash2 className="w-3.5 h-3.5" />
         </button>
       </td>
-    )}
-  </tr>
-));
+    </tr>
+  );
+});
 
 export default function InvoiceView() {
   const { id } = useParams();
@@ -672,6 +693,21 @@ export default function InvoiceView() {
   const addItem = useCallback(() => {
     setItems((prev) => [...prev, { ...emptyItem() }]);
   }, []);
+
+  // Enter on the last row of the editable table spawns a row and drops the
+  // cursor into the same column of it — the element only exists after the
+  // items state commits, so the focus request is parked here.
+  const pendingFocusRef = useRef(null);
+  useEffect(() => {
+    if (!pendingFocusRef.current) return;
+    const name = pendingFocusRef.current;
+    pendingFocusRef.current = null;
+    document.querySelector(`input[name="${name}"]`)?.focus();
+  }, [items]);
+  const addRowAndFocus = useCallback((name) => {
+    pendingFocusRef.current = name;
+    addItem();
+  }, [addItem]);
 
   const removeItem = useCallback((idx) => {
     setItems((prev) => prev.length > 1 ? prev.filter((_, i) => i !== idx) : prev);
@@ -1444,23 +1480,23 @@ export default function InvoiceView() {
                   </colgroup>
                   <thead>
                     <tr className="bg-slate-800">
-                      <th className="text-white text-xs font-semibold py-3.5 px-2 text-center whitespace-nowrap w-[44px] min-w-[44px]">#</th>
-                      <th className="text-white text-xs font-semibold py-3.5 px-3 text-left whitespace-nowrap">{labelFor("itemName", "Description")}</th>
-                      {showHnSac && <th className="text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">HSN/SAC</th>}
-                      <th className="text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">Qty</th>
-                      <th className="text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">Rate</th>
-                      <th className="text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">GST %</th>
-                      <th className="text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">Taxable</th>
-                      <th className="text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">Tax</th>
+                      <th className="xl:sticky xl:top-0 xl:z-10 text-white text-xs font-semibold py-3.5 px-2 text-center whitespace-nowrap w-[44px] min-w-[44px]">#</th>
+                      <th className="xl:sticky xl:top-0 xl:z-10 text-white text-xs font-semibold py-3.5 px-3 text-left whitespace-nowrap">{labelFor("itemName", "Description")}</th>
+                      {showHnSac && <th className="xl:sticky xl:top-0 xl:z-10 text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">HSN/SAC</th>}
+                      <th className="xl:sticky xl:top-0 xl:z-10 text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">Qty</th>
+                      <th className="xl:sticky xl:top-0 xl:z-10 text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">Rate</th>
+                      <th className="xl:sticky xl:top-0 xl:z-10 text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">GST %</th>
+                      <th className="xl:sticky xl:top-0 xl:z-10 text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">Taxable</th>
+                      <th className="xl:sticky xl:top-0 xl:z-10 text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">Tax</th>
                       {/* Centered over its column; the values keep text-right
                           with pr-6 so amounts stay clear of the border. */}
-                      <th className="text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">Total</th>
+                      <th className="xl:sticky xl:top-0 xl:z-10 text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">Total</th>
                       {isEditing && <th className="text-white"></th>}
                     </tr>
                   </thead>
                   <tbody>
                     {items.map((item, idx) => (
-                      <ViewItemRow key={item.id ?? idx} item={item} calc={totals.perItem[idx]} idx={idx} isEditing={isEditing} onItemChange={handleItemChange} onRemove={removeItem} onAdd={addItem} showHnSac={showHnSac} />
+                      <ViewItemRow key={item.id ?? idx} item={item} calc={totals.perItem[idx]} idx={idx} isEditing={isEditing} onItemChange={handleItemChange} onRemove={removeItem} onAddRowAndFocus={addRowAndFocus} showHnSac={showHnSac} />
                     ))}
                   </tbody>
                 </table>

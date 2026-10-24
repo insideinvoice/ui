@@ -24,7 +24,7 @@ import { computeInvoiceTotals, round2 } from "../utils/invoiceTotals";
 import { mobileLine } from "../utils/phoneDisplay";
 import { determineTaxMode, validateTaxMode } from "../utils/taxMode";
 import { formatInvoiceNumber } from "../utils/invoiceConvention";
-import { INDIAN_STATES, DELIVERY_TERMS, PAYMENT_TERMS } from "../constants/indianStates";
+import { INDIAN_STATES, DELIVERY_TERMS, PAYMENT_TERMS, stateWithCode } from "../constants/indianStates";
 import { UNITS } from "../constants/units";
 import {
   getIndustryConfig, isFieldHidden, fieldLabel, fieldPlaceholder, REFERENCES_SECTION_FIELDS,
@@ -425,6 +425,11 @@ export default function InvoiceForm() {
     taxMode: prefilledData?.taxMode === "IGST" ? "IGST" : "CGST_SGST",
     otherReferences: "",
     destination: "Karnataka",
+    // GST Rule 46 compliance fields
+    shippingAddress: "",
+    reverseCharge: false,
+    cessPercent: "",
+    ewayBillNumber: "",
     notes: "",
     // V29 industry-extended reference fields (Rental & Healthcare).
     // Always present in state so updates round-trip loaded values; fields the
@@ -550,6 +555,15 @@ export default function InvoiceForm() {
   const handleFieldChange = (e) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  // Cess input: digits with at most one decimal point, capped at 100.
+  const handleCessChange = (e) => {
+    let v = e.target.value.replace(/[^0-9.]/g, "");
+    const d = v.indexOf(".");
+    if (d !== -1) v = v.slice(0, d + 1) + v.slice(d + 1).replace(/\./g, "");
+    if (parseFloat(v) > 100) v = "100";
+    setForm((prev) => ({ ...prev, cessPercent: v }));
   };
 
   const handleCustomerChange = (e) => {
@@ -710,7 +724,7 @@ export default function InvoiceForm() {
     });
   }, []);
 
-  const totals = useMemo(() => computeInvoiceTotals(items, discountEnabled ? discountPercent : "0", form.taxMode), [items, discountEnabled, discountPercent, form.taxMode]);
+  const totals = useMemo(() => computeInvoiceTotals(items, discountEnabled ? discountPercent : "0", form.taxMode, form.cessPercent), [items, discountEnabled, discountPercent, form.taxMode, form.cessPercent]);
 
   const validItemsCount = useMemo(
     () => items.filter((i) => i.itemName.trim() && parseFloat(i.qty) > 0).length,
@@ -784,7 +798,12 @@ export default function InvoiceForm() {
 
   const validate = () => {
     if (!customer.name.trim()) { toast.error("Customer name is required"); return false; }
-    if (!form.dueDate) { toast.error("Due date is required"); return false; }
+    // Rule 46: a provided GSTIN must be a valid 15-char GST identification number.
+    const gstin = (customer.gstIn || "").trim().toUpperCase();
+    if (gstin && !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(gstin)) {
+      toast.error("Buyer GSTIN is not a valid 15-character GSTIN"); return false;
+    }
+    if (!form.placeOfSupply) { toast.error("Place of supply is required"); return false; }
     if (!form.invoiceDate) { toast.error("Invoice date is required"); return false; }
     // V29 period sanity — mirrors the backend's validateExtendedDates (ISO
     // strings compare lexicographically). Fires only when both ends exist.
@@ -793,6 +812,10 @@ export default function InvoiceForm() {
     }
     if (form.billingPeriodStart && form.billingPeriodEnd && form.billingPeriodEnd < form.billingPeriodStart) {
       toast.error("Billing period end date cannot be before the billing period start date"); return false;
+    }
+    // Rule 46: HSN/SAC on every goods line (when the business shows the column).
+    if (showHnSac && items.some((i) => i.itemName.trim() && parseFloat(i.qty) > 0 && !(i.hsn || "").trim())) {
+      toast.error("HSN/SAC code is required on every item"); return false;
     }
     const validItems = items.filter((i) => i.itemName.trim() && parseFloat(i.qty) > 0 && parseFloat(i.rate) > 0);
     if (validItems.length === 0) { toast.error("Add at least one item"); return false; }
@@ -838,6 +861,10 @@ export default function InvoiceForm() {
       termsOfDelivery: opt("termsOfDelivery", form.termsOfDelivery),
       otherReferences: opt("otherReferences", form.otherReferences),
       destination: opt("destination", form.destination),
+      shippingAddress: opt("shippingAddress", form.shippingAddress),
+      reverseCharge: form.reverseCharge === true,
+      cessPercentage: parseFloat(form.cessPercent) || 0,
+      ewayBillNumber: opt("ewayBillNumber", form.ewayBillNumber),
       // V29 extended fields: always round-trip whatever is in form state so an
       // update never clears loaded values (backend sets them unconditionally).
       // Unexposed fields stay "" -> undefined -> dropped by JSON serialization.
@@ -1495,6 +1522,15 @@ export default function InvoiceForm() {
               })}
             </span>
           </div>
+          {totals.cessAmount > 0 && (
+            <div className="flex justify-between gap-3">
+              <span className="text-slate-500">Cess ({totals.cessPercent}%):</span>
+              <span className="font-mono text-slate-700">
+                Rs.{" "}
+                {totals.cessAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+              </span>
+            </div>
+          )}
           <div className="flex justify-between gap-3 font-bold text-slate-800 pt-2 border-t border-slate-200">
             <span>Total:</span>
             <span className="font-mono">
@@ -1653,6 +1689,11 @@ export default function InvoiceForm() {
                       rows={2} className={"pl-10 " + inputClass + " resize-none"} placeholder="Full billing address" />
                   </div>
                 </div>
+                <div className="md:col-span-2">
+                  <label className={labelClass}>Ship To (only if different from billing)</label>
+                  <textarea name="shippingAddress" value={form.shippingAddress} onChange={handleFieldChange}
+                    rows={2} className={inputClass + " resize-none"} placeholder="Delivery address, when it differs from the billing address" />
+                </div>
               </div>
               {!existingCustomer && !customerSaved && customer.name.trim() && customer.phone && (
                 <div className="mt-4 pt-4 border-t border-slate-100 flex justify-end">
@@ -1700,6 +1741,16 @@ export default function InvoiceForm() {
                   </div>
                 )}
                 <div>
+                  <label className={labelClass}>Invoice Type</label>
+                  <div className="relative">
+                    <select name="invoiceType" value={form.invoiceType} onChange={handleFieldChange}
+                      className={selectClass}>
+                      <option value="TAX_INVOICE">Tax Invoice</option>
+                    </select>
+                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                  </div>
+                </div>
+                <div>
                   <label className={labelClass}>Date <span className="text-red-500">*</span></label>
                   <input type="date" name="invoiceDate" value={form.invoiceDate} onChange={handleFieldChange}
                     onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); focusNext("invoiceDate"); } }}
@@ -1718,7 +1769,7 @@ export default function InvoiceForm() {
                       onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); focusNext("placeOfSupply"); } }}
                       className={selectClass}>
                       <option value="">State</option>
-                      {INDIAN_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
+                      {INDIAN_STATES.map((s) => <option key={s} value={s}>{stateWithCode(s)}</option>)}
                     </select>
                     <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                   </div>
@@ -1726,23 +1777,12 @@ export default function InvoiceForm() {
                 {!isHidden("destination") && (
                 <div>
                   <label className={labelClass}>{labelFor("destination", "Destination")}</label>
-                  {isConstruction ? (
-                    // Site / Work Location is a free-text address for builders —
-                    // a state dropdown would reject "Plot 12, Whitefield".
-                    <input type="text" name="destination" value={form.destination} onChange={handleFieldChange}
-                      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); focusNext("destination"); } }}
-                      className={inputClass} placeholder={placeholderFor("destination") || "e.g. Plot 12, Whitefield, Bengaluru"} />
-                  ) : (
-                  <div className="relative">
-                    <select name="destination" value={form.destination} onChange={handleFieldChange}
-                      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); focusNext("destination"); } }}
-                      className={selectClass}>
-                      <option value="">State</option>
-                      {INDIAN_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-                  </div>
-                  )}
+                  {/* Free text: the delivery place is a city/site ("Bengaluru",
+                      "Plot 12, Whitefield") — the statutory STATE lives in
+                      Place of Supply above. */}
+                  <input type="text" name="destination" value={form.destination} onChange={handleFieldChange}
+                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); focusNext("destination"); } }}
+                    className={inputClass} placeholder={placeholderFor("destination") || "e.g. Bengaluru"} />
                 </div>
                 )}
                 <div>
@@ -1814,6 +1854,26 @@ export default function InvoiceForm() {
                   </button>
                 </div>
                 )}
+                {/* Reverse charge + compensation cess — Rule 46 statutory
+                    declarations. Direct grid cells, so each takes the same
+                    width as the Invoice Type / Date dropdowns beside them. */}
+                <div>
+                  <label className={labelClass}>Reverse Charge</label>
+                  <div className="relative">
+                    <select name="reverseCharge" value={form.reverseCharge ? "yes" : "no"}
+                      onChange={(e) => setForm((prev) => ({ ...prev, reverseCharge: e.target.value === "yes" }))}
+                      className={selectClass}>
+                      <option value="no">No</option>
+                      <option value="yes">Yes (tax payable by recipient)</option>
+                    </select>
+                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                  </div>
+                </div>
+                <div>
+                  <label className={labelClass}>Cess % (optional)</label>
+                  <input type="text" inputMode="decimal" name="cessPercent" value={form.cessPercent}
+                    onChange={handleCessChange} placeholder="e.g. 1" className={inputClass} />
+                </div>
               </div>
             </div>
 
@@ -1844,6 +1904,16 @@ export default function InvoiceForm() {
                     className={inputClass} />
                 </div>
                 )}
+                <div>
+                  <label className={labelClass}>E-Way Bill No.</label>
+                  <input type="text" name="ewayBillNumber" value={form.ewayBillNumber} onChange={handleFieldChange}
+                    placeholder="e-way bill reference, when generated" className={inputClass} />
+                </div>
+                <div>
+                  <label className={labelClass}>Vehicle Reg. No.</label>
+                  <input type="text" name="vehicleNumber" value={form.vehicleNumber} onChange={handleFieldChange}
+                    placeholder="e.g. KA05 MJ 4521" className={inputClass} />
+                </div>
                 <div>
                   <label className={labelClass}>{labelFor("referenceNumber", "Reference No")}</label>
                   <input type="text" name="referenceNumber" value={form.referenceNumber} onChange={handleFieldChange}
@@ -1882,12 +1952,12 @@ export default function InvoiceForm() {
                 <div>
                   <label className={labelClass}>{labelFor("termsOfDelivery", "Terms of Delivery")}</label>
                   <div className="relative">
-                    <select name="termsOfDelivery" value={form.termsOfDelivery} onChange={handleFieldChange}
+                    <input type="text" name="termsOfDelivery" value={form.termsOfDelivery} onChange={handleFieldChange}
                       onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); focusNext("termsOfDelivery"); } }}
-                      className={selectClass}>
-                      {DELIVERY_TERMS.map((t) => <option key={t} value={t}>{t}</option>)}
-                    </select>
-                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                      className={inputClass} list="terms-of-delivery-options" placeholder="e.g. Free delivery" />
+                    <datalist id="terms-of-delivery-options">
+                      {DELIVERY_TERMS.map((t) => <option key={t} value={t} />)}
+                    </datalist>
                   </div>
                 </div>
                 )}

@@ -12,7 +12,6 @@ import TermsCard from "../components/TermsCard";
 import DocZoomSurface from "../components/DocZoomSurface";
 import WhatsAppIcon from "../components/WhatsAppIcon";
 import { processQueue } from "../utils/retryQueue";
-import { invalidateBusinessProfile } from "../utils/businessProfile";
 import { processPrint } from "../utils/printInvoice";
 import { buildInvoiceWhatsAppMessage, openWhatsAppChat, createInvoicePdfFile, probeFileShare, prefetchInvoicePdf } from "../utils/whatsapp";
 import { shareLinkToUser, proformaShareUrl, readCachedShareToken, writeCachedShareToken, clearCachedShareToken } from "../utils/shareLink";
@@ -190,6 +189,7 @@ export default function InvoiceView() {
   // seal (the same fallback resolveSeal and the delivery-challan flow use) so
   // the round seal is pre-selected instead of leaving the pick blank.
   const [sealType, setSealType] = useState(localStorage.getItem("seal_type") || "round");
+  const [sealDirty, setSealDirty] = useState(false);
   const ghostMode = localStorage.getItem("ghost_mode") === "true";
   const [discountPercent, setDiscountPercent] = useState("");
   const [discountEnabled, setDiscountEnabled] = useState(false);
@@ -210,14 +210,15 @@ export default function InvoiceView() {
   // Choosing a seal type updates the on-screen preview instantly (local state),
   // keeps localStorage for the logged-in app, and persists to the business
   // profile so the emailed PDF and the public share page match it.
+  // The seal choice joins the edit flow: switching marks the invoice dirty
+  // (Save enables) and persists to the business profile on Save — one Save
+  // takes everything, keeping the on-screen preview, the downloaded PDF, the
+  // share page and the email on the same seal. Cancel reverts it.
   const chooseSealType = useCallback((type) => {
     setSealType(type);
     localStorage.setItem("seal_type", type);
     setBusiness((b) => (b ? { ...b, sealType: type } : b));
-    businessAPI
-      .update({ sealType: type })
-      .then(() => invalidateBusinessProfile())
-      .catch(() => {});
+    setSealDirty(true);
   }, []);
   const industryConfig = useMemo(
     () => business?.industryConfig || getIndustryConfig(business?.industry),
@@ -237,6 +238,7 @@ export default function InvoiceView() {
     customerId: null, customerName: "", customerEmail: "", customerPhone: "", billingAddress: "", customerGstIn: "",
     invoiceDate: "", dueDate: "", placeOfSupply: "", destination: "", termsOfDelivery: "",
     paymentTerms: "", paymentMode: "CASH", deliveryNote: "", otherReferences: "", notes: "", invoiceNumber: "",
+    shippingAddress: "", reverseCharge: false, cessPercent: "", ewayBillNumber: "",
     // GST structure — replaced by the stored selection (or the legal
     // heuristic for legacy invoices) once the invoice loads.
     taxMode: "CGST_SGST",
@@ -533,6 +535,11 @@ export default function InvoiceView() {
         expectedReturnDate: inv.expectedReturnDate || "", depositReference: inv.depositReference || "",
         patientReference: inv.patientReference || "", serviceDate: inv.serviceDate || "",
         treatmentReference: inv.treatmentReference || "", referringDoctor: inv.referringDoctor || "",
+        // GST Rule 46 compliance fields
+        shippingAddress: inv.shippingAddress || "",
+        reverseCharge: inv.reverseCharge === true,
+        cessPercent: parseFloat(inv.cessPercentage) > 0 ? String(inv.cessPercentage) : "",
+        ewayBillNumber: inv.ewayBillNumber || "",
       };
       setForm(loadedForm);
       buyerSnapshotRef.current = {
@@ -660,7 +667,7 @@ export default function InvoiceView() {
     setItems((prev) => prev.length > 1 ? prev.filter((_, i) => i !== idx) : prev);
   }, []);
 
-  const totals = useMemo(() => computeInvoiceTotals(items, discountEnabled ? discountPercent : "0", form.taxMode), [items, discountEnabled, discountPercent, form.taxMode]);
+  const totals = useMemo(() => computeInvoiceTotals(items, discountEnabled ? discountPercent : "0", form.taxMode, form.cessPercent), [items, discountEnabled, discountPercent, form.taxMode, form.cessPercent]);
 
   const validItemsCount = useMemo(
     () => items.filter((i) => i.itemName.trim() && parseFloat(i.qty) > 0).length,
@@ -709,8 +716,8 @@ export default function InvoiceView() {
   // True once any editable field, line item or the discount drifted from the
   // last-saved baseline. Gates the Save/Cancel buttons in edit mode.
   const hasUnsavedChanges = useMemo(
-    () => savedBaseline !== null && serializeEditableState(form, items, discountEnabled, discountPercent) !== savedBaseline,
-    [savedBaseline, form, items, discountEnabled, discountPercent]
+    () => savedBaseline !== null && (sealDirty || serializeEditableState(form, items, discountEnabled, discountPercent) !== savedBaseline),
+    [savedBaseline, sealDirty, form, items, discountEnabled, discountPercent]
   );
 
   const validate = () => {
@@ -777,6 +784,7 @@ export default function InvoiceView() {
       items: items.map((i) => ({ ...i })),
       discountEnabled,
       discountPercent,
+      sealType,
     };
   };
 
@@ -790,6 +798,8 @@ export default function InvoiceView() {
       setDiscountEnabled(snap.discountEnabled);
       setDiscountPercent(snap.discountPercent);
       setDiscountDirty(false);
+      if (snap.sealType) setSealType(snap.sealType);
+      setSealDirty(false);
     }
     setIsEditing(false);
   };
@@ -799,6 +809,12 @@ export default function InvoiceView() {
     setSaving(true);
     try {
       await saveBuyerChanges();
+      // The seal choice persists with the invoice save — one Save takes
+      // everything, keeping the preview and the backend in sync.
+      if (sealDirty) {
+        await businessAPI.update({ sealType });
+        setSealDirty(false);
+      }
       await invoiceAPI.update(id, {
         customerId: form.customerId,
         invoiceType: form.invoiceType,
@@ -820,6 +836,10 @@ export default function InvoiceView() {
         dispatchedThrough: form.dispatchedThrough || undefined,
         otherReferences: form.otherReferences || undefined,
         notes: form.notes || undefined,
+        shippingAddress: form.shippingAddress || undefined,
+        reverseCharge: form.reverseCharge === true,
+        cessPercentage: parseFloat(form.cessPercent) || 0,
+        ewayBillNumber: form.ewayBillNumber || undefined,
         billingMode: form.billingMode || undefined,
         // V29 extended fields: always re-sent so loaded values survive the
         // update path (backend assigns them unconditionally). Empty -> dropped.
@@ -837,7 +857,7 @@ export default function InvoiceView() {
       // What was just written is the new saved baseline, so Save/Cancel go
       // back to disabled until the next real edit.
       setSavedBaseline(serializeEditableState(form, items, discountEnabled, discountPercent));
-      editSnapshotRef.current = { form: { ...form }, items: items.map((i) => ({ ...i })), discountEnabled, discountPercent };
+      editSnapshotRef.current = { form: { ...form }, items: items.map((i) => ({ ...i })), discountEnabled, discountPercent, sealType };
       return true;
     } catch (err) {
       const msg = err.response?.data?.message || err.response?.data?.error || "Failed to update invoice";
@@ -1845,22 +1865,6 @@ export default function InvoiceView() {
       </div>
 
 
-      {/* Floating edit actions — below xl only, where the rail stacks far
-          below the content; at xl the Actions card in the rail holds
-          Save/Cancel, so a second floating pair would be redundant. */}
-      {isEditing && (
-        <div className="xl:hidden fixed bottom-4 left-1/2 -translate-x-1/2 z-[1100] flex items-center gap-2 bg-white/95 backdrop-blur border border-slate-200 rounded-full shadow-lg px-3 py-2">
-          <button onClick={handleSave} disabled={saving || !hasUnsavedChanges}
-            className="flex items-center gap-1.5 px-4 py-1.5 bg-slate-800 text-white text-xs font-semibold rounded-full hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all">
-            {saving ? <LoadingDots className="text-white" /> : <Save className="w-3.5 h-3.5" />}
-            {saving ? "Saving..." : "Save"}
-          </button>
-          <button onClick={cancelEditing}
-            className="flex items-center gap-1.5 px-4 py-1.5 border border-slate-300 text-slate-700 text-xs font-semibold rounded-full hover:bg-slate-50 transition-all">
-            <X className="w-3.5 h-3.5" /> Cancel
-          </button>
-        </div>
-      )}
 
       {showPdfPreview && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[1200] flex items-center justify-center p-0 sm:p-4" onClick={() => setShowPdfPreview(false)}>

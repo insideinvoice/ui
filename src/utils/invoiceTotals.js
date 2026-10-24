@@ -46,7 +46,7 @@ const round10 = (n) => Math.round((n + Number.EPSILON) * 1e10) / 1e10;
  * @param {string} [taxMode]     "CGST_SGST" (default) | "IGST" — picks the
  *                               tax STRUCTURE only; totals never change.
  */
-export function computeInvoiceTotals(items, discountPercent, taxMode) {
+export function computeInvoiceTotals(items, discountPercent, taxMode, cessPercent = 0) {
   const igstMode = taxMode === "IGST";
   const valid = (items || []).filter(
     (i) => i?.itemName?.trim() && parseFloat(i?.qty) > 0
@@ -81,6 +81,11 @@ export function computeInvoiceTotals(items, discountPercent, taxMode) {
   const sgst = igstMode ? 0 : round2(taxAmount - cgst);
   const igst = igstMode ? taxAmount : 0;
 
+  // Compensation cess: invoice-level % on the discounted taxable value — the
+  // same base GST uses (mirrors backend InvoiceMapper exactly).
+  const cessPct = Math.min(Math.max(parseFloat(cessPercent) || 0, 0), 100);
+  const cessAmount = round2((taxableAmount * cessPct) / 100);
+
   // Discounted taxable value per line. The last line absorbs any rounding
   // residual so the Taxable column adds up EXACTLY to the Taxable Amount
   // total (a GST invoice must foot line-by-line).
@@ -112,7 +117,9 @@ export function computeInvoiceTotals(items, discountPercent, taxMode) {
     sgst,
     igst,
     taxAmount,
-    grandTotal: round2(taxableAmount + taxAmount),
+    cessPercent: cessPct,
+    cessAmount,
+    grandTotal: round2(taxableAmount + taxAmount + cessAmount),
     perItem,
   };
 }

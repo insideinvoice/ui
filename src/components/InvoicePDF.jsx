@@ -11,9 +11,20 @@ import { mobileLine } from "../utils/phoneDisplay";
 import { numberToWords, formatINR } from "../utils/invoiceFormat";
 import { jurisdictionLine } from "../utils/jurisdiction";
 import { getIndustryConfig, getTemplateRightRows, fieldLabel } from "../constants/industryConfig";
+import { stateWithCode } from "../constants/indianStates";
+import { uqcFor } from "../constants/units";
 
 const S = {
   border: "1px solid #000",
+};
+
+// Document titles (Rule 46: each document type is a DISTINCT title).
+const TITLE_BY_TYPE = {
+  TAX_INVOICE: "Tax Invoice",
+  PROFORMA_INVOICE: "PROFORMA INVOICE",
+  BILL_OF_SUPPLY: "BILL OF SUPPLY",
+  CREDIT_NOTE: "CREDIT NOTE",
+  DEBIT_NOTE: "DEBIT NOTE",
 };
 
 const cell = (width) => ({
@@ -56,7 +67,7 @@ const InvoicePDF = React.memo(React.forwardRef(({ business, customer, form, item
   const isProforma = type === "PROFORMA_INVOICE";
   const validItems = (items || []).filter((i) => i.itemName?.trim() && parseFloat(i.qty) > 0);
   const sigSrc = asImageSrc(business?.signature);
-  const calc = computeInvoiceTotals(items, discountPercent, taxMode);
+  const calc = computeInvoiceTotals(items, discountPercent, taxMode, form?.cessPercent);
   // IGST (inter-state) replaces the CGST/SGST pair everywhere below — the two
   // structures never render together for the same taxable line.
   const igstMode = taxMode === "IGST";
@@ -128,15 +139,17 @@ const InvoicePDF = React.memo(React.forwardRef(({ business, customer, form, item
           <tr>
             <td colSpan={2} style={{ borderBottom: S.border, padding: 0 }}>
               <div style={{ position: "relative", textAlign: "center", fontSize: "14px", fontWeight: "bold", padding: "6px 10px" }}>
-                {isProforma ? "PROFORMA INVOICE" : "Tax Invoice"}
+                {TITLE_BY_TYPE[type] || "Tax Invoice"}
                 {isProforma ? (
                   <div style={{ fontSize: "9px", fontWeight: "normal", fontStyle: "italic" }}>
                     — NOT A TAX INVOICE —
                   </div>
                 ) : (
+                  (type || "TAX_INVOICE") === "TAX_INVOICE" && (
                   <span style={{ position: "absolute", right: "10px", top: "50%", transform: "translateY(-50%)", fontSize: "11px", fontStyle: "italic", fontWeight: "normal" }}>
                     (ORIGINAL FOR RECIPIENT)
                   </span>
+                  )
                 )}
               </div>
             </td>
@@ -183,7 +196,13 @@ const InvoicePDF = React.memo(React.forwardRef(({ business, customer, form, item
                       {customer?.phone ? <div style={{ fontSize: "10px", lineHeight: "1.45" }}>Ph: {customer.phone}</div> : null}
                       {customer?.email ? <div style={{ fontSize: "10px", lineHeight: "1.45" }}>{customer.email}</div> : null}
                       {customer?.gstIn ? <div style={{ fontSize: "10px", lineHeight: "1.45" }}>GSTIN/UIN: {customer.gstIn}</div> : null}
-                      {customer?.state ? <div style={{ fontSize: "10px", lineHeight: "1.45" }}>State: {customer.state}</div> : null}
+                      {customer?.state ? <div style={{ fontSize: "10px", lineHeight: "1.45" }}>State: {stateWithCode(customer.state)}</div> : null}
+                      {form?.placeOfSupply ? <div style={{ fontSize: "10px", lineHeight: "1.45" }}>Place of Supply: {stateWithCode(form.placeOfSupply)}</div> : null}
+                      {form?.shippingAddress ? (
+                        <div style={{ marginTop: "3px", fontSize: "10px", lineHeight: "1.45" }}>
+                          <span style={{ fontWeight: "bold" }}>Ship To: </span>{form.shippingAddress}
+                        </div>
+                      ) : null}
                     </td>
                   </tr>
                 </tbody>
@@ -260,7 +279,7 @@ const InvoicePDF = React.memo(React.forwardRef(({ business, customer, form, item
                       { key: "gst", a: "center", v: (parseFloat(item.gstPercentage) || 0).toFixed(1) + "%", w: 62 },
                       { key: "qty", a: "center", v: parseFloat(item.qty) || "", w: 72 },
                       { key: "rate", a: "center", v: formatINR(item.rate), w: 76 },
-                      { key: "per", a: "center", v: item.unit || "Piece", w: 42 },
+                      { key: "per", a: "center", v: uqcFor(item.unit || "Piece"), w: 42 },
                       { key: "amt", a: "right", v: formatINR(iTotal), w: 72 },
                     ];
                     return (
@@ -386,6 +405,12 @@ const InvoicePDF = React.memo(React.forwardRef(({ business, customer, form, item
                         </>
                         )
                       ) : null}
+                      {calc.cessAmount > 0 && (
+                        <div style={{ fontSize: "10px", marginBottom: "1px" }}>
+                          <span style={{ marginRight: "16px" }}>Cess ({calc.cessPercent}%)</span>
+                          <span style={{ fontWeight: "bold" }}>{formatINR(calc.cessAmount)}</span>
+                        </div>
+                      )}
                       <div style={{ fontSize: "10px" }}>
                         <span style={{ marginRight: "16px" }}>Round Off</span>
                         <span style={{ fontWeight: "bold" }}>0.00</span>

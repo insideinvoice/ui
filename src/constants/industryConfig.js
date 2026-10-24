@@ -407,7 +407,7 @@ const TEMPLATE_RIGHT_ROW_DEFS = [
   { key: "paymentDate", protectedField: true, label: (isP) => (isP ? "Valid Until" : "Payment Date"), value: (form) => form?.dueDate },
   { key: "paymentTerms", protectedField: true, label: () => "Mode/Terms of Payment", value: (form) => form?.paymentTerms },
   { key: "otherReferences", label: () => "Other References", value: (form) => form?.otherReferences },
-  { key: "invoiceDate", protectedField: true, label: () => "Dated", value: (form) => form?.invoiceDate },
+  { key: "ewayBillNumber", protectedField: true, label: () => "E-Way Bill No.", value: (form) => form?.ewayBillNumber },
   { key: "deliveryNoteDate", label: () => "Delivery Note Date", value: (form) => form?.deliveryNoteDate },
   { key: "destination", label: () => "Destination", value: (form) => form?.destination },
 ];
@@ -483,5 +483,16 @@ export function getTemplateRightRows(config, form, displayInvNo, isProforma) {
   const extended = (EXTENDED_RIGHT_ROW_DEFS[config?.id || config?.industry] || [])
     .map((def) => ({ key: def.key, label: def.label(config), value: def.value(form) }))
     .filter((row) => Boolean(row.value));
-  return [...base, ...extended].slice(0, RIGHT_ROW_CAP);
+  // GST Rule 46 compliance rows — value-driven, so they appear only when the
+  // invoice actually carries them (nothing shifts for legacy invoices). The
+  // vehicle row is skipped for RENTAL, which already folds it into Rental
+  // Details. Each compliance row extends the 13-row cap by one.
+  const compliance = [
+    form?.reverseCharge ? { key: "reverseCharge", label: () => "Reverse Charge", value: () => "YES" } : null,
+    (config?.id || config?.industry) !== "RENTAL" && textOr(form?.vehicleNumber)
+      ? { key: "vehicleNumber", label: () => "Vehicle No.", value: () => form.vehicleNumber }
+      : null,
+  ].filter(Boolean);
+  return [...base, ...compliance.map((r) => ({ key: r.key, label: r.label(), value: r.value() })), ...extended]
+    .slice(0, RIGHT_ROW_CAP + compliance.length);
 }

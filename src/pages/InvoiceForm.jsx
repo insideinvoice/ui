@@ -131,12 +131,12 @@ const ItemRow = memo(({ item, calc, idx, onItemChange, onRemove, onAdd, onHsnLoo
     </td>
     <td className="py-3 px-2 border-b border-slate-100">
       <div className="flex items-center gap-1.5 w-full min-w-[110px]">
-        <input type="number" step="1" min="0" value={item.qty} name={`qty-${idx + 1}`}
+        <input type="text" value={item.qty} name={`qty-${idx + 1}`}
           onChange={(e) => onItemChange(idx, "qty", e.target.value)}
           onKeyDown={(e) => handleKeyDown(e, "qty")}
-          inputMode="decimal"
+          inputMode="numeric"
           placeholder="Qty"
-          className="flex-[7] min-w-[40px] w-0 px-2 py-2 border border-slate-200 rounded text-sm text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
+          className="flex-[7] min-w-[40px] w-0 px-2 py-2 border border-slate-200 rounded text-sm text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono" />
         <select value={item.unit ?? "Unit"} name={`unit-${idx + 1}`}
           onChange={(e) => onItemChange(idx, "unit", e.target.value)}
           onKeyDown={(e) => handleKeyDown(e, "unit")}
@@ -149,19 +149,21 @@ const ItemRow = memo(({ item, calc, idx, onItemChange, onRemove, onAdd, onHsnLoo
       </div>
     </td>
     <td className="py-3 px-2 border-b border-slate-100">
-      <input type="number" step="0.01" min="0" value={item.rate} name={`rate-${idx + 1}`}
+      <input type="text" value={item.rate} name={`rate-${idx + 1}`}
         onChange={(e) => onItemChange(idx, "rate", e.target.value)}
         onKeyDown={(e) => handleKeyDown(e, "rate")}
         readOnly={locked}
+        inputMode="decimal"
         placeholder="0.00"
-        className="w-full min-w-[70px] px-2.5 py-2 border border-slate-200 rounded text-sm text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
+        className="w-full min-w-[70px] px-2.5 py-2 border border-slate-200 rounded text-sm text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono" />
     </td>
     <td className="py-3 px-1 border-b border-slate-100 text-center">
       <div className="relative w-[56px] min-w-[56px] mx-auto">
-        <input type="number" step="0.01" min="0" max="40" value={item.gstPercentage} name={`gst-${idx + 1}`}
+        <input type="text" value={item.gstPercentage} name={`gst-${idx + 1}`}
           onChange={(e) => onItemChange(idx, "gstPercentage", e.target.value)}
           onKeyDown={(e) => handleKeyDown(e, "gst")}
-          className="w-full min-w-0 px-1.5 py-2 border border-slate-200 rounded text-sm text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono pr-4 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
+          inputMode="decimal"
+          className="w-full min-w-0 px-1.5 py-2 border border-slate-200 rounded text-sm text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono pr-4" />
         <span className="absolute right-1 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none">%</span>
       </div>
     </td>
@@ -243,11 +245,11 @@ const ItemCard = memo(({ item, calc, idx, onItemChange, onRemove, onAdd, onHsnLo
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="block text-[10px] font-semibold text-slate-500 uppercase mb-1">Qty</label>
-            <input type="number" step="1" min="0" value={item.qty} data-mobile-field={`qty-${idx}`}
+            <input type="text" value={item.qty} data-mobile-field={`qty-${idx}`}
               onChange={(e) => onItemChange(idx, "qty", e.target.value)}
               onKeyDown={(e) => handleKeyDown(e, "qty")}
               inputMode="numeric"
-              className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono min-h-[44px] [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
+              className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono min-h-[44px]" />
             <select value={item.unit ?? "Unit"} data-mobile-field={`unit-${idx}`}
               onChange={(e) => onItemChange(idx, "unit", e.target.value)}
               onKeyDown={(e) => handleKeyDown(e, "unit")}
@@ -260,23 +262,23 @@ const ItemCard = memo(({ item, calc, idx, onItemChange, onRemove, onAdd, onHsnLo
           </div>
           <div>
             <label className="block text-[10px] font-semibold text-slate-500 uppercase mb-1">Rate</label>
-            <input type="number" step="0.01" min="0" value={item.rate} data-mobile-field={`rate-${idx}`}
+            <input type="text" value={item.rate} data-mobile-field={`rate-${idx}`}
               onChange={(e) => onItemChange(idx, "rate", e.target.value)}
               onKeyDown={(e) => handleKeyDown(e, "rate")}
               readOnly={locked}
               inputMode="decimal"
-              className={`w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono min-h-[44px] [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none ${locked ? "bg-slate-50 text-slate-500 cursor-not-allowed" : ""}`} />
+              className={`w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono min-h-[44px] ${locked ? "bg-slate-50 text-slate-500 cursor-not-allowed" : ""}`} />
           </div>
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="block text-[10px] font-semibold text-slate-500 uppercase mb-1">GST %</label>
             <div className="relative">
-              <input type="number" step="0.01" min="0" max="40" value={item.gstPercentage} data-mobile-field={`gst-${idx}`}
+              <input type="text" value={item.gstPercentage} data-mobile-field={`gst-${idx}`}
                 onChange={(e) => onItemChange(idx, "gstPercentage", e.target.value)}
                 onKeyDown={(e) => handleKeyDown(e, "gst")}
                 inputMode="decimal"
-                className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono min-h-[44px] pr-7 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
+                className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono min-h-[44px] pr-7" />
               <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">%</span>
             </div>
           </div>
@@ -524,6 +526,10 @@ export default function InvoiceForm() {
         setBusiness(bRes.data.data);
       } catch (err) {
         console.error("Failed to load data", err);
+        // A silent failure here makes the Business section (and summary) simply
+        // vanish — which reads as "my data is gone" when the backend is only
+        // down or still booting. Name the failure instead.
+        toast.error("Couldn't load your business details — refresh once the server is reachable");
       } finally {
         setLoading(false);
       }
@@ -595,15 +601,20 @@ export default function InvoiceForm() {
       delete hsnLookupRef.current[idx];
     }
     if (field === "qty") {
-      // Integers only: no decimals, no negatives, no exponent notation.
-      const n = parseFloat(value);
-      value = value.trim() === "" || Number.isNaN(n) ? "" : String(Math.max(0, Math.floor(n)));
+      // Integers only: digits, nothing else — no minus, dot or exponent.
+      // These are text inputs now: with type="number" the browser reported
+      // garbage like "13-23" as badInput ("") so no state guard ever saw it,
+      // while the garbage stayed visible in the box with zeros underneath.
+      value = value.replace(/[^0-9]/g, "");
     }
     if (field === "rate" || field === "gstPercentage") {
-      // No negatives: strip the minus while keeping the digits. Partial input
-      // ("", "-", "0.") is left alone so decimal typing keeps working.
-      const n = parseFloat(value);
-      if (!Number.isNaN(n) && n < 0) value = value.replace("-", "");
+      // Digits with at most one decimal point — every other character
+      // (including any minus, anywhere) is stripped as it is typed.
+      value = value.replace(/[^0-9.]/g, "");
+      const firstDot = value.indexOf(".");
+      if (firstDot !== -1) {
+        value = value.slice(0, firstDot + 1) + value.slice(firstDot + 1).replace(/\./g, "");
+      }
     }
     setItems((prev) => prev.map((item, i) => {
       if (i !== idx) return item;

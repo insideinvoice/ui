@@ -69,12 +69,12 @@ const ViewItemRow = memo(({ item, calc, idx, isEditing, onItemChange, onRemove, 
         )}
         <td className="py-3 px-3 border-b border-slate-100">
           <div className="flex items-center gap-1.5">
-            <input type="number" step="0.01" min="0" value={item.qty} name={`qty-${idx + 1}`}
+            <input type="text" value={item.qty} name={`qty-${idx + 1}`}
               onChange={(e) => onItemChange(idx, "qty", e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); const rate = document.querySelector(`input[name="rate-${idx + 1}"]`); rate?.focus(); } }}
-              inputMode="decimal"
+              inputMode="numeric"
               size={10}
-              className="w-28 px-3 py-2 border border-slate-200 rounded text-sm text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
+              className="w-28 px-3 py-2 border border-slate-200 rounded text-sm text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono" />
             <select value={item.unit || ""} name={`unit-${idx + 1}`}
               onChange={(e) => onItemChange(idx, "unit", e.target.value)}
               title="Unit of measurement"
@@ -86,19 +86,19 @@ const ViewItemRow = memo(({ item, calc, idx, isEditing, onItemChange, onRemove, 
           </div>
         </td>
         <td className="py-3 px-3 border-b border-slate-100">
-          <input type="number" step="0.01" min="0" value={item.rate} name={`rate-${idx + 1}`}
+          <input type="text" value={item.rate} name={`rate-${idx + 1}`}
             onChange={(e) => onItemChange(idx, "rate", e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); const gst = document.querySelector(`input[name="gst-${idx + 1}"]`); gst?.focus(); } }}
             inputMode="decimal"
-            className="w-full px-3 py-2 border border-slate-200 rounded text-sm text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
+            className="w-full px-3 py-2 border border-slate-200 rounded text-sm text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono" />
         </td>
         <td className="py-3 px-3 border-b border-slate-100">
           <div className="relative">
-            <input type="number" step="0.01" min="0" max="100" value={item.gstPercentage} name={`gst-${idx + 1}`}
+            <input type="text" value={item.gstPercentage} name={`gst-${idx + 1}`}
               onChange={(e) => onItemChange(idx, "gstPercentage", e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); onAdd(); } }}
               inputMode="decimal"
-              className="w-full px-3 py-2 border border-slate-200 rounded text-sm text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono pr-7 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
+              className="w-full px-3 py-2 border border-slate-200 rounded text-sm text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono pr-7" />
             <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs">%</span>
           </div>
         </td>
@@ -626,6 +626,23 @@ export default function InvoiceView() {
 
   const handleFieldChange = (e) => setForm((p) => ({ ...p, [e.target.name]: e.target.value }));
   const handleItemChange = useCallback((idx, field, value) => {
+    // Same sanitizers as the create form. These are text inputs now: with
+    // type="number" the browser reported garbage like "13-23" as badInput
+    // ("") so no guard ever saw it, while the garbage stayed visible in the
+    // box with zeros underneath.
+    if (field === "qty") {
+      // Integers only: digits, nothing else — no minus, dot or exponent.
+      value = value.replace(/[^0-9]/g, "");
+    } else if (field === "rate" || field === "gstPercentage") {
+      // Digits with at most one decimal point — every other character
+      // (including any minus, anywhere) is stripped as it is typed.
+      value = value.replace(/[^0-9.]/g, "");
+      const firstDot = value.indexOf(".");
+      if (firstDot !== -1) {
+        value = value.slice(0, firstDot + 1) + value.slice(firstDot + 1).replace(/\./g, "");
+      }
+      if (field === "gstPercentage" && parseFloat(value) > 100) value = "100";
+    }
     setItems((prev) => prev.map((item, i) => {
       if (i !== idx) return item;
       const qty = parseFloat(field === "qty" ? value : item.qty) || 0;
@@ -1452,7 +1469,7 @@ export default function InvoiceView() {
                           )}
                           <div>
                             <label className="text-[10px] font-semibold text-slate-500 uppercase">GST %</label>
-                            <input type="number" step="0.01" min="0" max="100" value={item.gstPercentage}
+                            <input type="text" value={item.gstPercentage}
                               onChange={(e) => handleItemChange(idx, "gstPercentage", e.target.value)}
                               inputMode="decimal"
                               className="w-full px-3 py-2 border border-slate-200 rounded text-sm text-right bg-white font-mono min-h-[44px]" />
@@ -1461,14 +1478,14 @@ export default function InvoiceView() {
                         <div className="grid grid-cols-3 gap-2">
                           <div>
                             <label className="text-[10px] font-semibold text-slate-500 uppercase">Qty</label>
-                            <input type="number" step="0.01" min="0" value={item.qty}
+                            <input type="text" value={item.qty}
                               onChange={(e) => handleItemChange(idx, "qty", e.target.value)}
-                              inputMode="decimal"
+                              inputMode="numeric"
                               className="w-full px-3 py-2 border border-slate-200 rounded text-sm text-right bg-white font-mono min-h-[44px]" />
                           </div>
                           <div>
                             <label className="text-[10px] font-semibold text-slate-500 uppercase">Rate</label>
-                            <input type="number" step="0.01" min="0" value={item.rate}
+                            <input type="text" value={item.rate}
                               onChange={(e) => handleItemChange(idx, "rate", e.target.value)}
                               inputMode="decimal"
                               className="w-full px-3 py-2 border border-slate-200 rounded text-sm text-right bg-white font-mono min-h-[44px]" />
@@ -1555,12 +1572,10 @@ export default function InvoiceView() {
               {discountEnabled && (
                 <div className="flex items-center gap-2">
                   <input
-                    type="number"
-                    min="0"
-                    max="100"
+                    type="text"
                     value={discountPercent}
                     onChange={(e) => {
-                      setDiscountPercent(e.target.value);
+                      setDiscountPercent(e.target.value.replace(/[^0-9]/g, "").slice(0, 3));
                       setDiscountDirty(true);
                     }}
                     inputMode="numeric"

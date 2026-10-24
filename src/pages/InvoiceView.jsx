@@ -1481,7 +1481,7 @@ export default function InvoiceView() {
                   <thead>
                     <tr className="bg-slate-800">
                       <th className="xl:sticky xl:top-0 xl:z-10 text-white text-xs font-semibold py-3.5 px-2 text-center whitespace-nowrap w-[44px] min-w-[44px]">#</th>
-                      <th className="xl:sticky xl:top-0 xl:z-10 text-white text-xs font-semibold py-3.5 px-3 text-left whitespace-nowrap">{labelFor("itemName", "Description")}</th>
+                      <th className="xl:sticky xl:top-0 xl:z-10 text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">{labelFor("itemName", "Description")}</th>
                       {showHnSac && <th className="xl:sticky xl:top-0 xl:z-10 text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">HSN/SAC</th>}
                       <th className="xl:sticky xl:top-0 xl:z-10 text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">Qty</th>
                       <th className="xl:sticky xl:top-0 xl:z-10 text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">Rate</th>

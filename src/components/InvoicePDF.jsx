@@ -1,6 +1,7 @@
 import React, { useMemo } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import SealOverlay from "./SealOverlay";
+import InvoiceTermsRow from "./InvoiceTermsRow";
 import { resolveSeal } from "../utils/seal";
 import { sealSpecAttribute } from "../utils/sealConfig";
 import { asImageSrc } from "../utils/imageSrc";

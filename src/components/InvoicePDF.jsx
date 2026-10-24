@@ -556,6 +556,10 @@ const InvoicePDF = React.memo(React.forwardRef(({ business, customer, form, item
           </>
           )}
 
+          {/* Terms & Conditions — the business's saved defaults (Settings owns
+              them); collapses away entirely when none are set. */}
+          <InvoiceTermsRow business={business} border={S.border} />
+
           {/* BOTTOM SECTION: Bank + UPI QR | Declaration | Signature */}
           <tr id="section-footer">
             <td colSpan={2} style={{ borderLeft: S.border, borderRight: S.border, borderBottom: S.border, padding: 0 }}>

@@ -5,7 +5,7 @@ import Spinner from "../components/Spinner";
 import PageHeader from "../components/PageHeader";
 import { invoiceAPI, businessAPI, customerAPI } from "../api/auth";
 import toast from "react-hot-toast";
-import { ArrowLeft, Download, Save, Edit3, Plus, Trash2, FileText, AlertCircle, User, Building2, Phone, MapPin, Hash, Package, Mail, Globe, X, Share2, Smartphone, Link2, Copy, RotateCw, Unlink, ChevronDown, Printer, MessageSquare } from "lucide-react";
+import { ArrowLeft, Download, Save, Edit3, Plus, Trash2, FileText, AlertCircle, User, Building2, Phone, MapPin, Hash, Package, Mail, Globe, X, Share2, Smartphone, Link2, Copy, RotateCw, Unlink, ChevronDown, Printer, MessageSquare, ScrollText } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import InvoiceTemplateRenderer from "../components/InvoiceTemplateRenderer";
 import DocZoomSurface from "../components/DocZoomSurface";
@@ -524,6 +524,21 @@ export default function InvoiceView() {
       if (count > 0) toast.success(`${count} pending invoice${count > 1 ? 's' : ''} synced`);
     });
   }, []);
+
+  // Default Terms & Conditions — owned by Settings (business profile), stored
+  // as a canonical JSON array string on businesses.terms_conditions (V40).
+  // Mirrors Profile.jsx's parse; a malformed legacy value degrades to no card
+  // content instead of crashing the invoice page.
+  const businessTerms = useMemo(() => {
+    const raw = business?.termsConditions;
+    if (!raw) return [];
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed.filter((t) => typeof t === "string" && t.trim()) : [];
+    } catch {
+      return [];
+    }
+  }, [business?.termsConditions]);
 
   const handleFieldChange = (e) => setForm((p) => ({ ...p, [e.target.name]: e.target.value }));
   const handleItemChange = useCallback((idx, field, value) => {
@@ -1474,6 +1489,25 @@ export default function InvoiceView() {
                   </div>
                 </div>
               </div>
+            </div>
+
+            {/* Terms & Conditions — the business's default GST footer terms
+                (Settings owns the data; this page renders it), placed above
+                Notes as on a standard invoice footer. */}
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 sm:p-6">
+              <div className="flex items-center gap-2.5 mb-3">
+                <ScrollText className="w-4 h-4 text-slate-600" />
+                <h2 className="text-sm font-bold text-slate-800">Terms &amp; Conditions</h2>
+              </div>
+              {businessTerms.length > 0 ? (
+                <ol className="list-decimal list-inside space-y-1.5">
+                  {businessTerms.map((t, i) => (
+                    <li key={i} className="text-sm text-slate-600 leading-snug">{t}</li>
+                  ))}
+                </ol>
+              ) : (
+                <p className="text-sm text-slate-400 italic">No terms added yet.</p>
+              )}
             </div>
 
             {/* Notes */}

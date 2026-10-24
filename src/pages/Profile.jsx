@@ -861,7 +861,7 @@ export default function Profile() {
                   <span
                     id="seal-scope-tip"
                     role="tooltip"
-                    className="pointer-events-none absolute left-0 top-full z-40 mt-1.5 w-56 rounded-lg bg-slate-800 px-2.5 py-1.5 text-[11px] font-normal leading-snug text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100 group-focus:opacity-100">
+                    className="pointer-events-none absolute left-1/2 top-full z-40 mt-1.5 w-56 max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-lg bg-slate-800 px-2.5 py-1.5 text-[11px] font-normal leading-snug text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100 group-focus:opacity-100">
                     Applied to every page of invoices, delivery challans, emailed PDFs and shared links.
                   </span>
                 </span>
@@ -1640,7 +1640,7 @@ export default function Profile() {
                 <span
                   id="ghost-mode-tip"
                   role="tooltip"
-                  className="pointer-events-none absolute left-0 top-full z-40 mt-1.5 w-64 rounded-lg bg-slate-800 px-2.5 py-1.5 text-[11px] font-normal leading-snug text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100 group-focus:opacity-100">
+                  className="pointer-events-none absolute left-1/2 top-full z-40 mt-1.5 w-64 max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-lg bg-slate-800 px-2.5 py-1.5 text-[11px] font-normal leading-snug text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100 group-focus:opacity-100">
                   While on, you type the invoice number yourself — only for corrections, e.g. fixing a mistakenly generated invoice. Auto-numbering resumes the moment it's off.
                 </span>
               </span>

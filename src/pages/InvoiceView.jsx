@@ -49,6 +49,12 @@ const labelClass = "block text-xs font-semibold text-slate-600 mb-1.5";
 // (an inner declaration remounts every row on each parent render).
 const InfoRow = memo(({ label, value }) => value ? <p className="text-sm text-slate-600"><span className="text-slate-400">{label}:</span> {value}</p> : null);
 
+// Amounts too wide for their column wrap at the Indian comma groups, never
+// mid-number: a zero-width space after each group comma gives the line
+// breaker "15,23,45, | 666.52" instead of "2,74,22,2 | 19.97". Short amounts
+// never wrap at all.
+const breakAtGroups = (s) => String(s).replace(/,(?=\d)/g, ",\u200B");
+
 const ViewItemRow = memo(({ item, calc, idx, isEditing, onItemChange, onRemove, onAdd, showHnSac = true }) => (
   <tr className={`${idx % 2 === 0 ? "bg-white" : "bg-slate-50/40"} ${isEditing ? "hover:bg-blue-50/20" : ""} transition-colors`}>
     <td className="py-3 px-2 text-center text-slate-400 font-mono text-xs border-b border-slate-100 whitespace-nowrap w-[44px] min-w-[44px]">{idx + 1}</td>
@@ -110,21 +116,21 @@ const ViewItemRow = memo(({ item, calc, idx, isEditing, onItemChange, onRemove, 
         <td className="py-3 px-3 text-center font-mono text-xs text-slate-500 border-b border-slate-100 whitespace-nowrap">{item.hsn || "-"}</td>
         )}
         <td className="py-3 px-2 text-center font-mono text-sm text-slate-700 border-b border-slate-100 whitespace-nowrap">{item.qty}</td>
-        <td className="py-3 px-2 text-center font-mono text-xs text-slate-700 border-b border-slate-100 [overflow-wrap:anywhere]">{fmt(item.rate)}</td>
+        <td className="py-3 px-2 text-center font-mono text-xs text-slate-700 border-b border-slate-100 [overflow-wrap:anywhere]">{breakAtGroups(fmt(item.rate))}</td>
         <td className="py-3 px-2 text-center font-mono text-sm text-slate-600 border-b border-slate-100 whitespace-nowrap">{item.gstPercentage}%</td>
       </>
     )}
-    <td className={`py-3 px-2 text-right font-mono text-xs border-b border-slate-100 [overflow-wrap:anywhere] ${isEditing ? "text-slate-700" : "text-slate-700"}`}>
-      {fmt(calc?.taxable ?? item.taxableValue)}
+    {/* Taxable / Tax / Total: values centered to share the header's center
+        axis (the headers are centered too). Symmetric px-3 keeps the Total
+        amount off the border line while matching the header exactly. */}
+    <td className={`py-3 px-3 text-center font-mono text-xs border-b border-slate-100 [overflow-wrap:anywhere] ${isEditing ? "text-slate-700" : "text-slate-700"}`}>
+      {breakAtGroups(fmt(calc?.taxable ?? item.taxableValue))}
     </td>
-    <td className={`py-3 px-2 text-right font-mono text-xs border-b border-slate-100 [overflow-wrap:anywhere] ${isEditing ? "text-slate-600" : "text-slate-600"}`}>
-      {fmt(calc?.tax ?? item.taxAmount)}
+    <td className={`py-3 px-3 text-center font-mono text-xs border-b border-slate-100 [overflow-wrap:anywhere] ${isEditing ? "text-slate-600" : "text-slate-600"}`}>
+      {breakAtGroups(fmt(calc?.tax ?? item.taxAmount))}
     </td>
-    {/* Last column: extra right padding so amounts don't sit flush against
-        the table's border line (the Total header th carries the same pr-6
-        to stay aligned with the values). */}
-    <td className={`py-3 pl-2 pr-6 text-right font-mono text-xs font-semibold border-b border-slate-100 [overflow-wrap:anywhere] text-slate-900`}>
-      {fmt(calc?.total ?? item.total)}
+    <td className={`py-3 px-3 text-center font-mono text-xs font-semibold border-b border-slate-100 [overflow-wrap:anywhere] text-slate-900`}>
+      {breakAtGroups(fmt(calc?.total ?? item.total))}
     </td>
     {isEditing && (
       <td className="py-3 px-2 text-center border-b border-slate-100">
@@ -1425,7 +1431,7 @@ export default function InvoiceView() {
                     {/* # is floored at 44px (min-w on th/td below) so 3-digit row
                         numbers never wrap — percentage alone (~3%) is too narrow
                         once padding is paid. Description funds the difference. */}
-                    <col style={{ width: "5%" }} />
+                    <col style={{ width: "44px" }} />
                     <col style={{ width: isEditing ? (showHnSac ? "24%" : "32.75%") : (showHnSac ? "28%" : "37%") }} />
                     {showHnSac && <col style={{ width: isEditing ? "8.5%" : "9%" }} />}
                     <col style={{ width: isEditing ? "16%" : "8%" }} />
@@ -1444,9 +1450,11 @@ export default function InvoiceView() {
                       <th className="text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">Qty</th>
                       <th className="text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">Rate</th>
                       <th className="text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">GST %</th>
-                      <th className="text-white text-xs font-semibold py-3.5 px-3 text-right whitespace-nowrap">Taxable</th>
-                      <th className="text-white text-xs font-semibold py-3.5 px-3 text-right whitespace-nowrap">Tax</th>
-                      <th className="text-white text-xs font-semibold py-3.5 pl-3 pr-6 text-right whitespace-nowrap">Total</th>
+                      <th className="text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">Taxable</th>
+                      <th className="text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">Tax</th>
+                      {/* Centered over its column; the values keep text-right
+                          with pr-6 so amounts stay clear of the border. */}
+                      <th className="text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">Total</th>
                       {isEditing && <th className="text-white"></th>}
                     </tr>
                   </thead>

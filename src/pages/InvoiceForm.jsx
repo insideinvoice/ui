@@ -168,13 +168,13 @@ const ItemRow = memo(({ item, calc, idx, onItemChange, onRemove, onAdd, onHsnLoo
         <span className="absolute right-1 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none">%</span>
       </div>
     </td>
-    <td className="py-3 px-3 text-right font-mono text-sm text-slate-700 border-b border-slate-100 whitespace-nowrap tabular-nums min-w-0">
+    <td className="py-3 px-3 text-right font-mono text-xs text-slate-700 border-b border-slate-100 whitespace-nowrap tabular-nums min-w-0">
       {((calc?.taxable ?? parseFloat(item.taxableValue)) || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
     </td>
-    <td className="py-3 px-3 text-right font-mono text-sm text-slate-600 border-b border-slate-100 whitespace-nowrap tabular-nums min-w-0">
+    <td className="py-3 px-3 text-right font-mono text-xs text-slate-600 border-b border-slate-100 whitespace-nowrap tabular-nums min-w-0">
       {((calc?.tax ?? parseFloat(item.taxAmount)) || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
     </td>
-    <td className="py-3 px-3 text-right font-mono text-sm font-semibold text-slate-900 border-b border-slate-100 whitespace-nowrap tabular-nums min-w-0">
+    <td className="py-3 px-3 text-right font-mono text-xs font-semibold text-slate-900 border-b border-slate-100 whitespace-nowrap tabular-nums min-w-0">
       {((calc?.total ?? parseFloat(item.total)) || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
     </td>
     <td className="py-3 px-1 text-center border-b border-slate-100 w-[45px] min-w-[45px]">

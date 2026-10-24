@@ -60,7 +60,7 @@ const ViewItemRow = memo(({ item, calc, idx, isEditing, onItemChange, onRemove, 
     <td className="py-3 px-2 text-center text-slate-400 font-mono text-xs border-b border-slate-100 whitespace-nowrap w-[44px] min-w-[44px]">{idx + 1}</td>
     {isEditing ? (
       <>
-        <td className="py-3 px-2 border-b border-slate-100">
+        <td className="py-3 px-2 border-b border-slate-100 text-xs">
           <input type="text" value={item.itemName} name={`desc-${idx + 1}`}
             onChange={(e) => onItemChange(idx, "itemName", e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); const next = document.querySelector(`input[name="${showHnSac ? "hsn" : "qty"}-${idx + 1}"]`); next?.focus(); } }}
@@ -74,13 +74,13 @@ const ViewItemRow = memo(({ item, calc, idx, isEditing, onItemChange, onRemove, 
             className="w-full min-w-0 px-2 py-1.5 border border-slate-200 rounded text-xs focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono" placeholder="Scan or type" />
         </td>
         )}
-        <td className="py-3 px-2 border-b border-slate-100">
+        <td className="py-3 px-2 border-b border-slate-100 text-xs">
           <div className="flex items-center gap-1.5">
             <input type="text" value={item.qty} name={`qty-${idx + 1}`}
               onChange={(e) => onItemChange(idx, "qty", e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); const rate = document.querySelector(`input[name="rate-${idx + 1}"]`); rate?.focus(); } }}
               inputMode="numeric"
-              className="w-full min-w-0 px-2 py-1.5 border border-slate-200 rounded text-xs text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono" />
+              className="w-full max-w-[52px] min-w-0 px-2 py-1.5 border border-slate-200 rounded text-xs text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono" />
             <select value={item.unit || ""} name={`unit-${idx + 1}`}
               onChange={(e) => onItemChange(idx, "unit", e.target.value)}
               title="Unit of measurement"
@@ -91,14 +91,14 @@ const ViewItemRow = memo(({ item, calc, idx, isEditing, onItemChange, onRemove, 
             </select>
           </div>
         </td>
-        <td className="py-3 px-2 border-b border-slate-100">
+        <td className="py-3 px-2 border-b border-slate-100 text-xs">
           <input type="text" value={item.rate} name={`rate-${idx + 1}`}
             onChange={(e) => onItemChange(idx, "rate", e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); const gst = document.querySelector(`input[name="gst-${idx + 1}"]`); gst?.focus(); } }}
             inputMode="decimal"
             className="w-full min-w-0 px-2 py-1.5 border border-slate-200 rounded text-xs text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono" />
         </td>
-        <td className="py-3 px-2 border-b border-slate-100">
+        <td className="py-3 px-2 border-b border-slate-100 text-xs">
           <div className="flex items-center gap-1">
             <input type="text" value={item.gstPercentage} name={`gst-${idx + 1}`}
               onChange={(e) => onItemChange(idx, "gstPercentage", e.target.value)}
@@ -115,9 +115,9 @@ const ViewItemRow = memo(({ item, calc, idx, isEditing, onItemChange, onRemove, 
         {showHnSac && (
         <td className="py-3 px-3 text-center font-mono text-xs text-slate-500 border-b border-slate-100 whitespace-nowrap">{item.hsn || "-"}</td>
         )}
-        <td className="py-3 px-2 text-center font-mono text-sm text-slate-700 border-b border-slate-100 whitespace-nowrap">{item.qty}</td>
+        <td className="py-3 px-2 text-center font-mono text-xs text-slate-700 border-b border-slate-100 whitespace-nowrap">{item.qty}</td>
         <td className="py-3 px-2 text-center font-mono text-xs text-slate-700 border-b border-slate-100 [overflow-wrap:anywhere]">{breakAtGroups(fmt(item.rate))}</td>
-        <td className="py-3 px-2 text-center font-mono text-sm text-slate-600 border-b border-slate-100 whitespace-nowrap">{item.gstPercentage}%</td>
+        <td className="py-3 px-2 text-center font-mono text-xs text-slate-600 border-b border-slate-100 whitespace-nowrap">{item.gstPercentage}%</td>
       </>
     )}
     {/* Taxable / Tax / Total: values centered to share the header's center
@@ -1433,14 +1433,14 @@ export default function InvoiceView() {
                         once padding is paid. Description funds the difference. */}
                     <col style={{ width: "6%" }} />
                     <col style={{ width: isEditing ? (showHnSac ? "24%" : "33%") : (showHnSac ? "29%" : "38%") }} />
-                    {showHnSac && <col style={{ width: isEditing ? "8.5%" : "9%" }} />}
-                    <col style={{ width: isEditing ? "16%" : "8%" }} />
+                    {showHnSac && <col style={{ width: isEditing ? "8%" : "9%" }} />}
+                    <col style={{ width: isEditing ? "15.75%" : "8%" }} />
                     <col style={{ width: isEditing ? "8%" : "10%" }} />
                     <col style={{ width: isEditing ? "10%" : "7%" }} />
-                    <col style={{ width: isEditing ? "8.17%" : "11%" }} />
-                    <col style={{ width: isEditing ? "8.17%" : "11%" }} />
-                    <col style={{ width: isEditing ? "8.17%" : "11%" }} />
-                    {isEditing && <col style={{ width: "3%" }} />}
+                    <col style={{ width: isEditing ? "7.92%" : "11%" }} />
+                    <col style={{ width: isEditing ? "7.92%" : "11%" }} />
+                    <col style={{ width: isEditing ? "7.92%" : "11%" }} />
+                    {isEditing && <col style={{ width: "4.25%" }} />}
                   </colgroup>
                   <thead>
                     <tr className="bg-slate-800">

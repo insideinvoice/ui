@@ -210,11 +210,16 @@ export default function InvoiceView() {
   // Choosing a seal type updates the on-screen preview instantly (local state),
   // keeps localStorage for the logged-in app, and persists to the business
   // profile so the emailed PDF and the public share page match it.
+  // The seal choice must reach the SERVER before any share link or email is
+  // created — their payloads read the server's seal type, and racing the
+  // update used to serve the previous (round) choice. The persistence
+  // promise is parked here; share/email flows await it first.
+  const sealPersistRef = useRef(null);
   const chooseSealType = useCallback((type) => {
     setSealType(type);
     localStorage.setItem("seal_type", type);
     setBusiness((b) => (b ? { ...b, sealType: type } : b));
-    businessAPI
+    sealPersistRef.current = businessAPI
       .update({ sealType: type })
       .then(() => invalidateBusinessProfile())
       .catch(() => {});
@@ -237,6 +242,7 @@ export default function InvoiceView() {
     customerId: null, customerName: "", customerEmail: "", customerPhone: "", billingAddress: "", customerGstIn: "",
     invoiceDate: "", dueDate: "", placeOfSupply: "", destination: "", termsOfDelivery: "",
     paymentTerms: "", paymentMode: "CASH", deliveryNote: "", otherReferences: "", notes: "", invoiceNumber: "",
+    shippingAddress: "", reverseCharge: false, cessPercent: "", ewayBillNumber: "",
     // GST structure — replaced by the stored selection (or the legal
     // heuristic for legacy invoices) once the invoice loads.
     taxMode: "CGST_SGST",
@@ -275,6 +281,7 @@ export default function InvoiceView() {
     if (shareBusy) return;
     setShareBusy(action);
     try {
+      await sealPersistRef.current; // the shared page reads the server's seal type
       if (action === "create") {
         const res = await invoiceAPI.createShare(id);
         const token = res.data?.data?.token;
@@ -438,6 +445,7 @@ export default function InvoiceView() {
     // send, all while the button stays busy; one result toast at the end.
     setEmailBusy(true);
     try {
+      await sealPersistRef.current; // the email's share link reads the server's seal type
       if (!(await persistDiscount())) return;
       // Make sure the panel shows the same link the email will carry.
       if (!shareToken) {
@@ -533,6 +541,11 @@ export default function InvoiceView() {
         expectedReturnDate: inv.expectedReturnDate || "", depositReference: inv.depositReference || "",
         patientReference: inv.patientReference || "", serviceDate: inv.serviceDate || "",
         treatmentReference: inv.treatmentReference || "", referringDoctor: inv.referringDoctor || "",
+        // GST Rule 46 compliance fields
+        shippingAddress: inv.shippingAddress || "",
+        reverseCharge: inv.reverseCharge === true,
+        cessPercent: parseFloat(inv.cessPercentage) > 0 ? String(inv.cessPercentage) : "",
+        ewayBillNumber: inv.ewayBillNumber || "",
       };
       setForm(loadedForm);
       buyerSnapshotRef.current = {
@@ -660,7 +673,7 @@ export default function InvoiceView() {
     setItems((prev) => prev.length > 1 ? prev.filter((_, i) => i !== idx) : prev);
   }, []);
 
-  const totals = useMemo(() => computeInvoiceTotals(items, discountEnabled ? discountPercent : "0", form.taxMode), [items, discountEnabled, discountPercent, form.taxMode]);
+  const totals = useMemo(() => computeInvoiceTotals(items, discountEnabled ? discountPercent : "0", form.taxMode, form.cessPercent), [items, discountEnabled, discountPercent, form.taxMode, form.cessPercent]);
 
   const validItemsCount = useMemo(
     () => items.filter((i) => i.itemName.trim() && parseFloat(i.qty) > 0).length,
@@ -820,6 +833,10 @@ export default function InvoiceView() {
         dispatchedThrough: form.dispatchedThrough || undefined,
         otherReferences: form.otherReferences || undefined,
         notes: form.notes || undefined,
+        shippingAddress: form.shippingAddress || undefined,
+        reverseCharge: form.reverseCharge === true,
+        cessPercentage: parseFloat(form.cessPercent) || 0,
+        ewayBillNumber: form.ewayBillNumber || undefined,
         billingMode: form.billingMode || undefined,
         // V29 extended fields: always re-sent so loaded values survive the
         // update path (backend assigns them unconditionally). Empty -> dropped.

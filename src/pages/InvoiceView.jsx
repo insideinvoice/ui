@@ -1418,14 +1418,14 @@ export default function InvoiceView() {
                 <table className={`w-full text-sm border-collapse table-fixed ${isEditing ? "min-w-[720px]" : ""}`}>
                   <colgroup>
                     <col style={{ width: "3%" }} />
-                    <col style={{ width: isEditing ? (showHnSac ? "13%" : "21%") : (showHnSac ? "30%" : "39%") }} />
-                    {showHnSac && <col style={{ width: isEditing ? "8%" : "9%" }} />}
+                    <col style={{ width: isEditing ? (showHnSac ? "12%" : "20%") : (showHnSac ? "30%" : "39%") }} />
+                    {showHnSac && <col style={{ width: isEditing ? "10%" : "9%" }} />}
                     <col style={{ width: isEditing ? "17%" : "8%" }} />
                     <col style={{ width: isEditing ? "10%" : "10%" }} />
-                    <col style={{ width: "9%" }} />
-                    <col style={{ width: isEditing ? "12%" : "11%" }} />
-                    <col style={{ width: isEditing ? "12%" : "11%" }} />
-                    <col style={{ width: isEditing ? "12%" : "11%" }} />
+                    <col style={{ width: isEditing ? "11%" : "7%" }} />
+                    <col style={{ width: isEditing ? "11%" : "11%" }} />
+                    <col style={{ width: isEditing ? "11%" : "11%" }} />
+                    <col style={{ width: isEditing ? "11%" : "11%" }} />
                     {isEditing && <col style={{ width: "4%" }} />}
                   </colgroup>
                   <thead>

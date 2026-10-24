@@ -41,8 +41,8 @@ const fmt = (v) => parseFloat(v || 0).toLocaleString("en-IN", { minimumFractionD
 // sizes the zoomable document inside DocZoomSurface (the PDF modal).
 const PAPER_WIDTH_PX = { A4_PORTRAIT: 794, A4_LANDSCAPE: 1123, A5: 559, LETTER: 816 };
 
-const inputClass = "w-full px-3 py-2 border border-slate-300 rounded-lg text-[13px] focus:outline-none focus:ring-2 focus:ring-slate-400/30 focus:border-slate-400";
-const selectClass = "w-full pl-3 pr-9 py-2 border border-slate-300 rounded-lg text-[13px] focus:outline-none focus:ring-2 focus:ring-slate-400/30 focus:border-slate-400 bg-white appearance-none cursor-pointer text-slate-800";
+const inputClass = "w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-slate-400/30 focus:border-slate-400";
+const selectClass = "w-full pl-3 pr-9 py-2 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-slate-400/30 focus:border-slate-400 bg-white appearance-none cursor-pointer text-slate-800";
 const labelClass = "block text-xs font-semibold text-slate-600 mb-1.5";
 
 // Declared at module scope so React keeps the same component type across renders
@@ -1189,7 +1189,7 @@ export default function InvoiceView() {
                         onChange={handleFieldChange}
                         className={inputClass + " font-mono"} placeholder="Enter invoice number" />
                     ) : (
-                      <input value={form.invoiceNumber} disabled className="w-full px-3 py-2 border border-slate-200 rounded-lg text-[13px] bg-slate-50 text-slate-500 font-mono" />
+                      <input value={form.invoiceNumber} disabled className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs bg-slate-50 text-slate-500 font-mono" />
                     )}
                   </div>
                   <div>

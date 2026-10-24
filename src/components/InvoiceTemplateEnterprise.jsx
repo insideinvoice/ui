@@ -5,6 +5,7 @@ import { resolveSeal } from "../utils/seal";
 import { resolveSealConfig, sealSpecAttribute } from "../utils/sealConfig";
 import { numberToWords, formatINR } from "../utils/invoiceFormat";
 import { computeInvoiceTotals } from "../utils/invoiceTotals";
+import { formatPhone, ADDITIONAL_PHONE_EXTRA_H } from "../utils/phoneDisplay";
 import { jurisdictionLine } from "../utils/jurisdiction";
 import { getSpecialistInLine, SPECIALIST_IN_EXTRA_H } from "../utils/specialistIn";
 import {
@@ -119,9 +120,14 @@ const Letterhead = ({ business, title, subNote, headH }) => {
   // look pasted-on/underlined in the rendered invoice).
   const contact = [
     business?.gstIn ? `GSTIN: ${business.gstIn}` : "",
-    business?.phone ? `Ph: ${business.phone}` : "",
+    business?.phone ? `Ph: ${formatPhone(business.phone)}` : "",
     business?.email || "",
   ].filter(Boolean).join("  ·  ");
+  // The alternate phone always prints on its OWN line under the primary
+  // number; headH grows by ADDITIONAL_PHONE_EXTRA_H when it is present.
+  const contact2 = business?.additionalPhone
+    ? `Ph: ${formatPhone(business.additionalPhone)}`
+    : "";
   const specialist = getSpecialistInLine(business);
 
   return (
@@ -151,6 +157,9 @@ const Letterhead = ({ business, title, subNote, headH }) => {
           ))}
           {contact && (
             <div style={{ fontSize: "9.5px", color: MUTED, lineHeight: "13px", overflowWrap: "anywhere", wordBreak: "break-word" }}>{contact}</div>
+          )}
+          {contact2 && (
+            <div style={{ fontSize: "9.5px", color: MUTED, lineHeight: "13px", overflowWrap: "anywhere", wordBreak: "break-word" }}>{contact2}</div>
           )}
           {specialist && (
             <div style={{ fontSize: "9px", fontWeight: 700, letterSpacing: "0.8px", lineHeight: "12px", marginTop: "2px", overflowWrap: "anywhere", wordBreak: "break-word" }}>
@@ -658,7 +667,7 @@ const WordsStrip = ({ isProforma, words, showTax, taxAmount }) => {
 
 /* --------------------------------------------------------------- band */
 
-const BankBand = ({ business, sigSrc, isProforma, payAmount, payRef }) => (
+const BankBand = ({ business, sigSrc, isProforma, payAmount, payRef, payNote }) => (
   <div style={{
     height: M.band, boxSizing: "border-box", display: "flex",
     // The band sits directly under the words strip (whose bottom rule is its
@@ -683,7 +692,7 @@ const BankBand = ({ business, sigSrc, isProforma, payAmount, payRef }) => (
         {business?.upiId && (
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flexShrink: 0 }}>
             <QRCodeSVG
-              value={`upi://pay?pa=${business.upiId}&pn=${encodeURIComponent(business.businessName || "")}&am=${Number(payAmount || 0).toFixed(2)}&tr=${encodeURIComponent(payRef || "")}&tn=${encodeURIComponent(payRef || "")}&cu=INR`}
+              value={`upi://pay?pa=${business.upiId}&pn=${encodeURIComponent(business.businessName || "")}&am=${Number(payAmount || 0).toFixed(2)}&tr=${encodeURIComponent(payRef || "")}&tn=${encodeURIComponent(payNote || payRef || "")}&cu=INR`}
               size={66}
               style={{ display: "block" }}
             />
@@ -840,6 +849,7 @@ const EntPage = ({ pageId, showItems, sumRows, sumWithTotal, closing, chunkItems
             isProforma={shared.isProforma}
             payAmount={shared.calc.grandTotal}
             payRef={shared.displayInvNo}
+            payNote={`${shared.displayInvNo} ${shared.form?.invoiceDate || ""}`.trim()}
           />
         </>
       )}
@@ -880,7 +890,8 @@ const InvoiceTemplateEnterprise = React.forwardRef(
     const igstMode = taxMode === "IGST";
     const jurLine = jurisdictionLine(business);
     const specialist = getSpecialistInLine(business);
-    const headH = M.head + (specialist ? SPECIALIST_IN_EXTRA_H : 0);
+    const headH = M.head + (specialist ? SPECIALIST_IN_EXTRA_H : 0)
+      + (business?.additionalPhone ? ADDITIONAL_PHONE_EXTRA_H : 0);
     const descLabel = "Description of Goods";
 
     const sigSrc = asDataUri(business?.signature);

@@ -1087,7 +1087,7 @@ export default function InvoiceView() {
                             <span className="text-xs font-medium text-emerald-700">Pay via UPI</span>
                           </div>
                           <div className="bg-white p-1.5 rounded-lg border border-slate-200 inline-flex overflow-hidden min-w-0">
-                            <QRCodeSVG value={`upi://pay?pa=${business.upiId}&pn=${encodeURIComponent(business.businessName || "")}&am=${totals.grandTotal.toFixed(2)}&tr=${encodeURIComponent(form.invoiceNumber)}&tn=${encodeURIComponent(form.invoiceNumber)}&cu=INR`} size={70} className="max-w-full h-auto" />
+                            <QRCodeSVG value={`upi://pay?pa=${business.upiId}&pn=${encodeURIComponent(business.businessName || "")}&am=${totals.grandTotal.toFixed(2)}&tr=${encodeURIComponent(form.invoiceNumber)}&tn=${encodeURIComponent(`${form.invoiceNumber || ""} ${form.invoiceDate || ""}`.trim())}&cu=INR`} size={70} className="max-w-full h-auto" />
                           </div>
                         </div>
                       )}

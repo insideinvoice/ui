@@ -1431,15 +1431,15 @@ export default function InvoiceView() {
                     {/* # is floored at 44px (min-w on th/td below) so 3-digit row
                         numbers never wrap — percentage alone (~3%) is too narrow
                         once padding is paid. Description funds the difference. */}
-                    <col style={{ width: "44px" }} />
-                    <col style={{ width: isEditing ? (showHnSac ? "24%" : "32.75%") : (showHnSac ? "28%" : "37%") }} />
+                    <col style={{ width: "6%" }} />
+                    <col style={{ width: isEditing ? (showHnSac ? "24%" : "33%") : (showHnSac ? "29%" : "38%") }} />
                     {showHnSac && <col style={{ width: isEditing ? "8.5%" : "9%" }} />}
                     <col style={{ width: isEditing ? "16%" : "8%" }} />
                     <col style={{ width: isEditing ? "8%" : "10%" }} />
                     <col style={{ width: isEditing ? "10%" : "7%" }} />
-                    <col style={{ width: isEditing ? "8.75%" : "11%" }} />
-                    <col style={{ width: isEditing ? "8.75%" : "11%" }} />
-                    <col style={{ width: isEditing ? "8.75%" : "11%" }} />
+                    <col style={{ width: isEditing ? "8.17%" : "11%" }} />
+                    <col style={{ width: isEditing ? "8.17%" : "11%" }} />
+                    <col style={{ width: isEditing ? "8.17%" : "11%" }} />
                     {isEditing && <col style={{ width: "3%" }} />}
                   </colgroup>
                   <thead>

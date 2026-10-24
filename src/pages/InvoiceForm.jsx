@@ -21,6 +21,7 @@ import { processPrint } from "../utils/printInvoice";
 import { buildInvoiceWhatsAppMessage, openWhatsAppChat, createInvoicePdfFile } from "../utils/whatsapp";
 import { getPrintSettings, getInvoiceTemplate } from "../constants/paperSizes";
 import { computeInvoiceTotals, round2 } from "../utils/invoiceTotals";
+import { mobileLine } from "../utils/phoneDisplay";
 import { determineTaxMode, validateTaxMode } from "../utils/taxMode";
 import { formatInvoiceNumber } from "../utils/invoiceConvention";
 import { INDIAN_STATES, DELIVERY_TERMS, PAYMENT_TERMS } from "../constants/indianStates";
@@ -104,7 +105,7 @@ const ItemRow = memo(({ item, calc, idx, onItemChange, onRemove, onAdd, onHsnLoo
 
   return (
   <tr className={`${idx % 2 === 0 ? "bg-white" : "bg-slate-50/40"} hover:bg-blue-50/20 transition-colors`}>
-    <td className="py-3 px-2 text-center text-slate-400 font-mono text-xs border-b border-slate-100 whitespace-nowrap w-[36px] min-w-[36px]">{idx + 1}</td>
+    <td className="py-3 px-2 text-center text-slate-400 font-mono text-xs border-b border-slate-100 whitespace-nowrap w-[44px] min-w-[44px]">{idx + 1}</td>
     {showHnSac && (
     <td className="py-3 px-2 border-b border-slate-100">
       <input type="text" value={item.hsn} name={`hsn-${idx + 1}`}
@@ -117,7 +118,7 @@ const ItemRow = memo(({ item, calc, idx, onItemChange, onRemove, onAdd, onHsnLoo
           handleKeyDown(e, "hsn");
         }}
         onBlur={(e) => { if (e.target.value && !e.target.dataset.enterPressed) onHsnLookup(idx, e.target.value); delete e.target.dataset.enterPressed; }}
-        className="w-full min-w-0 px-2.5 py-2 border border-slate-200 rounded text-sm focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono"
+        className="w-full min-w-0 px-2 py-1.5 border border-slate-200 rounded text-xs focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono"
         placeholder="Scan or type" />
     </td>
     )}
@@ -126,7 +127,7 @@ const ItemRow = memo(({ item, calc, idx, onItemChange, onRemove, onAdd, onHsnLoo
         onChange={(e) => onItemChange(idx, "itemName", e.target.value)}
         onKeyDown={(e) => handleKeyDown(e, "desc")}
         readOnly={locked}
-        className={`w-full min-w-[120px] px-2.5 py-2 border border-slate-200 rounded text-sm focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white ${locked ? "bg-slate-50 text-slate-500 cursor-not-allowed" : ""}`}
+        className={`w-full min-w-[120px] px-2 py-1.5 border border-slate-200 rounded text-xs focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white ${locked ? "bg-slate-50 text-slate-500 cursor-not-allowed" : ""}`}
         placeholder="Item name" />
     </td>
     <td className="py-3 px-2 border-b border-slate-100">
@@ -136,7 +137,7 @@ const ItemRow = memo(({ item, calc, idx, onItemChange, onRemove, onAdd, onHsnLoo
           onKeyDown={(e) => handleKeyDown(e, "qty")}
           inputMode="numeric"
           placeholder="Qty"
-          className="flex-[7] min-w-[40px] w-0 px-2 py-2 border border-slate-200 rounded text-sm text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono" />
+          className="flex-[7] min-w-[40px] w-0 px-2 py-1.5 border border-slate-200 rounded text-xs text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono" />
         <select value={item.unit ?? "Unit"} name={`unit-${idx + 1}`}
           onChange={(e) => onItemChange(idx, "unit", e.target.value)}
           onKeyDown={(e) => handleKeyDown(e, "unit")}
@@ -155,7 +156,7 @@ const ItemRow = memo(({ item, calc, idx, onItemChange, onRemove, onAdd, onHsnLoo
         readOnly={locked}
         inputMode="decimal"
         placeholder="0.00"
-        className="w-full min-w-[70px] px-2.5 py-2 border border-slate-200 rounded text-sm text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono" />
+        className="w-full min-w-[70px] px-2 py-1.5 border border-slate-200 rounded text-xs text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono" />
     </td>
     <td className="py-3 px-1 border-b border-slate-100 text-center">
       <div className="relative w-[56px] min-w-[56px] mx-auto">
@@ -163,7 +164,7 @@ const ItemRow = memo(({ item, calc, idx, onItemChange, onRemove, onAdd, onHsnLoo
           onChange={(e) => onItemChange(idx, "gstPercentage", e.target.value)}
           onKeyDown={(e) => handleKeyDown(e, "gst")}
           inputMode="decimal"
-          className="w-full min-w-0 px-1.5 py-2 border border-slate-200 rounded text-sm text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono pr-4" />
+          className="w-full min-w-0 px-1.5 py-1.5 border border-slate-200 rounded text-xs text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono pr-4" />
         <span className="absolute right-1 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none">%</span>
       </div>
     </td>
@@ -1514,8 +1515,8 @@ export default function InvoiceForm() {
           <p className="text-xs text-slate-600 font-medium">
             {business.businessName}
           </p>
-          {business.phone && (
-            <p className="text-xs text-slate-400">Phone: {business.phone}</p>
+          {mobileLine(business) && (
+            <p className="text-xs text-slate-400">{mobileLine(business)}</p>
           )}
           {business.email && (
             <p className="text-xs text-slate-400">Email: {business.email}</p>
@@ -2094,22 +2095,25 @@ export default function InvoiceForm() {
 
           {/* Desktop table */}
           <div className="hidden md:block border border-slate-200 rounded-lg w-full overflow-x-auto">
-            <table className="w-full min-w-[880px] text-sm border-collapse" style={{ tableLayout: "auto" }}>
+            <table className="w-full min-w-[780px] text-sm border-collapse" style={{ tableLayout: "auto" }}>
               <colgroup>
-                <col style={{ width: "2.5%" }} />
+                {/* # takes 4% (was 2.5%), funded by Taxable (12.5 -> 11%): a
+                    3-digit row number must sit on one straight line even with
+                    the sidebar squeezing the table. */}
+                <col style={{ width: "4%" }} />
                 <col style={{ width: showHnSac ? "13%" : "0%" }} />
                 <col style={{ width: showHnSac ? "20%" : "33%" }} />
                 <col style={{ width: "12%" }} />
                 <col style={{ width: "8.5%" }} />
                 <col style={{ width: "4.5%" }} />
-                <col style={{ width: "12.5%" }} />
+                <col style={{ width: "11%" }} />
                 <col style={{ width: "11%" }} />
                 <col style={{ width: "13.5%" }} />
                 <col style={{ width: "2.5%" }} />
               </colgroup>
               <thead>
                 <tr className="bg-slate-800">
-                  <th className="text-white text-xs font-semibold py-3.5 px-2 text-center whitespace-nowrap w-[36px] min-w-[36px]">#</th>
+                  <th className="text-white text-xs font-semibold py-3.5 px-2 text-center whitespace-nowrap w-[44px] min-w-[44px]">#</th>
                   {showHnSac && <th className="text-white text-xs font-semibold py-3.5 px-2 text-left whitespace-nowrap min-w-[100px]">HSN/SAC</th>}
                   <th className="text-white text-xs font-semibold py-3.5 px-2 text-left whitespace-nowrap min-w-[150px]">{labelFor("itemName", "Description")}</th>
                   <th className="text-white text-xs font-semibold py-3.5 px-2 text-center whitespace-nowrap min-w-[120px]">Qty</th>

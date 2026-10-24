@@ -187,9 +187,13 @@ body::before {
   -webkit-backface-visibility: hidden;
 }
 
-/* iOS Safari: prevent auto-zoom on input focus (requires font-size >= 16px) */
-input, textarea, select {
-  font-size: 16px !important;
+/* iOS Safari: prevent auto-zoom on input focus (requires font-size >= 16px).
+   Scoped to touch/coarse pointers — on desktop the !important beat every
+   Tailwind text-xs/text-sm on inputs, so compact tables rendered oversized. */
+@media (max-width: 767px), (pointer: coarse) {
+  input, textarea, select {
+    font-size: 16px !important;
+  }
 }
 
 /* Toasts: sit just below the sticky mobile top navbar (hidden at md+) */

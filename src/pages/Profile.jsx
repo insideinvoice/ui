@@ -1359,12 +1359,12 @@ export default function Profile() {
             </div>
             <div className="flex items-center gap-2">
               <button type="submit" disabled={savingBiz}
-                className="px-4 py-2.5 bg-slate-800 text-white text-sm font-semibold rounded-lg hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm">
+                className="w-full md:w-auto px-4 py-2.5 bg-slate-800 text-white text-sm font-semibold rounded-lg hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm">
                 {savingBiz ? "Saving..." : "Save"}
               </button>
               <button type="button" onClick={cancelBizEdit} disabled={savingBiz}
                 title="Discard changes" aria-label="Discard changes"
-                className="px-3 py-2.5 text-sm font-semibold text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all">
+                className="w-full md:w-auto px-3 py-2.5 text-sm font-semibold text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all">
                 Cancel
               </button>
             </div>
@@ -1591,7 +1591,7 @@ export default function Profile() {
                       }`}
                     />
                     {/* Live word budget for this line — turns amber at the cap. */}
-                    <span className={`shrink-0 w-9 text-right text-[10px] tabular-nums ${words >= TERMS_MAX_WORDS ? "text-amber-500 font-semibold" : "text-slate-400"}`}>
+                    <span className={`hidden md:block shrink-0 w-9 text-right text-[10px] tabular-nums ${words >= TERMS_MAX_WORDS ? "text-amber-500 font-semibold" : "text-slate-400"}`}>
                       {words}/{TERMS_MAX_WORDS}
                     </span>
                     {/* Line 1 is permanent: no X (aligned spacer keeps the
@@ -1609,9 +1609,9 @@ export default function Profile() {
                 );
               })}
               {/* One action line: Add line sits right next to Save/Cancel. */}
-              <div className="flex items-center gap-2">
+              <div className="flex flex-col items-stretch gap-2 md:flex-row md:items-center">
                 <button type="button" onClick={addTermRow} disabled={termsList.length >= 5 || savingTerms}
-                  className="flex items-center gap-1.5 px-3 py-2.5 text-xs font-semibold text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all">
+                  className="w-full md:w-auto flex items-center justify-center gap-1.5 px-3 py-2.5 text-xs font-semibold text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all">
                   <Plus className="w-3.5 h-3.5" /> Add line ({termsList.length}/5)
                 </button>
                 <button type="submit" disabled={savingTerms}

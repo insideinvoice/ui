@@ -18,6 +18,7 @@ import { buildInvoiceWhatsAppMessage, openWhatsAppChat, createInvoicePdfFile, pr
 import { shareLinkToUser, proformaShareUrl, readCachedShareToken, writeCachedShareToken, clearCachedShareToken } from "../utils/shareLink";
 import { getPrintSettings, getInvoiceTemplate } from "../constants/paperSizes";
 import { computeInvoiceTotals, round2 } from "../utils/invoiceTotals";
+import { mobileLine } from "../utils/phoneDisplay";
 import { resolveTaxMode, validateTaxMode } from "../utils/taxMode";
 import { goBack } from "../utils/navigation";
 import { INDIAN_STATES, DELIVERY_TERMS, PAYMENT_TERMS } from "../constants/indianStates";
@@ -53,14 +54,14 @@ const ViewItemRow = memo(({ item, calc, idx, isEditing, onItemChange, onRemove, 
     <td className="py-3 px-3 text-center text-slate-400 font-mono text-xs border-b border-slate-100">{idx + 1}</td>
     {isEditing ? (
       <>
-        <td className="py-3 px-3 border-b border-slate-100">
+        <td className="py-3 px-2 border-b border-slate-100">
           <input type="text" value={item.itemName} name={`desc-${idx + 1}`}
             onChange={(e) => onItemChange(idx, "itemName", e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); const next = document.querySelector(`input[name="${showHnSac ? "hsn" : "qty"}-${idx + 1}"]`); next?.focus(); } }}
             className="w-full min-w-0 px-3 py-2 border border-slate-200 rounded text-sm focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white" placeholder="Item name" />
         </td>
         {showHnSac && (
-        <td className="py-3 px-3 border-b border-slate-100">
+        <td className="py-3 px-2 border-b border-slate-100">
           <input type="text" value={item.hsn} name={`hsn-${idx + 1}`}
             onChange={(e) => onItemChange(idx, "hsn", e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); const qty = document.querySelector(`input[name="qty-${idx + 1}"]`); qty?.focus(); } }}
@@ -1409,24 +1410,25 @@ export default function InvoiceView() {
 
               {/* Desktop table — fixed layout in BOTH modes, so no column can
                   stretch the table: the description wraps, and the money
-                  columns keep their share. Editing gets its own shares — qty
-                  only as wide as ~4 digits, GST ~2 — with the space returned
-                  to Taxable/Tax/Total. The editing table keeps a min-width so
-                  below xl it scrolls as a deliberate fallback instead of
-                  crushing the inputs. */}
-              <div className={`hidden md:block border border-slate-200 rounded-lg ${isEditing ? "overflow-x-auto xl:overflow-hidden" : "overflow-hidden"}`}>
-                <table className={`w-full text-sm border-collapse table-fixed ${isEditing ? "min-w-[720px]" : ""}`}>
+                  columns keep their share. Editing gets its own shares sized
+                  for TYPING: every input shows 4+ digits (qty/rate/gst/hsn)
+                  and the description 25+ letters, at any width from md to a
+                  15.5" screen. The 850px min-width guarantees those minimums
+                  on the md→lg range — below it the wrapper scrolls as the
+                  deliberate fallback instead of crushing the inputs. */}
+              <div className={`hidden md:block border border-slate-200 rounded-lg ${isEditing ? "overflow-x-auto lg:overflow-x-hidden xl:overflow-hidden" : "overflow-hidden"}`}>
+                <table className={`w-full text-sm border-collapse table-fixed ${isEditing ? "min-w-[850px]" : ""}`}>
                   <colgroup>
                     <col style={{ width: "3%" }} />
-                    <col style={{ width: isEditing ? (showHnSac ? "12%" : "20%") : (showHnSac ? "30%" : "39%") }} />
-                    {showHnSac && <col style={{ width: isEditing ? "10%" : "9%" }} />}
-                    <col style={{ width: isEditing ? "17%" : "8%" }} />
-                    <col style={{ width: isEditing ? "10%" : "10%" }} />
-                    <col style={{ width: isEditing ? "11%" : "7%" }} />
-                    <col style={{ width: isEditing ? "11%" : "11%" }} />
-                    <col style={{ width: isEditing ? "11%" : "11%" }} />
-                    <col style={{ width: isEditing ? "11%" : "11%" }} />
-                    {isEditing && <col style={{ width: "4%" }} />}
+                    <col style={{ width: isEditing ? (showHnSac ? "25.25%" : "34.25%") : (showHnSac ? "30%" : "39%") }} />
+                    {showHnSac && <col style={{ width: isEditing ? "8.5%" : "9%" }} />}
+                    <col style={{ width: isEditing ? "16%" : "8%" }} />
+                    <col style={{ width: isEditing ? "8%" : "10%" }} />
+                    <col style={{ width: isEditing ? "9.5%" : "7%" }} />
+                    <col style={{ width: isEditing ? "8.91%" : "11%" }} />
+                    <col style={{ width: isEditing ? "8.91%" : "11%" }} />
+                    <col style={{ width: isEditing ? "8.91%" : "11%" }} />
+                    {isEditing && <col style={{ width: "3%" }} />}
                   </colgroup>
                   <thead>
                     <tr className="bg-slate-800">
@@ -1798,6 +1800,38 @@ export default function InvoiceView() {
                       <QRCodeSVG value={`upi://pay?pa=${business.upiId}&pn=${encodeURIComponent(business.businessName || "")}&am=${totals.grandTotal.toFixed(2)}&tr=${encodeURIComponent(form.invoiceNumber)}&tn=${encodeURIComponent(`${form.invoiceNumber || ""} ${form.invoiceDate || ""}`.trim())}&cu=INR`} size={124} className="max-w-full h-auto" />
                     </div>
                     <p className="text-[10px] text-slate-400 mt-1.5 text-center">Scan with any UPI app{form.invoiceNumber ? ` · ${form.invoiceNumber}` : ""}{form.invoiceDate ? ` · ${form.invoiceDate}` : ""}</p>
+                  </div>
+                )}
+                {/* Business details — the same block the create-invoice summary
+                    card shows, so both pages read identically. Sits below the
+                    UPI QR when one is present, or right under the totals. */}
+                {business && (
+                  <div className="mt-6 pt-4 border-t border-slate-100">
+                    <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
+                      Business
+                    </h3>
+                    <p className="text-xs text-slate-600 font-medium">
+                      {business.businessName}
+                    </p>
+                    {mobileLine(business) && (
+                      <p className="text-xs text-slate-400">{mobileLine(business)}</p>
+                    )}
+                    {business.email && (
+                      <p className="text-xs text-slate-400">Email: {business.email}</p>
+                    )}
+                    {business.addressLine1 && (
+                      <p className="text-xs text-slate-400">
+                        {business.addressLine1}
+                        {business.city ? `, ${business.city}` : ""}
+                        {business.state ? `, ${business.state}` : ""}
+                        {business.pincode ? ` - ${business.pincode}` : ""}
+                      </p>
+                    )}
+                    {business.gstIn && (
+                      <p className="text-xs text-slate-400 font-mono">
+                        GST: {business.gstIn}
+                      </p>
+                    )}
                   </div>
                 )}
               </div>

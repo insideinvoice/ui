@@ -10,7 +10,7 @@
 //   - the pseudo-box is left:0 / width:100% (spans the button exactly)
 //   - transform-origin is the LEFT edge
 //   - scaleX grows monotonically 0 → 1 (left-to-right, never pops/jumps)
-//   - the rise completes within the declared 700ms ± tolerance
+//   - the rise completes within the declared 900ms ± tolerance
 //   - un-hovering retracts it back toward 0
 //
 // The whole hover capture runs TWICE — once under
@@ -92,12 +92,12 @@ async function captureDraw(page) {
     const loop = () => {
       const m = getComputedStyle(el, "::after").transform;
       window.__samples.push({ t: performance.now() - t0, sx: m === "none" ? 1 : parseFloat(m.match(/-?[\d.]+/g)[0]) });
-      if (performance.now() - t0 < 1500) requestAnimationFrame(loop);
+      if (performance.now() - t0 < 2200) requestAnimationFrame(loop);
     };
     requestAnimationFrame(loop);
   });
   await page.hover("#t");
-  await sleep(1600);
+  await sleep(2300);
   return (await page.evaluate(() => window.__samples))
     .filter((s, i, a) => i === 0 || Math.abs(s.sx - a[i - 1].sx) > 0.0005 || i === a.length - 1);
 }
@@ -117,10 +117,13 @@ function verifyDraw(samples, label) {
     const riseMs = end.t - start.t;
     check(p("left-to-right: scaleX is monotonically non-decreasing"),
       samples.every((s, i) => i === 0 || s.sx >= samples[i - 1].sx - 0.001));
-    check(p("rise completes in 700ms ±40%"),
-      riseMs >= 420 && riseMs <= 980, `${riseMs.toFixed(0)}ms`);
-    // With origin=left, scaleX=1 ⇒ underline right edge == button right edge.
-    check(p("ends exactly at the right edge at rest (scaleX = 1)"), end.sx >= 0.99, String(end.sx));
+    check(p("rise completes in 900ms ±40%"),
+      riseMs >= 540 && riseMs <= 1260, `${riseMs.toFixed(0)}ms`);
+    // With origin=left, full scaleX ⇒ underline right edge == button right
+    // edge. Check the PEAK across all samples: "first sample ≥0.98" may be
+    // 0.98x by definition and isn't the resting value.
+    const peak = Math.max(...samples.map((s) => s.sx));
+    check(p("ends exactly at the right edge at rest (scaleX reaches 1)"), peak >= 0.999, `peak ${peak.toFixed(4)}`);
     // Sample nearest the half-way POINT OF THE RISE (not of the capture window).
     const midT = start.t + riseMs * 0.5;
     const mid = samples.reduce((best, s) => Math.abs(s.t - midT) < Math.abs(best.t - midT) ? s : best, samples[0]);
@@ -177,8 +180,8 @@ async function main() {
     // origin AT the left edge (y is the 1.5px line's vertical centre).
     const originX = parseFloat(geo.origin);
     check("transform-origin is the LEFT edge (x = 0px)", Number.isFinite(originX) && originX <= 0.5, geo.origin);
-    check("transition declared 700ms linear on transform",
-      geo.duration.includes("0.7") && geo.timing === "linear" && geo.prop.includes("transform"),
+    check("transition declared 900ms linear on transform",
+      geo.duration.includes("0.9") && geo.timing === "linear" && geo.prop.includes("transform"),
       `${geo.prop} ${geo.duration} ${geo.timing}`);
 
     // ---- Hover draw under BOTH motion settings ---------------------------
@@ -190,15 +193,15 @@ async function main() {
       // live under `reduce` — an override with `transition: none` made the
       // line pop in instantly and killed the draw for good.
       const dur = await page.evaluate(() => getComputedStyle(document.getElementById("t"), "::after").transitionDuration);
-      check(`[${mode}] transition is still 0.7s (not killed by the media query)`,
-        dur.includes("0.7"), dur);
+      check(`[${mode}] transition is still 0.9s (not killed by the media query)`,
+        dur.includes("0.9"), dur);
 
       const samples = await captureDraw(page);
       verifyDraw(samples, mode);
 
       // ---- Retract on un-hover -------------------------------------------
       await page.mouse.move(0, 0);
-      await sleep(900);
+      await sleep(1300);
       const after = scaleXOf(await page.evaluate(() => getComputedStyle(document.getElementById("t"), "::after").transform));
       check(`[${mode}] retracts toward 0 after mouse leaves`, after !== null && after < 0.05, String(after));
     }

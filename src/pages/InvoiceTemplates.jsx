@@ -41,6 +41,9 @@ const sampleBusiness = {
   state: "Karnataka",
   pincode: "560100",
   phone: "+91 98765 43210",
+  // Demo second number so gallery previews show the two-line contact block
+  // (Ph: +91 …mobile / Ph: +91 …alternate) exactly like a saved profile.
+  additionalPhone: "+91 80500 12345",
   email: "info@acme.in",
   gstIn: "29ABCDE1234F1Z5",
   logo: SAMPLE_LOGO,
@@ -84,7 +87,7 @@ const sampleItems = [
 // selected industry (names, references and line items), not a fixed trading set.
 const SAMPLE_CONTENT = {
   FOOD: {
-    business: { businessName: "Spice Garden Restaurant", addressLine1: "12, Food Street", addressLine2: "Indiranagar", city: "Bengaluru", pincode: "560038", phone: "+91 98450 11223", email: "orders@spicegarden.in", gstIn: "29AAACS1234A1Z5" },
+    business: { businessName: "Spice Garden Restaurant", addressLine1: "12, Food Street", addressLine2: "Indiranagar", city: "Bengaluru", pincode: "560038", phone: "+91 98450 11223", additionalPhone: "+91 80412 33445", email: "orders@spicegarden.in", gstIn: "29AAACS1234A1Z5" },
     customer: { name: "Sunrise Corporate Events", billingAddress: "8, MG Road, Bengaluru - 560001", phone: "+91 99887 76655", email: "events@sunrise.in", gstIn: "29PQRS9876L1Z1" },
     form: { deliveryNote: "ORD-2026-8841", buyerOrderNumber: "EVT-2026-77", paymentTerms: "Net 15", otherReferences: "Catering Order EVT-2026-77", termsOfDelivery: "Delivered to venue" },
     items: [
@@ -94,7 +97,7 @@ const SAMPLE_CONTENT = {
     ],
   },
   PROFESSIONAL_SERVICES: {
-    business: { businessName: "Nexora Consulting LLP", addressLine1: "5th Floor, Prestige Tower", addressLine2: "Residency Road", city: "Bengaluru", pincode: "560025", phone: "+91 98860 22114", email: "billing@nexora.in", gstIn: "29AAXFN5678M1ZQ" },
+    business: { businessName: "Nexora Consulting LLP", addressLine1: "5th Floor, Prestige Tower", addressLine2: "Residency Road", city: "Bengaluru", pincode: "560025", phone: "+91 98860 22114", additionalPhone: "+91 80415 66778", email: "billing@nexora.in", gstIn: "29AAXFN5678M1ZQ" },
     customer: { name: "Vertex Retail Pvt Ltd", billingAddress: "22, Cunningham Road, Bengaluru - 560052", phone: "+91 99450 33221", email: "accounts@vertex.in", gstIn: "29VVCD2468P1Z9" },
     form: { referenceNumber: "SOW-2026-12", buyerOrderNumber: "PO-4410", paymentTerms: "Net 30", otherReferences: "Client PO PO-4410", deliveryNote: undefined, deliveryNoteDate: undefined, dispatchDocNumber: undefined, dispatchedThrough: undefined, termsOfDelivery: undefined, destination: undefined },
     items: [
@@ -104,7 +107,7 @@ const SAMPLE_CONTENT = {
     ],
   },
   HEALTHCARE: {
-    business: { businessName: "Aarogya Wellness Clinic", addressLine1: "3, Health Avenue", addressLine2: "Jayanagar", city: "Bengaluru", pincode: "560041", phone: "+91 99001 44556", email: "care@aarogyaclinic.in", gstIn: "29CCQRS1357H1Z2" },
+    business: { businessName: "Aarogya Wellness Clinic", addressLine1: "3, Health Avenue", addressLine2: "Jayanagar", city: "Bengaluru", pincode: "560041", phone: "+91 99001 44556", additionalPhone: "+91 80422 11223", email: "care@aarogyaclinic.in", gstIn: "29CCQRS1357H1Z2" },
     customer: { name: "Healthy Minds Corporate", billingAddress: "41, Industrial Suburb, Bengaluru - 560068", phone: "+91 98450 99887", email: "hr@healthyminds.in", gstIn: "29HHM2468F1Z7" },
     form: { referenceNumber: "Visit Ref. VC-2026-88", buyerOrderNumber: "HR-PO-221", paymentTerms: "Net 15", otherReferences: "Corporate Order PO-221" },
     items: [
@@ -114,7 +117,7 @@ const SAMPLE_CONTENT = {
     ],
   },
   TRANSPORT: {
-    business: { businessName: "Swift Freight Carriers", addressLine1: "Plot 7, Transport Nagar", addressLine2: "Peenya", city: "Bengaluru", pincode: "560058", phone: "+91 97400 55667", email: "dispatch@swiftfreight.in", gstIn: "29DDSFG3579K1Z4" },
+    business: { businessName: "Swift Freight Carriers", addressLine1: "Plot 7, Transport Nagar", addressLine2: "Peenya", city: "Bengaluru", pincode: "560058", phone: "+91 97400 55667", additionalPhone: "+91 80433 55667", email: "dispatch@swiftfreight.in", gstIn: "29DDSFG3579K1Z4" },
     customer: { name: "Global Parts India Ltd", billingAddress: "19, Hosur Road, Bengaluru - 560068", phone: "+91 99860 11224", email: "logistics@globalparts.in", gstIn: "29GGPL9753J1Z8" },
     form: { deliveryNote: "LR-2026-8891", deliveryNoteDate: "2026-09-29", dispatchDocNumber: "EWB-2026-4412", dispatchedThrough: "Truck MH-12-AB-1234", destination: "Chennai", buyerOrderNumber: "PO-5521", paymentTerms: "Net 15", otherReferences: "Shipper PO PO-5521", termsOfDelivery: "Freight prepaid" },
     items: [
@@ -124,7 +127,7 @@ const SAMPLE_CONTENT = {
     ],
   },
   CONSTRUCTION: {
-    business: { businessName: "Shree Balaji Constructions", addressLine1: "Site Office, Plot 14", addressLine2: "Whitefield Main Road", city: "Bengaluru", pincode: "560066", phone: "+91 98801 77889", email: "projects@sbc.in", gstIn: "29DDSPC4680N1Z6" },
+    business: { businessName: "Shree Balaji Constructions", addressLine1: "Site Office, Plot 14", addressLine2: "Whitefield Main Road", city: "Bengaluru", pincode: "560066", phone: "+91 98801 77889", additionalPhone: "+91 80444 77889", email: "projects@sbc.in", gstIn: "29DDSPC4680N1Z6" },
     customer: { name: "Prestige Developers", billingAddress: "Prestige Towers, MG Road, Bengaluru - 560001", phone: "+91 99720 33445", email: "procurement@prestige.in", gstIn: "29PPDL1357R1Z0" },
     form: { deliveryNote: "WO-2026-14", deliveryNoteDate: "2026-09-20", dispatchDocNumber: undefined, dispatchedThrough: "Site Transport", destination: "Whitefield Site", buyerOrderNumber: "PRJ-WF-22", paymentTerms: "Net 45", otherReferences: "Project PRJ-WF-22", termsOfDelivery: "At site" },
     items: [
@@ -134,7 +137,7 @@ const SAMPLE_CONTENT = {
     ],
   },
   MANUFACTURING: {
-    business: { businessName: "Precision Fabricators", addressLine1: "Unit 4, MIDC Phase II", addressLine2: "Hoskote", city: "Bengaluru", pincode: "562114", phone: "+91 97310 22446", email: "sales@precisionfab.in", gstIn: "29EEEPF2468L1Z3" },
+    business: { businessName: "Precision Fabricators", addressLine1: "Unit 4, MIDC Phase II", addressLine2: "Hoskote", city: "Bengaluru", pincode: "562114", phone: "+91 97310 22446", additionalPhone: "+91 80450 22446", email: "sales@precisionfab.in", gstIn: "29EEEPF2468L1Z3" },
     customer: { name: "AutoTech Components Pvt Ltd", billingAddress: "Plot 9, Auto Nagar, Bengaluru - 560091", phone: "+91 99002 88990", email: "purchase@autotech.in", gstIn: "29AATC8642M1Z5" },
     form: { deliveryNote: "DN-2026-331", deliveryNoteDate: "2026-09-28", dispatchDocNumber: "EWB-2026-5510", dispatchedThrough: "Tata Ace MH-04-KL-9087", destination: "Auto Nagar", buyerOrderNumber: "AT-PO-778", paymentTerms: "Net 30", otherReferences: "Batch LOT-2026-77", termsOfDelivery: "Ex-works" },
     items: [
@@ -144,7 +147,7 @@ const SAMPLE_CONTENT = {
     ],
   },
   REPAIR: {
-    business: { businessName: "AutoCare Service Centre", addressLine1: "Shop 8, Service Road", addressLine2: "Koramangala", city: "Bengaluru", pincode: "560095", phone: "+91 98451 66778", email: "service@autocare.in", gstIn: "29FFAAC3579P1Z1" },
+    business: { businessName: "AutoCare Service Centre", addressLine1: "Shop 8, Service Road", addressLine2: "Koramangala", city: "Bengaluru", pincode: "560095", phone: "+91 98451 66778", additionalPhone: "+91 80460 66778", email: "service@autocare.in", gstIn: "29FFAAC3579P1Z1" },
     customer: { name: "Rahul Sharma", billingAddress: "17, 5th Block, Koramangala, Bengaluru - 560095", phone: "+91 99800 11225", email: "rahul.s@email.in", gstIn: "" },
     form: { referenceNumber: "KA-05-MJ-2211", deliveryNote: "Job Card JC-2026-441", deliveryNoteDate: "2026-09-30", paymentTerms: "On Delivery", otherReferences: "Job Card JC-2026-441", termsOfDelivery: "Vehicle released after payment" },
     items: [
@@ -154,7 +157,7 @@ const SAMPLE_CONTENT = {
     ],
   },
   RENTAL: {
-    business: { businessName: "Prime Equipment Rentals", addressLine1: "Depot 2,NH-4 Highway", addressLine2: "Tumkur Road", city: "Bengaluru", pincode: "562123", phone: "+91 97410 33557", email: "hire@primerentals.in", gstIn: "29GGGPR7531Q1Z8" },
+    business: { businessName: "Prime Equipment Rentals", addressLine1: "Depot 2,NH-4 Highway", addressLine2: "Tumkur Road", city: "Bengaluru", pincode: "562123", phone: "+91 97410 33557", additionalPhone: "+91 80471 33991", email: "hire@primerentals.in", gstIn: "29GGGPR7531Q1Z8" },
     customer: { name: "Metro Infra Projects", billingAddress: "Tower B, Tech Park, Bengaluru - 560103", phone: "+91 99801 44668", email: "ops@metroinfra.in", gstIn: "29MIPP8642T1Z2" },
     form: { deliveryNote: "Handover HO-2026-91", deliveryNoteDate: "2026-09-25", referenceNumber: "EQ-0042", dispatchedThrough: "Rental Transporter", destination: "Metro Infra Site", buyerOrderNumber: "MI-RA-31", paymentTerms: "Advance + Monthly", otherReferences: "Agreement RA-2026-31", termsOfDelivery: "On rental agreement" },
     items: [
@@ -164,7 +167,7 @@ const SAMPLE_CONTENT = {
     ],
   },
   TELECOM_IT: {
-    business: { businessName: "ConnectWave Broadband", addressLine1: "Gateway Park, Tower C", addressLine2: "Outer Ring Road", city: "Bengaluru", pincode: "560103", phone: "+91 99003 77881", email: "billing@connectwave.in", gstIn: "29HHCW1357V1Z6" },
+    business: { businessName: "ConnectWave Broadband", addressLine1: "Gateway Park, Tower C", addressLine2: "Outer Ring Road", city: "Bengaluru", pincode: "560103", phone: "+91 99003 77881", additionalPhone: "+91 80482 44550", email: "billing@connectwave.in", gstIn: "29HHCW1357V1Z6" },
     customer: { name: "Skyline Offices LLP", billingAddress: "6th Floor, Galaxy Plaza, Bengaluru - 560071", phone: "+91 98861 22335", email: "admin@skyline.in", gstIn: "29SSLO2468W1Z4" },
     form: { referenceNumber: "ACC-77821", buyerOrderNumber: "SO-2026-441", paymentTerms: "Annual Advance", otherReferences: "Subscription SUB-2026-441" },
     items: [
@@ -174,7 +177,7 @@ const SAMPLE_CONTENT = {
     ],
   },
   EDUCATION: {
-    business: { businessName: "SkillUp Training Institute", addressLine1: "2nd Floor, Knowledge Park", addressLine2: "HSR Layout", city: "Bengaluru", pincode: "560102", phone: "+91 99802 55669", email: "admin@skillup.in", gstIn: "29IISU3579X1Z9" },
+    business: { businessName: "SkillUp Training Institute", addressLine1: "2nd Floor, Knowledge Park", addressLine2: "HSR Layout", city: "Bengaluru", pincode: "560102", phone: "+91 99802 55669", additionalPhone: "+91 80493 55660", email: "admin@skillup.in", gstIn: "29IISU3579X1Z9" },
     customer: { name: "FutureTech Students (Batch A)", billingAddress: "Batch A, HSR Layout, Bengaluru - 560102", phone: "+91 97401 88992", email: "batcha@futuretech.in", gstIn: "" },
     form: { referenceNumber: "BATCH-A-2026", buyerOrderNumber: "FT-BATCH-A", paymentTerms: "Instalment Plan", otherReferences: "Enrolment ENR-2026-512" },
     items: [
@@ -184,7 +187,7 @@ const SAMPLE_CONTENT = {
     ],
   },
   AGRICULTURE: {
-    business: { businessName: "GreenField Agro Producers", addressLine1: "Farm Gate, Survey 44", addressLine2: "Doddaballapur Road", city: "Bengaluru", pincode: "561203", phone: "+91 97420 11335", email: "mandi@greenfieldagro.in", gstIn: "29JJGA4680Y1Z1" },
+    business: { businessName: "GreenField Agro Producers", addressLine1: "Farm Gate, Survey 44", addressLine2: "Doddaballapur Road", city: "Bengaluru", pincode: "561203", phone: "+91 97420 11335", additionalPhone: "+91 80504 11330", email: "mandi@greenfieldagro.in", gstIn: "29JJGA4680Y1Z1" },
     customer: { name: "Metro Wholesale Mandi", billingAddress: "Mandi Yard, Anekal Road, Bengaluru - 562106", phone: "+91 99004 66778", email: "buy@metromandi.in", gstIn: "29MWMH8642Z1Z7" },
     form: { deliveryNote: "CONSIGN-2026-118", deliveryNoteDate: "2026-09-30", dispatchDocNumber: "EWB-2026-6620", dispatchedThrough: "Tempo KA-51-C-4412", destination: "Mandi Yard", buyerOrderNumber: "MW-PO-881", paymentTerms: "Net 7", otherReferences: "Lot LOT-TP-22A Grade A", termsOfDelivery: "Farm gate loading" },
     items: [

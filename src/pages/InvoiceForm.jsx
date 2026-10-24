@@ -12,6 +12,7 @@ import {
   Link2, Copy, Mail, RotateCw, Unlink
 } from "lucide-react";
 import InvoiceTemplateRenderer from "../components/InvoiceTemplateRenderer";
+import TermsCard from "../components/TermsCard";
 import { renderDeliveryChallanPdf } from "../components/DeliveryChallanDownload";
 import WhatsAppIcon from "../components/WhatsAppIcon";
 import { processQueue } from "../utils/retryQueue";
@@ -20,6 +21,7 @@ import { processPrint } from "../utils/printInvoice";
 import { buildInvoiceWhatsAppMessage, openWhatsAppChat, createInvoicePdfFile } from "../utils/whatsapp";
 import { getPrintSettings, getInvoiceTemplate } from "../constants/paperSizes";
 import { computeInvoiceTotals, round2 } from "../utils/invoiceTotals";
+import { mobileLine } from "../utils/phoneDisplay";
 import { determineTaxMode, validateTaxMode } from "../utils/taxMode";
 import { formatInvoiceNumber } from "../utils/invoiceConvention";
 import { INDIAN_STATES, DELIVERY_TERMS, PAYMENT_TERMS } from "../constants/indianStates";
@@ -103,7 +105,7 @@ const ItemRow = memo(({ item, calc, idx, onItemChange, onRemove, onAdd, onHsnLoo
 
   return (
   <tr className={`${idx % 2 === 0 ? "bg-white" : "bg-slate-50/40"} hover:bg-blue-50/20 transition-colors`}>
-    <td className="py-3 px-2 text-center text-slate-400 font-mono text-xs border-b border-slate-100 whitespace-nowrap w-[36px] min-w-[36px]">{idx + 1}</td>
+    <td className="py-3 px-2 text-center text-slate-400 font-mono text-xs border-b border-slate-100 whitespace-nowrap w-[44px] min-w-[44px]">{idx + 1}</td>
     {showHnSac && (
     <td className="py-3 px-2 border-b border-slate-100">
       <input type="text" value={item.hsn} name={`hsn-${idx + 1}`}
@@ -116,7 +118,7 @@ const ItemRow = memo(({ item, calc, idx, onItemChange, onRemove, onAdd, onHsnLoo
           handleKeyDown(e, "hsn");
         }}
         onBlur={(e) => { if (e.target.value && !e.target.dataset.enterPressed) onHsnLookup(idx, e.target.value); delete e.target.dataset.enterPressed; }}
-        className="w-full min-w-[100px] px-2.5 py-2 border border-slate-200 rounded text-sm focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono"
+        className="w-full min-w-0 px-2 py-1.5 border border-slate-200 rounded text-xs focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono"
         placeholder="Scan or type" />
     </td>
     )}
@@ -125,22 +127,22 @@ const ItemRow = memo(({ item, calc, idx, onItemChange, onRemove, onAdd, onHsnLoo
         onChange={(e) => onItemChange(idx, "itemName", e.target.value)}
         onKeyDown={(e) => handleKeyDown(e, "desc")}
         readOnly={locked}
-        className={`w-full min-w-[160px] px-2.5 py-2 border border-slate-200 rounded text-sm focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white ${locked ? "bg-slate-50 text-slate-500 cursor-not-allowed" : ""}`}
+        className={`w-full min-w-[120px] px-2 py-1.5 border border-slate-200 rounded text-xs focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white ${locked ? "bg-slate-50 text-slate-500 cursor-not-allowed" : ""}`}
         placeholder="Item name" />
     </td>
     <td className="py-3 px-2 border-b border-slate-100">
-      <div className="flex items-center gap-1.5 w-full min-w-[140px]">
-        <input type="number" step="1" min="0" value={item.qty} name={`qty-${idx + 1}`}
+      <div className="flex items-center gap-1.5 w-full min-w-[110px]">
+        <input type="text" value={item.qty} name={`qty-${idx + 1}`}
           onChange={(e) => onItemChange(idx, "qty", e.target.value)}
           onKeyDown={(e) => handleKeyDown(e, "qty")}
-          inputMode="decimal"
+          inputMode="numeric"
           placeholder="Qty"
-          className="flex-[7] min-w-[50px] w-0 px-2 py-2 border border-slate-200 rounded text-sm text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
+          className="flex-[7] min-w-[40px] w-0 px-2 py-1.5 border border-slate-200 rounded text-xs text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono" />
         <select value={item.unit ?? "Unit"} name={`unit-${idx + 1}`}
           onChange={(e) => onItemChange(idx, "unit", e.target.value)}
           onKeyDown={(e) => handleKeyDown(e, "unit")}
           title="Unit of measurement"
-          className="flex-[10] min-w-[75px] w-0 px-1 py-2 border border-slate-200 rounded text-xs focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white text-slate-600">
+          className="flex-[10] min-w-[64px] w-0 px-1 py-2 border border-slate-200 rounded text-xs focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white text-slate-600">
           {UNITS.map((u) => (
             <option key={u} value={u}>{u === "" ? "No unit" : u}</option>
           ))}
@@ -148,29 +150,31 @@ const ItemRow = memo(({ item, calc, idx, onItemChange, onRemove, onAdd, onHsnLoo
       </div>
     </td>
     <td className="py-3 px-2 border-b border-slate-100">
-      <input type="number" step="0.01" min="0" value={item.rate} name={`rate-${idx + 1}`}
+      <input type="text" value={item.rate} name={`rate-${idx + 1}`}
         onChange={(e) => onItemChange(idx, "rate", e.target.value)}
         onKeyDown={(e) => handleKeyDown(e, "rate")}
         readOnly={locked}
+        inputMode="decimal"
         placeholder="0.00"
-        className="w-full min-w-[85px] px-2.5 py-2 border border-slate-200 rounded text-sm text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
+        className="w-full min-w-[70px] px-2 py-1.5 border border-slate-200 rounded text-xs text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono" />
     </td>
     <td className="py-3 px-1 border-b border-slate-100 text-center">
       <div className="relative w-[56px] min-w-[56px] mx-auto">
-        <input type="number" step="0.01" min="0" max="40" value={item.gstPercentage} name={`gst-${idx + 1}`}
+        <input type="text" value={item.gstPercentage} name={`gst-${idx + 1}`}
           onChange={(e) => onItemChange(idx, "gstPercentage", e.target.value)}
           onKeyDown={(e) => handleKeyDown(e, "gst")}
-          className="w-full min-w-0 px-1.5 py-2 border border-slate-200 rounded text-sm text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono pr-4 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
+          inputMode="decimal"
+          className="w-full min-w-0 px-1.5 py-1.5 border border-slate-200 rounded text-xs text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono pr-4" />
         <span className="absolute right-1 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none">%</span>
       </div>
     </td>
-    <td className="py-3 px-3 text-right font-mono text-sm text-slate-700 border-b border-slate-100 whitespace-nowrap tabular-nums min-w-[160px]">
+    <td className="py-3 px-3 text-right font-mono text-xs text-slate-700 border-b border-slate-100 whitespace-nowrap tabular-nums min-w-0">
       {((calc?.taxable ?? parseFloat(item.taxableValue)) || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
     </td>
-    <td className="py-3 px-3 text-right font-mono text-sm text-slate-600 border-b border-slate-100 whitespace-nowrap tabular-nums min-w-[145px]">
+    <td className="py-3 px-3 text-right font-mono text-xs text-slate-600 border-b border-slate-100 whitespace-nowrap tabular-nums min-w-0">
       {((calc?.tax ?? parseFloat(item.taxAmount)) || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
     </td>
-    <td className="py-3 px-3 text-right font-mono text-sm font-semibold text-slate-900 border-b border-slate-100 whitespace-nowrap tabular-nums min-w-[170px]">
+    <td className="py-3 px-3 text-right font-mono text-xs font-semibold text-slate-900 border-b border-slate-100 whitespace-nowrap tabular-nums min-w-0">
       {((calc?.total ?? parseFloat(item.total)) || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
     </td>
     <td className="py-3 px-1 text-center border-b border-slate-100 w-[45px] min-w-[45px]">
@@ -242,11 +246,11 @@ const ItemCard = memo(({ item, calc, idx, onItemChange, onRemove, onAdd, onHsnLo
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="block text-[10px] font-semibold text-slate-500 uppercase mb-1">Qty</label>
-            <input type="number" step="1" min="0" value={item.qty} data-mobile-field={`qty-${idx}`}
+            <input type="text" value={item.qty} data-mobile-field={`qty-${idx}`}
               onChange={(e) => onItemChange(idx, "qty", e.target.value)}
               onKeyDown={(e) => handleKeyDown(e, "qty")}
               inputMode="numeric"
-              className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono min-h-[44px] [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
+              className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono min-h-[44px]" />
             <select value={item.unit ?? "Unit"} data-mobile-field={`unit-${idx}`}
               onChange={(e) => onItemChange(idx, "unit", e.target.value)}
               onKeyDown={(e) => handleKeyDown(e, "unit")}
@@ -259,23 +263,23 @@ const ItemCard = memo(({ item, calc, idx, onItemChange, onRemove, onAdd, onHsnLo
           </div>
           <div>
             <label className="block text-[10px] font-semibold text-slate-500 uppercase mb-1">Rate</label>
-            <input type="number" step="0.01" min="0" value={item.rate} data-mobile-field={`rate-${idx}`}
+            <input type="text" value={item.rate} data-mobile-field={`rate-${idx}`}
               onChange={(e) => onItemChange(idx, "rate", e.target.value)}
               onKeyDown={(e) => handleKeyDown(e, "rate")}
               readOnly={locked}
               inputMode="decimal"
-              className={`w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono min-h-[44px] [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none ${locked ? "bg-slate-50 text-slate-500 cursor-not-allowed" : ""}`} />
+              className={`w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono min-h-[44px] ${locked ? "bg-slate-50 text-slate-500 cursor-not-allowed" : ""}`} />
           </div>
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="block text-[10px] font-semibold text-slate-500 uppercase mb-1">GST %</label>
             <div className="relative">
-              <input type="number" step="0.01" min="0" max="40" value={item.gstPercentage} data-mobile-field={`gst-${idx}`}
+              <input type="text" value={item.gstPercentage} data-mobile-field={`gst-${idx}`}
                 onChange={(e) => onItemChange(idx, "gstPercentage", e.target.value)}
                 onKeyDown={(e) => handleKeyDown(e, "gst")}
                 inputMode="decimal"
-                className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono min-h-[44px] pr-7 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
+                className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono min-h-[44px] pr-7" />
               <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">%</span>
             </div>
           </div>
@@ -360,10 +364,16 @@ export default function InvoiceForm() {
   const [showPrefillBanner, setShowPrefillBanner] = useState(!!prefilledData);
   const discountVal = parseFloat(discountPercent) || 0;
   const invoiceRef = useRef(null);
-  // Invoice-level GST tax mode. Once the user flips the IGST toggle the
-  // derivation effect must stop touching it — a manual choice is law and is
-  // never silently overridden (only an explicit flip changes it).
-  const taxModeTouchedRef = useRef(prefilledData?.taxMode === "IGST" || prefilledData?.taxMode === "CGST_SGST");
+  // Invoice-level GST tax mode. Manual flips are remembered PER place of
+  // supply: the auto-switch never silently overrides a choice made for the
+  // current PoS, but selecting a NEW place of supply re-evaluates the
+  // condition fresh (inter-state → IGST auto-on again, and any earlier
+  // decision for that same PoS is restored).
+  const taxModeOverridesRef = useRef(
+    prefilledData?.taxMode === "IGST" || prefilledData?.taxMode === "CGST_SGST"
+      ? { [prefilledData.placeOfSupply || ""]: prefilledData.taxMode }
+      : {},
+  );
   // The hidden A4 invoice preview is only mounted while a PDF is being generated.
   // Re-rendering it on every keystroke was the main source of typing lag.
   const [showPdfPreview, setShowPdfPreview] = useState(false);
@@ -517,6 +527,10 @@ export default function InvoiceForm() {
         setBusiness(bRes.data.data);
       } catch (err) {
         console.error("Failed to load data", err);
+        // A silent failure here makes the Business section (and summary) simply
+        // vanish — which reads as "my data is gone" when the backend is only
+        // down or still booting. Name the failure instead.
+        toast.error("Couldn't load your business details — refresh once the server is reachable");
       } finally {
         setLoading(false);
       }
@@ -588,9 +602,20 @@ export default function InvoiceForm() {
       delete hsnLookupRef.current[idx];
     }
     if (field === "qty") {
-      // Integers only: no decimals, no negatives, no exponent notation.
-      const n = parseFloat(value);
-      value = value.trim() === "" || Number.isNaN(n) ? "" : String(Math.max(0, Math.floor(n)));
+      // Integers only: digits, nothing else — no minus, dot or exponent.
+      // These are text inputs now: with type="number" the browser reported
+      // garbage like "13-23" as badInput ("") so no state guard ever saw it,
+      // while the garbage stayed visible in the box with zeros underneath.
+      value = value.replace(/[^0-9]/g, "");
+    }
+    if (field === "rate" || field === "gstPercentage") {
+      // Digits with at most one decimal point — every other character
+      // (including any minus, anywhere) is stripped as it is typed.
+      value = value.replace(/[^0-9.]/g, "");
+      const firstDot = value.indexOf(".");
+      if (firstDot !== -1) {
+        value = value.slice(0, firstDot + 1) + value.slice(firstDot + 1).replace(/\./g, "");
+      }
     }
     setItems((prev) => prev.map((item, i) => {
       if (i !== idx) return item;
@@ -654,13 +679,12 @@ export default function InvoiceForm() {
         };
       }));
       toast.success(`Found: ${p.name}`);
-    } catch (err) {
-      if (err?.response?.status === 404) {
-        hsnLookupRef.current[idx] = { code, status: "notfound" };
-      } else {
-        hsnLookupRef.current[idx] = { code, status: "error" };
-        toast.error("HSN lookup failed — check your connection and try again");
-      }
+    } catch {
+      // No data for this HSN — or the lookup itself failed. Either way stay
+      // silent: a code that isn't in the catalog is normal typing, not an
+      // error worth interrupting the user for. "error" (not "notfound")
+      // keeps the dedupe allowing the next Enter/blur to retry the code.
+      hsnLookupRef.current[idx] = { code, status: "error" };
     }
   }, []);
 
@@ -718,18 +742,29 @@ export default function InvoiceForm() {
   const previewPaperSize = useMemo(() => (getPrintSettings()[effectiveType] || {}).paperSize || "A4_PORTRAIT", [effectiveType]);
   const previewTemplate = useMemo(() => getInvoiceTemplate(effectiveType), [effectiveType]);
 
-  // Initial tax-mode default — derived from the SUPPLIER's (business) state
-  // vs the legally applicable Place of Supply, never from the customer's
-  // billing address or Destination. Re-derives while the user hasn't touched
-  // the toggle (e.g. they are still picking the place of supply); after the
-  // first manual flip it never runs again for this invoice.
+  // Auto-switch — the IGST condition is INTER-STATE supply: place of supply
+  // differing from the business (supplier) state switches IGST ON by default.
+  // The control itself is only RENDERED under that condition (see
+  // showTaxModeToggle); intra-state supply asks nothing and gets the split
+  // mode deterministically. A manual choice recorded for the current place of
+  // supply always wins; when the info needed to establish the condition is
+  // missing, the selection is left exactly as-is.
   useEffect(() => {
-    if (taxModeTouchedRef.current || !business) return;
-    const derived = determineTaxMode(business.state, form.placeOfSupply);
-    if (derived && derived !== form.taxMode) {
-      setForm((f) => ({ ...f, taxMode: derived }));
+    if (!business) return;
+    const applicable = determineTaxMode(business.state, form.placeOfSupply);
+    if (applicable === "IGST") {
+      const next = taxModeOverridesRef.current[form.placeOfSupply] || "IGST";
+      if (next !== form.taxMode) setForm((f) => ({ ...f, taxMode: next }));
+    } else if (applicable === "CGST_SGST" && form.taxMode !== "CGST_SGST") {
+      setForm((f) => ({ ...f, taxMode: "CGST_SGST" }));
     }
   }, [business, form.placeOfSupply, form.taxMode]);
+
+  // The toggle exists only under the condition it governs: inter-state
+  // supply (place of supply ≠ business state). Intra-state — or missing info
+  // that makes it undeterminable — hides the control entirely.
+  const showTaxModeToggle =
+    determineTaxMode(business?.state, form.placeOfSupply) === "IGST";
 
   // Live rule-check of the selection vs the applicable GST structure. Used by
   // the helper text under the toggle and by validate() to gate finalization.
@@ -739,8 +774,12 @@ export default function InvoiceForm() {
   );
 
   const toggleTaxMode = () => {
-    taxModeTouchedRef.current = true;
-    setForm((f) => ({ ...f, taxMode: f.taxMode === "IGST" ? "CGST_SGST" : "IGST" }));
+    // Complete user authority: the flip is recorded for THIS place of supply,
+    // so the auto-switch respects it from now on — while picking a different
+    // place of supply re-derives the condition fresh.
+    const next = form.taxMode === "IGST" ? "CGST_SGST" : "IGST";
+    taxModeOverridesRef.current = { ...taxModeOverridesRef.current, [form.placeOfSupply]: next };
+    setForm((f) => ({ ...f, taxMode: next }));
   };
 
   const validate = () => {
@@ -804,7 +843,7 @@ export default function InvoiceForm() {
       // Unexposed fields stay "" -> undefined -> dropped by JSON serialization.
       ...Object.fromEntries(ALL_EXTENDED_FIELDS.map((f) => [f, form[f] || undefined])),
       ...(ghostMode && customInvoiceNumber.trim() ? { invoiceNumber: customInvoiceNumber.trim() } : {}),
-      discountPercent: discountEnabled ? parseFloat(discountPercent) || 0 : 0,
+      discountPercent: discountEnabled ? Math.min(Math.max(parseFloat(discountPercent) || 0, 0), 100) : 0,
       items: items.filter((i) => i.itemName.trim() && parseFloat(i.qty) > 0 && parseFloat(i.rate) > 0).map((i, idx) => ({
         sno: idx + 1, itemName: i.itemName, hsn: i.hsn || undefined, unit: i.unit || undefined,
         qty: Math.floor(parseFloat(i.qty)) || 0, rate: parseFloat(i.rate), gstPercentage: parseFloat(i.gstPercentage) || 0,
@@ -1476,8 +1515,8 @@ export default function InvoiceForm() {
           <p className="text-xs text-slate-600 font-medium">
             {business.businessName}
           </p>
-          {business.phone && (
-            <p className="text-xs text-slate-400">Phone: {business.phone}</p>
+          {mobileLine(business) && (
+            <p className="text-xs text-slate-400">{mobileLine(business)}</p>
           )}
           {business.email && (
             <p className="text-xs text-slate-400">Email: {business.email}</p>
@@ -1733,14 +1772,29 @@ export default function InvoiceForm() {
                     <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                   </div>
                 </div>
-                {/* Invoice-level GST tax mode — immediately beside Payment Mode
-                    in the same grid. ON = IGST (inter-state), OFF = CGST +
-                    SGST/UTGST (intra-state). The default is derived from the
-                    business state vs the legally applicable place of supply;
-                    the helper text flags any conflict with GST rules but the
-                    user's selection is never silently changed. */}
+                {/* Invoice-level GST tax mode — ONLY rendered for the condition
+                    it governs: inter-state supply (place of supply differs from
+                    the business state), where IGST auto-switches ON. Intra-state
+                    supply has nothing to choose — CGST + SGST/UTGST is the only
+                    legal answer — so the control stays hidden. While shown, the
+                    user can always switch IGST OFF; that choice is remembered
+                    for this place of supply. */}
+                {showTaxModeToggle && (
                 <div>
-                  <label className={labelClass} id="tax-mode-label">Tax Mode <span className="normal-case font-normal text-slate-400">(GST)</span></label>
+                  <label className={labelClass} id="tax-mode-label">Tax Mode <span className="normal-case font-normal text-slate-400">(GST)</span>
+                    {/* Rules tooltip — the long GST explanation lives here instead
+                        of as inline helper text under the toggle. Hover or focus
+                        (tap on touch) reveals it; amber when it's a warning. */}
+                    <span className="relative ml-1 inline-flex align-middle group/ttip">
+                      <button type="button" aria-label="Tax mode rules"
+                        className="inline-flex rounded-full focus:outline-none focus:ring-2 focus:ring-slate-400/30">
+                        <Info className={`w-3.5 h-3.5 ${taxValidation.level === "warning" ? "text-amber-500" : "text-slate-400"} group-hover/ttip:text-slate-600 group-focus-within/ttip:text-slate-600`} />
+                      </button>
+                      <span className="pointer-events-none absolute left-1/2 top-full z-30 mt-1.5 w-60 -translate-x-1/2 rounded-lg bg-slate-900 px-3 py-2 text-[11px] font-normal leading-snug text-white normal-case opacity-0 shadow-lg transition-opacity group-hover/ttip:opacity-100 group-focus-within/ttip:opacity-100">
+                        {taxValidation.message || "Inter-state supplies use IGST; intra-state use CGST + SGST/UTGST."}
+                      </span>
+                    </span>
+                  </label>
                   <button
                     type="button"
                     role="switch"
@@ -1753,21 +1807,13 @@ export default function InvoiceForm() {
                     }`}>
                     <span className="text-sm font-medium text-slate-700">IGST</span>
                     <span className="flex items-center gap-2">
-                      <span className={`text-[11px] font-semibold ${form.taxMode === "IGST" ? "text-emerald-600" : "text-slate-500"}`}>
-                        {form.taxMode === "IGST" ? "ON · IGST" : "OFF · CGST + SGST"}
-                      </span>
                       <span className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${form.taxMode === "IGST" ? "bg-emerald-500" : "bg-slate-300"}`}>
                         <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${form.taxMode === "IGST" ? "translate-x-4" : "translate-x-0.5"}`} />
                       </span>
                     </span>
                   </button>
-                  <p className={`mt-1.5 text-[11px] leading-snug ${
-                    taxValidation.level === "warning" ? "text-amber-600 font-medium"
-                      : taxValidation.level === "info" ? "text-slate-500 italic" : "text-slate-500"
-                  }`}>
-                    {taxValidation.message || "Inter-state supplies use IGST; intra-state use CGST + SGST/UTGST."}
-                  </p>
                 </div>
+                )}
               </div>
             </div>
 
@@ -1881,7 +1927,7 @@ export default function InvoiceForm() {
             )}
           </div>
 
-            <div className="xl:sticky xl:top-6 space-y-4 side-fixed">
+            <div className="space-y-4 side-fixed">
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Discount</h3>
@@ -1901,7 +1947,11 @@ export default function InvoiceForm() {
                     min="0"
                     max="100"
                     value={discountPercent}
-                    onChange={(e) => setDiscountPercent(e.target.value)}
+                    onChange={(e) => setDiscountPercent(e.target.value.replace(/-/g, ""))}
+                    onBlur={() => {
+                      const n = parseFloat(discountPercent);
+                      if (!Number.isNaN(n)) setDiscountPercent(String(Math.min(Math.max(n, 0), 100)));
+                    }}
                     placeholder="0"
                     className="w-20 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-400/30 focus:border-slate-400 min-h-[44px]"
                   />
@@ -2049,30 +2099,33 @@ export default function InvoiceForm() {
 
           {/* Desktop table */}
           <div className="hidden md:block border border-slate-200 rounded-lg w-full overflow-x-auto">
-            <table className="w-full min-w-[1260px] text-sm border-collapse" style={{ tableLayout: "auto" }}>
+            <table className="w-full min-w-[780px] text-sm border-collapse" style={{ tableLayout: "auto" }}>
               <colgroup>
-                <col style={{ width: "2.5%" }} />
+                {/* # takes 4% (was 2.5%), funded by Taxable (12.5 -> 11%): a
+                    3-digit row number must sit on one straight line even with
+                    the sidebar squeezing the table. */}
+                <col style={{ width: "4%" }} />
                 <col style={{ width: showHnSac ? "13%" : "0%" }} />
                 <col style={{ width: showHnSac ? "20%" : "33%" }} />
                 <col style={{ width: "12%" }} />
                 <col style={{ width: "8.5%" }} />
                 <col style={{ width: "4.5%" }} />
-                <col style={{ width: "12.5%" }} />
+                <col style={{ width: "11%" }} />
                 <col style={{ width: "11%" }} />
                 <col style={{ width: "13.5%" }} />
                 <col style={{ width: "2.5%" }} />
               </colgroup>
               <thead>
                 <tr className="bg-slate-800">
-                  <th className="text-white text-xs font-semibold py-3.5 px-2 text-center whitespace-nowrap w-[36px] min-w-[36px]">#</th>
-                  {showHnSac && <th className="text-white text-xs font-semibold py-3.5 px-2 text-left whitespace-nowrap min-w-[120px]">HSN/SAC</th>}
-                  <th className="text-white text-xs font-semibold py-3.5 px-2 text-left whitespace-nowrap min-w-[180px]">{labelFor("itemName", "Description")}</th>
-                  <th className="text-white text-xs font-semibold py-3.5 px-2 text-center whitespace-nowrap min-w-[140px]">Qty</th>
-                  <th className="text-white text-xs font-semibold py-3.5 px-2 text-center whitespace-nowrap min-w-[95px]">Rate</th>
-                  <th className="text-white text-xs font-semibold py-3.5 px-1 text-center whitespace-nowrap min-w-[65px]">GST %</th>
-                  <th className="text-white text-xs font-semibold py-3.5 px-3 text-right whitespace-nowrap min-w-[160px]">Taxable</th>
-                  <th className="text-white text-xs font-semibold py-3.5 px-3 text-right whitespace-nowrap min-w-[145px]">Tax</th>
-                  <th className="text-white text-xs font-semibold py-3.5 px-3 text-right whitespace-nowrap min-w-[170px]">Total</th>
+                  <th className="text-white text-xs font-semibold py-3.5 px-2 text-center whitespace-nowrap w-[44px] min-w-[44px]">#</th>
+                  {showHnSac && <th className="text-white text-xs font-semibold py-3.5 px-2 text-left whitespace-nowrap min-w-[100px]">HSN/SAC</th>}
+                  <th className="text-white text-xs font-semibold py-3.5 px-2 text-left whitespace-nowrap min-w-[150px]">{labelFor("itemName", "Description")}</th>
+                  <th className="text-white text-xs font-semibold py-3.5 px-2 text-center whitespace-nowrap min-w-[120px]">Qty</th>
+                  <th className="text-white text-xs font-semibold py-3.5 px-2 text-center whitespace-nowrap min-w-[85px]">Rate</th>
+                  <th className="text-white text-xs font-semibold py-3.5 px-1 text-center whitespace-nowrap min-w-[56px]">GST %</th>
+                  <th className="text-white text-xs font-semibold py-3.5 px-3 text-right whitespace-nowrap min-w-[110px]">Taxable</th>
+                  <th className="text-white text-xs font-semibold py-3.5 px-3 text-right whitespace-nowrap min-w-[100px]">Tax</th>
+                  <th className="text-white text-xs font-semibold py-3.5 px-3 text-right whitespace-nowrap min-w-[120px]">Total</th>
                   <th className="text-white py-3.5 px-1 w-[45px] min-w-[45px]"></th>
                 </tr>
               </thead>
@@ -2117,6 +2170,13 @@ export default function InvoiceForm() {
       <div className="xl:hidden w-full my-6">
         {actionsCard}
       </div>
+
+      {/* Terms & Conditions — the business's saved defaults (Settings owns
+          them), so the user sees what will print on the document while
+          composing it. my-6 like the other full-width cards here: these
+          trailing cards live in the bare page container (below the two-column
+          grid), where spacing comes from explicit margins, not space-y. */}
+      <TermsCard business={business} className="w-full p-6 my-6" />
 
       {/* Notes — full width below Items */}
       <div className="w-full bg-white rounded-xl shadow-sm border border-slate-200 p-6">

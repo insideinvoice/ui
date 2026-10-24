@@ -7,6 +7,7 @@ import InvoiceTemplateRetro from "./InvoiceTemplateRetro";
 import InvoiceTemplateEnterprise from "./InvoiceTemplateEnterprise";
 import { numberToWords, formatINR } from "../utils/invoiceFormat";
 import { computeInvoiceTotals } from "../utils/invoiceTotals";
+import { mobileLine } from "../utils/phoneDisplay";
 import { jurisdictionLine } from "../utils/jurisdiction";
 import { L, TEMPLATE_THEMES } from "../constants/templateThemes";
 import { getIndustryConfig, getTemplateRightRows, fieldLabel, isFieldHidden } from "../constants/industryConfig";
@@ -172,7 +173,7 @@ const InvoiceTemplateVariants = React.memo(React.forwardRef(({ theme, business, 
       <div style={{ fontSize: baseFS, lineHeight: "1.45" }}>
         {[business?.city, business?.state, business?.pincode].filter(Boolean).join(", ")}
       </div>
-      {business?.phone ? <div style={{ fontSize: baseFS, lineHeight: "1.45" }}>Ph: {business.phone}</div> : null}
+      {mobileLine(business) ? <div style={{ fontSize: baseFS, lineHeight: "1.45" }}>{mobileLine(business)}</div> : null}
       {business?.email ? <div style={{ fontSize: baseFS, lineHeight: "1.45" }}>{business.email}</div> : null}
       {business?.gstIn ? <div style={{ fontSize: baseFS, lineHeight: "1.45" }}>GSTIN/UIN: {business.gstIn}</div> : null}
       {business?.state ? <div style={{ fontSize: baseFS, lineHeight: "1.45" }}>State: {business.state} Code: {business.gstIn?.substring(0, 2) || ""}</div> : null}
@@ -312,7 +313,7 @@ const InvoiceTemplateVariants = React.memo(React.forwardRef(({ theme, business, 
                   {business?.addressLine1 || ""}{business?.addressLine2 ? ", " + business.addressLine2 : ""}, {[business?.city, business?.state, business?.pincode].filter(Boolean).join(", ")}
                 </div>
                 <div style={{ fontSize: "9px", lineHeight: "1.4" }}>
-                  {business?.gstIn ? `GST: ${business.gstIn}` : ""}{business?.phone ? ` | Ph: ${business.phone}` : ""}
+                  {business?.gstIn ? `GST: ${business.gstIn}` : ""}{mobileLine(business) ? ` | ${mobileLine(business)}` : ""}
                 </div>
               </td>
               <td style={{ width: "50%", borderRight: S.border, borderBottom: S.border, padding: "6px 8px", verticalAlign: "top" }}>
@@ -382,7 +383,7 @@ const InvoiceTemplateVariants = React.memo(React.forwardRef(({ theme, business, 
                 <div style={{ fontSize: baseFS, lineHeight: "1.45" }}>
                   {business?.addressLine1 || ""}{business?.addressLine2 ? ", " + business.addressLine2 : ""}, {[business?.city, business?.state, business?.pincode].filter(Boolean).join(", ")}
                 </div>
-                {business?.phone ? <div style={{ fontSize: baseFS }}>Ph: {business.phone} | GST: {business?.gstIn || ""}</div> : null}
+                {mobileLine(business) ? <div style={{ fontSize: baseFS }}>{mobileLine(business)} | GST: {business?.gstIn || ""}</div> : null}
               </td>
             </tr>
             <tr>
@@ -413,7 +414,7 @@ const InvoiceTemplateVariants = React.memo(React.forwardRef(({ theme, business, 
                     {[business?.addressLine1, business?.addressLine2, business?.city, business?.state, business?.pincode].filter(Boolean).join(", ")}
                   </div>
                   <div style={{ fontSize: baseFS, color: "rgba(255,255,255,0.8)" }}>
-                    {business?.phone ? `Ph: ${business.phone}` : ""}{business?.email ? ` | ${business.email}` : ""}{business?.gstIn ? ` | GST: ${business.gstIn}` : ""}
+                    {mobileLine(business)}{business?.email ? ` | ${business.email}` : ""}{business?.gstIn ? ` | GST: ${business.gstIn}` : ""}
                   </div>
                 </div>
               </td>
@@ -552,7 +553,7 @@ const InvoiceTemplateVariants = React.memo(React.forwardRef(({ theme, business, 
                   {[business?.city, business?.state, business?.pincode].filter(Boolean).join(", ")}
                 </div>
                 <div style={{ fontSize: baseFS, color: "#666" }}>
-                  {business?.phone ? `Ph: ${business.phone}` : ""}{business?.email ? ` | Email: ${business.email}` : ""}
+                  {mobileLine(business)}{business?.email ? ` | Email: ${business.email}` : ""}
                 </div>
                 <div style={{ borderTop: `2px solid ${t.primary}`, marginTop: t.compact ? "6px" : "10px", width: "60%", marginLeft: "auto", marginRight: "auto" }} />
               </td>
@@ -605,7 +606,7 @@ const InvoiceTemplateVariants = React.memo(React.forwardRef(({ theme, business, 
                     {[business?.city, business?.state, business?.pincode].filter(Boolean).join(", ")}
                   </div>
                   <div style={{ fontSize: "9px", color: "rgba(255,255,255,0.75)", lineHeight: "1.5", marginTop: "4px" }}>
-                    {business?.phone ? `Ph: ${business.phone}` : ""}
+                    {mobileLine(business)}
                   </div>
                   <div style={{ fontSize: "9px", color: "rgba(255,255,255,0.75)", lineHeight: "1.5" }}>
                     {business?.email || ""}
@@ -675,7 +676,7 @@ const InvoiceTemplateVariants = React.memo(React.forwardRef(({ theme, business, 
                   {[business?.city, business?.state, business?.pincode].filter(Boolean).join(", ")}
                 </div>
                 <div style={{ fontSize: "9px", color: "#999", marginTop: "4px" }}>
-                  {business?.phone ? `Ph: ${business.phone}` : ""}{business?.email ? ` | ${business.email}` : ""}{business?.gstIn ? ` | GST: ${business.gstIn}` : ""}
+                  {mobileLine(business)}{business?.email ? ` | ${business.email}` : ""}{business?.gstIn ? ` | GST: ${business.gstIn}` : ""}
                 </div>
               </td>
               <td style={{ width: "45%", borderRight: S.border, borderBottom: S.border, padding: t.compact ? "6px 8px" : "10px 12px", verticalAlign: "top" }}>
@@ -725,7 +726,7 @@ const InvoiceTemplateVariants = React.memo(React.forwardRef(({ theme, business, 
                   {[business?.addressLine1, business?.addressLine2, business?.city, business?.state, business?.pincode].filter(Boolean).join(", ")}
                 </div>
                 <div style={{ fontSize: "9px", color: "#444" }}>
-                  {business?.gstIn ? `GST: ${business.gstIn}` : ""}{business?.phone ? ` | Ph: ${business.phone}` : ""}
+                  {business?.gstIn ? `GST: ${business.gstIn}` : ""}{mobileLine(business) ? ` | ${mobileLine(business)}` : ""}
                 </div>
               </td>
               <td style={{ width: "50%", borderRight: `2px solid #000`, borderBottom: `2px solid #000`, padding: "8px 12px", verticalAlign: "top" }}>
@@ -775,7 +776,7 @@ const InvoiceTemplateVariants = React.memo(React.forwardRef(({ theme, business, 
                   {[business?.addressLine1, business?.addressLine2, business?.city, business?.state, business?.pincode].filter(Boolean).join(", ")}
                 </div>
                 <div style={{ fontSize: baseFS, color: "#666" }}>
-                  {business?.phone ? `Ph: ${business.phone} | Email: ${business.email || ""}` : ""}{business?.gstIn ? ` | GST: ${business.gstIn}` : ""}
+                  {mobileLine(business) ? `${mobileLine(business)} | Email: ${business.email || ""}` : ""}{business?.gstIn ? ` | GST: ${business.gstIn}` : ""}
                 </div>
               </td>
             </tr>
@@ -846,7 +847,7 @@ const InvoiceTemplateVariants = React.memo(React.forwardRef(({ theme, business, 
                     {[business?.city, business?.state, business?.pincode].filter(Boolean).join(", ")}
                   </div>
                   <div style={{ fontSize: "8px", color: "#bbb", lineHeight: "1.4", marginTop: "3px" }}>
-                    {business?.phone || ""}{business?.gstIn ? ` | GST: ${business.gstIn}` : ""}
+                    {mobileLine(business)}{business?.gstIn ? ` | GST: ${business.gstIn}` : ""}
                   </div>
                 </div>
               </td>

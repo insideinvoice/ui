@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import React, { useState, useEffect, useMemo } from "react";
 import InvoiceNav from "../Navigation/InvoiceNav";
+import { ArrowLeft } from "lucide-react";
 
 const GSTCalculator = () => {
   // Calculator State
@@ -85,7 +86,7 @@ const GSTCalculator = () => {
       <div className="min-h-screen bg-slate-50/50 font-body text-slate-600 py-12 px-4 mt-16">
         <div className="max-w-6xl mx-auto pt-24">
         <Link to="/" className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 font-medium mb-6 transition-colors">
-          <span aria-hidden="true">←</span> Back to Home
+          <span aria-hidden="true"><ArrowLeft className="w-4 h-4" /></span> Back to Home
         </Link>
           {/* --- CALCULATOR CARD --- */}
           {/* Removed heavy shadow, used distinct border and white bg */}

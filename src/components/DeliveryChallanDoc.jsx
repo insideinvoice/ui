@@ -778,14 +778,17 @@ function DeliveryChallanDoc({
   sealType = "round",
   sealAllPages = true,
   pageIndex = 0,
+  pageCount = 1,
 }) {
   const challan = { challanNumber, challanDate, poNumber, poDate };
   const Page = variant === "royal" ? RoyalPage : ClassicPage;
+  // Multi-page OFF: only the final page (totals + signature) carries the mark.
+  const stampThisPage = sealAllPages || pageIndex === pageCount - 1;
 
   return (
     <div style={{ position: "relative", width: DC_PAGE_W, flexShrink: 0 }}>
       <Page business={business} customer={customer} challan={challan} items={items} />
-      {showSeal && (sealAllPages || pageIndex === 0) && (
+      {showSeal && stampThisPage && (
         <SealOverlay business={business} type={sealType} pxPerMm={MM} insetMm={10} />
       )}
     </div>

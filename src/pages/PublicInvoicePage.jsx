@@ -22,6 +22,7 @@ function mapToTemplateProps(data, typeOverride) {
     businessName: s.businessName,
     gstIn: s.gstIn,
     phone: s.phone,
+    additionalPhone: s.additionalPhone,
     email: s.email,
     website: s.website,
     addressLine1: s.addressLine1,

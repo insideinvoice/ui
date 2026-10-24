@@ -64,6 +64,7 @@ export async function renderDeliveryChallanPdf(
       ? sealSvgMarkup({
           type,
           tilt: variantCfg.tilt,
+          color: variantCfg.color,
           companyName: business?.businessName || business?.name || "COMPANY",
           addressLine1: business?.addressLine1 || "",
           addressLine2: [business?.addressLine2, business?.city, business?.state].filter(Boolean).join(", "),

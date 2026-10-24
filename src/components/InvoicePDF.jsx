@@ -1,39 +1,19 @@
 import React, { useMemo } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import SealOverlay from "./SealOverlay";
+import InvoiceTermsRow from "./InvoiceTermsRow";
 import { resolveSeal } from "../utils/seal";
 import { sealSpecAttribute } from "../utils/sealConfig";
 import { asImageSrc } from "../utils/imageSrc";
 import { getSpecialistInLine } from "../utils/specialistIn";
 import { computeInvoiceTotals } from "../utils/invoiceTotals";
+import { mobileLine } from "../utils/phoneDisplay";
+import { numberToWords, formatINR } from "../utils/invoiceFormat";
 import { jurisdictionLine } from "../utils/jurisdiction";
 import { getIndustryConfig, getTemplateRightRows, fieldLabel } from "../constants/industryConfig";
 
 const S = {
   border: "1px solid #000",
-};
-
-const numberToWords = (num) => {
-  const ones = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten",
-    "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
-  const tens = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
-  const convert = (n) => {
-    if (n < 20) return ones[n];
-    if (n < 100) return tens[Math.floor(n / 10)] + (n % 10 ? " " + ones[n % 10] : "");
-    if (n < 1000) return ones[Math.floor(n / 100)] + " Hundred" + (n % 100 ? " " + convert(n % 100) : "");
-    if (n < 100000) return convert(Math.floor(n / 1000)) + " Thousand" + (n % 1000 ? " " + convert(n % 1000) : "");
-    return convert(Math.floor(n / 100000)) + " Lakh" + (n % 100000 ? " " + convert(n % 100000) : "");
-  };
-  const whole = Math.floor(num);
-  const decimal = Math.round((num - whole) * 100);
-  let result = convert(whole) + " Rupees";
-  if (decimal > 0) result += " and " + convert(decimal) + " Paise";
-  return result + " Only";
-};
-
-const formatINR = (val) => {
-  const n = parseFloat(val) || 0;
-  return n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 };
 
 const cell = (width) => ({
@@ -183,7 +163,7 @@ const InvoicePDF = React.memo(React.forwardRef(({ business, customer, form, item
                       {getSpecialistInLine(business) ? (
                         <div style={{ fontSize: "10px", lineHeight: "1.45" }}>SPECIALIST IN : {getSpecialistInLine(business)}</div>
                       ) : null}
-                      {business?.phone ? <div style={{ fontSize: "10px", lineHeight: "1.45" }}>Ph: {business.phone}</div> : null}
+                      {mobileLine(business) ? <div style={{ fontSize: "10px", lineHeight: "1.45" }}>{mobileLine(business)}</div> : null}
                       {business?.email ? <div style={{ fontSize: "10px", lineHeight: "1.45" }}>{business.email}</div> : null}
                       {business?.gstIn ? <div style={{ fontSize: "10px", lineHeight: "1.45" }}>GSTIN/UIN: {business.gstIn}</div> : null}
                       {business?.state ? <div style={{ fontSize: "10px", lineHeight: "1.45" }}>State: {business.state} Code: {business.gstIn?.substring(0, 2) || ""}</div> : null}
@@ -556,6 +536,10 @@ const InvoicePDF = React.memo(React.forwardRef(({ business, customer, form, item
           </>
           )}
 
+          {/* Terms & Conditions — the business's saved defaults (Settings owns
+              them); collapses away entirely when none are set. */}
+          <InvoiceTermsRow business={business} border={S.border} />
+
           {/* BOTTOM SECTION: Bank + UPI QR | Declaration | Signature */}
           <tr id="section-footer">
             <td colSpan={2} style={{ borderLeft: S.border, borderRight: S.border, borderBottom: S.border, padding: 0 }}>
@@ -576,7 +560,7 @@ const InvoicePDF = React.memo(React.forwardRef(({ business, customer, form, item
                         </div>
                         {business?.upiId && (
                           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flexShrink: 0, maxWidth: "90px" }}>
-                            <QRCodeSVG value={`upi://pay?pa=${business.upiId}&pn=${encodeURIComponent(business.businessName || "")}&am=${finalTotal.toFixed(2)}&tr=${encodeURIComponent(displayInvNo)}&tn=${encodeURIComponent(displayInvNo)}&cu=INR`} size={74} style={{ width: "100%", height: "auto", maxWidth: "74px" }} />
+                            <QRCodeSVG value={`upi://pay?pa=${business.upiId}&pn=${encodeURIComponent(business.businessName || "")}&am=${finalTotal.toFixed(2)}&tr=${encodeURIComponent(displayInvNo)}&tn=${encodeURIComponent(`${displayInvNo} ${form?.invoiceDate || ""}`.trim())}&cu=INR`} size={74} style={{ width: "100%", height: "auto", maxWidth: "74px" }} />
                             <div style={{ fontSize: "9px", marginTop: "2px", color: "#555" }}>Scan to Pay</div>
                           </div>
                         )}

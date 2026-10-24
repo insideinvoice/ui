@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import LoadingDots from "../components/LoadingDots";
 import { useAuth } from "../context/AuthContext";
 import PageHeader from "../components/PageHeader";
 import { authAPI } from "../api/auth";
 import toast from "react-hot-toast";
-import { ArrowLeft, UserPlus, AlertCircle, Mail, Lock, User, Building2, Shield } from "lucide-react";
+import { ArrowLeft, UserPlus, AlertCircle, Check, X, Mail, Lock, User, Building2, Shield } from "lucide-react";
 
 export default function AdminAddUsers() {
   const { isAdmin } = useAuth();
@@ -19,6 +19,29 @@ export default function AdminAddUsers() {
     businessName: "",
     role: "USER",
   });
+
+  // The username is CHOSEN here, during onboarding — check it live
+  // (Instagram-style, case-insensitive server-side) so a taken handle is
+  // caught while typing instead of at submit. (Hooks sit above the admin
+  // early-return so their order stays stable across renders.)
+  const uname = formData.username.trim();
+  const [usernameFree, setUsernameFree] = useState(null); // null = empty/short/unknown
+  useEffect(() => {
+    if (!uname || uname.length < 3) {
+      setUsernameFree(null);
+      return undefined;
+    }
+    let cancelled = false;
+    setUsernameFree(null); // stale result must not linger while the new check runs
+    const t = setTimeout(() => {
+      authAPI.checkUsername(uname)
+        .then((r) => { if (!cancelled) setUsernameFree(!!r.data.data); })
+        .catch(() => { if (!cancelled) setUsernameFree(null); });
+    }, 350);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [uname]);
+  const usernameTaken = uname.length >= 3 && usernameFree === false;
+  const usernameTooShort = uname.length > 0 && uname.length < 3;
 
   if (!isAdmin) {
     return (
@@ -90,8 +113,17 @@ export default function AdminAddUsers() {
                 <div className="relative">
                   <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
                   <input type="text" name="username" value={formData.username} onChange={handleChange}
-                    className="w-full pl-10 pr-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-slate-400" placeholder="Defaults to email if empty" />
+                    className="w-full pl-10 pr-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-slate-400" placeholder="Unique, 3–50 characters" />
                 </div>
+                {usernameTooShort && (
+                  <p className="text-[11px] text-amber-600 mt-1">Username must be at least 3 characters</p>
+                )}
+                {uname.length >= 3 && usernameFree === true && (
+                  <p className="flex items-center gap-1 text-[11px] text-emerald-600 mt-1"><Check className="w-3 h-3" /> This username is available</p>
+                )}
+                {usernameTaken && (
+                  <p className="flex items-center gap-1 text-[11px] text-red-500 mt-1"><X className="w-3 h-3" /> This username is already taken</p>
+                )}
               </div>
               <div>
                 <label className="block text-xs font-medium text-slate-600 mb-1">Email</label>
@@ -131,7 +163,7 @@ export default function AdminAddUsers() {
               </div>
             </div>
 
-            <button type="submit" disabled={isLoading}
+            <button type="submit" disabled={isLoading || usernameTaken || usernameTooShort}
               className="w-full bg-gradient-to-r from-slate-700 to-slate-800 text-white font-medium py-2.5 rounded-lg hover:shadow-lg transition-all text-sm flex items-center justify-center gap-2 disabled:opacity-50">
               {isLoading ? (
                 <><LoadingDots className="text-white" /> Creating...</>

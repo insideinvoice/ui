@@ -354,7 +354,16 @@ export default memo(function AppNavbar() {
             <button
               type="button"
               onClick={() => handleNav("/dashboard")}
-              className="rail-logo flex items-center gap-2.5 hover:opacity-80 transition-opacity min-w-0"
+              /* Crossfade with the overlay plate: while the hamburger is up,
+                 the logo drops to opacity-0 (the hover:opacity-80 utility is
+                 NOT rendered in that state — two opacity utilities of equal
+                 specificity otherwise race, and the fade must always win).
+                 80ms clears the mark before the plate reaches half opacity,
+                 so its shape never ghosts through on the way in. */
+              className={`rail-logo flex items-center gap-2.5 transition-opacity min-w-0 ${
+                railCollapsed && railLogoHovered ? "opacity-0" : "hover:opacity-80"
+              }`}
+              style={railCollapsed && railLogoHovered ? { transitionDuration: "80ms" } : undefined}
             >
               <img
                 src={insideInvoiceLogo}
@@ -423,8 +432,8 @@ export default memo(function AppNavbar() {
         className="flex-1 overflow-y-auto px-3 py-3 space-y-1"
       >
         {dropdownSections.map((section) => (
-          <div key={section.header} className="mb-2">
-            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-3 py-1.5 rail-hide">
+          <div key={section.header} className="rail-section mb-2">
+            <div className="rail-section-header text-[10px] font-bold text-slate-400 uppercase tracking-wider px-3 py-1.5 rail-hide">
               {section.header}
             </div>
             {section.items.map((item) => (

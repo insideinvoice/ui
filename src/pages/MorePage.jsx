@@ -30,6 +30,7 @@ export default function MorePage() {
               { label: "Add Customer", icon: UserPlus, path: "/customers/new", gradient: "from-emerald-500 to-emerald-600" },
               { label: "Add Product", icon: Package, path: "/products/new", gradient: "from-amber-500 to-orange-500" },
               { label: "Templates", icon: FileText, path: "/invoice-templates", gradient: "from-purple-500 to-purple-600" },
+              { label: "Settings", icon: Settings, path: "/settings", gradient: "from-indigo-500 to-indigo-600" },
             ].map((card) => (
               <div key={card.label} onClick={() => navigate(card.path)}
                 className={`bg-gradient-to-br ${card.gradient} rounded-xl p-4 cursor-pointer active:scale-[0.97] transition-transform shadow-sm`}>

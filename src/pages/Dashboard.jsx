@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { adminAPI, invoiceAPI, customerAPI } from "../api/auth";
-import { FileText, Users, Package, Building2, PlusCircle, List, BarChart3, DollarSign, TrendingUp, Calendar, UserPlus, Settings, UserCheck, IndianRupee } from "lucide-react";
+import { FileText, Users, Package, Building2, PlusCircle, List, BarChart3, DollarSign, TrendingUp, Calendar, UserPlus, UserCheck, IndianRupee, TriangleAlert } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from "recharts";
 
 import { getCache, setCache } from "../utils/cache";
@@ -14,6 +14,8 @@ const STATUS_COLORS = { PAID: "#10b981", PENDING: "#f59e0b", SENT: "#3b82f6", OV
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 const round2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
 const money = (v) => `₹ ${Number(v || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+// "1 invoice generated" / "3 invoices generated" — counts must not pluralize at 1.
+const plural = (n, word) => `${Number(n) || 0} ${word}${Number(n) === 1 ? "" : "s"}`;
 
 // Placeholder chart shaped like a bar chart so the layout doesn't jump when data lands
 function ChartSkeleton({ small = false }) {
@@ -61,6 +63,10 @@ export default function Dashboard() {
   const [loadingInvoices, setLoadingInvoices] = useState(!cached);
   const [loadingAll, setLoadingAll] = useState(!cached);
   const [loadingCustomers, setLoadingCustomers] = useState(!cached && !isAdmin);
+  // True when any dashboard loader failed. Failures used to be silent and
+  // even got cached — a confident dashboard full of zeros. Now it surfaces
+  // a slim retry banner above the cards instead.
+  const [dataError, setDataError] = useState(false);
 
   // Redirect if business setup not complete
   useEffect(() => {
@@ -74,17 +80,20 @@ export default function Dashboard() {
   const fetchAdminData = useCallback(async () => {
     setLoadingStats(true);
     setLoadingAll(true);
+    setDataError(false);
     const [statsRes, anRes] = await Promise.allSettled([adminAPI.getStats(), adminAPI.getSalesAnalytics()]);
     if (statsRes.status === "fulfilled") {
       setStats(statsRes.value.data.data);
     } else {
       console.error("Admin stats fetch failed:", statsRes.reason?.response?.status, statsRes.reason?.message);
+      setDataError(true);
     }
     setLoadingStats(false);
     if (anRes.status === "fulfilled") {
       setSalesAnalytics(anRes.value.data?.data ?? null);
     } else {
       console.error("Admin sales analytics fetch failed:", anRes.reason?.response?.status, anRes.reason?.message);
+      setDataError(true);
     }
     setLoadingAll(false);
   }, []);
@@ -92,13 +101,14 @@ export default function Dashboard() {
   // Fetch customer count for non-admin
   const fetchCustomerCount = useCallback(async () => {
     setLoadingCustomers(true);
+    setDataError(false);
     try {
       const res = await customerAPI.getAll({ size: 1000 });
       const raw = res.data?.data;
       const list = Array.isArray(raw) ? raw : Array.isArray(raw?.content) ? raw.content : [];
       setCustomerCount(list.length);
     } catch {
-      // silent
+      setDataError(true);
     } finally {
       setLoadingCustomers(false);
     }
@@ -109,17 +119,27 @@ export default function Dashboard() {
   // total: platform-wide views live in /admin and the admin-only KPI/graphs.
   const fetchInvoices = useCallback(async () => {
     setLoadingInvoices(true);
+    setDataError(false);
     try {
       const res = await invoiceAPI.getAll({ size: 1000 });
       const raw = res.data?.data;
       const list = Array.isArray(raw) ? raw : Array.isArray(raw?.content) ? raw.content : [];
       setInvoices(list);
     } catch {
-      // silent
+      setDataError(true);
     } finally {
       setLoadingInvoices(false);
     }
   }, []);
+
+  // Re-run every loader for the current role — the mount effect's cold path
+  // and the failure banner's Retry button share this one entry point.
+  const retryData = useCallback(() => {
+    setDataError(false);
+    if (isAdmin) fetchAdminData();
+    else fetchCustomerCount();
+    fetchInvoices();
+  }, [isAdmin, fetchAdminData, fetchCustomerCount, fetchInvoices]);
 
   // Main data loading effect — skip network only when storage cache is fresh
   useEffect(() => {
@@ -132,13 +152,8 @@ export default function Dashboard() {
     }
 
     // Cache miss or stale: fetch fresh data (stale data stays visible meanwhile)
-    if (isAdmin) {
-      fetchAdminData();
-    } else {
-      fetchCustomerCount();
-    }
-    fetchInvoices();
-  }, [isAdmin, cached, fetchAdminData, fetchCustomerCount, fetchInvoices]);
+    retryData();
+  }, [isAdmin, cached, retryData]);
   // Persist to storage whenever data changes — debounced so a burst of state
   // updates doesn't JSON.stringify up to 1000 invoices on the main thread while
   // the charts are painting, and skipped on a fresh-cache mount where the load
@@ -146,12 +161,15 @@ export default function Dashboard() {
   const hadFreshCache = Boolean(cached?.fresh);
   useEffect(() => {
     if (hadFreshCache || loadingStats || loadingInvoices) return undefined;
+    // Never persist a failed load: the next visit would "look fresh" while
+    // showing half-zeros for the whole TTL.
+    if (dataError) return undefined;
     if (!stats && invoices.length === 0) return undefined;
     const timer = setTimeout(() => {
       setCache(cacheKey, { stats, invoices, customerCount, salesAnalytics });
     }, 400);
     return () => clearTimeout(timer);
-  }, [stats, invoices, customerCount, salesAnalytics, loadingStats, loadingInvoices, cacheKey, hadFreshCache]);
+  }, [stats, invoices, customerCount, salesAnalytics, loadingStats, loadingInvoices, cacheKey, hadFreshCache, dataError]);
 
   const buildInvoiceAnalytics = (valid) => {
     const totalGrand = round2(valid.reduce((s, inv) => s + (parseFloat(inv.grandTotal) || 0), 0));
@@ -161,8 +179,13 @@ export default function Dashboard() {
     const last7 = {};
     const countByMonth = {};
     const today = new Date();
+    // Midnight-normalized window: invoiceDates carry a time-of-day, so a
+    // time-window from "now minus 6 days" silently dropped every early-morning
+    // invoice from the oldest day once "now" passed that time. Calendar days,
+    // not clock hours.
     const sevenDaysAgo = new Date(today);
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
+    sevenDaysAgo.setHours(0, 0, 0, 0);
     const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
     valid.forEach((inv) => {
@@ -176,9 +199,12 @@ export default function Dashboard() {
       const pm = inv.paymentMode || "OTHER";
       salesByPayment[pm] = round2((salesByPayment[pm] || 0) + amt);
 
-      if (d >= sevenDaysAgo && d <= today) {
+      if (d.getTime() >= sevenDaysAgo.getTime() && d.getTime() <= today.getTime()) {
         const dayKey = d.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
-        last7[dayKey] = round2((last7[dayKey] || 0) + amt);
+        // Year-safe sort stamp (YYYYMMDD): the label alone ("5 Jan") sorts
+        // wrong when the 7-day window straddles New Year.
+        const stamp = d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
+        last7[dayKey] = { sales: round2(((last7[dayKey]?.sales) || 0) + amt), stamp };
       }
     });
 
@@ -200,10 +226,9 @@ export default function Dashboard() {
     return {
       totalSales: totalGrand,
       salesByMonth: months.map((m) => ({ month: m, sales: salesByMonth[m], count: countByMonth[m] || 0 })),
-      last7Days: Object.entries(last7).sort((a, b) => {
-        const parseDay = (s) => { const [d, m] = s.split(" "); return new Date(`${m} ${d}, ${today.getFullYear()}`); };
-        return parseDay(a[0]) - parseDay(b[0]);
-      }).map(([day, sales]) => ({ day, sales })),
+      last7Days: Object.entries(last7)
+        .sort(([, a], [, b]) => a.stamp - b.stamp)
+        .map(([day, v]) => ({ day, sales: v.sales })),
       salesByPayment: Object.entries(salesByPayment).map(([mode, amount]) => ({ mode, amount })),
       invoiceCount: valid.length,
     };
@@ -227,7 +252,10 @@ export default function Dashboard() {
     return {
       totalSales: round2(salesAnalytics.totalSales ?? 0),
       salesByMonth: (salesAnalytics.salesByMonth || []).map((m) => ({
-        month: `${MONTHS[Number(m.period.slice(5, 7)) - 1]} ${m.period.slice(2, 4)}`,
+        // Full 4-digit year ("Jul 2026") — MUST match the merchant build:
+        // handleMonthClick parses everything after the space as the year, and
+        // the old `slice(2, 4)` ("26") sent admins to an empty year-0026 list.
+        month: `${MONTHS[Number(m.period.slice(5, 7)) - 1]} ${m.period.slice(0, 4)}`,
         sales: round2(m.sales),
         count: m.count,
       })),
@@ -277,7 +305,9 @@ export default function Dashboard() {
     for (let i = 29; i >= 0; i--) {
       const dt = new Date(now);
       dt.setDate(dt.getDate() - i);
-      const iso = dt.toISOString().slice(0, 10);
+      // Local-calendar ISO (toISOString() is UTC — near midnight IST the
+      // "today" bucket shifted to yesterday).
+      const iso = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
       out.push({ date: iso, day: iso.slice(5), invoices: 0, activeUsers: 0 });
     }
     return out;
@@ -327,21 +357,36 @@ export default function Dashboard() {
 
       <div className="px-3 sm:px-4 lg:px-6 max-w-[1900px] mx-auto">
         <main className="py-2 sm:py-3">
-          {/* Welcome */}
+          {/* Welcome — safe against a missing/empty user.name (the old
+              optional-chained `charAt().toUpperCase() +` chain rendered
+              "Welcome, NaN" when both halves were undefined). */}
           <div className="mb-4 sm:mb-6">
-            <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Welcome, {user?.name?.charAt(0).toUpperCase() + user?.name?.slice(1)}</h1>
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-900">
+              {user?.name ? `Welcome, ${user.name.charAt(0).toUpperCase()}${user.name.slice(1)}` : "Welcome"}
+            </h1>
             <p className="text-slate-500 text-xs sm:text-sm mt-0.5">
               {isAdmin ? "Platform overview" : "Manage your invoices & customers"}
             </p>
           </div>
 
-          {/* Quick Actions - 2x2 grid on mobile, 5-col on desktop for admin */}
-          <div className={`grid grid-cols-2 gap-3 sm:gap-4 mb-4 sm:mb-6 ${isAdmin ? "lg:grid-cols-5" : "lg:grid-cols-4"}`}>
+          {/* Failed-load notice with retry — shown only once loading settles */}
+          {dataError && !loadingStats && !loadingInvoices && !loadingCustomers && !loadingAll && (
+            <div className="mb-4 flex items-center gap-2.5 rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-xs text-rose-700">
+              <TriangleAlert className="w-4 h-4 shrink-0 text-rose-500" />
+              <span className="flex-1">Some dashboard data failed to load, so the numbers below may be incomplete.</span>
+              <button type="button" onClick={retryData}
+                className="shrink-0 rounded-lg border border-rose-300 bg-white px-2.5 py-1.5 font-semibold text-rose-700 transition-colors hover:bg-rose-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400 disabled:cursor-not-allowed">
+                Retry
+              </button>
+            </div>
+          )}
+
+          {/* Quick Actions - 2x2 grid on mobile, 4-col on desktop for both roles */}
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 mb-4 sm:mb-6 lg:grid-cols-4">
             {(isAdmin ? [
               { label: "Add User", icon: UserPlus, path: "/admin/users", iconBg: "bg-emerald-50", iconColor: "text-emerald-600", border: "border-emerald-100 hover:border-emerald-200" },
               { label: "All Users", icon: Users, path: "/admin/users-list", iconBg: "bg-indigo-50", iconColor: "text-indigo-600", border: "border-indigo-100 hover:border-indigo-200", count: Number(stats?.totalUsers) || 0 },
               { label: "All Invoices", icon: FileText, path: "/admin/invoices", iconBg: "bg-blue-50", iconColor: "text-blue-600", border: "border-blue-100 hover:border-blue-200", count: allInvoiceAnalytics.invoiceCount },
-              { label: "All Customers", icon: Users, path: "/customers", iconBg: "bg-indigo-50", iconColor: "text-indigo-600", border: "border-indigo-100 hover:border-indigo-200", count: Number(stats?.totalCustomers) || 0 },
               { label: "All Businesses", icon: Building2, path: "/admin/businesses", iconBg: "bg-violet-50", iconColor: "text-violet-600", border: "border-violet-100 hover:border-violet-200", count: Number(stats?.totalBusinesses) || 0 },
             ] : [
               { label: "New Invoice", icon: PlusCircle, path: "/invoice", iconBg: "bg-blue-50", iconColor: "text-blue-600", border: "border-blue-100 hover:border-blue-200" },
@@ -349,57 +394,60 @@ export default function Dashboard() {
               { label: "Add Customer", icon: Users, path: "/customers/new", iconBg: "bg-emerald-50", iconColor: "text-emerald-600", border: "border-emerald-100 hover:border-emerald-200" },
               { label: "Add Product", icon: Package, path: "/products/new", iconBg: "bg-violet-50", iconColor: "text-violet-600", border: "border-violet-100 hover:border-violet-200" },
             ]).map((card) => (
-              <div key={card.label} onClick={() => navigate(card.path)}
-                className={`relative bg-white rounded-xl p-3 sm:p-4 cursor-pointer active:scale-[0.97] transition-all shadow-sm border ${card.border} hover:shadow-md`}>
+              <button key={card.label} type="button" onClick={() => navigate(card.path)}
+                className={`relative bg-white rounded-xl p-3 sm:p-4 text-left w-full cursor-pointer active:scale-[0.97] transition-all shadow-sm border focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 focus-visible:border-blue-300 ${card.border} hover:shadow-md`}>
                 {card.count != null && (
                   <span className="absolute top-2.5 right-2.5 sm:top-3 sm:right-3 text-[10px] font-bold text-slate-500 bg-slate-100 rounded-full px-1.5 py-0.5 min-w-[20px] text-center">
                     {card.count > 999 ? "999+" : card.count}
                   </span>
                 )}
                 <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl ${card.iconBg} flex items-center justify-center mb-2.5`}>
-                  <card.icon className={`w-4.5 h-4.5 sm:w-5 sm:h-5 ${card.iconColor}`} />
+                  <card.icon className={`w-4 h-4 sm:w-5 sm:h-5 ${card.iconColor}`} />
                 </div>
                 <div className="text-xs sm:text-sm font-semibold text-slate-800">{card.label}</div>
-              </div>
+              </button>
             ))}
           </div>
 
-          {/* Stats Row - 2-col on mobile, 5-col for admin / 4-col for merchants */}
-          <div className={`grid grid-cols-2 gap-3 sm:gap-4 mb-4 sm:mb-6 ${isAdmin ? "lg:grid-cols-5" : "lg:grid-cols-4"}`}>
+          {/* Stats Row - 2-col on mobile, 4-col on desktop for both roles */}
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 mb-4 sm:mb-6 lg:grid-cols-4">
             {statsLoading ? (
-              Array.from({ length: isAdmin ? 5 : 4 }, (_, i) => <StatSkeleton key={i} />)
+              Array.from({ length: 4 }, (_, i) => <StatSkeleton key={i} />)
             ) : (
             [
               // Sales = the signed-in user's OWN net sales (₹) + how many
               // invoices they generated in total.
-              { label: "Sales", value: `₹ ${invoiceAnalytics.totalSales.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`, icon: DollarSign, gradient: "from-emerald-500 to-emerald-600", path: "/invoices", sub: `${invoiceAnalytics.invoiceCount} invoices generated` },
+              { label: "Sales", value: `₹ ${invoiceAnalytics.totalSales.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`, icon: DollarSign, gradient: "from-emerald-500 to-emerald-600", path: "/invoices", sub: `${plural(invoiceAnalytics.invoiceCount, "invoice")} generated` },
               ...(isAdmin
                 ? [
-                    { label: "This Month", value: `₹ ${thisMonthSales.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`, icon: Calendar, gradient: "from-amber-500 to-amber-600", path: "/invoices", sub: `${thisMonthCount} invoices this month` },
+                    { label: "This Month", value: `₹ ${thisMonthSales.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`, icon: Calendar, gradient: "from-amber-500 to-amber-600", path: "/invoices", sub: `${plural(thisMonthCount, "invoice")} this month` },
                     // Total Sales: the ₹ SUM of ALL invoices generated by ALL
                     // users app-wide (the ~230-invoice grand total).
                     { label: "Total Sales", value: `₹ ${allInvoiceAnalytics.totalSales.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`, icon: IndianRupee, gradient: "from-violet-500 to-violet-600", path: "/admin/invoices", sub: "net sales, all users" },
                     // Platform-wide invoices generated: every invoice from ALL
                     // users/businesses across the app (admin-only view).
                     { label: "Total Invoices Generated", value: allInvoiceAnalytics.invoiceCount, icon: FileText, gradient: "from-blue-500 to-blue-600", path: "/admin/invoices", sub: "by all users" },
-                    { label: "Settings", value: "Manage", icon: Settings, gradient: "from-slate-500 to-slate-600", path: "/settings" },
                   ]
                 : [
                     { label: "Invoices", value: invoiceAnalytics.invoiceCount, icon: FileText, gradient: "from-blue-500 to-blue-600", path: "/invoices" },
                     { label: "Customers", value: customerCount, icon: Users, gradient: "from-indigo-500 to-indigo-600", path: "/customers" },
-                    { label: "This Month", value: `₹ ${thisMonthSales.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`, icon: Calendar, gradient: "from-amber-500 to-amber-600", path: "/invoices", sub: `${thisMonthCount} invoices this month` },
+                    { label: "This Month", value: `₹ ${thisMonthSales.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`, icon: Calendar, gradient: "from-amber-500 to-amber-600", path: "/invoices", sub: `${plural(thisMonthCount, "invoice")} this month` },
                   ]),
             ].map((stat) => (
-              <div key={stat.label} onClick={() => navigate(stat.path)} className="bg-white rounded-xl border border-slate-200 p-3 sm:p-4 shadow-sm cursor-pointer active:scale-[0.97] transition-all hover:shadow-md">
+              <button key={stat.label} type="button" onClick={() => navigate(stat.path)} className="bg-white rounded-xl border border-slate-200 p-3 sm:p-4 shadow-sm cursor-pointer text-left w-full active:scale-[0.97] transition-all hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 focus-visible:border-blue-300">
                 <div className="flex items-center gap-2 mb-1.5">
                   <div className={`w-7 h-7 rounded-lg bg-gradient-to-br ${stat.gradient} flex items-center justify-center`}>
                     <stat.icon className="w-3.5 h-3.5 text-white" />
                   </div>
                   <span className="text-[10px] sm:text-[11px] font-semibold text-slate-500 uppercase tracking-wider">{stat.label}</span>
                 </div>
-                <div className="text-base sm:text-lg font-bold text-slate-900 truncate">{stat.value}</div>
-                {stat.sub && <div className="text-[10px] text-slate-400 mt-0.5 truncate">{stat.sub}</div>}
-              </div>
+                {/* Large amounts WRAP to a new line instead of truncating —
+                    a cut-off "₹ 1,12,0…" reads as a wrong number. Numbers have
+                    no natural break points, so overflow-wrap:anywhere lets the
+                    digits flow onto the next line inside the small card. */}
+                <div className="text-base sm:text-lg font-bold text-slate-900 leading-snug [overflow-wrap:anywhere]">{stat.value}</div>
+                {stat.sub && <div className="text-[10px] text-slate-400 mt-0.5">{stat.sub}</div>}
+              </button>
             ))
             )}
           </div>
@@ -580,7 +628,7 @@ export default function Dashboard() {
                       <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#64748b' }} />
                       <YAxis width={70} tick={{ fontSize: 10, fill: '#64748b' }} tickFormatter={formatAxisMoney} />
                       <Tooltip formatter={(v) => money(v)} contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '11px' }} cursor={{ fill: '#f8fafc' }} />
-                      <Bar dataKey="sales" fill="#6366f1" radius={[4, 4, 0, 0]} maxBarSize={40} name="Sales (₹)" cursor="pointer" onClick={(data) => { const m = data?.month || data?.activePayload?.[0]?.payload?.month; if (m) handleMonthClick(m); }} />
+                      <Bar dataKey="sales" fill="#6366f1" radius={[4, 4, 0, 0]} maxBarSize={40} name="Sales (₹)" cursor="pointer" onClick={(data) => { const m = data?.month ?? data?.payload?.month ?? data?.activePayload?.[0]?.payload?.month; if (m) handleMonthClick(m); }} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>

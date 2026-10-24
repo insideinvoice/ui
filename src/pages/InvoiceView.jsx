@@ -5,9 +5,10 @@ import Spinner from "../components/Spinner";
 import PageHeader from "../components/PageHeader";
 import { invoiceAPI, businessAPI, customerAPI } from "../api/auth";
 import toast from "react-hot-toast";
-import { ArrowLeft, Download, Save, Edit3, Plus, Trash2, FileText, AlertCircle, User, Building2, Phone, MapPin, Hash, Package, Mail, Globe, X, Share2, Smartphone, Link2, Copy, RotateCw, Unlink, ChevronDown, Printer, MessageSquare } from "lucide-react";
+import { ArrowLeft, Download, Save, Edit3, Plus, Trash2, FileText, AlertCircle, User, Building2, Phone, MapPin, Hash, Package, Mail, Globe, X, Share2, Smartphone, Link2, Copy, RotateCw, Unlink, ChevronDown, MessageSquare, Info } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import InvoiceTemplateRenderer from "../components/InvoiceTemplateRenderer";
+import TermsCard from "../components/TermsCard";
 import DocZoomSurface from "../components/DocZoomSurface";
 import WhatsAppIcon from "../components/WhatsAppIcon";
 import { processQueue } from "../utils/retryQueue";
@@ -25,104 +26,142 @@ import { getIndustryConfig, isFieldHidden, fieldLabel, getExtendedFields, isExte
 
 const uid = () => (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `i${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`);
 const emptyItem = () => ({ id: uid(), itemName: "", hsn: "", unit: "", qty: "1", rate: "", gstPercentage: "18", taxableValue: "0", taxAmount: "0", total: "0" });
+// Serialized snapshot of everything the Save button persists (invoice fields,
+// line items, discount). Save/Cancel stay disabled until the live state
+// diverges from the last-saved baseline.
+const serializeEditableState = (form, items, discountEnabled, discountPercent) => JSON.stringify({
+  form,
+  items,
+  discountEnabled,
+  discountPercent: discountEnabled ? String(parseFloat(discountPercent) || 0) : "",
+});
 const fmt = (v) => parseFloat(v || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 });
 // Screen (CSS px) width of each paper — mirrors InvoiceTemplateRenderer's map;
 // sizes the zoomable document inside DocZoomSurface (the PDF modal).
 const PAPER_WIDTH_PX = { A4_PORTRAIT: 794, A4_LANDSCAPE: 1123, A5: 559, LETTER: 816 };
 
-const inputClass = "w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-400/30 focus:border-slate-400";
-const selectClass = "w-full pl-3 pr-9 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-400/30 focus:border-slate-400 bg-white appearance-none cursor-pointer text-slate-800";
+const inputClass = "w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-slate-400/30 focus:border-slate-400";
+const selectClass = "w-full pl-3 pr-9 py-2 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-slate-400/30 focus:border-slate-400 bg-white appearance-none cursor-pointer text-slate-800";
 const labelClass = "block text-xs font-semibold text-slate-600 mb-1.5";
 
 // Declared at module scope so React keeps the same component type across renders
 // (an inner declaration remounts every row on each parent render).
-const InfoRow = memo(({ label, value }) => value ? <p className="text-sm text-slate-600"><span className="text-slate-400">{label}:</span> {value}</p> : null);
+const InfoRow = memo(({ label, value }) => value ? <p className="text-xs text-slate-600"><span className="text-slate-400">{label}:</span> {value}</p> : null);
 
-const ViewItemRow = memo(({ item, calc, idx, isEditing, onItemChange, onRemove, onAdd, showHnSac = true }) => (
-  <tr className={`${idx % 2 === 0 ? "bg-white" : "bg-slate-50/40"} ${isEditing ? "hover:bg-blue-50/20" : ""} transition-colors`}>
-    <td className="py-3 px-3 text-center text-slate-400 font-mono text-xs border-b border-slate-100">{idx + 1}</td>
-    {isEditing ? (
-      <>
-        <td className="py-3 px-3 border-b border-slate-100">
-          <input type="text" value={item.itemName} name={`desc-${idx + 1}`}
-            onChange={(e) => onItemChange(idx, "itemName", e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); const next = document.querySelector(`input[name="${showHnSac ? "hsn" : "qty"}-${idx + 1}"]`); next?.focus(); } }}
-            className="w-full px-3 py-2 border border-slate-200 rounded text-sm focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white" placeholder="Item name" />
-        </td>
-        {showHnSac && (
-        <td className="py-3 px-3 border-b border-slate-100">
-          <input type="text" value={item.hsn} name={`hsn-${idx + 1}`}
-            onChange={(e) => onItemChange(idx, "hsn", e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); const qty = document.querySelector(`input[name="qty-${idx + 1}"]`); qty?.focus(); } }}
-            className="w-full max-w-[80px] px-3 py-2 border border-slate-200 rounded text-sm focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono" placeholder="Scan or type" />
-        </td>
-        )}
-        <td className="py-3 px-3 border-b border-slate-100">
-          <div className="flex items-center gap-1.5">
-            <input type="number" step="0.01" min="0" value={item.qty} name={`qty-${idx + 1}`}
-              onChange={(e) => onItemChange(idx, "qty", e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); const rate = document.querySelector(`input[name="rate-${idx + 1}"]`); rate?.focus(); } }}
-              inputMode="decimal"
-              size={10}
-              className="w-28 px-3 py-2 border border-slate-200 rounded text-sm text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
-            <select value={item.unit || ""} name={`unit-${idx + 1}`}
-              onChange={(e) => onItemChange(idx, "unit", e.target.value)}
-              title="Unit of measurement"
-              className="shrink-0 w-[88px] px-1.5 py-2 border border-slate-200 rounded text-xs focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white text-slate-600">
-              {UNITS.map((u) => (
-                <option key={u} value={u}>{u === "" ? "No unit" : u}</option>
-              ))}
-            </select>
-          </div>
-        </td>
-        <td className="py-3 px-3 border-b border-slate-100">
-          <input type="number" step="0.01" min="0" value={item.rate} name={`rate-${idx + 1}`}
-            onChange={(e) => onItemChange(idx, "rate", e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); const gst = document.querySelector(`input[name="gst-${idx + 1}"]`); gst?.focus(); } }}
+// Amounts too wide for their column wrap at the Indian comma groups, never
+// mid-number: a zero-width space after each group comma gives the line
+// breaker "15,23,45, | 666.52" instead of "2,74,22,2 | 19.97". Short amounts
+// never wrap at all.
+const breakAtGroups = (s) => String(s).replace(/,(?=\d)/g, ",\u200B");
+
+// Enterprise editable-cell chrome: the input reads as plain text until
+// hovered (hairline border) or focused (white field, blue ring) — no grid of
+// boxes. Every cell in the row shares the same 12px typography.
+const cellInput = "w-full min-w-0 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs hover:border-slate-300 focus:border-blue-400 focus:ring-2 focus:ring-blue-500/15 focus:outline-none";
+const cellTd = "py-1 px-1 border-b border-slate-100 text-xs focus-within:bg-blue-50/40";
+
+const ViewItemRow = memo(({ item, calc, idx, isEditing, onItemChange, onRemove, onAddRowAndFocus, showHnSac = true }) => {
+  // Spreadsheet navigation: Enter/↓ commits and drops to the same column of
+  // the next row, ↑ climbs back, and on the last row Enter spawns a new row
+  // with the cursor already in it. Tab keeps the browser's natural order.
+  const nav = (col) => (e) => {
+    if (e.key !== "Enter" && e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+    e.preventDefault();
+    const delta = e.key === "ArrowUp" ? -1 : 1;
+    const next = document.querySelector(`input[name="${col}-${idx + 1 + delta}"]`);
+    if (next) next.focus();
+    else if (delta > 0) onAddRowAndFocus(`${col}-${idx + 2}`);
+  };
+  if (!isEditing) return (
+    <tr className={`${idx % 2 === 0 ? "bg-white" : "bg-slate-50/40"} transition-colors`}>
+      <td className="py-3 px-2 text-center text-slate-400 font-mono text-xs border-b border-slate-100 whitespace-nowrap w-[44px] min-w-[44px]">{idx + 1}</td>
+      <td className="py-3 px-2 text-slate-800 border-b border-slate-100 break-words">{item.itemName}</td>
+      {showHnSac && (
+      <td className="py-3 px-3 text-center font-mono text-xs text-slate-500 border-b border-slate-100 whitespace-nowrap">{item.hsn || "-"}</td>
+      )}
+      <td className="py-3 px-2 text-center font-mono text-xs text-slate-700 border-b border-slate-100 whitespace-nowrap">{item.qty}</td>
+      <td className="py-3 px-2 text-center font-mono text-xs text-slate-700 border-b border-slate-100 [overflow-wrap:anywhere]">{breakAtGroups(fmt(item.rate))}</td>
+      <td className="py-3 px-2 text-center font-mono text-xs text-slate-600 border-b border-slate-100 whitespace-nowrap">{item.gstPercentage}%</td>
+      <td className="py-3 px-3 text-center font-mono text-xs border-b border-slate-100 [overflow-wrap:anywhere] text-slate-700">
+        {breakAtGroups(fmt(calc?.taxable ?? item.taxableValue))}
+      </td>
+      <td className="py-3 px-3 text-center font-mono text-xs border-b border-slate-100 [overflow-wrap:anywhere] text-slate-600">
+        {breakAtGroups(fmt(calc?.tax ?? item.taxAmount))}
+      </td>
+      <td className="py-3 px-3 text-center font-mono text-xs font-semibold border-b border-slate-100 [overflow-wrap:anywhere] text-slate-900">
+        {breakAtGroups(fmt(calc?.total ?? item.total))}
+      </td>
+    </tr>
+  );
+  return (
+    <tr className={`group ${idx % 2 === 0 ? "bg-white" : "bg-slate-50/40"} hover:bg-blue-50/20 transition-colors`}>
+      <td className="py-1 px-1 text-center text-slate-400 font-mono text-xs border-b border-slate-100 whitespace-nowrap w-[44px] min-w-[44px]">{idx + 1}</td>
+      <td className={cellTd}>
+        <input type="text" value={item.itemName} name={`desc-${idx + 1}`}
+          onChange={(e) => onItemChange(idx, "itemName", e.target.value)}
+          onKeyDown={nav("desc")}
+          className={cellInput} placeholder="Item name" />
+      </td>
+      {showHnSac && (
+      <td className={cellTd}>
+        <input type="text" value={item.hsn} name={`hsn-${idx + 1}`}
+          onChange={(e) => onItemChange(idx, "hsn", e.target.value)}
+          onKeyDown={nav("hsn")}
+          className={cellInput + " text-center font-mono"} placeholder="Scan or type" />
+      </td>
+      )}
+      <td className={cellTd}>
+        <div className="flex items-center justify-center gap-1">
+          <input type="text" value={item.qty} name={`qty-${idx + 1}`}
+            onChange={(e) => onItemChange(idx, "qty", e.target.value)}
+            onKeyDown={nav("qty")}
+            inputMode="numeric"
+            className={cellInput + " max-w-[48px] text-center font-mono"} />
+          <select value={item.unit || ""} name={`unit-${idx + 1}`}
+            onChange={(e) => onItemChange(idx, "unit", e.target.value)}
+            title="Unit of measurement"
+            className="min-w-0 flex-1 px-2 py-2 rounded-lg border border-slate-200 bg-white text-xs text-slate-600 cursor-pointer">
+            {UNITS.map((u) => (
+              <option key={u} value={u}>{u === "" ? "No unit" : u}</option>
+            ))}
+          </select>
+        </div>
+      </td>
+      <td className={cellTd}>
+        <input type="text" value={item.rate} name={`rate-${idx + 1}`}
+          onChange={(e) => onItemChange(idx, "rate", e.target.value)}
+          onKeyDown={nav("rate")}
+          inputMode="decimal"
+          className={cellInput + " text-center font-mono"} />
+      </td>
+      <td className={cellTd}>
+        <div className="flex items-center justify-center gap-1">
+          <input type="text" value={item.gstPercentage} name={`gst-${idx + 1}`}
+            onChange={(e) => onItemChange(idx, "gstPercentage", e.target.value)}
+            onKeyDown={nav("gst")}
             inputMode="decimal"
-            className="w-full px-3 py-2 border border-slate-200 rounded text-sm text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
-        </td>
-        <td className="py-3 px-3 border-b border-slate-100">
-          <div className="relative">
-            <input type="number" step="0.01" min="0" max="100" value={item.gstPercentage} name={`gst-${idx + 1}`}
-              onChange={(e) => onItemChange(idx, "gstPercentage", e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); onAdd(); } }}
-              inputMode="decimal"
-              className="w-full px-3 py-2 border border-slate-200 rounded text-sm text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono pr-7 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
-            <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs">%</span>
-          </div>
-        </td>
-      </>
-    ) : (
-      <>
-        <td className="py-3 px-3 text-slate-800 border-b border-slate-100 truncate">{item.itemName}</td>
-        {showHnSac && (
-        <td className="py-3 px-3 text-center font-mono text-xs text-slate-500 border-b border-slate-100 whitespace-nowrap">{item.hsn || "-"}</td>
-        )}
-        <td className="py-3 px-3 text-center font-mono text-sm text-slate-700 border-b border-slate-100 whitespace-nowrap">{item.qty}</td>
-        <td className="py-3 px-3 text-center font-mono text-sm text-slate-700 border-b border-slate-100 whitespace-nowrap">{fmt(item.rate)}</td>
-        <td className="py-3 px-3 text-center font-mono text-sm text-slate-600 border-b border-slate-100 whitespace-nowrap">{item.gstPercentage}%</td>
-      </>
-    )}
-    <td className={`py-3 px-3 text-right font-mono text-sm border-b border-slate-100 whitespace-nowrap ${isEditing ? "text-slate-700" : "text-slate-700"}`}>
-      {fmt(calc?.taxable ?? item.taxableValue)}
-    </td>
-    <td className={`py-3 px-3 text-right font-mono text-sm border-b border-slate-100 whitespace-nowrap ${isEditing ? "text-slate-600" : "text-slate-600"}`}>
-      {fmt(calc?.tax ?? item.taxAmount)}
-    </td>
-    <td className={`py-3 px-3 text-right font-mono text-sm font-semibold border-b border-slate-100 whitespace-nowrap ${isEditing ? "text-slate-900" : "text-slate-900"}`}>
-      {fmt(calc?.total ?? item.total)}
-    </td>
-    {isEditing && (
-      <td className="py-3 px-2 text-center border-b border-slate-100">
-        <button onClick={() => onRemove(idx)}
-          className="p-1.5 hover:bg-red-50 rounded transition-colors text-slate-400 hover:text-red-500">
+            className={cellInput + " text-center font-mono"} />
+          <span className="shrink-0 text-xs text-slate-400">%</span>
+        </div>
+      </td>
+      <td className="py-2 px-2 text-center font-mono text-xs border-b border-slate-100 [overflow-wrap:anywhere] text-slate-700">
+        {breakAtGroups(fmt(calc?.taxable ?? item.taxableValue))}
+      </td>
+      <td className="py-2 px-2 text-center font-mono text-xs border-b border-slate-100 [overflow-wrap:anywhere] text-slate-600">
+        {breakAtGroups(fmt(calc?.tax ?? item.taxAmount))}
+      </td>
+      <td className="py-2 px-2 text-center font-mono text-xs font-semibold border-b border-slate-100 [overflow-wrap:anywhere] text-slate-900">
+        {breakAtGroups(fmt(calc?.total ?? item.total))}
+      </td>
+      <td className="py-1 px-1 text-center border-b border-slate-100">
+        <button type="button" onClick={() => onRemove(idx)} aria-label={`Remove item ${idx + 1}`} title="Remove item"
+          className="p-1.5 rounded text-slate-300 hover:bg-red-50 hover:text-red-500 focus:outline-none focus-visible:text-red-500 focus-visible:bg-red-50 transition-colors">
           <Trash2 className="w-3.5 h-3.5" />
         </button>
       </td>
-    )}
-  </tr>
-));
+    </tr>
+  );
+});
 
 export default function InvoiceView() {
   const { id } = useParams();
@@ -135,6 +174,14 @@ export default function InvoiceView() {
   const [invoiceType, setInvoiceType] = useState("TAX_INVOICE");
   const invoiceRef = useRef(null);
   const proformaRef = useRef(null);
+  // Dual-pane wheel routing (xl) — the hover state lives in a ref, the two
+  // column elements in refs the effect binds listeners to.
+  const leftPaneRef = useRef(null);
+  const rightPaneRef = useRef(null);
+  // Pre-edit snapshot: entering edit mode stores the exact form/items/discount
+  // values being viewed; Cancel restores them so no half-made edit leaks into
+  // the read-only view (previously it stayed until a full page refresh).
+  const editSnapshotRef = useRef(null);
   // The hidden A4 documents are only mounted while a PDF/print/share action is
   // running — keeping them permanently mounted meant every keystroke and every
   // busy-flag toggle re-rendered two full invoice documents.
@@ -147,6 +194,9 @@ export default function InvoiceView() {
   const [discountPercent, setDiscountPercent] = useState("");
   const [discountEnabled, setDiscountEnabled] = useState(false);
   const [discountDirty, setDiscountDirty] = useState(false);
+  // Baseline for the Save/Cancel enable check: the editable state exactly as
+  // last loaded/saved. Null until the invoice finishes loading.
+  const [savedBaseline, setSavedBaseline] = useState(null);
   const discountVal = parseFloat(discountPercent) || 0;
   const [business, setBusiness] = useState(null);
   // NOTE: these must come after `business` is declared — reading `business` from
@@ -203,8 +253,7 @@ export default function InvoiceView() {
   // snapshot there is no way to tell whether it actually changed.
   const buyerSnapshotRef = useRef(null);
   // No pdfPreviewUrl blob state any more: the modal renders the LIVE document
-  // inside DocZoomSurface (opens instantly); Print builds its own blob on
-  // demand in printFromPreview, Download uses the capture flow.
+  // inside DocZoomSurface (opens instantly); Download uses the capture flow.
   const [showPdfPreview, setShowPdfPreview] = useState(false);
 
   // Public share link: created lazily on the first explicit user action, so invoices
@@ -453,12 +502,14 @@ export default function InvoiceView() {
       if (cachedToken) setShareToken(cachedToken);
       setInvoiceType(inv.invoiceType || "TAX_INVOICE");
       const dPct = parseFloat(inv.discountPercent);
-      setDiscountEnabled(!Number.isNaN(dPct) && dPct > 0);
-      setDiscountPercent(!Number.isNaN(dPct) && dPct > 0 ? String(inv.discountPercent) : "");
+      const dOn = !Number.isNaN(dPct) && dPct > 0;
+      const dVal = dOn ? String(inv.discountPercent) : "";
+      setDiscountEnabled(dOn);
+      setDiscountPercent(dVal);
       setDiscountDirty(false);
       // Tax mode: the stored selection wins outright; legacy invoices (null)
       // resolve via supplier state vs place of supply — never a silent change.
-      setForm({
+      const loadedForm = {
         customerId: inv.customerId || null, customerName: inv.customerName || "",
         customerEmail: customer?.email || "", customerPhone: customer?.phone || "",
         billingAddress: customer?.billingAddress || "", customerGstIn: customer?.gstIn || "",
@@ -482,18 +533,23 @@ export default function InvoiceView() {
         expectedReturnDate: inv.expectedReturnDate || "", depositReference: inv.depositReference || "",
         patientReference: inv.patientReference || "", serviceDate: inv.serviceDate || "",
         treatmentReference: inv.treatmentReference || "", referringDoctor: inv.referringDoctor || "",
-      });
+      };
+      setForm(loadedForm);
       buyerSnapshotRef.current = {
         name: inv.customerName || "",
         phone: customer?.phone || "", email: customer?.email || "",
         billingAddress: customer?.billingAddress || "", gstIn: customer?.gstIn || "",
       };
-      setItems((inv.items || []).length > 0 ? inv.items.map((i) => ({
+      const loadedItems = (inv.items || []).length > 0 ? inv.items.map((i) => ({
         id: uid(),
         itemName: i.itemName, hsn: i.hsn || "", unit: i.unit || "", qty: String(i.qty), rate: String(i.rate),
         gstPercentage: String(i.gstPercentage), taxableValue: String(i.taxableValue || 0),
         taxAmount: String(i.taxAmount || 0), total: String(i.total || 0),
-      })) : [{ ...emptyItem() }]);
+      })) : [{ ...emptyItem() }];
+      setItems(loadedItems);
+      // The just-loaded state IS the saved state — a no-op save would send it
+      // back unchanged, so Save/Cancel start out disabled.
+      setSavedBaseline(serializeEditableState(loadedForm, loadedItems, dOn, dVal));
     })
     .catch(() => setError("Failed to load invoice"))
     .finally(() => setLoading(false));
@@ -516,6 +572,26 @@ export default function InvoiceView() {
     return () => document.documentElement.classList.remove("pip-locked");
   }, [showShareSheet, showPdfPreview]);
 
+  // Escape closes the top surface: the share sheet when it is stacked above
+  // the PDF modal, the PDF modal otherwise — and never mid-share (a stray
+  // Escape during a share is ignored, matching the click-away behaviour).
+  useEffect(() => {
+    if (!(showShareSheet || showPdfPreview)) return undefined;
+    const onKey = (e) => {
+      if (e.key !== "Escape") return;
+      if (showShareSheet) {
+        if (shareBusy) return;
+        setShowShareSheet(false);
+        return;
+      }
+      if (showPdfPreview) setShowPdfPreview(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [showShareSheet, showPdfPreview, shareBusy]);
+
+
+  // Offline-saved customers/invoices sync here once the connection returns.
   useEffect(() => {
     processQueue(
       (data) => customerAPI.create(data),
@@ -527,6 +603,23 @@ export default function InvoiceView() {
 
   const handleFieldChange = (e) => setForm((p) => ({ ...p, [e.target.name]: e.target.value }));
   const handleItemChange = useCallback((idx, field, value) => {
+    // Same sanitizers as the create form. These are text inputs now: with
+    // type="number" the browser reported garbage like "13-23" as badInput
+    // ("") so no guard ever saw it, while the garbage stayed visible in the
+    // box with zeros underneath.
+    if (field === "qty") {
+      // Integers only: digits, nothing else — no minus, dot or exponent.
+      value = value.replace(/[^0-9]/g, "");
+    } else if (field === "rate" || field === "gstPercentage") {
+      // Digits with at most one decimal point — every other character
+      // (including any minus, anywhere) is stripped as it is typed.
+      value = value.replace(/[^0-9.]/g, "");
+      const firstDot = value.indexOf(".");
+      if (firstDot !== -1) {
+        value = value.slice(0, firstDot + 1) + value.slice(firstDot + 1).replace(/\./g, "");
+      }
+      if (field === "gstPercentage" && parseFloat(value) > 100) value = "100";
+    }
     setItems((prev) => prev.map((item, i) => {
       if (i !== idx) return item;
       const qty = parseFloat(field === "qty" ? value : item.qty) || 0;
@@ -547,6 +640,21 @@ export default function InvoiceView() {
   const addItem = useCallback(() => {
     setItems((prev) => [...prev, { ...emptyItem() }]);
   }, []);
+
+  // Enter on the last row of the editable table spawns a row and drops the
+  // cursor into the same column of it — the element only exists after the
+  // items state commits, so the focus request is parked here.
+  const pendingFocusRef = useRef(null);
+  useEffect(() => {
+    if (!pendingFocusRef.current) return;
+    const name = pendingFocusRef.current;
+    pendingFocusRef.current = null;
+    document.querySelector(`input[name="${name}"]`)?.focus();
+  }, [items]);
+  const addRowAndFocus = useCallback((name) => {
+    pendingFocusRef.current = name;
+    addItem();
+  }, [addItem]);
 
   const removeItem = useCallback((idx) => {
     setItems((prev) => prev.length > 1 ? prev.filter((_, i) => i !== idx) : prev);
@@ -598,6 +706,13 @@ export default function InvoiceView() {
     setForm((p) => ({ ...p, taxMode: p.taxMode === "IGST" ? "CGST_SGST" : "IGST" }));
   };
 
+  // True once any editable field, line item or the discount drifted from the
+  // last-saved baseline. Gates the Save/Cancel buttons in edit mode.
+  const hasUnsavedChanges = useMemo(
+    () => savedBaseline !== null && serializeEditableState(form, items, discountEnabled, discountPercent) !== savedBaseline,
+    [savedBaseline, form, items, discountEnabled, discountPercent]
+  );
+
   const validate = () => {
     if (!form.customerName.trim()) { toast.error("Customer name is required"); return false; }
     if (!form.invoiceDate) { toast.error("Invoice date is required"); return false; }
@@ -610,6 +725,20 @@ export default function InvoiceView() {
     }
     const validItems = items.filter((i) => i.itemName.trim() && parseFloat(i.qty) > 0 && parseFloat(i.rate) > 0);
     if (validItems.length === 0) { toast.error("At least one valid item required"); return false; }
+    // Data-loss guard: handleSave() silently DROPS rows that are not fully
+    // valid, so a half-typed row (rate but no name, qty but no name, …) used to
+    // vanish the moment the user saved — with a success toast. Blocked here,
+    // naming the row, the same way empty Term lines are blocked.
+    const incompleteIdx = items.findIndex((i) => {
+      const hasName = i.itemName.trim();
+      const hasQty = parseFloat(i.qty) > 0;
+      const hasRate = parseFloat(i.rate) > 0;
+      return (hasName || hasQty || hasRate) && !(hasName && hasQty && hasRate);
+    });
+    if (incompleteIdx !== -1) {
+      toast.error(`Row ${incompleteIdx + 1} is incomplete — fill its name, qty and rate, or remove it`);
+      return false;
+    }
     // Tax mode vs GST rules: conflicting selections require an explicit
     // override — never a silent switch behind the user's back.
     if (!taxValidation.ok && !window.confirm(`${taxValidation.message}\n\nSave with this tax mode anyway?`)) {
@@ -639,6 +768,30 @@ export default function InvoiceView() {
       name: form.customerName, phone: form.customerPhone, email: form.customerEmail,
       billingAddress: form.billingAddress, gstIn: form.customerGstIn,
     };
+  };
+
+  // Freeze the current (last-saved) values before entering edit mode.
+  const snapshotEditable = () => {
+    editSnapshotRef.current = {
+      form: { ...form },
+      items: items.map((i) => ({ ...i })),
+      discountEnabled,
+      discountPercent,
+    };
+  };
+
+  // Cancel: put the frozen values back. The read-only view then shows exactly
+  // what was last saved, and hasUnsavedChanges recomputes to false.
+  const cancelEditing = () => {
+    const snap = editSnapshotRef.current;
+    if (snap) {
+      setForm(snap.form);
+      setItems(snap.items);
+      setDiscountEnabled(snap.discountEnabled);
+      setDiscountPercent(snap.discountPercent);
+      setDiscountDirty(false);
+    }
+    setIsEditing(false);
   };
 
   const handleSave = async () => {
@@ -681,6 +834,10 @@ export default function InvoiceView() {
       toast.success("Invoice updated successfully");
       setIsEditing(false);
       setDiscountDirty(false);
+      // What was just written is the new saved baseline, so Save/Cancel go
+      // back to disabled until the next real edit.
+      setSavedBaseline(serializeEditableState(form, items, discountEnabled, discountPercent));
+      editSnapshotRef.current = { form: { ...form }, items: items.map((i) => ({ ...i })), discountEnabled, discountPercent };
       return true;
     } catch (err) {
       const msg = err.response?.data?.message || err.response?.data?.error || "Failed to update invoice";
@@ -826,94 +983,10 @@ export default function InvoiceView() {
 
   // Opens the zoomable document INSTANTLY — no PDF bytes are built here. The
   // modal renders the live invoice inside DocZoomSurface (pinch/pan/zoom); the
-  // PDF blob is only built on demand for Print (printFromPreview) or Download.
+  // PDF blob is only built on demand for Download.
   const viewPDF = async () => {
     if (!(await persistDiscount())) return;
     setShowPdfPreview(true);
-  };
-
-  // Builds a fresh PDF blob and hands it to the printer. Called from the
-  // preview modal's Print button (the modal itself holds no blob any more).
-  const printFromPreview = async () => {
-    if (busyAction) return;
-    setBusyAction("print-preview");
-    try {
-      const { buildInvoicePdf } = await import("../utils/invoicePdf");
-      const captureRef = await mountCapture(invoiceType);
-      const pdf = await buildInvoicePdf(captureRef.current, previewPaperSize);
-      const blobUrl = URL.createObjectURL(pdf.output("blob"));
-      printPdfUrl(blobUrl);
-      // The hidden iframe keeps the blob alive while the print dialog is open.
-      setTimeout(() => URL.revokeObjectURL(blobUrl), 120000);
-    } catch {
-      toast.error("Failed to generate the PDF for printing");
-    } finally {
-      releaseCapture();
-      setBusyAction("");
-    }
-  };
-
-  // Sends a PDF blob URL to the printer.
-  //  - Android / desktop: a hidden iframe calls print() on the PDF document
-  //    itself, so the dialog previews and prints the PDF — never the app page.
-  //  - iOS Safari has no programmatic print for a PDF (window.print() is a
-  //    no-op; a PDF inside an iframe prints the surrounding page — which is
-  //    exactly how users used to get a clipped screenshot of the app). The
-  //    reliable iOS route is Safari's own PDF viewer: open the file there and
-  //    Share -> Print prints the actual PDF.
-  const printPdfUrl = (url) => {
-    if (!url) return;
-    const isIOS =
-      /iPad|iPhone|iPod/.test(navigator.userAgent) ||
-      (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-    if (isIOS) {
-      const isStandalone =
-        navigator.standalone === true ||
-        (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches);
-      const openInSafari = (href) => {
-        if (isStandalone) {
-          // blob: URLs don't survive the jump into Safari from a home-screen
-          // app; convert to a self-contained data: URL first.
-          toast("PDF opened in Safari — tap Share, then Print");
-          window.location.href = href;
-          return;
-        }
-        // Popup blockers allow this only during the click, and PDF generation
-        // is async — so try a window first and fall back to same-tab.
-        if (!window.open(href, "_blank")) window.location.href = href;
-        toast("PDF opened — tap Share, then Print");
-      };
-      if (isStandalone) {
-        fetch(url)
-          .then((r) => r.blob())
-          .then((blob) => {
-            const reader = new FileReader();
-            reader.onload = () => openInSafari(reader.result);
-            reader.readAsDataURL(blob);
-          })
-          .catch(() => openInSafari(url));
-        return;
-      }
-      openInSafari(url);
-      return;
-    }
-    const iframe = document.createElement("iframe");
-    iframe.setAttribute("title", "Print invoice PDF");
-    iframe.style.cssText =
-      "position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden;";
-    iframe.src = url;
-    iframe.onload = () => {
-      try {
-        iframe.contentWindow.focus();
-        iframe.contentWindow.print();
-      } catch {
-        // cross-viewers that block scripted print: hand the PDF to the user
-        window.open(url, "_blank");
-      }
-      // keep the frame alive while the print dialog is open, then clean up
-      setTimeout(() => iframe.remove(), 60 * 1000);
-    };
-    document.body.appendChild(iframe);
   };
 
   if (loading) {
@@ -983,13 +1056,13 @@ export default function InvoiceView() {
           />
         </div>
       )}
-      <div className="max-w-[1900px] mx-auto px-4 sm:px-5 lg:px-6 py-3 sm:py-4 lg:py-5">
+      <div className="max-w-[1900px] mx-auto w-full px-4 sm:px-5 lg:px-6 py-3 sm:py-4 lg:py-5 xl:flex xl:flex-1 xl:min-h-0 xl:flex-col">
         {/* In-flow header (same pattern as the View Invoices list page) — it
             scrolls away with the content instead of staying pinned; the user
             simply scrolls up to reach Back / WhatsApp. Previously it was
             position:fixed below the navbar, which slid under the navbar on
             mobile scroll-up (iOS Safari) and needed a compensating spacer. */}
-        <div className="mb-6 border-b border-slate-200/60 lg:border-0 py-2 lg:py-0 flex items-center justify-between">
+        <div className="mb-6 border-b border-slate-200/60 lg:border-0 py-2 lg:py-0 flex items-center justify-between shrink-0">
           <div className="w-full flex items-center justify-between">
           <PageHeader title="View Invoice" backTo="/invoices" className="" />
           <div className="flex items-center gap-2">
@@ -1006,8 +1079,11 @@ export default function InvoiceView() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.34fr)] side-fixed-grid gap-6">
-          <div className="space-y-6">
+        {/* Two columns in BOTH modes: the right rail (Discount / Company
+            Stamp / Actions) stays visible while editing — the Actions card
+            carries Save/Cancel in edit mode. */}
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.34fr)] side-fixed-grid">
+          <div ref={leftPaneRef} className="space-y-6">
             {/* Seller & Buyer Info */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 sm:p-6">
@@ -1023,18 +1099,22 @@ export default function InvoiceView() {
                         <InfoRow label="Phone" value={business.phone} />
                         <InfoRow label="Email" value={business.email} />
                         {business.addressLine1 && <p className="text-xs text-slate-500 mt-1">{business.addressLine1}{business.city ? `, ${business.city}` : ""}{business.state ? `, ${business.state}` : ""}{business.pincode ? ` - ${business.pincode}` : ""}</p>}
+                        {/* UPI QR — centered under the seller's address: scanning
+                            it opens the UPI app with the grand total and the
+                            invoice reference already set. */}
+                        {business.upiId && (
+                          <div className="flex flex-col items-center mt-4 pt-4 border-t border-slate-100">
+                            <div className="flex items-start justify-center gap-2 mb-2 min-w-0">
+                              <Smartphone className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                              <span className="text-xs font-medium text-emerald-700 text-center [overflow-wrap:anywhere]">{breakAtGroups(`Pay via UPI — Rs. ${fmt(totals.grandTotal)}`)}</span>
+                            </div>
+                            <div className="bg-white p-2 rounded-lg border border-slate-200 inline-flex overflow-hidden">
+                              <QRCodeSVG value={`upi://pay?pa=${business.upiId}&pn=${encodeURIComponent(business.businessName || "")}&am=${totals.grandTotal.toFixed(2)}&tr=${encodeURIComponent(form.invoiceNumber)}&tn=${encodeURIComponent(`${form.invoiceNumber || ""} ${form.invoiceDate || ""}`.trim())}&cu=INR`} size={124} className="max-w-full h-auto" />
+                            </div>
+                            <p className="text-[10px] text-slate-400 mt-1.5 text-center">Scan with any UPI app{form.invoiceNumber ? ` · ${form.invoiceNumber}` : ""}{form.invoiceDate ? ` · ${form.invoiceDate}` : ""}</p>
+                          </div>
+                        )}
                       </div>
-                      {business.upiId && (
-                        <div className="mt-3 pt-3 border-t border-slate-100 flex flex-col items-center sm:items-start">
-                          <div className="flex items-center gap-2 mb-2">
-                            <Smartphone className="w-3.5 h-3.5 text-emerald-600" />
-                            <span className="text-xs font-medium text-emerald-700">Pay via UPI</span>
-                          </div>
-                          <div className="bg-white p-1.5 rounded-lg border border-slate-200 inline-flex overflow-hidden min-w-0">
-                            <QRCodeSVG value={`upi://pay?pa=${business.upiId}&pn=${encodeURIComponent(business.businessName || "")}&am=${totals.grandTotal.toFixed(2)}&tr=${encodeURIComponent(form.invoiceNumber)}&tn=${encodeURIComponent(form.invoiceNumber)}&cu=INR`} size={70} className="max-w-full h-auto" />
-                          </div>
-                        </div>
-                      )}
                     </div>
                   ) : (
                   <p className="text-sm text-slate-400">Business details not available</p>
@@ -1099,7 +1179,7 @@ export default function InvoiceView() {
                         onChange={handleFieldChange}
                         className={inputClass + " font-mono"} placeholder="Enter invoice number" />
                     ) : (
-                      <input value={form.invoiceNumber} disabled className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm bg-slate-50 text-slate-500 font-mono" />
+                      <input value={form.invoiceNumber} disabled className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs bg-slate-50 text-slate-500 font-mono" />
                     )}
                   </div>
                   <div>
@@ -1180,7 +1260,19 @@ export default function InvoiceView() {
                     (inter-state), OFF = CGST + SGST/UTGST (intra-state); a rule
                     conflict warns but never silently changes the selection. */}
                 <div>
-                  <label className={labelClass} id="tax-mode-label-view">Tax Mode <span className="normal-case font-normal text-slate-400">(GST)</span></label>
+                  <label className={labelClass} id="tax-mode-label-view">Tax Mode <span className="normal-case font-normal text-slate-400">(GST)</span>
+                    {/* Rules tooltip — same as the create form: hover or focus
+                        (tap on touch) reveals the GST explanation. */}
+                    <span className="relative ml-1 inline-flex align-middle group/ttip">
+                      <button type="button" aria-label="Tax mode rules"
+                        className="inline-flex rounded-full focus:outline-none focus:ring-2 focus:ring-slate-400/30">
+                        <Info className={`w-3.5 h-3.5 ${taxValidation.level === "warning" ? "text-amber-500" : "text-slate-400"} group-hover/ttip:text-slate-600 group-focus-within/ttip:text-slate-600`} />
+                      </button>
+                      <span className="pointer-events-none absolute left-1/2 top-full z-30 mt-1.5 w-60 -translate-x-1/2 rounded-lg bg-slate-900 px-3 py-2 text-[11px] font-normal leading-snug text-white normal-case opacity-0 shadow-lg transition-opacity group-hover/ttip:opacity-100 group-focus-within/ttip:opacity-100">
+                        {taxValidation.message || "Inter-state supplies use IGST; intra-state use CGST + SGST/UTGST."}
+                      </span>
+                    </span>
+                  </label>
                   <button
                     type="button"
                     role="switch"
@@ -1193,20 +1285,11 @@ export default function InvoiceView() {
                     }`}>
                     <span className="text-sm font-medium text-slate-700">IGST</span>
                     <span className="flex items-center gap-2">
-                      <span className={`text-[11px] font-semibold ${form.taxMode === "IGST" ? "text-emerald-600" : "text-slate-500"}`}>
-                        {form.taxMode === "IGST" ? "ON · IGST" : "OFF · CGST + SGST"}
-                      </span>
                       <span className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${form.taxMode === "IGST" ? "bg-emerald-500" : "bg-slate-300"}`}>
                         <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${form.taxMode === "IGST" ? "translate-x-4" : "translate-x-0.5"}`} />
                       </span>
                     </span>
                   </button>
-                  <p className={`mt-1.5 text-[11px] leading-snug ${
-                    taxValidation.level === "warning" ? "text-amber-600 font-medium"
-                      : taxValidation.level === "info" ? "text-slate-500 italic" : "text-slate-500"
-                  }`}>
-                    {taxValidation.message || "Inter-state supplies use IGST; intra-state use CGST + SGST/UTGST."}
-                  </p>
                 </div>
                 {/* Reference / delivery rows the PDF already prints — view ≡ PDF */}
                 <div>
@@ -1294,7 +1377,14 @@ export default function InvoiceView() {
                   </div>}
                   <div>
                     <label className={labelClass}>Tax Mode</label>
-                    <p className="text-sm text-slate-800">{form.taxMode === "IGST" ? "IGST (inter-state)" : "CGST + SGST/UTGST (intra-state)"}</p>
+                    {/* Qualifier on its own line: "CGST + SGST/UTGST (intra-state)"
+                        on one line crowds the 4-column details grid. */}
+                    <p className="text-sm text-slate-800">
+                      {form.taxMode === "IGST" ? "IGST" : "CGST + SGST/UTGST"}
+                      <span className="block text-xs text-slate-400">
+                        {form.taxMode === "IGST" ? "(inter-state)" : "(intra-state)"}
+                      </span>
+                    </p>
                   </div>
                   {/* Reference / delivery rows the PDF already prints — view ≡ PDF */}
                   {form.referenceNumber && <div>
@@ -1328,174 +1418,21 @@ export default function InvoiceView() {
               )}
             </div>
 
-            {/* Items */}
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 sm:p-6">
-              <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
-                <div className="flex items-center gap-2.5">
-                  <Package className="w-4 h-4 text-slate-600" />
-                  <h2 className="text-sm font-bold text-slate-800">Items</h2>
-                  {isConstruction && !isEditing && form.billingMode && form.billingMode !== "ITEMIZED" && (
-                    <span className="text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded-full bg-blue-50 text-blue-600 border border-blue-100">
-                      {form.billingMode === "COMPLETE_PROJECT" ? "Complete Project Cost" : form.billingMode}
-                    </span>
-                  )}
-                  {isConstruction && isEditing && (
-                    <select name="billingMode" value={form.billingMode || "ITEMIZED"} onChange={handleFieldChange}
-                      title="Billing mode"
-                      className="ml-2 text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-white text-slate-600 focus:outline-none focus:border-slate-400">
-                      <option value="ITEMIZED">Itemized Cost Breakdown</option>
-                      <option value="COMPLETE_PROJECT">Complete Project Cost</option>
-                    </select>
-                  )}
-                </div>
-                {isEditing && (
-                  <button onClick={addItem}
-                    className="flex items-center gap-1.5 text-xs font-semibold px-4 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-700 transition-all shadow-sm min-h-[44px]">
-                    <Plus className="w-3.5 h-3.5" /> Add Item
-                  </button>
-                )}
-              </div>
-
-              {/* Desktop table */}
-              <div className="hidden md:block border border-slate-200 rounded-lg overflow-x-auto">
-                <table className="w-full text-sm border-collapse">
-                  <thead>
-                    <tr className="bg-slate-800">
-                      <th className="text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">#</th>
-                      <th className="text-white text-xs font-semibold py-3.5 px-3 text-left whitespace-nowrap">{labelFor("itemName", "Description")}</th>
-                      {showHnSac && <th className="text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">HSN/SAC</th>}
-                      <th className="text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">Qty</th>
-                      <th className="text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">Rate</th>
-                      <th className="text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">GST %</th>
-                      <th className="text-white text-xs font-semibold py-3.5 px-3 text-right whitespace-nowrap">Taxable</th>
-                      <th className="text-white text-xs font-semibold py-3.5 px-3 text-right whitespace-nowrap">Tax</th>
-                      <th className="text-white text-xs font-semibold py-3.5 px-3 text-right whitespace-nowrap">Total</th>
-                      {isEditing && <th className="text-white"></th>}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {items.map((item, idx) => (
-                      <ViewItemRow key={item.id ?? idx} item={item} calc={totals.perItem[idx]} idx={idx} isEditing={isEditing} onItemChange={handleItemChange} onRemove={removeItem} onAdd={addItem} showHnSac={showHnSac} />
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Mobile cards */}
-              <div className="md:hidden space-y-3">
-                {items.map((item, idx) => (
-                  <div key={item.id ?? idx} className="bg-slate-50 rounded-lg border border-slate-200 p-3 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-slate-400">Item #{idx + 1}</span>
-                      {isEditing && (
-                        <button onClick={() => removeItem(idx)}
-                          className="p-1.5 hover:bg-red-50 rounded transition-colors text-slate-400 hover:text-red-500 min-h-[44px] min-w-[44px] flex items-center justify-center">
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      )}
-                    </div>
-                    {isEditing ? (
-                      <>
-                        <div>
-                          <label className="text-[10px] font-semibold text-slate-500 uppercase">{labelFor("itemName", "Description")}</label>
-                          <input type="text" value={item.itemName}
-                            onChange={(e) => handleItemChange(idx, "itemName", e.target.value)}
-                            className="w-full px-3 py-2 border border-slate-200 rounded text-sm bg-white min-h-[44px]" placeholder="Item name" />
-                        </div>
-                        <div className={showHnSac ? "grid grid-cols-2 gap-2" : "grid grid-cols-1 gap-2"}>
-                          {showHnSac && (
-                          <div>
-                            <label className="text-[10px] font-semibold text-slate-500 uppercase">HSN/SAC</label>
-                            <input type="text" value={item.hsn}
-                              onChange={(e) => handleItemChange(idx, "hsn", e.target.value)}
-                              className="w-full px-3 py-2 border border-slate-200 rounded text-sm bg-white font-mono min-h-[44px]" />
-                          </div>
-                          )}
-                          <div>
-                            <label className="text-[10px] font-semibold text-slate-500 uppercase">GST %</label>
-                            <input type="number" step="0.01" min="0" max="100" value={item.gstPercentage}
-                              onChange={(e) => handleItemChange(idx, "gstPercentage", e.target.value)}
-                              inputMode="decimal"
-                              className="w-full px-3 py-2 border border-slate-200 rounded text-sm text-right bg-white font-mono min-h-[44px]" />
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-3 gap-2">
-                          <div>
-                            <label className="text-[10px] font-semibold text-slate-500 uppercase">Qty</label>
-                            <input type="number" step="0.01" min="0" value={item.qty}
-                              onChange={(e) => handleItemChange(idx, "qty", e.target.value)}
-                              inputMode="decimal"
-                              className="w-full px-3 py-2 border border-slate-200 rounded text-sm text-right bg-white font-mono min-h-[44px]" />
-                          </div>
-                          <div>
-                            <label className="text-[10px] font-semibold text-slate-500 uppercase">Rate</label>
-                            <input type="number" step="0.01" min="0" value={item.rate}
-                              onChange={(e) => handleItemChange(idx, "rate", e.target.value)}
-                              inputMode="decimal"
-                              className="w-full px-3 py-2 border border-slate-200 rounded text-sm text-right bg-white font-mono min-h-[44px]" />
-                          </div>
-                          <div>
-                            <label className="text-[10px] font-semibold text-slate-500 uppercase">Total</label>
-                            <div className="w-full px-3 py-2 border border-slate-200 rounded text-sm text-right bg-slate-100 font-mono min-h-[44px] flex items-center justify-end text-slate-700">
-                              Rs. {fmt(item.total)}
-                            </div>
-                          </div>
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <div className="text-sm font-medium text-slate-800">{item.itemName}</div>
-                        <div className="grid grid-cols-3 gap-2 text-xs">
-                          {showHnSac && <div><span className="text-slate-400">HSN:</span> <span className="font-mono">{item.hsn || "-"}</span></div>}
-                          <div><span className="text-slate-400">Qty:</span> <span className="font-mono">{item.qty}</span></div>
-                          <div><span className="text-slate-400">Rate:</span> <span className="font-mono">{fmt(item.rate)}</span></div>
-                          <div><span className="text-slate-400">GST:</span> <span className="font-mono">{item.gstPercentage}%</span></div>
-                          <div className="col-span-2"><span className="text-slate-400">Total:</span> <span className="font-mono font-semibold">{fmt(item.total)}</span></div>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                ))}
-              </div>
-
-              <div className="flex justify-end mt-4 pt-3 border-t border-slate-200">
-                <div className="w-full sm:w-72 space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-slate-500">Subtotal:</span>
-                    <span className="font-mono font-medium text-slate-700">Rs. {fmt(totals.subtotal)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-slate-500">Tax Amount:</span>
-                    <span className="font-mono font-medium text-slate-700">Rs. {fmt(totals.taxAmount)}</span>
-                  </div>
-                  <div className="flex justify-between text-base font-bold pt-2 border-t-2 border-slate-800">
-                    <span className="text-slate-800">Grand Total:</span>
-                    <span className="font-mono text-slate-800">Rs. {fmt(totals.grandTotal)}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Notes */}
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 sm:p-6">
-              <h2 className="text-sm font-bold text-slate-800 mb-3">Notes</h2>
-              {isEditing ? (
-                <textarea name="notes" value={form.notes} onChange={handleFieldChange}
-                  rows={2} className={inputClass + " resize-none"} placeholder="Additional notes..." />
-              ) : form.notes ? (
-                <p className="text-sm text-slate-600">{form.notes}</p>
-              ) : (
-                <p className="text-sm text-slate-400 italic">No notes</p>
-              )}
-            </div>
           </div>
 
-          {/* Right Sidebar */}
-          <div className="space-y-4 side-fixed">
+          {/* Right Sidebar — visible in BOTH modes (the Actions card switches
+              to Save/Cancel while editing). Stacks below the content below xl;
+              cards sit side-by-side there via the responsive grid. */}
+          <div ref={rightPaneRef} className="order-3 xl:order-none grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-1 xl:content-start items-start side-fixed">
+            {/* Discount + Company Stamp are EDIT-ONLY controls: set them here,
+                save, then come back and download — the read-only rail keeps
+                just the actions and the invoice facts. */}
+            {isEditing && (
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Discount</h3>
-                <button onClick={() => {
+                <button type="button" role="switch" aria-checked={discountEnabled} aria-label="Invoice discount"
+                  onClick={() => {
                   const next = !discountEnabled;
                   setDiscountEnabled(next);
                   if (!next) setDiscountPercent("");
@@ -1508,12 +1445,10 @@ export default function InvoiceView() {
               {discountEnabled && (
                 <div className="flex items-center gap-2">
                   <input
-                    type="number"
-                    min="0"
-                    max="100"
+                    type="text"
                     value={discountPercent}
                     onChange={(e) => {
-                      setDiscountPercent(e.target.value);
+                      setDiscountPercent(e.target.value.replace(/[^0-9]/g, "").slice(0, 3));
                       setDiscountDirty(true);
                     }}
                     inputMode="numeric"
@@ -1529,6 +1464,7 @@ export default function InvoiceView() {
                 </div>
               )}
             </div>
+            )}
             {sealEnabled && (
               <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
                 <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Company Stamp</h3>
@@ -1558,17 +1494,17 @@ export default function InvoiceView() {
                 </div>
               </div>
             )}
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 sticky top-6">
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
               <h2 className="text-sm font-bold text-slate-800 mb-4 pb-3 border-b border-slate-100">Actions</h2>
               <div className="flex flex-col sm:flex-row xl:flex-col gap-2 sm:flex-wrap">
                 {isEditing ? (
                   <>
-                    <button onClick={handleSave} disabled={saving}
-                      className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-800 text-white text-sm font-semibold rounded-lg hover:bg-slate-700 disabled:opacity-50 transition-all shadow-sm">
+                    <button onClick={handleSave} disabled={saving || !hasUnsavedChanges}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-800 text-white text-sm font-semibold rounded-lg hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm">
                       {saving ? <LoadingDots className="text-white" /> : <Save className="w-4 h-4" />}
                       {saving ? "Saving..." : "Save"}
                     </button>
-                    <button onClick={() => setIsEditing(false)}
+                    <button onClick={cancelEditing}
                       className="w-full flex items-center justify-center gap-2 px-4 py-2.5 border border-slate-300 text-slate-700 text-sm font-semibold rounded-lg hover:bg-slate-50 transition-all">
                       <X className="w-4 h-4" /> Cancel
                     </button>
@@ -1576,12 +1512,12 @@ export default function InvoiceView() {
                 ) : null}
                 {!isEditing && (
                   <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
-                    <button onClick={() => setIsEditing(true)} title="Edit invoice"
+                    <button onClick={() => { snapshotEditable(); setIsEditing(true); }} title="Edit invoice"
                       className="min-w-0 flex items-center justify-center gap-1 sm:gap-1.5 px-1.5 sm:px-3 py-2.5 bg-slate-800 text-white rounded-lg hover:bg-slate-700 transition-all shadow-sm">
                       <Edit3 className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
                       <span className="text-xs sm:text-sm font-semibold whitespace-nowrap">Edit</span>
                     </button>
-                    <button onClick={() => viewPDF(invoiceType)} disabled={sealRequired || !!busyAction} title="View PDF"
+                    <button onClick={() => viewPDF()} disabled={sealRequired || !!busyAction} title="View PDF"
                       className="min-w-0 flex items-center justify-center gap-1 sm:gap-1.5 px-1.5 sm:px-3 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-all shadow-sm">
                       <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
                       <span className="text-xs sm:text-sm font-semibold whitespace-nowrap">View</span>
@@ -1687,34 +1623,244 @@ export default function InvoiceView() {
                     <span className="text-slate-500">Items:</span>
                     <span className="font-semibold text-slate-800">{validItemsCount}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Subtotal:</span>
-                    <span className="font-mono text-slate-700">Rs. {fmt(totals.subtotal)}</span>
+                  <div className="flex justify-between gap-2">
+                    <span className="text-slate-500 shrink-0">Subtotal:</span>
+                    <span className="font-mono text-slate-700 text-right [overflow-wrap:anywhere]">{breakAtGroups(`Rs. ${fmt(totals.subtotal)}`)}</span>
                   </div>
                   {discountEnabled && discountVal > 0 && (
                     <div className="flex justify-between text-emerald-600">
                       <span>Discount ({discountVal}%):</span>
-                      <span className="font-mono">-Rs. {fmt(totals.discountAmount)}</span>
+                      <span className="font-mono text-right [overflow-wrap:anywhere]">{breakAtGroups(`-Rs. ${fmt(totals.discountAmount)}`)}</span>
                     </div>
                   )}
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Taxable Amount:</span>
-                    <span className="font-mono text-slate-700">Rs. {fmt(totals.taxableAmount)}</span>
+                  <div className="flex justify-between gap-2">
+                    <span className="text-slate-500 shrink-0">Taxable Amount:</span>
+                    <span className="font-mono text-slate-700 text-right [overflow-wrap:anywhere]">{breakAtGroups(`Rs. ${fmt(totals.taxableAmount)}`)}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Tax:</span>
-                    <span className="font-mono text-slate-700">Rs. {fmt(totals.taxAmount)}</span>
+                  <div className="flex justify-between gap-2">
+                    <span className="text-slate-500 shrink-0">Tax:</span>
+                    <span className="font-mono text-slate-700 text-right [overflow-wrap:anywhere]">{breakAtGroups(`Rs. ${fmt(totals.taxAmount)}`)}</span>
                   </div>
-                  <div className="flex justify-between font-bold text-slate-800 pt-2 border-t border-slate-200">
-                    <span>Total:</span>
-                    <span className="font-mono">Rs. {fmt(totals.grandTotal)}</span>
+                  <div className="flex justify-between gap-2 font-bold text-slate-800 pt-2 border-t border-slate-200">
+                    <span className="shrink-0">Total:</span>
+                    <span className="font-mono text-right [overflow-wrap:anywhere]">{breakAtGroups(`Rs. ${fmt(totals.grandTotal)}`)}</span>
                   </div>
                 </div>
               </div>
             </div>
           </div>
+          {/* Items — a grid child so mobile can reorder it ABOVE the rail:
+              on phones/tablets the order is Seller/Details → Items (with the
+              Grand Total) → Company Stamp/Actions; at xl it spans both
+              columns below them (order reset, visual identical to before). */}
+              <div className="w-full order-2 xl:order-none xl:col-span-2 bg-white rounded-xl shadow-sm border border-slate-200 p-4 sm:p-6">
+                <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
+                  <div className="flex items-center gap-2.5">
+                    <Package className="w-4 h-4 text-slate-600" />
+                    <h2 className="text-sm font-bold text-slate-800">Items</h2>
+                    {isConstruction && !isEditing && form.billingMode && form.billingMode !== "ITEMIZED" && (
+                      <span className="text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded-full bg-blue-50 text-blue-600 border border-blue-100">
+                        {form.billingMode === "COMPLETE_PROJECT" ? "Complete Project Cost" : form.billingMode}
+                      </span>
+                    )}
+                    {isConstruction && isEditing && (
+                      <select name="billingMode" value={form.billingMode || "ITEMIZED"} onChange={handleFieldChange}
+                        title="Billing mode"
+                        className="ml-2 text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-white text-slate-600 focus:outline-none focus:border-slate-400">
+                        <option value="ITEMIZED">Itemized Cost Breakdown</option>
+                        <option value="COMPLETE_PROJECT">Complete Project Cost</option>
+                      </select>
+                    )}
+                  </div>
+                  {isEditing && (
+                    <button onClick={addItem}
+                      className="flex items-center gap-1.5 text-xs font-semibold px-4 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-700 transition-all shadow-sm min-h-[44px]">
+                      <Plus className="w-3.5 h-3.5" /> Add Item
+                    </button>
+                  )}
+                </div>
+
+                {/* Desktop table — fixed layout in BOTH modes, so no column can
+                    stretch the table: the description wraps, and the money
+                    columns keep their share. Editing gets its own shares sized
+                    for TYPING: every input shows 4+ digits (qty/rate/gst/hsn)
+                    and the description 25+ letters, at any width from md to a
+                    15.5" screen. The 850px min-width guarantees those minimums
+                    on the md→lg range — below it the wrapper scrolls as the
+                    deliberate fallback instead of crushing the inputs. */}
+                <div className={`hidden md:block border border-slate-200 rounded-lg ${isEditing ? "overflow-x-auto lg:overflow-x-hidden xl:overflow-hidden" : "overflow-hidden"}`}>
+                  <table className={`w-full text-sm border-collapse table-fixed ${isEditing ? "min-w-[780px]" : ""}`}>
+                    <colgroup>
+                      {/* # is floored at 44px (min-w on th/td below) so 3-digit row
+                          numbers never wrap — percentage alone (~3%) is too narrow
+                          once padding is paid. Description funds the difference. */}
+                      <col style={{ width: "6%" }} />
+                      <col style={{ width: isEditing ? (showHnSac ? "20.5%" : "29.5%") : (showHnSac ? "29%" : "38%") }} />
+                      {showHnSac && <col style={{ width: isEditing ? "8%" : "9%" }} />}
+                      <col style={{ width: isEditing ? "14%" : "8%" }} />
+                      <col style={{ width: isEditing ? "8%" : "10%" }} />
+                      <col style={{ width: isEditing ? "8.5%" : "7%" }} />
+                      <col style={{ width: isEditing ? "9.75%" : "11%" }} />
+                      <col style={{ width: isEditing ? "9.75%" : "11%" }} />
+                      <col style={{ width: isEditing ? "9.75%" : "11%" }} />
+                      {isEditing && <col style={{ width: "5.75%" }} />}
+                    </colgroup>
+                    <thead>
+                      <tr className="bg-slate-800">
+                        <th className="text-white text-xs font-semibold py-3.5 px-2 text-center whitespace-nowrap w-[44px] min-w-[44px]">#</th>
+                        <th className="text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">{labelFor("itemName", "Description")}</th>
+                        {showHnSac && <th className="text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">HSN/SAC</th>}
+                        <th className="text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">Qty</th>
+                        <th className="text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">Rate</th>
+                        <th className="text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">GST %</th>
+                        <th className="text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">Taxable</th>
+                        <th className="text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">Tax</th>
+                        {/* Centered over its column; the values keep text-right
+                            with pr-6 so amounts stay clear of the border. */}
+                        <th className="text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">Total</th>
+                        {isEditing && <th className="text-white"></th>}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {items.map((item, idx) => (
+                        <ViewItemRow key={item.id ?? idx} item={item} calc={totals.perItem[idx]} idx={idx} isEditing={isEditing} onItemChange={handleItemChange} onRemove={removeItem} onAddRowAndFocus={addRowAndFocus} showHnSac={showHnSac} />
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="md:hidden space-y-3">
+                  {items.map((item, idx) => (
+                    <div key={item.id ?? idx} className="bg-slate-50 rounded-lg border border-slate-200 p-3 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-400">Item #{idx + 1}</span>
+                        {isEditing && (
+                          <button type="button" onClick={() => removeItem(idx)} aria-label={`Remove item ${idx + 1}`}
+                            className="p-1.5 hover:bg-red-50 rounded transition-colors text-slate-400 hover:text-red-500 min-h-[44px] min-w-[44px] flex items-center justify-center">
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                      {isEditing ? (
+                        <>
+                          <div>
+                            <label className="text-[10px] font-semibold text-slate-500 uppercase">{labelFor("itemName", "Description")}</label>
+                            <input type="text" value={item.itemName}
+                              onChange={(e) => handleItemChange(idx, "itemName", e.target.value)}
+                              className="w-full px-3 py-2 border border-slate-200 rounded text-sm bg-white min-h-[44px]" placeholder="Item name" />
+                          </div>
+                          <div className={showHnSac ? "grid grid-cols-2 gap-2" : "grid grid-cols-1 gap-2"}>
+                            {showHnSac && (
+                            <div>
+                              <label className="text-[10px] font-semibold text-slate-500 uppercase">HSN/SAC</label>
+                              <input type="text" value={item.hsn}
+                                onChange={(e) => handleItemChange(idx, "hsn", e.target.value)}
+                                className="w-full px-3 py-2 border border-slate-200 rounded text-sm bg-white font-mono min-h-[44px]" />
+                            </div>
+                            )}
+                            <div>
+                              <label className="text-[10px] font-semibold text-slate-500 uppercase">GST %</label>
+                              <input type="text" value={item.gstPercentage}
+                                onChange={(e) => handleItemChange(idx, "gstPercentage", e.target.value)}
+                                inputMode="decimal"
+                                className="w-full px-3 py-2 border border-slate-200 rounded text-sm text-right bg-white font-mono min-h-[44px]" />
+                            </div>
+                          </div>
+                          {/* Qty + Rate split the width 50/50; Total always gets
+                              its own full-width line below them. */}
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <label className="text-[10px] font-semibold text-slate-500 uppercase">Qty</label>
+                              <input type="text" value={item.qty}
+                                onChange={(e) => handleItemChange(idx, "qty", e.target.value)}
+                                inputMode="numeric"
+                                className="w-full px-3 py-2 border border-slate-200 rounded text-sm text-right bg-white font-mono min-h-[44px]" />
+                            </div>
+                            <div>
+                              <label className="text-[10px] font-semibold text-slate-500 uppercase">Rate</label>
+                              <input type="text" value={item.rate}
+                                onChange={(e) => handleItemChange(idx, "rate", e.target.value)}
+                                inputMode="decimal"
+                                className="w-full px-3 py-2 border border-slate-200 rounded text-sm text-right bg-white font-mono min-h-[44px]" />
+                            </div>
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-semibold text-slate-500 uppercase">Total</label>
+                            <div className="w-full px-3 py-2 border border-slate-200 rounded text-sm text-right bg-slate-100 font-mono min-h-[44px] flex items-center justify-end text-slate-700">
+                              Rs. {fmt(item.total)}
+                            </div>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="text-sm font-medium text-slate-800">{item.itemName}</div>
+                          <div className="grid grid-cols-3 gap-2 text-xs">
+                            {showHnSac && <div><span className="text-slate-400">HSN:</span> <span className="font-mono">{item.hsn || "-"}</span></div>}
+                            <div><span className="text-slate-400">Qty:</span> <span className="font-mono">{item.qty}</span></div>
+                            <div><span className="text-slate-400">Rate:</span> <span className="font-mono">{fmt(item.rate)}</span></div>
+                            <div><span className="text-slate-400">GST:</span> <span className="font-mono">{item.gstPercentage}%</span></div>
+                            <div className="col-span-2"><span className="text-slate-400">Total:</span> <span className="font-mono font-semibold">{fmt(item.total)}</span></div>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <div className="flex justify-end mt-4 pt-3 border-t border-slate-200">
+                  <div className="w-full sm:w-72 space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-slate-500">Subtotal:</span>
+                      <span className="font-mono font-medium text-slate-700">Rs. {fmt(totals.subtotal)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-slate-500">Tax Amount:</span>
+                      <span className="font-mono font-medium text-slate-700">Rs. {fmt(totals.taxAmount)}</span>
+                    </div>
+                    <div className="flex justify-between text-base font-bold pt-2 border-t-2 border-slate-800">
+                      <span className="text-slate-800">Grand Total:</span>
+                      <span className="font-mono text-slate-800">Rs. {fmt(totals.grandTotal)}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
         </div>
+        {/* Terms & Conditions — the last card on the page, below the UPI +
+            Business strip (Settings owns the data; this page renders it). */}
+        <TermsCard business={business} className="w-full my-6 p-4 sm:p-6" />
+
+        {/* Notes — below Terms & Conditions at the page end. */}
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 sm:p-6">
+          <h2 className="text-sm font-bold text-slate-800 mb-3">Notes</h2>
+          {isEditing ? (
+            <textarea name="notes" value={form.notes} onChange={handleFieldChange}
+              rows={2} className={inputClass + " resize-none"} placeholder="Additional notes..." />
+          ) : form.notes ? (
+            <p className="text-sm text-slate-600">{form.notes}</p>
+          ) : (
+            <p className="text-sm text-slate-400 italic">No notes</p>
+          )}
+        </div>
+
       </div>
+
+
+      {/* Floating edit actions — below xl only, where the rail stacks far
+          below the content; at xl the Actions card in the rail holds
+          Save/Cancel, so a second floating pair would be redundant. */}
+      {isEditing && (
+        <div className="xl:hidden fixed bottom-4 left-1/2 -translate-x-1/2 z-[1100] flex items-center gap-2 bg-white/95 backdrop-blur border border-slate-200 rounded-full shadow-lg px-3 py-2">
+          <button onClick={handleSave} disabled={saving || !hasUnsavedChanges}
+            className="flex items-center gap-1.5 px-4 py-1.5 bg-slate-800 text-white text-xs font-semibold rounded-full hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all">
+            {saving ? <LoadingDots className="text-white" /> : <Save className="w-3.5 h-3.5" />}
+            {saving ? "Saving..." : "Save"}
+          </button>
+          <button onClick={cancelEditing}
+            className="flex items-center gap-1.5 px-4 py-1.5 border border-slate-300 text-slate-700 text-xs font-semibold rounded-full hover:bg-slate-50 transition-all">
+            <X className="w-3.5 h-3.5" /> Cancel
+          </button>
+        </div>
+      )}
 
       {showPdfPreview && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[1200] flex items-center justify-center p-0 sm:p-4" onClick={() => setShowPdfPreview(false)}>
@@ -1734,13 +1880,6 @@ export default function InvoiceView() {
                 <button onClick={() => setShowShareSheet(true)} disabled={!!busyAction} title="Share"
                   className="flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-indigo-600 text-white text-xs sm:text-sm font-semibold rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-all shadow-sm">
                   <Share2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span className="hidden sm:inline">Share</span>
-                </button>
-                <button onClick={printFromPreview} disabled={!!busyAction} title="Print PDF"
-                  className="flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-slate-800 text-white text-xs sm:text-sm font-semibold rounded-lg hover:bg-slate-700 disabled:opacity-50 transition-all shadow-sm">
-                  {busyAction === "print-preview"
-                    ? <Spinner size={16} className="shrink-0" />
-                    : <Printer className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
-                  <span className="hidden sm:inline">Print</span>
                 </button>
                 <button onClick={() => downloadPDF(invoiceType)} disabled={sealRequired || !!busyAction} title="Download PDF"
                   className="flex items-center gap-1.5 px-3 sm:px-4 py-2 border border-slate-300 text-slate-700 text-xs sm:text-sm font-semibold rounded-lg hover:bg-slate-50 disabled:opacity-50 transition-all">

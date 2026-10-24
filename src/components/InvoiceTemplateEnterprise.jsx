@@ -5,6 +5,7 @@ import { resolveSeal } from "../utils/seal";
 import { resolveSealConfig, sealSpecAttribute } from "../utils/sealConfig";
 import { numberToWords, formatINR } from "../utils/invoiceFormat";
 import { computeInvoiceTotals } from "../utils/invoiceTotals";
+import { mobileLine } from "../utils/phoneDisplay";
 import { jurisdictionLine } from "../utils/jurisdiction";
 import { getSpecialistInLine, SPECIALIST_IN_EXTRA_H } from "../utils/specialistIn";
 import {
@@ -117,9 +118,11 @@ const Letterhead = ({ business, title, subNote, headH }) => {
   // GSTIN · phone · email share ONE contact line (the email used to start on a
   // separate line directly under the phone — that line-break is what made it
   // look pasted-on/underlined in the rendered invoice).
+  // Single contact line; the alternate mobile joins the primary after a
+  // comma ("Mob.: +91 A, +91 B") so the fixed-height letterhead never grows.
   const contact = [
     business?.gstIn ? `GSTIN: ${business.gstIn}` : "",
-    business?.phone ? `Ph: ${business.phone}` : "",
+    mobileLine(business),
     business?.email || "",
   ].filter(Boolean).join("  ·  ");
   const specialist = getSpecialistInLine(business);
@@ -658,7 +661,7 @@ const WordsStrip = ({ isProforma, words, showTax, taxAmount }) => {
 
 /* --------------------------------------------------------------- band */
 
-const BankBand = ({ business, sigSrc, isProforma, payAmount, payRef }) => (
+const BankBand = ({ business, sigSrc, isProforma, payAmount, payRef, payNote }) => (
   <div style={{
     height: M.band, boxSizing: "border-box", display: "flex",
     // The band sits directly under the words strip (whose bottom rule is its
@@ -683,7 +686,7 @@ const BankBand = ({ business, sigSrc, isProforma, payAmount, payRef }) => (
         {business?.upiId && (
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flexShrink: 0 }}>
             <QRCodeSVG
-              value={`upi://pay?pa=${business.upiId}&pn=${encodeURIComponent(business.businessName || "")}&am=${Number(payAmount || 0).toFixed(2)}&tr=${encodeURIComponent(payRef || "")}&tn=${encodeURIComponent(payRef || "")}&cu=INR`}
+              value={`upi://pay?pa=${business.upiId}&pn=${encodeURIComponent(business.businessName || "")}&am=${Number(payAmount || 0).toFixed(2)}&tr=${encodeURIComponent(payRef || "")}&tn=${encodeURIComponent(payNote || payRef || "")}&cu=INR`}
               size={66}
               style={{ display: "block" }}
             />
@@ -840,6 +843,7 @@ const EntPage = ({ pageId, showItems, sumRows, sumWithTotal, closing, chunkItems
             isProforma={shared.isProforma}
             payAmount={shared.calc.grandTotal}
             payRef={shared.displayInvNo}
+            payNote={`${shared.displayInvNo} ${shared.form?.invoiceDate || ""}`.trim()}
           />
         </>
       )}
@@ -854,7 +858,7 @@ const EntPage = ({ pageId, showItems, sumRows, sumWithTotal, closing, chunkItems
         pageNo={pageKind.pageNo}
         totalPages={pageKind.totalPages}
       />
-      {shared.sealVisible && (shared.sealAllPages || pageKind.isFirst) && (
+      {shared.sealVisible && (shared.sealAllPages || isLast) && (
         <SealOverlay business={business} type={shared.sealType} />
       )}
     </div>

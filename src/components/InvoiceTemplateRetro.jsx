@@ -5,13 +5,15 @@ import { resolveSealConfig, sealSpecAttribute } from "../utils/sealConfig";
 import { asImageSrc } from "../utils/imageSrc";
 import { numberToWords, formatINR } from "../utils/invoiceFormat";
 import { computeInvoiceTotals } from "../utils/invoiceTotals";
+import { formatPhone, ADDITIONAL_PHONE_EXTRA_H } from "../utils/phoneDisplay";
+import { parseTermsList } from "../utils/termsConditions";
 import { getSpecialistInLine, SPECIALIST_IN_EXTRA_H } from "../utils/specialistIn";
 import {
   RETRO_PAGE_METRICS,
   RETRO_CAPACITY_NOTE,
   retroCols,
   retroRuleX,
-  retroCharsPerLine,
+  retroTextArea,
   ROW_H,
   splitAmount,
   fmtQtyUnit,
@@ -43,8 +45,11 @@ const TITLE_BY_TYPE = {
 const B = "1px solid #000000";
 
 /* white space below the terms/signature band; the band's column rule runs
-   through it too so the particulars-right line meets the frame's bottom edge */
-const BOTTOM_SPACER = 28;
+   through it too so the particulars-right line meets the frame's bottom edge.
+   28 -> 12: 16px moved into the footer band so the numbered terms list fits
+   line-by-line without microscopic text — footer + spacer sum (and therefore
+   the frame height and PDF cut points) are unchanged. */
+const BOTTOM_SPACER = 12;
 
 const DOTS = ".".repeat(200);
 
@@ -130,7 +135,9 @@ const Letterhead = ({ business, title, subNote }) => {
   // The header only grows for invoices that print the optional Specialist In
   // line, so every other page keeps its exact height and PDF cut points.
   const specialist = getSpecialistInLine(business);
-  const headerH = RETRO_PAGE_METRICS.header + (specialist ? SPECIALIST_IN_EXTRA_H : 0);
+  const headerH = RETRO_PAGE_METRICS.header
+    + (specialist ? SPECIALIST_IN_EXTRA_H : 0)
+    + (business?.additionalPhone ? ADDITIONAL_PHONE_EXTRA_H : 0);
   // Proforma adds a second heading line; the header is a fixed, clipped box
   // (PDF cut points), so the company name tightens (27px / lineHeight 1) to
   // keep the untouched 112px (+18px specialist) budget.
@@ -140,8 +147,16 @@ const Letterhead = ({ business, title, subNote }) => {
     <div style={{ height: headerH, boxSizing: "border-box", borderBottom: B, padding: "7px 10px 8px", position: "relative", overflow: "hidden" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", fontSize: "12.5px", fontWeight: 700, lineHeight: 1.3 }}>
         <span>GSTIN: {business?.gstIn || "-"}</span>
-        <span style={{ textAlign: "right" }}>{business?.phone || ""}</span>
+        <span style={{ textAlign: "right" }}>{business?.phone ? formatPhone(business.phone) : ""}</span>
       </div>
+      {/* Alternate phone on its OWN line under the primary number; headerH
+          grows by ADDITIONAL_PHONE_EXTRA_H so the fixed-height letterhead
+          never clips it. */}
+      {business?.additionalPhone ? (
+        <div style={{ textAlign: "right", fontSize: "12.5px", fontWeight: 700, lineHeight: `${ADDITIONAL_PHONE_EXTRA_H}px` }}>
+          {formatPhone(business.additionalPhone)}
+        </div>
+      ) : null}
       <div style={{ position: "absolute", left: 0, right: 0, top: twoLine ? "3px" : "7px", textAlign: "center", fontSize: "14.5px", fontWeight: 700, letterSpacing: "0.6px", lineHeight: 1.3 }}>
         <span style={{ textDecoration: "underline" }}>{title}</span>
         {subNote && (
@@ -234,11 +249,20 @@ const Details = ({ invoiceNumber, form, customer }) => {
   return (
     <div>
       <DetailRow>
-        <Group grow><Field label="No.:" value={no} /></Group>
+        <span style={LABEL}>No.:</span>
+        <Group grow>
+          {no ? <FitLine base={15} min={9} text={no} style={{ ...VALUE, display: "inline-block" }} /> : <span style={VALUE}>{DOTS}</span>}
+        </Group>
         <Group><Field label="Date:" value={date} /></Group>
       </DetailRow>
+      {/* The buyer line shrink-fits like the letterhead (long customer names
+          must never clip mid-word or push the row wider), with the label kept
+          OUTSIDE the clipping box so the shrink measurement is exact. */}
       <DetailRow>
-        <Group grow><Field label="M/s:" value={party} /></Group>
+        <span style={LABEL}>M/s:</span>
+        <Group grow>
+          {party ? <FitLine base={15} min={8} text={party} style={{ ...VALUE, display: "inline-block" }} /> : <span style={VALUE}>{DOTS}</span>}
+        </Group>
       </DetailRow>
       <DetailRow last>
         <Group grow><Field label={"Party\u2019s GSTIN:"} value={gstin} /></Group>
@@ -318,10 +342,11 @@ const ItemBox = ({ pageItems, startIndex, height = RETRO_PAGE_METRICS.body, layo
   // Compact rows: natural height only (26px ≈ 5px below each line — no
   // stretching to fill the box). Rows stack from the top of the fixed box
   // and the leftover space stays as blank ruled area above the totals, like
-  // a written shop bill. The box keeps its fixed height, so PDF page cut
-  // points are unaffected; a wrapped name still grows its own row (td
-  // height acts as a minimum) and chunkRetroItems' EST_ROW estimate already
-  // budgets for that.
+  // a written shop bill. The box keeps its fixed height on EVERY page —
+  // deliberate: the frame is a fixed A4 page (never resized for content),
+  // so PDF page cut points are unaffected; a wrapped name still grows its
+  // own row (td height acts as a minimum) and chunkRetroItems' estimate
+  // already budgets for that.
   const rowH = ROW_H;
   const td = {
     padding: "4px 6px",
@@ -401,15 +426,22 @@ const Totals = ({ gross, discAmt, discPct, cgst, sgst, igst, igstMode = false, g
     textAlign: "left",
     verticalAlign: "middle",
   };
+  // Long integer parts (₹10 crore and up) wrap inside the fixed 104px Rs
+  // column at 13px and stretch the totals block past its page budget — step
+  // the money font down with the digit count so every amount stays on one
+  // line (nowrap below). Words block absorbs the length instead.
+  const moneyMaxLen = Math.max(...rows.map((r) => rs(r.val).rs.length));
+  const moneyFont = moneyMaxLen > 12 ? 10 : moneyMaxLen > 10 ? 11.5 : 13;
   const money = {
     height: `${rowH}px`,
     boxSizing: "border-box",
     borderBottom: B,
-    fontSize: "13px",
+    fontSize: `${moneyFont}px`,
     fontWeight: 700,
     padding: "0 8px",
     textAlign: "right",
     verticalAlign: "middle",
+    whiteSpace: "nowrap",
   };
   // Left "Rupees in words" cell spans every totals row; its height must equal
   // the right-side rows so the block stays a fixed pixel budget on the page.
@@ -497,16 +529,104 @@ const Totals = ({ gross, discAmt, discPct, cgst, sgst, igst, igstMode = false, g
 
 /* -------------------------------------------------------------- footer */
 
-const FooterBand = ({ business, terms, sigSrc, layout }) => (
-  <div style={{ height: RETRO_PAGE_METRICS.footer, display: "flex", boxSizing: "border-box", position: "relative" }}>
-    <div style={{ width: layout.cols.no + layout.cols.particulars, boxSizing: "border-box", padding: "7px 10px", overflow: "hidden" }}>
-      <div style={{ fontSize: "13px", fontWeight: 700, marginBottom: "4px" }}>Terms &amp; Conditions :</div>
-      <div style={{ fontSize: "11.5px", lineHeight: "15px" }}>{terms}</div>
+/* Multi-line auto-fit for the terms list: starts at `base` px and shrinks the
+   whole block (unitless line-height scales with the font) until it fits the
+   fixed-height cell — the vertical counterpart of FitLine above. The band's
+   pixel budget is never exceeded, so PDF cut points stay put; the very
+   longest lists settle at the floor and clip gracefully. */
+const FitTerms = ({ base = 9.5, min = 7, children }) => {
+  const ref = React.useRef(null);
+  React.useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    // avail is the element's OWN flexed box (flex 1 1 auto + minHeight 0 in a
+    // column flex parent) — the parent cell also contains the heading, so its
+    // clientHeight would overstate the space by the heading's height.
+    const avail = el.clientHeight;
+    if (!(avail > 0)) return;
+    let size = base;
+    el.style.fontSize = `${size}px`;
+    for (let i = 0; i < 6; i++) {
+      // scrollHeight, not offsetHeight: the container clips (overflow hidden),
+      // so only scrollHeight reports the CONTENT height being fitted.
+      const h = el.scrollHeight;
+      if (h <= avail || size <= min) break;
+      size = Math.max(min, Math.floor(((size * avail) / h) * 10) / 10);
+      el.style.fontSize = `${size}px`;
+    }
+  });
+  return (
+    <div ref={ref} data-fitterms="" style={{ fontSize: `${base}px`, lineHeight: 1.18, flex: "1 1 auto", minHeight: 0, overflow: "hidden" }}>
+      {children}
     </div>
-    <div style={{ flex: 1, position: "relative", padding: "7px 10px" }}>
-      <div style={{ fontSize: "13px", fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-        For {(business?.businessName || "BUSINESS NAME").toUpperCase()}
-      </div>
+  );
+};
+
+/* The "For <business name>" line: full name, wrapping allowed (no ellipsis),
+   with the font stepping down only when wrapping would exceed two lines —
+   below two lines the signature image zone begins, so three text lines would
+   collide with it. */
+const FitFor = ({ text, base = 13, min = 9 }) => {
+  const ref = React.useRef(null);
+  React.useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    let size = base;
+    el.style.fontSize = `${size}px`;
+    for (let i = 0; i < 6; i++) {
+      const twoLines = size * 1.25 * 2;
+      if (el.scrollHeight <= twoLines + 1 || size <= min) break;
+      size = Math.max(min, Math.floor(((size * twoLines) / el.scrollHeight) * 10) / 10);
+      el.style.fontSize = `${size}px`;
+    }
+  });
+  return (
+    <div ref={ref} data-fitfor="" style={{ fontSize: `${base}px`, fontWeight: 700, lineHeight: 1.25 }}>
+      {text}
+    </div>
+  );
+};
+
+const FooterBand = ({ business, terms, termsList, sigSrc, layout }) => {
+  // Terms render ONE per line (1., 2., 3. … straight down), never in
+  // side-by-side columns. The band is a FIXED pixel budget (page cut
+  // points), so the list auto-shrinks to fit rather than growing the
+  // frame — overflow would push the page past one A4 height.
+  //
+  // Band height = METRICS.footer + 16, paid for by BOTTOM_SPACER 28 -> 12 in
+  // this file: the footer+spacer SUM (and therefore the frame height and the
+  // PDF page cut points) is exactly what it always was. METRICS.footer itself
+  // is left alone because RETRO_FIXED_H and the chunker's page budget derive
+  // from it.
+  return (
+  <div style={{ height: RETRO_PAGE_METRICS.footer + (28 - BOTTOM_SPACER), display: "flex", boxSizing: "border-box", position: "relative" }}>
+    {/* flex-shrink 0 is load-bearing: the "For <name>" line next door is
+        nowrap, and flex min-width:auto logic otherwise squeezes this cell
+        below its design width whenever the business name is long — the
+        painted column rule (absolute, same x) then no longer matches the
+        real boundary and the signature column visibly shifts. */}
+    <div style={{ width: layout.cols.no + layout.cols.particulars, flex: "0 0 auto", boxSizing: "border-box", padding: "7px 10px", overflow: "hidden", display: "flex", flexDirection: "column" }}>
+      <div style={{ fontSize: "12px", fontWeight: 700, marginBottom: "3px", flex: "0 0 auto" }}>Terms &amp; Conditions :</div>
+      {termsList.length > 0 ? (
+        <FitTerms>
+          <div>
+            {termsList.map((t, i) => (
+              <div key={i}>
+                <span style={{ fontWeight: 700 }}>{i + 1}. </span>{t}
+              </div>
+            ))}
+          </div>
+        </FitTerms>
+      ) : (
+        <div style={{ fontSize: "11.5px", lineHeight: "15px" }}>{terms}</div>
+      )}
+    </div>
+    <div style={{ flex: 1, minWidth: 0, position: "relative", padding: "7px 10px" }}>
+      {/* Full business name, never ellipsized: it wraps to the next line when
+          the column is too narrow. If even wrapped it would exceed two lines
+          (the signature/seal zone below starts ~42px down), the font shrinks
+          until it fits in two — the name always shows in full. */}
+      <FitFor text={`For ${(business?.businessName || "BUSINESS NAME").toUpperCase()}`} />
       {/* The signature stays dead-centre in the column (image over its label) and the
           seal is aligned with that signature row — painted after it, so the seal is
           never the thing that gets covered up. */}
@@ -531,11 +651,12 @@ const FooterBand = ({ business, terms, sigSrc, layout }) => (
     </div>
     <div style={{ position: "absolute", top: 0, bottom: -BOTTOM_SPACER, left: `${layout.cols.no + layout.cols.particulars}px`, width: "1px", background: "#000000" }} />
   </div>
-);
+  );
+};
 
 /* --------------------------------------------------------------- page */
 
-const RetroPage = ({ pageId, chunks, startIndex, shared, pageIndex = 0 }) => (
+const RetroPage = ({ pageId, chunks, startIndex, shared, isLast = false }) => (
   <Frame pageId={pageId}>
     <Letterhead business={shared.business} title={shared.title} subNote={shared.subNote} />
     <Details invoiceNumber={shared.displayInvNo} form={shared.form} customer={shared.customer} />
@@ -558,12 +679,13 @@ const RetroPage = ({ pageId, chunks, startIndex, shared, pageIndex = 0 }) => (
     <FooterBand
       business={shared.business}
       terms={shared.terms}
+      termsList={shared.termsList}
       sigSrc={shared.sigSrc}
       layout={shared.layout}
     />
     {/* breathing room between the terms/signature band and the frame edge */}
     <div style={{ height: `${BOTTOM_SPACER}px`, boxSizing: "border-box" }} />
-    {shared.sealVisible && (shared.sealAllPages || pageIndex === 0) && (
+    {shared.sealVisible && (shared.sealAllPages || isLast) && (
       <SealOverlay business={shared.business} type={shared.sealType} />
     )}
   </Frame>
@@ -582,10 +704,12 @@ const InvoiceTemplateRetro = React.forwardRef(
     // The Specialist In line grows the letterhead; take the same height out of
     // the open item box so the outer frame always equals one A4 page — the PDF
     // slicer cuts on frame boundaries and anything taller spills onto page 2.
+    // The alternate-phone line follows the same discipline.
     const bodyH =
       RETRO_PAGE_METRICS.body -
-      (getSpecialistInLine(business) ? SPECIALIST_IN_EXTRA_H : 0);
-    const chunks = chunkRetroItems(all, bodyH, retroCharsPerLine(cols));
+      (getSpecialistInLine(business) ? SPECIALIST_IN_EXTRA_H : 0) -
+      (business?.additionalPhone ? ADDITIONAL_PHONE_EXTRA_H : 0);
+    const chunks = chunkRetroItems(all, bodyH, retroTextArea(cols));
 
     const calc = computeInvoiceTotals(items, discountPercent, taxMode);
     const isProforma = type === "PROFORMA_INVOICE";
@@ -636,6 +760,7 @@ const InvoiceTemplateRetro = React.forwardRef(
       words: grand > 0 ? numberToWords(grand) : "",
       pctLabel,
       terms: (form?.notes && form.notes.trim()) || "Goods once sold cannot be taken back or exchanged.",
+      termsList: parseTermsList(business?.termsConditions),
       ...resolveSeal(business),
       sealAllPages: resolveSealConfig(business).allPages !== false,
       sigSrc: asImageSrc(business?.signature),
@@ -656,7 +781,7 @@ const InvoiceTemplateRetro = React.forwardRef(
                 chunks={pageItems(chunk)}
                 startIndex={startIndex}
                 shared={shared}
-                pageIndex={i}
+                isLast={i === chunks.length - 1}
               />
             </div>
           );

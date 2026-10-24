@@ -66,7 +66,8 @@ export async function buildDeliveryChallanPdf(pageElements, options = {}) {
     stampHMm = stampSizeMm,
     stampRightMm = 10,
     stampBottomMm = 6,
-    // false = seal the first page only; continuation pages stay clean
+    // false = seal the final page only (the one carrying the totals/signature);
+    // earlier pages stay clean. true = every page.
     stampAllPages = true,
   } = options;
 
@@ -162,7 +163,7 @@ export async function buildDeliveryChallanPdf(pageElements, options = {}) {
         sliceHeightMM
       );
 
-      if (stampPng && (stampAllPages || firstPage)) {
+      if (stampPng && stampAllPages) {
         pdf.addImage(stampPng, "PNG", stampX, stampY, stampWMm, stampHMm);
       }
 
@@ -170,6 +171,14 @@ export async function buildDeliveryChallanPdf(pageElements, options = {}) {
       continuation = true;
       start = end;
     }
+  }
+
+  // Multi-page OFF: stamp only the final page, which carries the totals and
+  // the signature band. The slicing loop can't know which page is last until
+  // it finishes, so this is applied as a post-pass.
+  if (stampPng && !stampAllPages) {
+    pdf.setPage(pdf.getNumberOfPages());
+    pdf.addImage(stampPng, "PNG", stampX, stampY, stampWMm, stampHMm);
   }
 
   return pdf;

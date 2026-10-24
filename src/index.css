@@ -187,9 +187,13 @@ body::before {
   -webkit-backface-visibility: hidden;
 }
 
-/* iOS Safari: prevent auto-zoom on input focus (requires font-size >= 16px) */
-input, textarea, select {
-  font-size: 16px !important;
+/* iOS Safari: prevent auto-zoom on input focus (requires font-size >= 16px).
+   Scoped to touch/coarse pointers — on desktop the !important beat every
+   Tailwind text-xs/text-sm on inputs, so compact tables rendered oversized. */
+@media (max-width: 767px), (pointer: coarse) {
+  input, textarea, select {
+    font-size: 16px !important;
+  }
 }
 
 /* Toasts: sit just below the sticky mobile top navbar (hidden at md+) */
@@ -248,11 +252,21 @@ div:has(> label + input[type="date"]) {
 }
 
 .rail-logo-toggle {
-  width: 2rem;
-  height: 2rem;
+  /* 36px plate over the 32px logo (+2px margin all round, kept centred via
+     top-1/2 -translate-y-1/2): the old same-size 2rem plate let the logo's
+     own rounded corners peek through the plate's rounded-lg cutouts as dark
+     slivers while hovering. */
+  width: 2.25rem;
+  height: 2.25rem;
+  left: -0.125rem;
   padding: 0;
   background: #ffffff;
 }
+
+/* The logo's crossfade-out during the plate reveal is driven by the
+   opacity-0 utility swapped in AppNavbar (railLogoHovered state), not by a
+   rule here — two equal-specificity opacity rules otherwise race with
+   hover:opacity-80. The 80ms duration override lives inline on the button. */
 @media (min-width: 768px) and (max-width: 1535.98px) {
   /* ONE motion language for the whole rail: a balanced accelerate/decelerate
      curve (the Notion/Linear-family standard) over 350ms — a deliberate,
@@ -400,6 +414,49 @@ div:has(> label + input[type="date"]) {
      same x as the old justify-content:center + padding:0 rule (24px), and the
      logo now shrinks naturally as its text clips — the old fixed 2rem widths
      snapped mid-animation. */
+
+  /* Section headers ("INVOICE", "DELIVERY", …) are the group divisions and
+     they exist ONLY while the sidebar is open. In the collapsed rail they
+     take zero space — no dead gaps between icons (before "+", between
+     groups) — and their wrapper margins go with them. Everything eases with
+     the panel's own curve. The transition list MUST repeat rail-hide's
+     max-width/opacity (same element, one transition property wins) so the
+     label still clips/fades in sync instead of snapping. */
+  .rail-section {
+    transition: margin-bottom var(--rail-dur) var(--rail-ease),
+      margin-top var(--rail-dur) var(--rail-ease);
+  }
+  .rail-section-header {
+    max-height: 2rem; /* fits the one-line header (py-1.5 + 10px text) */
+    transition: max-height var(--rail-dur) var(--rail-ease),
+      padding-top var(--rail-dur) var(--rail-ease),
+      padding-bottom var(--rail-dur) var(--rail-ease),
+      max-width var(--rail-dur) var(--rail-ease),
+      opacity var(--rail-dur) var(--rail-ease);
+  }
+  html.rail-collapsed .rail-section {
+    margin-bottom: 0;
+  }
+  /* The rail is ONE even column of icons — no extra air between the groups
+     (the collapsed section labels that used to separate them are gone, and
+     the owner wants no compensating gaps either). Flush sections give every
+     icon the same one-slot pitch (min-h-[40px] per item). Set to 0 rather
+     than dropped so it keeps beating Tailwind's space-y-1 (4px). */
+  html.rail-collapsed .rail-section + .rail-section {
+    margin-top: 0;
+  }
+  /* …except Dashboard itself: it keeps one slot of air (40px = one nav item
+     pitch) before the first working group (Create Invoice), so the app's
+     landing page reads apart from the workflow icons below it. */
+  html.rail-collapsed .rail-section:first-child + .rail-section {
+    margin-top: 2.5rem;
+  }
+  html.rail-collapsed .rail-section-header {
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    overflow: hidden;
+  }
 }
 
 /* Enterprise-style link underline (Material/Stripe tabs): a hairline that
@@ -420,7 +477,7 @@ div:has(> label + input[type="date"]) {
   background: currentColor;
   transform: scaleX(0);
   transform-origin: left center;
-  transition: transform 700ms linear;
+  transition: transform 900ms linear;
   pointer-events: none;
 }
 .link-underline:hover::after,
@@ -438,7 +495,7 @@ div:has(> label + input[type="date"]) {
    icon rail is active, so the middle section — items table / tax invoice —
    absorbs every pixel the rail gives back when the hamburger opens/closes.
    Below md and at 1536px+ (default old layout) nothing is constrained. */
-@media (min-width: 768px) and (max-width: 1535.98px) {
+@media (min-width: 1280px) and (max-width: 1535.98px) {
   .side-fixed {
     max-width: 340px;
   }
@@ -448,6 +505,22 @@ div:has(> label + input[type="date"]) {
   .side-fixed-grid {
     grid-template-columns: minmax(0, 1fr) 340px;
   }
+}
+
+/* Dual-pane scroll (InvoiceView at xl): the invoice column and the
+   discount/actions column each scroll on their own. overscroll-behavior:
+   contain means hitting a pane's bottom edge must NOT chain the wheel to the
+   sibling pane or the page behind — wheeling over the discount card never
+   scrolls the invoice content (the same no-chain recipe the app side-nav
+   uses). Scrollbars are fully HIDDEN like the side-nav's (scrolling itself
+   is untouched — wheel, trackpad, touch and keyboard all still work). */
+.pane-scroll {
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.pane-scroll::-webkit-scrollbar {
+  display: none;
 }
 
 /* Sidebar still scrolls, but the scrollbar itself is fully hidden.

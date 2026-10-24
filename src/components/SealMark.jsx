@@ -25,7 +25,7 @@ export default function SealMark({ business, type = "round", config, color, pxWi
         email={business?.email ? `E-Mail: ${business.email}` : ""}
         width={width}
         tilt={cfg.stamp.tilt}
-        color={color || "#0000cc"}
+        color={color || cfg.stamp.color}
       />
     );
   }
@@ -36,7 +36,7 @@ export default function SealMark({ business, type = "round", config, color, pxWi
       year={new Date().getFullYear()}
       size={width}
       tilt={cfg.round.tilt}
-      color={color || "#0A4BFF"}
+      color={color || cfg.round.color}
     />
   );
 }

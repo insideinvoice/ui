@@ -8,7 +8,7 @@ import ConfirmModal from "../components/ConfirmModal";
 import { invoiceAPI, customerAPI } from "../api/auth";
 import { resolveBusinessProfile } from "../utils/businessProfile";
 import toast from "react-hot-toast";
-import { ArrowLeft, FileText, Download, PlusCircle, Share2, Trash2, Search, X, Link2, ChevronDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, FileSpreadsheet, Loader2, MessageSquare } from "lucide-react";
+import { ArrowLeft, FileText, Download, PlusCircle, Share2, Trash2, Search, X, Link2, ChevronDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, FileSpreadsheet, Loader2, MessageSquare, Eye } from "lucide-react";
 import WhatsAppIcon from "../components/WhatsAppIcon";
 import { downloadInvoicePDF, preloadInvoicePdf } from "../utils/downloadInvoicePdf";
 import { exportInvoicesExcel, invoiceMatchesFilters } from "../utils/exportInvoicesExcel";
@@ -802,6 +802,23 @@ export default function InvoicesList() {
                       </span>
                     </div>
                     <div className="flex items-center gap-2 mt-3 pt-2 border-t border-slate-100">
+                      {/* View — opens this invoice's view page; before Download */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          goToInvoice(inv);
+                        }}
+                        disabled={rowBusy(inv.id)}
+                        className="flex-1 flex items-center justify-center p-2 rounded-lg text-blue-600 bg-blue-50 hover:bg-blue-100 transition-colors min-h-[44px] disabled:opacity-60"
+                        title="View Invoice"
+                        aria-label="View invoice"
+                      >
+                        {isBusy(inv.id, "view") ? (
+                          <Spinner size={14} />
+                        ) : (
+                          <Eye className="w-4 h-4" />
+                        )}
+                      </button>
                       <button
                         onClick={(e) => {
                           e.stopPropagation();

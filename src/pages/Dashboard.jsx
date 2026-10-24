@@ -441,8 +441,12 @@ export default function Dashboard() {
                   </div>
                   <span className="text-[10px] sm:text-[11px] font-semibold text-slate-500 uppercase tracking-wider">{stat.label}</span>
                 </div>
-                <div className="text-base sm:text-lg font-bold text-slate-900 truncate">{stat.value}</div>
-                {stat.sub && <div className="text-[10px] text-slate-400 mt-0.5 truncate">{stat.sub}</div>}
+                {/* Large amounts WRAP to a new line instead of truncating —
+                    a cut-off "₹ 1,12,0…" reads as a wrong number. Numbers have
+                    no natural break points, so overflow-wrap:anywhere lets the
+                    digits flow onto the next line inside the small card. */}
+                <div className="text-base sm:text-lg font-bold text-slate-900 leading-snug [overflow-wrap:anywhere]">{stat.value}</div>
+                {stat.sub && <div className="text-[10px] text-slate-400 mt-0.5">{stat.sub}</div>}
               </button>
             ))
             )}

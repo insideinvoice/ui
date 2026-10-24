@@ -667,13 +667,12 @@ export default function InvoiceForm() {
         };
       }));
       toast.success(`Found: ${p.name}`);
-    } catch (err) {
-      if (err?.response?.status === 404) {
-        hsnLookupRef.current[idx] = { code, status: "notfound" };
-      } else {
-        hsnLookupRef.current[idx] = { code, status: "error" };
-        toast.error("HSN lookup failed — check your connection and try again");
-      }
+    } catch {
+      // No data for this HSN — or the lookup itself failed. Either way stay
+      // silent: a code that isn't in the catalog is normal typing, not an
+      // error worth interrupting the user for. "error" (not "notfound")
+      // keeps the dedupe allowing the next Enter/blur to retry the code.
+      hsnLookupRef.current[idx] = { code, status: "error" };
     }
   }, []);
 

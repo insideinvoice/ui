@@ -64,42 +64,41 @@ const ViewItemRow = memo(({ item, calc, idx, isEditing, onItemChange, onRemove, 
           <input type="text" value={item.hsn} name={`hsn-${idx + 1}`}
             onChange={(e) => onItemChange(idx, "hsn", e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); const qty = document.querySelector(`input[name="qty-${idx + 1}"]`); qty?.focus(); } }}
-            className="w-full max-w-[80px] px-3 py-2 border border-slate-200 rounded text-sm focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono" placeholder="Scan or type" />
+            className="w-full min-w-0 px-2 py-2 border border-slate-200 rounded text-sm focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono" placeholder="Scan or type" />
         </td>
         )}
-        <td className="py-3 px-3 border-b border-slate-100">
+        <td className="py-3 px-2 border-b border-slate-100">
           <div className="flex items-center gap-1.5">
             <input type="text" value={item.qty} name={`qty-${idx + 1}`}
               onChange={(e) => onItemChange(idx, "qty", e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); const rate = document.querySelector(`input[name="rate-${idx + 1}"]`); rate?.focus(); } }}
               inputMode="numeric"
-              size={10}
-              className="w-28 px-3 py-2 border border-slate-200 rounded text-sm text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono" />
+              className="w-full min-w-0 px-2 py-2 border border-slate-200 rounded text-sm text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono" />
             <select value={item.unit || ""} name={`unit-${idx + 1}`}
               onChange={(e) => onItemChange(idx, "unit", e.target.value)}
               title="Unit of measurement"
-              className="shrink-0 w-[88px] px-1.5 py-2 border border-slate-200 rounded text-xs focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white text-slate-600">
+              className="shrink-0 w-[64px] px-1 py-2 border border-slate-200 rounded text-xs focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white text-slate-600">
               {UNITS.map((u) => (
                 <option key={u} value={u}>{u === "" ? "No unit" : u}</option>
               ))}
             </select>
           </div>
         </td>
-        <td className="py-3 px-3 border-b border-slate-100">
+        <td className="py-3 px-2 border-b border-slate-100">
           <input type="text" value={item.rate} name={`rate-${idx + 1}`}
             onChange={(e) => onItemChange(idx, "rate", e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); const gst = document.querySelector(`input[name="gst-${idx + 1}"]`); gst?.focus(); } }}
             inputMode="decimal"
-            className="w-full px-3 py-2 border border-slate-200 rounded text-sm text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono" />
+            className="w-full min-w-0 px-2 py-2 border border-slate-200 rounded text-sm text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono" />
         </td>
-        <td className="py-3 px-3 border-b border-slate-100">
-          <div className="relative">
+        <td className="py-3 px-2 border-b border-slate-100">
+          <div className="flex items-center gap-1">
             <input type="text" value={item.gstPercentage} name={`gst-${idx + 1}`}
               onChange={(e) => onItemChange(idx, "gstPercentage", e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); onAdd(); } }}
               inputMode="decimal"
-              className="w-full px-3 py-2 border border-slate-200 rounded text-sm text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono pr-7" />
-            <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs">%</span>
+              className="w-full min-w-0 px-2 py-2 border border-slate-200 rounded text-sm text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono" />
+            <span className="shrink-0 text-xs text-slate-400">%</span>
           </div>
         </td>
       </>
@@ -1339,7 +1338,14 @@ export default function InvoiceView() {
                   </div>}
                   <div>
                     <label className={labelClass}>Tax Mode</label>
-                    <p className="text-sm text-slate-800">{form.taxMode === "IGST" ? "IGST (inter-state)" : "CGST + SGST/UTGST (intra-state)"}</p>
+                    {/* Qualifier on its own line: "CGST + SGST/UTGST (intra-state)"
+                        on one line crowds the 4-column details grid. */}
+                    <p className="text-sm text-slate-800">
+                      {form.taxMode === "IGST" ? "IGST" : "CGST + SGST/UTGST"}
+                      <span className="block text-xs text-slate-400">
+                        {form.taxMode === "IGST" ? "(inter-state)" : "(intra-state)"}
+                      </span>
+                    </p>
                   </div>
                   {/* Reference / delivery rows the PDF already prints — view ≡ PDF */}
                   {form.referenceNumber && <div>
@@ -1401,27 +1407,27 @@ export default function InvoiceView() {
                 )}
               </div>
 
-              {/* Desktop table — never a horizontal scrollbar in view mode:
-                  table-fixed + colgroup gives every column a set share and
-                  the description wraps to the next line instead of
-                  stretching the table. Editing keeps auto layout (its
-                  inputs need their natural widths) with scroll as a
-                  deliberate fallback. */}
-              <div className={`hidden md:block border border-slate-200 rounded-lg ${isEditing ? "overflow-x-auto" : "overflow-hidden"}`}>
-                <table className={`w-full text-sm border-collapse ${isEditing ? "" : "table-fixed"}`}>
-                  {!isEditing && (
-                    <colgroup>
-                      <col style={{ width: "4%" }} />
-                      <col style={{ width: showHnSac ? "29%" : "38%" }} />
-                      {showHnSac && <col style={{ width: "9%" }} />}
-                      <col style={{ width: "8%" }} />
-                      <col style={{ width: "10%" }} />
-                      <col style={{ width: "7%" }} />
-                      <col style={{ width: "11%" }} />
-                      <col style={{ width: "11%" }} />
-                      <col style={{ width: "11%" }} />
-                    </colgroup>
-                  )}
+              {/* Desktop table — fixed layout in BOTH modes, so no column can
+                  stretch the table: the description wraps, and the money
+                  columns keep their share. Editing gets its own shares — qty
+                  only as wide as ~4 digits, GST ~2 — with the space returned
+                  to Taxable/Tax/Total. The editing table keeps a min-width so
+                  below xl it scrolls as a deliberate fallback instead of
+                  crushing the inputs. */}
+              <div className={`hidden md:block border border-slate-200 rounded-lg ${isEditing ? "overflow-x-auto xl:overflow-hidden" : "overflow-hidden"}`}>
+                <table className={`w-full text-sm border-collapse table-fixed ${isEditing ? "min-w-[720px]" : ""}`}>
+                  <colgroup>
+                    <col style={{ width: "3%" }} />
+                    <col style={{ width: isEditing ? (showHnSac ? "13%" : "21%") : (showHnSac ? "30%" : "39%") }} />
+                    {showHnSac && <col style={{ width: isEditing ? "8%" : "9%" }} />}
+                    <col style={{ width: isEditing ? "17%" : "8%" }} />
+                    <col style={{ width: isEditing ? "10%" : "10%" }} />
+                    <col style={{ width: "9%" }} />
+                    <col style={{ width: isEditing ? "12%" : "11%" }} />
+                    <col style={{ width: isEditing ? "12%" : "11%" }} />
+                    <col style={{ width: isEditing ? "12%" : "11%" }} />
+                    {isEditing && <col style={{ width: "4%" }} />}
+                  </colgroup>
                   <thead>
                     <tr className="bg-slate-800">
                       <th className="text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">#</th>

@@ -4,12 +4,17 @@ import PageHeader from "../components/PageHeader";
 import InvoicePDF from "../components/InvoicePDF";
 import InvoiceTemplateVariants from "../components/InvoiceTemplateVariants";
 import { TEMPLATE_THEMES } from "../constants/templateThemes";
+import { ALL_TEMPLATES as CANONICAL_TEMPLATES } from "../constants/paperSizes";
 import DeliveryChallanDoc from "../components/DeliveryChallanDoc";
 import { DC_PAGE_W } from "../utils/deliveryChallanPdf";
 import { ArrowLeft, Check, X, Eye, FileText, ClipboardList } from "lucide-react";
 import toast from "react-hot-toast";
 import { resolveIndustryId } from "../constants/industryConfig";
 
+// The gallery follows the canonical list in constants/paperSizes.js: a theme
+// removed there (Premium Gold, Executive, Timber Line, Ledger Formal…) drops
+// out of this page automatically. TEMPLATE_THEMES keeps the render defs so
+// invoices already saved with a removed id still render via the renderer.
 const ALL_TEMPLATES = [
   {
     id: "template-1",
@@ -17,7 +22,9 @@ const ALL_TEMPLATES = [
     desc: "Default invoice template with classic black borders and clean layout",
     color: "#000000",
   },
-  ...Object.values(TEMPLATE_THEMES),
+  ...Object.values(TEMPLATE_THEMES).filter((t) =>
+    CANONICAL_TEMPLATES.some((c) => c.id === t.id),
+  ),
 ];
 
 // Gallery sample logo — a plain B&W geometric mark (SVG data URI) so the

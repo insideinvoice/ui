@@ -57,17 +57,13 @@ export const ALL_TEMPLATES = [
   { id: "template-32", label: "Enterprise", desc: "Black & white corporate invoice — logo letterhead, GST summary, lines that auto-close at every page edge" },
   { id: "template-3", label: "Corporate Blue", desc: "Professional navy blue accents" },
   { id: "template-5", label: "Minimalist", desc: "Borderless design with maximum whitespace" },
-  { id: "template-8", label: "Premium Gold", desc: "Elegant navy and gold luxury style" },
   { id: "template-10", label: "Slate Professional", desc: "Clean slate-grey corporate style" },
-  { id: "template-18", label: "Executive", desc: "Company name in bold header band" },
   { id: "template-19", label: "Divided", desc: "Three-column grid: seller | buyer | details" },
   { id: "template-23", label: "Clean White", desc: "Ultra minimal greyscale" },
   { id: "template-24", label: "Ironclad", desc: "Steel-grey structure with forge-amber accents — iron & steel works" },
   { id: "template-25", label: "Copper Circuit", desc: "Deep navy header with copper highlights — electricals & electronics" },
-  { id: "template-26", label: "Timber Line", desc: "Warm walnut serif styling — wood, plywood & furniture" },
   { id: "template-27", label: "Carbon Grid", desc: "Bold black grid with brand-red accent — hardware, tools & fasteners" },
   { id: "template-28", label: "Blueprint Pro", desc: "Engineering blue with light spec-sheet table — fabrication & industrial supply" },
-  { id: "template-30", label: "Ledger Formal", desc: "Traditional double-rule ledger with oxblood accents — established merchants" },
 ];
 
 // Users may still have a removed template id stored locally or on the server;

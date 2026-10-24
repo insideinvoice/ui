@@ -37,6 +37,51 @@ export const INDIAN_STATES = [
   "Puducherry",
 ];
 
+// Official GST state codes (first two digits of every GSTIN). Used to print
+// "State : Karnataka (Code 29)" style lines on invoice documents and to show
+// codes in selects where Rule 46 wants the state name WITH its code.
+export const GST_STATE_CODES = {
+  "Jammu and Kashmir": "01",
+  "Himachal Pradesh": "02",
+  "Punjab": "03",
+  "Chandigarh": "04",
+  "Uttarakhand": "05",
+  "Haryana": "06",
+  "Delhi": "07",
+  "Rajasthan": "08",
+  "Uttar Pradesh": "09",
+  "Bihar": "10",
+  "Sikkim": "11",
+  "Arunachal Pradesh": "12",
+  "Nagaland": "13",
+  "Manipur": "14",
+  "Mizoram": "15",
+  "Tripura": "16",
+  "Meghalaya": "17",
+  "Assam": "18",
+  "West Bengal": "19",
+  "Jharkhand": "20",
+  "Odisha": "21",
+  "Chhattisgarh": "22",
+  "Madhya Pradesh": "23",
+  "Gujarat": "24",
+  "Dadra and Nagar Haveli and Daman and Diu": "26",
+  "Maharashtra": "27",
+  "Karnataka": "29",
+  "Goa": "30",
+  "Lakshadweep": "31",
+  "Kerala": "32",
+  "Tamil Nadu": "33",
+  "Puducherry": "34",
+  "Andaman and Nicobar Islands": "35",
+  "Telangana": "36",
+  "Andhra Pradesh": "37",
+};
+
+// "Karnataka" -> "Karnataka (29)"; unknown names pass through unchanged.
+export const stateWithCode = (name) =>
+  name && GST_STATE_CODES[name] ? `${name} (${GST_STATE_CODES[name]})` : name || "";
+
 export const DELIVERY_TERMS = [
   "Standard Shipping",
   "Express / Next-Day Delivery",

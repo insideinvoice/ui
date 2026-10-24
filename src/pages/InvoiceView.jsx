@@ -1619,7 +1619,7 @@ export default function InvoiceView() {
           {/* Right Sidebar — its own scroll surface at xl: wheeling anywhere
               over the discount/actions column moves ONLY this column, never
               the invoice content behind it (overscroll-behavior: contain). */}
-          <div ref={rightPaneRef} className="space-y-4 side-fixed pane-scroll xl:overflow-y-auto xl:min-h-0">
+          <div ref={rightPaneRef} className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-1 items-start side-fixed pane-scroll xl:overflow-y-auto xl:min-h-0">
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Discount</h3>
@@ -1685,7 +1685,7 @@ export default function InvoiceView() {
                 </div>
               </div>
             )}
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 sticky top-6">
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 xl:sticky xl:top-6">
               <h2 className="text-sm font-bold text-slate-800 mb-4 pb-3 border-b border-slate-100">Actions</h2>
               <div className="flex flex-col sm:flex-row xl:flex-col gap-2 sm:flex-wrap">
                 {isEditing ? (

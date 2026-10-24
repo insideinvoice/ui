@@ -495,7 +495,7 @@ div:has(> label + input[type="date"]) {
    icon rail is active, so the middle section — items table / tax invoice —
    absorbs every pixel the rail gives back when the hamburger opens/closes.
    Below md and at 1536px+ (default old layout) nothing is constrained. */
-@media (min-width: 768px) and (max-width: 1535.98px) {
+@media (min-width: 1280px) and (max-width: 1535.98px) {
   .side-fixed {
     max-width: 340px;
   }

@@ -117,11 +117,11 @@ const ViewItemRow = memo(({ item, calc, idx, isEditing, onItemChange, onRemove, 
             onChange={(e) => onItemChange(idx, "qty", e.target.value)}
             onKeyDown={nav("qty")}
             inputMode="numeric"
-            className={cellInput + " max-w-[52px] text-right font-mono"} />
+            className={cellInput + " max-w-[48px] text-right font-mono"} />
           <select value={item.unit || ""} name={`unit-${idx + 1}`}
             onChange={(e) => onItemChange(idx, "unit", e.target.value)}
             title="Unit of measurement"
-            className="shrink-0 w-[40px] px-1 py-1.5 rounded text-xs text-slate-600 cursor-pointer bg-transparent">
+            className="min-w-0 flex-1 px-1 py-1.5 rounded text-xs text-slate-600 cursor-pointer bg-transparent">
             {UNITS.map((u) => (
               <option key={u} value={u}>{u === "" ? "No unit" : u}</option>
             ))}

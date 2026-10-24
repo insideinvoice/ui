@@ -1107,7 +1107,7 @@ export default function InvoiceView() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.34fr)] side-fixed-grid gap-6 xl:flex-1 xl:min-h-0 xl:grid-rows-1">
+        <div className={`grid grid-cols-1 gap-6 xl:flex-1 xl:min-h-0 xl:grid-rows-1 ${isEditing ? "" : "xl:grid-cols-[minmax(0,1fr)_minmax(0,0.34fr)] side-fixed-grid"}`}>
           <div ref={leftPaneRef} className="space-y-6 pane-scroll xl:overflow-y-auto xl:min-h-0">
             {/* Seller & Buyer Info */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1619,7 +1619,7 @@ export default function InvoiceView() {
           {/* Right Sidebar — its own scroll surface at xl: wheeling anywhere
               over the discount/actions column moves ONLY this column, never
               the invoice content behind it (overscroll-behavior: contain). */}
-          <div ref={rightPaneRef} className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-1 items-start side-fixed pane-scroll xl:overflow-y-auto xl:min-h-0">
+          <div ref={rightPaneRef} className={isEditing ? "hidden" : "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-1 items-start side-fixed pane-scroll xl:overflow-y-auto xl:min-h-0"}>
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Discount</h3>
@@ -1889,6 +1889,22 @@ export default function InvoiceView() {
           </div>
         </div>
       </div>
+
+      {/* Floating edit actions — the sidebar hides while editing so the
+          content gets its width; Save/Cancel stay one click away. */}
+      {isEditing && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[1100] flex items-center gap-2 bg-white/95 backdrop-blur border border-slate-200 rounded-full shadow-lg px-3 py-2">
+          <button onClick={handleSave} disabled={saving || !hasUnsavedChanges}
+            className="flex items-center gap-1.5 px-4 py-1.5 bg-slate-800 text-white text-xs font-semibold rounded-full hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all">
+            {saving ? <LoadingDots className="text-white" /> : <Save className="w-3.5 h-3.5" />}
+            {saving ? "Saving..." : "Save"}
+          </button>
+          <button onClick={() => setIsEditing(false)}
+            className="flex items-center gap-1.5 px-4 py-1.5 border border-slate-300 text-slate-700 text-xs font-semibold rounded-full hover:bg-slate-50 transition-all">
+            <X className="w-3.5 h-3.5" /> Cancel
+          </button>
+        </div>
+      )}
 
       {showPdfPreview && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[1200] flex items-center justify-center p-0 sm:p-4" onClick={() => setShowPdfPreview(false)}>

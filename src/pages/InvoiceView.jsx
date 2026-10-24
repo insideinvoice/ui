@@ -83,13 +83,13 @@ const ViewItemRow = memo(({ item, calc, idx, isEditing, onItemChange, onRemove, 
       <td className="py-3 px-2 text-center font-mono text-xs text-slate-700 border-b border-slate-100 whitespace-nowrap">{item.qty}</td>
       <td className="py-3 px-2 text-center font-mono text-xs text-slate-700 border-b border-slate-100 [overflow-wrap:anywhere]">{breakAtGroups(fmt(item.rate))}</td>
       <td className="py-3 px-2 text-center font-mono text-xs text-slate-600 border-b border-slate-100 whitespace-nowrap">{item.gstPercentage}%</td>
-      <td className="py-3 px-3 text-right font-mono text-xs border-b border-slate-100 [overflow-wrap:anywhere] text-slate-700">
+      <td className="py-3 px-3 text-center font-mono text-xs border-b border-slate-100 [overflow-wrap:anywhere] text-slate-700">
         {breakAtGroups(fmt(calc?.taxable ?? item.taxableValue))}
       </td>
-      <td className="py-3 px-3 text-right font-mono text-xs border-b border-slate-100 [overflow-wrap:anywhere] text-slate-600">
+      <td className="py-3 px-3 text-center font-mono text-xs border-b border-slate-100 [overflow-wrap:anywhere] text-slate-600">
         {breakAtGroups(fmt(calc?.tax ?? item.taxAmount))}
       </td>
-      <td className="py-3 pr-6 pl-3 text-right font-mono text-xs font-semibold border-b border-slate-100 [overflow-wrap:anywhere] text-slate-900">
+      <td className="py-3 px-3 text-center font-mono text-xs font-semibold border-b border-slate-100 [overflow-wrap:anywhere] text-slate-900">
         {breakAtGroups(fmt(calc?.total ?? item.total))}
       </td>
     </tr>
@@ -108,16 +108,16 @@ const ViewItemRow = memo(({ item, calc, idx, isEditing, onItemChange, onRemove, 
         <input type="text" value={item.hsn} name={`hsn-${idx + 1}`}
           onChange={(e) => onItemChange(idx, "hsn", e.target.value)}
           onKeyDown={nav("hsn")}
-          className={cellInput + " font-mono"} placeholder="Scan or type" />
+          className={cellInput + " text-center font-mono"} placeholder="Scan or type" />
       </td>
       )}
       <td className={cellTd}>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center justify-center gap-1">
           <input type="text" value={item.qty} name={`qty-${idx + 1}`}
             onChange={(e) => onItemChange(idx, "qty", e.target.value)}
             onKeyDown={nav("qty")}
             inputMode="numeric"
-            className={cellInput + " max-w-[48px] text-right font-mono"} />
+            className={cellInput + " max-w-[48px] text-center font-mono"} />
           <select value={item.unit || ""} name={`unit-${idx + 1}`}
             onChange={(e) => onItemChange(idx, "unit", e.target.value)}
             title="Unit of measurement"
@@ -133,25 +133,25 @@ const ViewItemRow = memo(({ item, calc, idx, isEditing, onItemChange, onRemove, 
           onChange={(e) => onItemChange(idx, "rate", e.target.value)}
           onKeyDown={nav("rate")}
           inputMode="decimal"
-          className={cellInput + " text-right font-mono"} />
+          className={cellInput + " text-center font-mono"} />
       </td>
       <td className={cellTd}>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center justify-center gap-1">
           <input type="text" value={item.gstPercentage} name={`gst-${idx + 1}`}
             onChange={(e) => onItemChange(idx, "gstPercentage", e.target.value)}
             onKeyDown={nav("gst")}
             inputMode="decimal"
-            className={cellInput + " text-right font-mono"} />
+            className={cellInput + " text-center font-mono"} />
           <span className="shrink-0 text-xs text-slate-400">%</span>
         </div>
       </td>
-      <td className="py-1 px-1 text-right font-mono text-xs border-b border-slate-100 [overflow-wrap:anywhere] text-slate-700">
+      <td className="py-1 px-1 text-center font-mono text-xs border-b border-slate-100 [overflow-wrap:anywhere] text-slate-700">
         {breakAtGroups(fmt(calc?.taxable ?? item.taxableValue))}
       </td>
-      <td className="py-1 px-1 text-right font-mono text-xs border-b border-slate-100 [overflow-wrap:anywhere] text-slate-600">
+      <td className="py-1 px-1 text-center font-mono text-xs border-b border-slate-100 [overflow-wrap:anywhere] text-slate-600">
         {breakAtGroups(fmt(calc?.tax ?? item.taxAmount))}
       </td>
-      <td className="py-1 pl-1 pr-3 text-right font-mono text-xs font-semibold border-b border-slate-100 [overflow-wrap:anywhere] text-slate-900">
+      <td className="py-1 px-2 text-center font-mono text-xs font-semibold border-b border-slate-100 [overflow-wrap:anywhere] text-slate-900">
         {breakAtGroups(fmt(calc?.total ?? item.total))}
       </td>
       <td className="py-1 px-1 text-center border-b border-slate-100">

@@ -57,7 +57,7 @@ const ViewItemRow = memo(({ item, calc, idx, isEditing, onItemChange, onRemove, 
           <input type="text" value={item.itemName} name={`desc-${idx + 1}`}
             onChange={(e) => onItemChange(idx, "itemName", e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); const next = document.querySelector(`input[name="${showHnSac ? "hsn" : "qty"}-${idx + 1}"]`); next?.focus(); } }}
-            className="w-full px-3 py-2 border border-slate-200 rounded text-sm focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white" placeholder="Item name" />
+            className="w-full min-w-0 px-3 py-2 border border-slate-200 rounded text-sm focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white" placeholder="Item name" />
         </td>
         {showHnSac && (
         <td className="py-3 px-3 border-b border-slate-100">
@@ -105,22 +105,22 @@ const ViewItemRow = memo(({ item, calc, idx, isEditing, onItemChange, onRemove, 
       </>
     ) : (
       <>
-        <td className="py-3 px-3 text-slate-800 border-b border-slate-100 truncate">{item.itemName}</td>
+        <td className="py-3 px-2 text-slate-800 border-b border-slate-100 break-words">{item.itemName}</td>
         {showHnSac && (
         <td className="py-3 px-3 text-center font-mono text-xs text-slate-500 border-b border-slate-100 whitespace-nowrap">{item.hsn || "-"}</td>
         )}
-        <td className="py-3 px-3 text-center font-mono text-sm text-slate-700 border-b border-slate-100 whitespace-nowrap">{item.qty}</td>
-        <td className="py-3 px-3 text-center font-mono text-sm text-slate-700 border-b border-slate-100 whitespace-nowrap">{fmt(item.rate)}</td>
-        <td className="py-3 px-3 text-center font-mono text-sm text-slate-600 border-b border-slate-100 whitespace-nowrap">{item.gstPercentage}%</td>
+        <td className="py-3 px-2 text-center font-mono text-sm text-slate-700 border-b border-slate-100 whitespace-nowrap">{item.qty}</td>
+        <td className="py-3 px-2 text-center font-mono text-xs text-slate-700 border-b border-slate-100 [overflow-wrap:anywhere]">{fmt(item.rate)}</td>
+        <td className="py-3 px-2 text-center font-mono text-sm text-slate-600 border-b border-slate-100 whitespace-nowrap">{item.gstPercentage}%</td>
       </>
     )}
-    <td className={`py-3 px-3 text-right font-mono text-sm border-b border-slate-100 whitespace-nowrap ${isEditing ? "text-slate-700" : "text-slate-700"}`}>
+    <td className={`py-3 px-2 text-right font-mono text-xs border-b border-slate-100 [overflow-wrap:anywhere] ${isEditing ? "text-slate-700" : "text-slate-700"}`}>
       {fmt(calc?.taxable ?? item.taxableValue)}
     </td>
-    <td className={`py-3 px-3 text-right font-mono text-sm border-b border-slate-100 whitespace-nowrap ${isEditing ? "text-slate-600" : "text-slate-600"}`}>
+    <td className={`py-3 px-2 text-right font-mono text-xs border-b border-slate-100 [overflow-wrap:anywhere] ${isEditing ? "text-slate-600" : "text-slate-600"}`}>
       {fmt(calc?.tax ?? item.taxAmount)}
     </td>
-    <td className={`py-3 px-3 text-right font-mono text-sm font-semibold border-b border-slate-100 whitespace-nowrap ${isEditing ? "text-slate-900" : "text-slate-900"}`}>
+    <td className={`py-3 px-2 text-right font-mono text-xs font-semibold border-b border-slate-100 [overflow-wrap:anywhere] ${isEditing ? "text-slate-900" : "text-slate-900"}`}>
       {fmt(calc?.total ?? item.total)}
     </td>
     {isEditing && (
@@ -1412,9 +1412,27 @@ export default function InvoiceView() {
                 )}
               </div>
 
-              {/* Desktop table */}
-              <div className="hidden md:block border border-slate-200 rounded-lg overflow-x-auto">
-                <table className="w-full text-sm border-collapse">
+              {/* Desktop table — never a horizontal scrollbar in view mode:
+                  table-fixed + colgroup gives every column a set share and
+                  the description wraps to the next line instead of
+                  stretching the table. Editing keeps auto layout (its
+                  inputs need their natural widths) with scroll as a
+                  deliberate fallback. */}
+              <div className={`hidden md:block border border-slate-200 rounded-lg ${isEditing ? "overflow-x-auto" : "overflow-hidden"}`}>
+                <table className={`w-full text-sm border-collapse ${isEditing ? "" : "table-fixed"}`}>
+                  {!isEditing && (
+                    <colgroup>
+                      <col style={{ width: "4%" }} />
+                      <col style={{ width: showHnSac ? "29%" : "38%" }} />
+                      {showHnSac && <col style={{ width: "9%" }} />}
+                      <col style={{ width: "8%" }} />
+                      <col style={{ width: "10%" }} />
+                      <col style={{ width: "7%" }} />
+                      <col style={{ width: "11%" }} />
+                      <col style={{ width: "11%" }} />
+                      <col style={{ width: "11%" }} />
+                    </colgroup>
+                  )}
                   <thead>
                     <tr className="bg-slate-800">
                       <th className="text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">#</th>

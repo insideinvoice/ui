@@ -156,7 +156,7 @@ const ViewItemRow = memo(({ item, calc, idx, isEditing, onItemChange, onRemove, 
       </td>
       <td className="py-1 px-1 text-center border-b border-slate-100">
         <button type="button" onClick={() => onRemove(idx)} aria-label={`Remove item ${idx + 1}`} title="Remove item"
-          className="p-1.5 rounded text-slate-300 hover:bg-red-50 hover:text-red-500 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:text-red-500 focus-visible:bg-red-50 focus:outline-none transition-opacity pointer-events-none group-hover:pointer-events-auto">
+          className="p-1.5 rounded text-slate-300 hover:bg-red-50 hover:text-red-500 focus:outline-none focus-visible:text-red-500 focus-visible:bg-red-50 transition-colors">
           <Trash2 className="w-3.5 h-3.5" />
         </button>
       </td>

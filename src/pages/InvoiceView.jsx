@@ -58,7 +58,7 @@ const breakAtGroups = (s) => String(s).replace(/,(?=\d)/g, ",\u200B");
 // Enterprise editable-cell chrome: the input reads as plain text until
 // hovered (hairline border) or focused (white field, blue ring) — no grid of
 // boxes. Every cell in the row shares the same 12px typography.
-const cellInput = "w-full min-w-0 rounded-md border border-transparent bg-transparent px-2 py-1.5 text-xs hover:border-slate-300 focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-500/15 focus:outline-none";
+const cellInput = "w-full min-w-0 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-xs hover:border-slate-300 focus:border-blue-400 focus:ring-2 focus:ring-blue-500/15 focus:outline-none";
 const cellTd = "py-1 px-1 border-b border-slate-100 text-xs focus-within:bg-blue-50/40";
 
 const ViewItemRow = memo(({ item, calc, idx, isEditing, onItemChange, onRemove, onAddRowAndFocus, showHnSac = true }) => {
@@ -121,7 +121,7 @@ const ViewItemRow = memo(({ item, calc, idx, isEditing, onItemChange, onRemove, 
           <select value={item.unit || ""} name={`unit-${idx + 1}`}
             onChange={(e) => onItemChange(idx, "unit", e.target.value)}
             title="Unit of measurement"
-            className="min-w-0 flex-1 px-1 py-1.5 rounded text-xs text-slate-600 cursor-pointer bg-transparent">
+            className="min-w-0 flex-1 px-1 py-1.5 rounded border border-slate-200 bg-white text-xs text-slate-600 cursor-pointer">
             {UNITS.map((u) => (
               <option key={u} value={u}>{u === "" ? "No unit" : u}</option>
             ))}
@@ -1814,27 +1814,27 @@ export default function InvoiceView() {
                     <span className="text-slate-500">Items:</span>
                     <span className="font-semibold text-slate-800">{validItemsCount}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Subtotal:</span>
-                    <span className="font-mono text-slate-700">Rs. {fmt(totals.subtotal)}</span>
+                  <div className="flex justify-between gap-2">
+                    <span className="text-slate-500 shrink-0">Subtotal:</span>
+                    <span className="font-mono text-slate-700 text-right [overflow-wrap:anywhere]">{breakAtGroups(`Rs. ${fmt(totals.subtotal)}`)}</span>
                   </div>
                   {discountEnabled && discountVal > 0 && (
                     <div className="flex justify-between text-emerald-600">
                       <span>Discount ({discountVal}%):</span>
-                      <span className="font-mono">-Rs. {fmt(totals.discountAmount)}</span>
+                      <span className="font-mono text-right [overflow-wrap:anywhere]">{breakAtGroups(`-Rs. ${fmt(totals.discountAmount)}`)}</span>
                     </div>
                   )}
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Taxable Amount:</span>
-                    <span className="font-mono text-slate-700">Rs. {fmt(totals.taxableAmount)}</span>
+                  <div className="flex justify-between gap-2">
+                    <span className="text-slate-500 shrink-0">Taxable Amount:</span>
+                    <span className="font-mono text-slate-700 text-right [overflow-wrap:anywhere]">{breakAtGroups(`Rs. ${fmt(totals.taxableAmount)}`)}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Tax:</span>
-                    <span className="font-mono text-slate-700">Rs. {fmt(totals.taxAmount)}</span>
+                  <div className="flex justify-between gap-2">
+                    <span className="text-slate-500 shrink-0">Tax:</span>
+                    <span className="font-mono text-slate-700 text-right [overflow-wrap:anywhere]">{breakAtGroups(`Rs. ${fmt(totals.taxAmount)}`)}</span>
                   </div>
-                  <div className="flex justify-between font-bold text-slate-800 pt-2 border-t border-slate-200">
-                    <span>Total:</span>
-                    <span className="font-mono">Rs. {fmt(totals.grandTotal)}</span>
+                  <div className="flex justify-between gap-2 font-bold text-slate-800 pt-2 border-t border-slate-200">
+                    <span className="shrink-0">Total:</span>
+                    <span className="font-mono text-right [overflow-wrap:anywhere]">{breakAtGroups(`Rs. ${fmt(totals.grandTotal)}`)}</span>
                   </div>
                 </div>
                 {/* Pay via UPI — the QR sits under the total it pre-fills:
@@ -1842,9 +1842,9 @@ export default function InvoiceView() {
                     invoice reference already set. */}
                 {business?.upiId && (
                   <div className="mt-4 pt-4 border-t border-slate-100 flex flex-col items-center">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Smartphone className="w-3.5 h-3.5 text-emerald-600" />
-                      <span className="text-xs font-medium text-emerald-700">Pay via UPI — Rs. {fmt(totals.grandTotal)}</span>
+                    <div className="flex items-start justify-center gap-2 mb-2 min-w-0">
+                      <Smartphone className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                      <span className="text-xs font-medium text-emerald-700 text-center [overflow-wrap:anywhere]">{breakAtGroups(`Pay via UPI — Rs. ${fmt(totals.grandTotal)}`)}</span>
                     </div>
                     <div className="bg-white p-2 rounded-lg border border-slate-200 inline-flex overflow-hidden">
                       <QRCodeSVG value={`upi://pay?pa=${business.upiId}&pn=${encodeURIComponent(business.businessName || "")}&am=${totals.grandTotal.toFixed(2)}&tr=${encodeURIComponent(form.invoiceNumber)}&tn=${encodeURIComponent(`${form.invoiceNumber || ""} ${form.invoiceDate || ""}`.trim())}&cu=INR`} size={124} className="max-w-full h-auto" />

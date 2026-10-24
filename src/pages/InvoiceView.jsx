@@ -51,21 +51,21 @@ const InfoRow = memo(({ label, value }) => value ? <p className="text-sm text-sl
 
 const ViewItemRow = memo(({ item, calc, idx, isEditing, onItemChange, onRemove, onAdd, showHnSac = true }) => (
   <tr className={`${idx % 2 === 0 ? "bg-white" : "bg-slate-50/40"} ${isEditing ? "hover:bg-blue-50/20" : ""} transition-colors`}>
-    <td className="py-3 px-3 text-center text-slate-400 font-mono text-xs border-b border-slate-100">{idx + 1}</td>
+    <td className="py-3 px-2 text-center text-slate-400 font-mono text-xs border-b border-slate-100 whitespace-nowrap w-[44px] min-w-[44px]">{idx + 1}</td>
     {isEditing ? (
       <>
         <td className="py-3 px-2 border-b border-slate-100">
           <input type="text" value={item.itemName} name={`desc-${idx + 1}`}
             onChange={(e) => onItemChange(idx, "itemName", e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); const next = document.querySelector(`input[name="${showHnSac ? "hsn" : "qty"}-${idx + 1}"]`); next?.focus(); } }}
-            className="w-full min-w-0 px-3 py-2 border border-slate-200 rounded text-sm focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white" placeholder="Item name" />
+            className="w-full min-w-0 px-2 py-1.5 border border-slate-200 rounded text-xs focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white" placeholder="Item name" />
         </td>
         {showHnSac && (
         <td className="py-3 px-2 border-b border-slate-100">
           <input type="text" value={item.hsn} name={`hsn-${idx + 1}`}
             onChange={(e) => onItemChange(idx, "hsn", e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); const qty = document.querySelector(`input[name="qty-${idx + 1}"]`); qty?.focus(); } }}
-            className="w-full min-w-0 px-2 py-2 border border-slate-200 rounded text-sm focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono" placeholder="Scan or type" />
+            className="w-full min-w-0 px-2 py-1.5 border border-slate-200 rounded text-xs focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono" placeholder="Scan or type" />
         </td>
         )}
         <td className="py-3 px-2 border-b border-slate-100">
@@ -74,11 +74,11 @@ const ViewItemRow = memo(({ item, calc, idx, isEditing, onItemChange, onRemove, 
               onChange={(e) => onItemChange(idx, "qty", e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); const rate = document.querySelector(`input[name="rate-${idx + 1}"]`); rate?.focus(); } }}
               inputMode="numeric"
-              className="w-full min-w-0 px-2 py-2 border border-slate-200 rounded text-sm text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono" />
+              className="w-full min-w-0 px-2 py-1.5 border border-slate-200 rounded text-xs text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono" />
             <select value={item.unit || ""} name={`unit-${idx + 1}`}
               onChange={(e) => onItemChange(idx, "unit", e.target.value)}
               title="Unit of measurement"
-              className="shrink-0 w-[64px] px-1 py-2 border border-slate-200 rounded text-xs focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white text-slate-600">
+              className="shrink-0 w-[56px] px-1 py-1.5 border border-slate-200 rounded text-xs focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white text-slate-600">
               {UNITS.map((u) => (
                 <option key={u} value={u}>{u === "" ? "No unit" : u}</option>
               ))}
@@ -90,7 +90,7 @@ const ViewItemRow = memo(({ item, calc, idx, isEditing, onItemChange, onRemove, 
             onChange={(e) => onItemChange(idx, "rate", e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); const gst = document.querySelector(`input[name="gst-${idx + 1}"]`); gst?.focus(); } }}
             inputMode="decimal"
-            className="w-full min-w-0 px-2 py-2 border border-slate-200 rounded text-sm text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono" />
+            className="w-full min-w-0 px-2 py-1.5 border border-slate-200 rounded text-xs text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono" />
         </td>
         <td className="py-3 px-2 border-b border-slate-100">
           <div className="flex items-center gap-1">
@@ -98,7 +98,7 @@ const ViewItemRow = memo(({ item, calc, idx, isEditing, onItemChange, onRemove, 
               onChange={(e) => onItemChange(idx, "gstPercentage", e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); onAdd(); } }}
               inputMode="decimal"
-              className="w-full min-w-0 px-2 py-2 border border-slate-200 rounded text-sm text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono" />
+              className="w-full min-w-0 px-2 py-1.5 border border-slate-200 rounded text-xs text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono" />
             <span className="shrink-0 text-xs text-slate-400">%</span>
           </div>
         </td>
@@ -120,7 +120,10 @@ const ViewItemRow = memo(({ item, calc, idx, isEditing, onItemChange, onRemove, 
     <td className={`py-3 px-2 text-right font-mono text-xs border-b border-slate-100 [overflow-wrap:anywhere] ${isEditing ? "text-slate-600" : "text-slate-600"}`}>
       {fmt(calc?.tax ?? item.taxAmount)}
     </td>
-    <td className={`py-3 px-2 text-right font-mono text-xs font-semibold border-b border-slate-100 [overflow-wrap:anywhere] ${isEditing ? "text-slate-900" : "text-slate-900"}`}>
+    {/* Last column: extra right padding so amounts don't sit flush against
+        the table's border line (the Total header th carries the same pr-6
+        to stay aligned with the values). */}
+    <td className={`py-3 pl-2 pr-6 text-right font-mono text-xs font-semibold border-b border-slate-100 [overflow-wrap:anywhere] text-slate-900`}>
       {fmt(calc?.total ?? item.total)}
     </td>
     {isEditing && (
@@ -1417,22 +1420,25 @@ export default function InvoiceView() {
                   on the md→lg range — below it the wrapper scrolls as the
                   deliberate fallback instead of crushing the inputs. */}
               <div className={`hidden md:block border border-slate-200 rounded-lg ${isEditing ? "overflow-x-auto lg:overflow-x-hidden xl:overflow-hidden" : "overflow-hidden"}`}>
-                <table className={`w-full text-sm border-collapse table-fixed ${isEditing ? "min-w-[850px]" : ""}`}>
+                <table className={`w-full text-sm border-collapse table-fixed ${isEditing ? "min-w-[780px]" : ""}`}>
                   <colgroup>
-                    <col style={{ width: "3%" }} />
-                    <col style={{ width: isEditing ? (showHnSac ? "25.25%" : "34.25%") : (showHnSac ? "30%" : "39%") }} />
+                    {/* # is floored at 44px (min-w on th/td below) so 3-digit row
+                        numbers never wrap — percentage alone (~3%) is too narrow
+                        once padding is paid. Description funds the difference. */}
+                    <col style={{ width: "5%" }} />
+                    <col style={{ width: isEditing ? (showHnSac ? "24%" : "32.75%") : (showHnSac ? "28%" : "37%") }} />
                     {showHnSac && <col style={{ width: isEditing ? "8.5%" : "9%" }} />}
                     <col style={{ width: isEditing ? "16%" : "8%" }} />
                     <col style={{ width: isEditing ? "8%" : "10%" }} />
-                    <col style={{ width: isEditing ? "9.5%" : "7%" }} />
-                    <col style={{ width: isEditing ? "8.91%" : "11%" }} />
-                    <col style={{ width: isEditing ? "8.91%" : "11%" }} />
-                    <col style={{ width: isEditing ? "8.91%" : "11%" }} />
+                    <col style={{ width: isEditing ? "10%" : "7%" }} />
+                    <col style={{ width: isEditing ? "8.75%" : "11%" }} />
+                    <col style={{ width: isEditing ? "8.75%" : "11%" }} />
+                    <col style={{ width: isEditing ? "8.75%" : "11%" }} />
                     {isEditing && <col style={{ width: "3%" }} />}
                   </colgroup>
                   <thead>
                     <tr className="bg-slate-800">
-                      <th className="text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">#</th>
+                      <th className="text-white text-xs font-semibold py-3.5 px-2 text-center whitespace-nowrap w-[44px] min-w-[44px]">#</th>
                       <th className="text-white text-xs font-semibold py-3.5 px-3 text-left whitespace-nowrap">{labelFor("itemName", "Description")}</th>
                       {showHnSac && <th className="text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">HSN/SAC</th>}
                       <th className="text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">Qty</th>
@@ -1440,7 +1446,7 @@ export default function InvoiceView() {
                       <th className="text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">GST %</th>
                       <th className="text-white text-xs font-semibold py-3.5 px-3 text-right whitespace-nowrap">Taxable</th>
                       <th className="text-white text-xs font-semibold py-3.5 px-3 text-right whitespace-nowrap">Tax</th>
-                      <th className="text-white text-xs font-semibold py-3.5 px-3 text-right whitespace-nowrap">Total</th>
+                      <th className="text-white text-xs font-semibold py-3.5 pl-3 pr-6 text-right whitespace-nowrap">Total</th>
                       {isEditing && <th className="text-white"></th>}
                     </tr>
                   </thead>

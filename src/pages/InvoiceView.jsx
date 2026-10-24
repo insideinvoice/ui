@@ -179,7 +179,6 @@ export default function InvoiceView() {
   // column elements in refs the effect binds listeners to.
   const leftPaneRef = useRef(null);
   const rightPaneRef = useRef(null);
-  const hoveredPaneRef = useRef(null);
   // The hidden A4 documents are only mounted while a PDF/print/share action is
   // running — keeping them permanently mounted meant every keystroke and every
   // busy-flag toggle re-rendered two full invoice documents.
@@ -588,63 +587,8 @@ export default function InvoiceView() {
     return () => window.removeEventListener("keydown", onKey);
   }, [showShareSheet, showPdfPreview, shareBusy]);
 
-  // ----- Hover-wheel routing (xl dual-pane scroll) -----
-  // The browser natively wheels whichever overflow container sits under the
-  // cursor, but "dead zones" — the column gutter, the page padding, the
-  // header strip — scroll nothing, and a column whose content fits the window
-  // can't scroll at all. Together that reads as "I have to click a section
-  // first". One listener routes every wheel tick to the column under (or last
-  // under) the cursor, and never wastes a scroll: if the hovered column has
-  // nothing to scroll, the other one does.
-  useEffect(() => {
-    const left = leftPaneRef.current;
-    const right = rightPaneRef.current;
-    const surface = left?.parentElement;
-    if (!left || !right || !surface) return undefined;
-    hoveredPaneRef.current = left;
-    const hasOverflow = (el) => el.scrollHeight > el.clientHeight + 1;
-    const anyPaneScroll = (pane) => {
-      if (pane && hasOverflow(pane)) return pane;
-      const other = pane === left ? right : left;
-      return hasOverflow(other) ? other : null;
-    };
-    const markLeft = () => { hoveredPaneRef.current = left; };
-    const markRight = () => { hoveredPaneRef.current = right; };
-    const onWheel = (e) => {
-      if (e.ctrlKey) return; // ctrl+wheel / pinch = zoom, never scrolling
-      // Stacked layout (below xl): the page owns the wheel as usual.
-      if (!window.matchMedia("(min-width: 1280px)").matches) return;
-      const inLeft = left.contains(e.target);
-      const inRight = right.contains(e.target);
-      if (inLeft || inRight) {
-        // Inside a pane the browser scrolls it natively — unless this pane's
-        // content fits and nothing would move; then hand the tick to the
-        // sibling so the wheel is never dead.
-        const pane = inLeft ? left : right;
-        if (hasOverflow(pane)) return;
-        const other = anyPaneScroll(pane);
-        if (other) {
-          e.preventDefault();
-          other.scrollBy({ top: e.deltaY });
-        }
-        return;
-      }
-      // Dead zone (gutter / padding / header): route the wheel to the pane
-      // the cursor last hovered so ANY position always scrolls that column.
-      e.preventDefault();
-      const target = anyPaneScroll(hoveredPaneRef.current);
-      if (target) target.scrollBy({ top: e.deltaY });
-    };
-    left.addEventListener("mouseenter", markLeft);
-    right.addEventListener("mouseenter", markRight);
-    surface.addEventListener("wheel", onWheel, { passive: false });
-    return () => {
-      left.removeEventListener("mouseenter", markLeft);
-      right.removeEventListener("mouseenter", markRight);
-      surface.removeEventListener("wheel", onWheel);
-    };
-  }, [loading, error]);
 
+  // Offline-saved customers/invoices sync here once the connection returns.
   useEffect(() => {
     processQueue(
       (data) => customerAPI.create(data),
@@ -1045,7 +989,7 @@ export default function InvoiceView() {
   }
 
   return (
-    <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-gray-100 xl:h-[calc(100dvh-var(--status-bar-offset,0px))] xl:overflow-hidden xl:flex xl:flex-col">
+    <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-gray-100">
       {/* Hidden Invoice PDF for capture — mounted only while a PDF action runs */}
       {captureType && captureType !== "PROFORMA_INVOICE" && (
         <div style={{ position: "absolute", left: "-9999px", top: 0, pointerEvents: "none" }}>
@@ -1107,8 +1051,8 @@ export default function InvoiceView() {
           </div>
         </div>
 
-        <div className={`grid grid-cols-1 gap-6 xl:flex-1 xl:min-h-0 xl:grid-rows-1 ${isEditing ? "" : "xl:grid-cols-[minmax(0,1fr)_minmax(0,0.34fr)] side-fixed-grid"}`}>
-          <div ref={leftPaneRef} className="space-y-6 pane-scroll xl:overflow-y-auto xl:min-h-0">
+        <div className={`grid grid-cols-1 gap-6 ${isEditing ? "" : "xl:grid-cols-[minmax(0,1fr)_minmax(0,0.34fr)] side-fixed-grid"}`}>
+          <div ref={leftPaneRef} className="space-y-6">
             {/* Seller & Buyer Info */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 sm:p-6">
@@ -1480,17 +1424,17 @@ export default function InvoiceView() {
                   </colgroup>
                   <thead>
                     <tr className="bg-slate-800">
-                      <th className="xl:sticky xl:top-0 xl:z-10 text-white text-xs font-semibold py-3.5 px-2 text-center whitespace-nowrap w-[44px] min-w-[44px]">#</th>
-                      <th className="xl:sticky xl:top-0 xl:z-10 text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">{labelFor("itemName", "Description")}</th>
-                      {showHnSac && <th className="xl:sticky xl:top-0 xl:z-10 text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">HSN/SAC</th>}
-                      <th className="xl:sticky xl:top-0 xl:z-10 text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">Qty</th>
-                      <th className="xl:sticky xl:top-0 xl:z-10 text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">Rate</th>
-                      <th className="xl:sticky xl:top-0 xl:z-10 text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">GST %</th>
-                      <th className="xl:sticky xl:top-0 xl:z-10 text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">Taxable</th>
-                      <th className="xl:sticky xl:top-0 xl:z-10 text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">Tax</th>
+                      <th className="text-white text-xs font-semibold py-3.5 px-2 text-center whitespace-nowrap w-[44px] min-w-[44px]">#</th>
+                      <th className="text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">{labelFor("itemName", "Description")}</th>
+                      {showHnSac && <th className="text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">HSN/SAC</th>}
+                      <th className="text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">Qty</th>
+                      <th className="text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">Rate</th>
+                      <th className="text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">GST %</th>
+                      <th className="text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">Taxable</th>
+                      <th className="text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">Tax</th>
                       {/* Centered over its column; the values keep text-right
                           with pr-6 so amounts stay clear of the border. */}
-                      <th className="xl:sticky xl:top-0 xl:z-10 text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">Total</th>
+                      <th className="text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">Total</th>
                       {isEditing && <th className="text-white"></th>}
                     </tr>
                   </thead>
@@ -1619,7 +1563,7 @@ export default function InvoiceView() {
           {/* Right Sidebar — its own scroll surface at xl: wheeling anywhere
               over the discount/actions column moves ONLY this column, never
               the invoice content behind it (overscroll-behavior: contain). */}
-          <div ref={rightPaneRef} className={isEditing ? "hidden" : "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-1 items-start side-fixed pane-scroll xl:overflow-y-auto xl:min-h-0"}>
+          <div ref={rightPaneRef} className={isEditing ? "hidden" : "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-1 items-start side-fixed"}>
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Discount</h3>
@@ -1685,7 +1629,7 @@ export default function InvoiceView() {
                 </div>
               </div>
             )}
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 xl:sticky xl:top-6">
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
               <h2 className="text-sm font-bold text-slate-800 mb-4 pb-3 border-b border-slate-100">Actions</h2>
               <div className="flex flex-col sm:flex-row xl:flex-col gap-2 sm:flex-wrap">
                 {isEditing ? (

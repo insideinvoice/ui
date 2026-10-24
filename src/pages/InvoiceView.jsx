@@ -47,7 +47,7 @@ const labelClass = "block text-xs font-semibold text-slate-600 mb-1.5";
 
 // Declared at module scope so React keeps the same component type across renders
 // (an inner declaration remounts every row on each parent render).
-const InfoRow = memo(({ label, value }) => value ? <p className="text-sm text-slate-600"><span className="text-slate-400">{label}:</span> {value}</p> : null);
+const InfoRow = memo(({ label, value }) => value ? <p className="text-xs text-slate-600"><span className="text-slate-400">{label}:</span> {value}</p> : null);
 
 // Amounts too wide for their column wrap at the Indian comma groups, never
 // mid-number: a zero-width space after each group comma gives the line
@@ -1228,7 +1228,7 @@ export default function InvoiceView() {
                     <span className="text-sm font-medium text-slate-700">IGST</span>
                     <span className="flex items-center gap-2">
                       <span className={`text-[11px] font-semibold ${form.taxMode === "IGST" ? "text-emerald-600" : "text-slate-500"}`}>
-                        {form.taxMode === "IGST" ? "ON · IGST" : "OFF · CGST + SGST"}
+                        <span className="text-xs">{form.taxMode === "IGST" ? "ON · IGST" : "OFF · CGST + SGST"}</span>
                       </span>
                       <span className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${form.taxMode === "IGST" ? "bg-emerald-500" : "bg-slate-300"}`}>
                         <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${form.taxMode === "IGST" ? "translate-x-4" : "translate-x-0.5"}`} />
@@ -1412,14 +1412,14 @@ export default function InvoiceView() {
                         numbers never wrap — percentage alone (~3%) is too narrow
                         once padding is paid. Description funds the difference. */}
                     <col style={{ width: "6%" }} />
-                    <col style={{ width: isEditing ? (showHnSac ? "22.5%" : "31.5%") : (showHnSac ? "29%" : "38%") }} />
+                    <col style={{ width: isEditing ? (showHnSac ? "20.5%" : "29.5%") : (showHnSac ? "29%" : "38%") }} />
                     {showHnSac && <col style={{ width: isEditing ? "8%" : "9%" }} />}
                     <col style={{ width: isEditing ? "14%" : "8%" }} />
                     <col style={{ width: isEditing ? "8%" : "10%" }} />
                     <col style={{ width: isEditing ? "8.5%" : "7%" }} />
-                    <col style={{ width: isEditing ? "9%" : "11%" }} />
-                    <col style={{ width: isEditing ? "9%" : "11%" }} />
-                    <col style={{ width: isEditing ? "9%" : "11%" }} />
+                    <col style={{ width: isEditing ? "9.75%" : "11%" }} />
+                    <col style={{ width: isEditing ? "9.75%" : "11%" }} />
+                    <col style={{ width: isEditing ? "9.75%" : "11%" }} />
                     {isEditing && <col style={{ width: "5.75%" }} />}
                   </colgroup>
                   <thead>

@@ -16,6 +16,7 @@ import { processPrint } from "../utils/printInvoice";
 import { buildInvoiceWhatsAppMessage, openWhatsAppChat, createInvoicePdfFile, probeFileShare, prefetchInvoicePdf } from "../utils/whatsapp";
 import { shareLinkToUser, proformaShareUrl, readCachedShareToken, writeCachedShareToken, clearCachedShareToken } from "../utils/shareLink";
 import { getPrintSettings, getInvoiceTemplate } from "../constants/paperSizes";
+import EInvoiceDetailsPanel from "../components/EInvoiceDetailsPanel";
 import { computeInvoiceTotals, round2 } from "../utils/invoiceTotals";
 import { resolveTaxMode, validateTaxMode } from "../utils/taxMode";
 import { goBack } from "../utils/navigation";
@@ -576,6 +577,7 @@ export default function InvoiceView() {
         cessPercent: parseFloat(inv.cessPercentage) > 0 ? String(inv.cessPercentage) : "",
         ewayBillNumber: inv.ewayBillNumber || "",
         irn: inv.irn || "", ackNo: inv.ackNo || "", ackDate: inv.ackDate || "",
+        einvoiceStatus: inv.einvoiceStatus || "",
       };
       setForm(loadedForm);
       buyerSnapshotRef.current = {
@@ -723,7 +725,14 @@ export default function InvoiceView() {
   }), [form.customerName, form.billingAddress, form.customerGstIn, form.customerPhone, form.customerEmail, form.placeOfSupply]);
 
   const previewPaperSize = useMemo(() => (getPrintSettings()[invoiceType] || {}).paperSize || "A4_PORTRAIT", [invoiceType]);
-  const previewTemplate = useMemo(() => getInvoiceTemplate(invoiceType), [invoiceType]);
+  // E-invoiced documents render ONLY on the e-Invoice template (its Zone A
+  // prints the IRN / acknowledgement the IRP returned); every other invoice
+  // keeps the business's chosen template.
+  const einvoiced = !!(form.irn && String(form.irn).trim());
+  const previewTemplate = useMemo(
+    () => (einvoiced ? "template-33" : getInvoiceTemplate(invoiceType)),
+    [invoiceType, einvoiced]
+  );
   const proformaPaperSize = useMemo(() => (getPrintSettings()["PROFORMA_INVOICE"] || {}).paperSize || "A4_PORTRAIT", []);
   const proformaTemplate = useMemo(() => getInvoiceTemplate("PROFORMA_INVOICE"), []);
 
@@ -879,8 +888,10 @@ export default function InvoiceView() {
         reverseCharge: form.reverseCharge === true,
         cessPercentage: parseFloat(form.cessPercent) || 0,
         ewayBillNumber: form.ewayBillNumber || undefined,
-        irn: form.irn || undefined,
-        ackNo: form.ackNo || undefined,
+        // irn/ackNo/ackDate are government-generated (V49) — deliberately NOT
+        // sent by the client; the backend owns them via the IRP response.
+        irn: undefined,
+        ackNo: undefined,
         ackDate: form.ackDate || undefined,
         billingMode: form.billingMode || undefined,
         // V29 extended fields: always re-sent so loaded values survive the
@@ -1256,26 +1267,9 @@ export default function InvoiceView() {
                     <label className={labelClass}>Due Date</label>
                     <input type="date" name="dueDate" value={form.dueDate} onChange={handleFieldChange} className={inputClass} />
                   </div>
-                  {/* e-Invoice acknowledgement — printed in Zone A by the
-                      e-Invoice template (template-33) only. */}
-                  {previewTemplate === "template-33" && (
-                    <>
-                      <div>
-                        <label className={labelClass}>IRN <span className="font-normal text-slate-400">(e-Invoice)</span></label>
-                        <input type="text" name="irn" value={form.irn} onChange={handleFieldChange}
-                          placeholder="64-character Invoice Reference Number" className={inputClass + " font-mono"} />
-                      </div>
-                      <div>
-                        <label className={labelClass}>Ack No.</label>
-                        <input type="text" name="ackNo" value={form.ackNo} onChange={handleFieldChange}
-                          placeholder="IRP acknowledgement no." className={inputClass + " font-mono"} />
-                      </div>
-                      <div>
-                        <label className={labelClass}>Ack Date</label>
-                        <input type="date" name="ackDate" value={form.ackDate} onChange={handleFieldChange} className={inputClass} />
-                      </div>
-                    </>
-                  )}
+                  {/* IRN / Ack details are government-generated: they are set ONLY
+                      by the backend from the IRP response and render read-only
+                      in the GST E-Invoice Details panel below — never typed. */}
                   <div>
                     <label className={labelClass}>Place of Supply</label>
                     <div className="relative">
@@ -1510,6 +1504,10 @@ export default function InvoiceView() {
               to Save/Cancel while editing). Stacks below the content below xl;
               cards sit side-by-side there via the responsive grid. */}
           <div ref={rightPaneRef} className="order-3 xl:order-none grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-1 xl:content-start items-start side-fixed">
+            {/* Government-generated e-invoice registration details (IRN, ack,
+                signed QR) — read-only, backend-driven; hidden entirely while
+                e-invoicing is disabled for the business. */}
+            <EInvoiceDetailsPanel invoiceId={id} />
             {/* Discount + Company Stamp are EDIT-ONLY controls: set them here,
                 save, then come back and download — the read-only rail keeps
                 just the actions and the invoice facts. */}

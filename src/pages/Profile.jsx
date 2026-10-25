@@ -1,6 +1,7 @@
 import { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback, memo } from "react";
 import { useAuth } from "../context/AuthContext";
 import JurisdictionRegionSelect from "../components/JurisdictionRegionSelect";
+import EInvoiceSettingsCard from "../components/settings/EInvoiceSettingsCard";
 import InvoicePDF from "../components/InvoicePDF";
 import SealOverlay from "../components/SealOverlay";
 import { authAPI, businessAPI } from "../api/auth";
@@ -1461,6 +1462,10 @@ export default function Profile() {
             </div>
           </form>
           )}
+        </div>
+
+        <div className="lg:col-span-2">
+          <EInvoiceSettingsCard business={businessData} />
         </div>
 
         {/* Branding — moved out of the profile card; its own card right

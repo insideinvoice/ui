@@ -5,6 +5,7 @@ import { sealSpecAttribute } from "../utils/sealConfig";
 import { asImageSrc } from "../utils/imageSrc";
 import InvoiceTemplateRetro from "./InvoiceTemplateRetro";
 import InvoiceTemplateEnterprise from "./InvoiceTemplateEnterprise";
+import InvoiceTemplateEInvoice from "./InvoiceTemplateEInvoice";
 import { numberToWords, formatINR } from "../utils/invoiceFormat";
 import { computeInvoiceTotals } from "../utils/invoiceTotals";
 import { mobileLine } from "../utils/phoneDisplay";
@@ -71,6 +72,23 @@ const InvoiceTemplateVariants = React.memo(React.forwardRef(({ theme, business, 
   if (t.layout === L.enterprise) {
     return (
       <InvoiceTemplateEnterprise
+        ref={ref}
+        business={business}
+        customer={customer}
+        form={form}
+        items={items}
+        discountPercent={discountPercent}
+        type={type}
+        invoiceNumber={invoiceNumber}
+        taxMode={taxMode}
+      />
+    );
+  }
+  // The e-Invoice layout is a self-contained NIC-style fixed page too — same
+  // rendering contract as Retro / Enterprise (props only, no shared skeleton).
+  if (t.layout === L.einvoice) {
+    return (
+      <InvoiceTemplateEInvoice
         ref={ref}
         business={business}
         customer={customer}

@@ -19,9 +19,18 @@ export const L = {
   "dark-modern": "dark-modern",
   retro: "retro",
   enterprise: "enterprise",
+  einvoice: "einvoice",
 };
 
 export const TEMPLATE_THEMES = {
+  "template-33": {
+    id: "template-33", label: "e-Invoice", desc: "NIC e-Invoice style — Tax Invoice with IRN / Ack details, QR code, HSN tax breakup and statutory declaration",
+    layout: L.einvoice, font: "Arial, Helvetica, sans-serif", bodyBg: "#ffffff",
+    borderColor: "#000000", borderWidth: "1px", borderStyle: "solid", primary: "#000000",
+    headerBg: "#ffffff", headerText: "#000000", accentBg: "#000000", accentText: "#ffffff",
+    sectionTitleBorder: true, tableHeaderBg: "#ffffff", tableHeaderText: "#000000",
+    tableRowHeight: 26, compact: false, labelStyle: "normal",
+  },
   "template-31": {
     id: "template-31", label: "Retro", desc: "Fixed A4 page in classic shop-bill style — No / Particulars / Qty / Rate / Amount",
     layout: L.retro, font: "Arial, Helvetica, sans-serif", bodyBg: "#ffffff",

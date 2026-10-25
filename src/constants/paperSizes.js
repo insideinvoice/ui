@@ -53,16 +53,14 @@ export const PAPER_SIZE_LIST = Object.values(PAPER_SIZES);
 
 export const ALL_TEMPLATES = [
   { id: "template-1", label: "Original", desc: "Default classic black border layout" },
+  { id: "template-33", label: "e-Invoice", desc: "NIC e-Invoice style — IRN / Ack details, QR code, HSN tax breakup and statutory declaration" },
   { id: "template-31", label: "Retro", desc: "Fixed A4 page in classic shop-bill style — No / Particulars / Qty / Rate / Amount" },
   { id: "template-32", label: "Enterprise", desc: "Black & white corporate invoice — logo letterhead, GST summary, lines that auto-close at every page edge" },
   { id: "template-3", label: "Corporate Blue", desc: "Professional navy blue accents" },
   { id: "template-5", label: "Minimalist", desc: "Borderless design with maximum whitespace" },
   { id: "template-10", label: "Slate Professional", desc: "Clean slate-grey corporate style" },
-  { id: "template-19", label: "Divided", desc: "Three-column grid: seller | buyer | details" },
   { id: "template-23", label: "Clean White", desc: "Ultra minimal greyscale" },
-  { id: "template-24", label: "Ironclad", desc: "Steel-grey structure with forge-amber accents — iron & steel works" },
   { id: "template-25", label: "Copper Circuit", desc: "Deep navy header with copper highlights — electricals & electronics" },
-  { id: "template-27", label: "Carbon Grid", desc: "Bold black grid with brand-red accent — hardware, tools & fasteners" },
   { id: "template-28", label: "Blueprint Pro", desc: "Engineering blue with light spec-sheet table — fabrication & industrial supply" },
 ];
 

@@ -13,6 +13,12 @@ export const INVOICE_ROW_SELECTORS = [
   "#section-hsn-total",
   "#section-hsn-words",
   "#section-footer",
+  // Tail of the document: the full-width Terms strip and the jurisdiction line
+  // sit between the bank/declaration/signature band and the bottom note, so
+  // they need to be anchors or the only cuts available skip straight past them
+  // and a page break can land mid-strip.
+  "#section-terms",
+  "#section-jurisdiction",
   "#section-bottom-note",
   // Retro renders fixed repeat pages; cut between them and never inside one.
   '[id^="retro-page-"]',

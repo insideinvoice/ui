@@ -5,9 +5,11 @@ import { parseTermsList } from "../utils/termsConditions";
  * Terms & Conditions strip for the PRINTED invoice documents (View PDF modal,
  * Download PDF, email attachment): the same business-saved list that renders
  * on the view page card. Settings owns the data; this component renders it as
- * a full-width table row directly above the bank/declaration/signature band in
- * every template family. Returns null when the business has not saved any
- * terms, so layouts never print an empty box.
+ * a full-width table row directly BELOW the bank/declaration/signature band in
+ * every template family. The bottom rule is what separates this strip from the
+ * band above and the jurisdiction line below — without it the whole tail of the
+ * invoice reads as one undivided block. Returns null when the business has not
+ * saved any terms, so layouts never print an empty box.
  */
 const InvoiceTermsRow = ({ business, border, primary = "#111111", fontSize = "10px" }) => {
   const terms = parseTermsList(business?.termsConditions);
@@ -19,7 +21,7 @@ const InvoiceTermsRow = ({ business, border, primary = "#111111", fontSize = "10
   const cols = terms.length > 3 ? [terms.slice(0, half), terms.slice(half)] : [terms];
   return (
     <tr id="section-terms">
-      <td colSpan={2} style={{ borderLeft: border, borderRight: border, padding: "6px 10px", verticalAlign: "top" }}>
+      <td colSpan={2} style={{ borderLeft: border, borderRight: border, borderBottom: border, padding: "6px 10px", verticalAlign: "top" }}>
         <div style={{
           fontSize: "10px", fontWeight: "bold", letterSpacing: "0.4px",
           marginBottom: "3px", color: primary, textTransform: "uppercase",

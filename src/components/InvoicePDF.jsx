@@ -9,7 +9,7 @@ import { getSpecialistInLine } from "../utils/specialistIn";
 import { computeInvoiceTotals } from "../utils/invoiceTotals";
 import { mobileLine } from "../utils/phoneDisplay";
 import { numberToWords, formatINR } from "../utils/invoiceFormat";
-import { jurisdictionLine } from "../utils/jurisdiction";
+import { jurisdictionLine, formatJurisdiction, shouldShowJurisdiction } from "../utils/jurisdiction";
 import { getIndustryConfig, getTemplateRightRows, fieldLabel } from "../constants/industryConfig";
 import { stateWithCode } from "../constants/indianStates";
 import { uqcFor } from "../constants/units";
@@ -113,10 +113,14 @@ const InvoicePDF = React.memo(React.forwardRef(({ business, customer, form, item
   const itemDescLabel = fieldLabel(industryConfig, "itemName", "Description of Goods");
 
   const { sealVisible, sealType } = resolveSeal(business);
-  // Configurable jurisdiction footer (V31): text comes from the business's
-  // persisted configuration — "" when the owner switched the line off or no
-  // city is saved. Never a hardcoded default.
-  const jurLine = jurisdictionLine(business);
+  // Configurable jurisdiction line (V31): text comes from the business's
+  // persisted configuration. A profile that never saved an explicit
+  // jurisdiction city falls back to its own city, so a Bengaluru business
+  // still prints "SUBJECT TO BENGALURU JURISDICTION" instead of nothing.
+  // Never a hardcoded city — the Settings toggle still switches it off.
+  const jurLine =
+    jurisdictionLine(business) ||
+    (shouldShowJurisdiction(business) ? formatJurisdiction(business?.city) : "");
 
   return (
     <div
@@ -561,10 +565,6 @@ const InvoicePDF = React.memo(React.forwardRef(({ business, customer, form, item
           </>
           )}
 
-          {/* Terms & Conditions — the business's saved defaults (Settings owns
-              them); collapses away entirely when none are set. */}
-          <InvoiceTermsRow business={business} border={S.border} />
-
           {/* BOTTOM SECTION: Bank + UPI QR | Declaration | Signature */}
           <tr id="section-footer">
             <td colSpan={2} style={{ borderLeft: S.border, borderRight: S.border, borderBottom: S.border, padding: 0 }}>
@@ -621,6 +621,22 @@ const InvoicePDF = React.memo(React.forwardRef(({ business, customer, form, item
             </td>
           </tr>
 
+          {/* Terms & Conditions — the business's saved defaults (Settings owns
+              them), full width directly under the bank/declaration/signature
+              band. InvoiceTermsRow draws its own bottom rule, so there is
+              always a divider between that band and this strip; the row
+              collapses away entirely when no terms are saved. */}
+          <InvoiceTermsRow business={business} border={S.border} />
+
+          {/* Jurisdiction — immediately below Terms, inside the frame. */}
+          {jurLine && (
+            <tr id="section-jurisdiction">
+              <td colSpan={2} style={{ borderLeft: S.border, borderRight: S.border, borderBottom: S.border, padding: "6px 10px", textAlign: "center" }}>
+                <span style={{ fontSize: "10px", fontWeight: "bold" }}>{jurLine}</span>
+              </td>
+            </tr>
+          )}
+
           {/* FOOTER */}
           <tr id="section-bottom-note">
             <td colSpan={2} style={{ padding: "6px 10px" }}>
@@ -628,10 +644,7 @@ const InvoicePDF = React.memo(React.forwardRef(({ business, customer, form, item
                 <tbody>
                   <tr>
                     <td style={{ textAlign: "center", padding: 0 }}>
-                      {jurLine && (
-                        <div style={{ fontSize: "10px", fontWeight: "bold" }}>{jurLine}</div>
-                      )}
-                      <div style={{ fontSize: "10px", marginTop: "1px" }}>{isProforma ? "This is a Computer Generated Proforma Invoice" : "This is a Computer Generated Invoice"}</div>
+                      <div style={{ fontSize: "10px" }}>{isProforma ? "This is a Computer Generated Proforma Invoice" : "This is a Computer Generated Invoice"}</div>
                     </td>
                   </tr>
                 </tbody>

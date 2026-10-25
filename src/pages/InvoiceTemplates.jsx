@@ -58,6 +58,14 @@ const sampleBusiness = {
   // real invoice whose owner entered a UPI id in Settings; real invoices
   // always read the persisted business profile instead.
   upiId: "acme@okaxis",
+  // Demo terms so the full-width Terms & Conditions strip under the bank
+  // details band is visible in the gallery; real invoices read the saved list.
+  termsConditions: JSON.stringify([
+    "Goods once sold will not be taken back or exchanged.",
+    "Payment due within 30 days from date of invoice.",
+    "Interest @18% p.a. is charged on all overdue bills.",
+    "E. & O.E.",
+  ]),
 };
 
 const sampleCustomer = {

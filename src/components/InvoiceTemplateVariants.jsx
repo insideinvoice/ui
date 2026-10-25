@@ -1,5 +1,6 @@
 import React from "react";
 import SealOverlay from "./SealOverlay";
+import SignatureOverlay from "./SignatureOverlay";
 import { resolveSeal } from "../utils/seal";
 import { sealSpecAttribute } from "../utils/sealConfig";
 import { asImageSrc } from "../utils/imageSrc";
@@ -1382,6 +1383,7 @@ const InvoiceTemplateVariants = React.memo(React.forwardRef(({ theme, business, 
         </tbody>
       </table>
       {sealVisible && <SealOverlay business={business} type={sealType} />}
+      {sigSrc && <SignatureOverlay business={business} sigSrc={sigSrc} />}
     </div>
   );
 }));

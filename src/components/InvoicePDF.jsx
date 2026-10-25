@@ -1,6 +1,7 @@
 import React, { useMemo } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import SealOverlay from "./SealOverlay";
+import SignatureOverlay from "./SignatureOverlay";
 import InvoiceTermsRow from "./InvoiceTermsRow";
 import { resolveSeal } from "../utils/seal";
 import { sealSpecAttribute } from "../utils/sealConfig";
@@ -664,6 +665,7 @@ const InvoicePDF = React.memo(React.forwardRef(({ business, customer, form, item
         </tbody>
       </table>
       {sealVisible && <SealOverlay business={business} type={sealType} />}
+      {sigSrc && <SignatureOverlay business={business} sigSrc={sigSrc} />}
     </div>
   );
 }));

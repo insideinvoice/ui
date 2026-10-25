@@ -1,5 +1,6 @@
 import React from "react";
 import SealOverlay from "./SealOverlay";
+import SignatureOverlay from "./SignatureOverlay";
 import { resolveSeal } from "../utils/seal";
 import { resolveSealConfig, sealSpecAttribute } from "../utils/sealConfig";
 import { asImageSrc } from "../utils/imageSrc";
@@ -695,7 +696,10 @@ const RetroPage = ({ pageId, chunks, startIndex, shared, isLast = false }) => (
     {/* breathing room between the terms/signature band and the frame edge */}
     <div style={{ height: `${BOTTOM_SPACER}px`, boxSizing: "border-box" }} />
     {shared.sealVisible && (shared.sealAllPages || isLast) && (
-      <SealOverlay business={shared.business} type={shared.sealType} />
+      <>
+        <SealOverlay business={shared.business} type={shared.sealType} />
+        {shared.sigSrc && <SignatureOverlay business={shared.business} sigSrc={shared.sigSrc} />}
+      </>
     )}
   </Frame>
 );

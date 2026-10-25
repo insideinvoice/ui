@@ -63,6 +63,36 @@ export const SEAL_PAGE = Object.freeze({ widthMm: 210, heightMm: 297 });
  */
 export const SEAL_MARGIN_MM = 10;
 
+/**
+ * Signature placement (V50). Defaults put the signature ON TOP of the
+ * Authorised Signatory band: bottom-right area, upright, ~38 mm wide —
+ * the classic position every template renders it inline today. Placement
+ * becomes free-form the moment the owner drags it in Settings; until a
+ * signature config exists, templates keep their inline rendering untouched.
+ */
+export const SIGNATURE_DEFAULTS = Object.freeze({
+  sizeMm: 38,
+  tilt: 0,
+  rightMm: 16,
+  bottomMm: 10,
+});
+
+export const SIGNATURE_LIMITS = Object.freeze({
+  minSize: 10,
+  maxSize: 140,
+  minTilt: -45,
+  maxTilt: 45,
+  minEdge: -SEAL_MARGIN_MM,
+  maxEdge: SEAL_PAGE.widthMm,
+});
+
+/** Signature footprint in millimetres (free width; height follows the image
+ *  ratio at render time, so only the width is stored). */
+export function signatureBoxMm(config) {
+  const width = Number.isFinite(config?.sizeMm) ? config.sizeMm : SIGNATURE_DEFAULTS.sizeMm;
+  return { w: width, h: width * 0.4 };
+}
+
 export const SEAL_LIMITS = Object.freeze({
   round: Object.freeze({ minSize: 5, maxSize: 120 }),
   stamp: Object.freeze({ minSize: 10, maxSize: 180 }),
@@ -137,6 +167,21 @@ export function normalizeSealConfig(raw) {
     allPages: toBoolean(value?.allPages, SEAL_DEFAULTS.allPages),
     round: normaliseVariant(value?.round, SEAL_DEFAULTS.round, SEAL_LIMITS.round, "round"),
     stamp: normaliseVariant(value?.stamp, SEAL_DEFAULTS.stamp, SEAL_LIMITS.stamp, "stamp"),
+    signature: normaliseSignature(value?.signature),
+  };
+}
+
+function normaliseSignature(raw) {
+  if (raw == null) return null; // absent = keep every template's inline rendering
+  const size = toNumber(raw?.sizeMm);
+  const tilt = toNumber(raw?.tilt);
+  const right = toNumber(raw?.rightMm);
+  const bottom = toNumber(raw?.bottomMm);
+  return {
+    sizeMm: roundTo2(clamp(size == null ? SIGNATURE_DEFAULTS.sizeMm : size, SIGNATURE_LIMITS.minSize, SIGNATURE_LIMITS.maxSize)),
+    tilt: roundTo2(clamp(tilt == null ? SIGNATURE_DEFAULTS.tilt : tilt, SIGNATURE_LIMITS.minTilt, SIGNATURE_LIMITS.maxTilt)),
+    rightMm: roundTo2(clamp(right == null ? SIGNATURE_DEFAULTS.rightMm : right, SIGNATURE_LIMITS.minEdge, SIGNATURE_LIMITS.maxEdge)),
+    bottomMm: roundTo2(clamp(bottom == null ? SIGNATURE_DEFAULTS.bottomMm : bottom, SIGNATURE_LIMITS.minEdge, SIGNATURE_LIMITS.maxEdge)),
   };
 }
 

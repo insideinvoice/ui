@@ -2,6 +2,7 @@ import { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback, mem
 import { useAuth } from "../context/AuthContext";
 import JurisdictionRegionSelect from "../components/JurisdictionRegionSelect";
 import EInvoiceSettingsCard from "../components/settings/EInvoiceSettingsCard";
+import SignaturePlacementModal from "../components/SignaturePlacementModal";
 import InvoicePDF from "../components/InvoicePDF";
 import SealOverlay from "../components/SealOverlay";
 import { authAPI, businessAPI } from "../api/auth";
@@ -403,6 +404,7 @@ export default function Profile() {
     }
   };
 
+  const [sigPlacementOpen, setSigPlacementOpen] = useState(false);
   const handleSignatureSize = async (px) => {
     setSignatureSizePx(px);
     try {
@@ -1568,7 +1570,13 @@ export default function Profile() {
                     {uploadingSig ? "Uploading..." : signature ? "Change" : "Upload"}
                   </label>
                   {signature && (
-                    <button onClick={handleRemoveSignature} disabled={uploadingSig} title="Remove signature"
+                    <button type="button" onClick={() => setSigPlacementOpen(true)} title="Position & size on the invoice"
+                      className="flex items-center justify-center w-9 h-9 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 transition-all">
+                      <MapPin className="w-4 h-4" />
+                    </button>
+                  )}
+                  {signature && (
+                    <button type="button" onClick={handleRemoveSignature} disabled={uploadingSig} title="Remove signature"
                       className="flex items-center justify-center w-9 h-9 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 disabled:opacity-50 transition-all">
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -1585,6 +1593,16 @@ export default function Profile() {
                   </label>
                 ))}
               </div>
+              {sigPlacementOpen && (
+                <SignaturePlacementModal
+                  business={businessData}
+                  signature={signature}
+                  onClose={() => setSigPlacementOpen(false)}
+                  onSaved={() => {
+                    businessAPI.getProfile().then((r) => setBusinessData(r.data.data)).catch(() => {});
+                  }}
+                />
+              )}
             </div>
           </div>
         </div>

@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import SealOverlay from "./SealOverlay";
+import SignatureOverlay from "./SignatureOverlay";
 import { resolveSeal } from "../utils/seal";
 import { resolveSealConfig, sealSpecAttribute } from "../utils/sealConfig";
 import { numberToWords, formatINR } from "../utils/invoiceFormat";
@@ -865,7 +866,10 @@ const EntPage = ({ pageId, showItems, sumRows, sumWithTotal, closing, chunkItems
         totalPages={pageKind.totalPages}
       />
       {shared.sealVisible && (shared.sealAllPages || isLast) && (
-        <SealOverlay business={business} type={shared.sealType} />
+        <>
+          <SealOverlay business={business} type={shared.sealType} />
+          {shared.sigSrc && <SignatureOverlay business={business} sigSrc={shared.sigSrc} />}
+        </>
       )}
     </div>
   );

@@ -239,7 +239,7 @@ export default function EInvoiceSettingsCard({ business }) {
                   setDraft((d) => ({
                     ...d,
                     provider,
-                    environment: provider === "MOCK" ? "SANDBOX" : "PRODUCTION",
+                    environment: "SANDBOX", // every provider starts in Sandbox — switch to Production for live calls
                     // Mock is fully self-simulating: every related config is
                     // filled automatically — the user ONLY flips enable.
                     clientId: provider === "MOCK" ? MOCK_CREDENTIALS.clientId : "",
@@ -270,6 +270,12 @@ export default function EInvoiceSettingsCard({ business }) {
                 </option>
               </select>
             </div>
+            {draft.provider === "MOCK" && (
+              <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-xs text-emerald-700">
+                Mock is fully self-simulating — credentials and endpoints are built in. Nothing to type; flip the enable toggle and test.
+              </div>
+            )}
+            {draft.provider !== "MOCK" && (<>
             <div>
               <label className={labelCls}>
                 API client ID {hasCredentials && <span className="text-slate-400 font-normal">(stored — leave blank to keep)</span>}
@@ -296,6 +302,7 @@ export default function EInvoiceSettingsCard({ business }) {
                 autoComplete="new-password"
               />
             </div>
+            </>)}
           </div>
 
           <label className="flex items-center gap-2 text-sm text-slate-700 select-none w-fit cursor-pointer">

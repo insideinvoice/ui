@@ -126,21 +126,32 @@ export default function EInvoiceSettingsCard({ business }) {
   const runTest = async () => {
     setTesting(true);
     try {
-      // Nothing saved yet? Persist the current draft first so the test has a
-      // configuration to run against — the button is never a dead end.
-      if (!config) {
-        const saved = await eInvoiceAPI.saveConfig({
-          gstin: "",
-          provider: draft.provider,
-          environment: draft.environment,
-          enabled: draft.enabled,
-          autoRegister: draft.autoRegister,
-          clientId: draft.clientId || undefined,
-          clientSecret: draft.clientSecret || undefined,
-        });
-        setConfig(saved.data.data);
-        setDraft((d) => ({ ...d, clientId: "", clientSecret: "" }));
-      }
+      // Always persist what is on screen BEFORE testing — otherwise the test
+      // reports a stale saved configuration (e.g. the user switched the
+      // provider but did not press Save first) and the verdict makes no sense.
+      const saved = await eInvoiceAPI.saveConfig({
+        gstin: "",
+        provider: draft.provider,
+        environment: draft.environment,
+        enabled: draft.enabled,
+        autoRegister: draft.autoRegister,
+        clientId: draft.clientId || undefined,
+        clientSecret: draft.clientSecret || undefined,
+        apiUsername: draft.apiUsername || undefined,
+        apiPassword: draft.apiPassword || undefined,
+        appKey: draft.appKey || undefined,
+        baseUrl: draft.baseUrl || undefined,
+      });
+      setConfig(saved.data.data);
+      setDraft((d) => ({
+        ...d,
+        clientId: "",
+        clientSecret: "",
+        apiUsername: "",
+        apiPassword: "",
+        appKey: "",
+        baseUrl: "",
+      }));
       const res = await eInvoiceAPI.testConnection();
       setTestResult(res.data.data);
       setConfig((c) => (c ? { ...c, connectionStatus: res.data.data.connectionStatus } : c));

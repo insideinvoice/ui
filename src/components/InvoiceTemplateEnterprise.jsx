@@ -282,17 +282,17 @@ const PartyRow = ({
 /* -------------------------------------------------------- items table */
 
 const HEAD_LABELS = {
-  sl: "Sl No", hsn: "HSN/SAC", gst: "GST", qty: "Quantity", rate: "Rate", amount: "Amount",
+  sl: "Sl No", hsn: "HSN/SAC", gst: "GST", qty: "Quantity", rate: "Rate", disc: "Disc %", amount: "Amount",
 };
 
 /* Items-table column descriptors in print order: width from the metric map,
    HSN folded when hidden (its 76px already moves into DESCRIPTION there). */
 const COL_ALIGNS = {
   sl: "center", desc: "left", hsn: "center", gst: "center",
-  qty: "center", rate: "right", amount: "right",
+  qty: "center", rate: "right", disc: "center", amount: "right",
 };
-const entColumnList = (showHnSac) =>
-  Object.entries(entCols(showHnSac))
+const entColumnList = (showHnSac, showDisc = false) =>
+  Object.entries(entCols(showHnSac, showDisc))
     .map(([key, w]) => ({ key, w, align: COL_ALIGNS[key] }));
 
 // business.logo / business.signature are stored as raw Base64; the sample
@@ -353,6 +353,9 @@ const ItemsTable = ({ cols, rowMeta, items, startIndex, descLabel, closesGrid = 
               gst: `${parseFloat(item.gstPercentage) || 0}%`,
               qty: qtyText,
               rate: formatINR(item.rate),
+              disc: parseFloat(item.discountPercent) > 0
+                ? `${Math.min(Math.max(parseFloat(item.discountPercent) || 0, 0), 100)}%`
+                : "—",
               amount: <span style={{ fontWeight: 600 }}>{formatINR(item.__taxable)}</span>,
             };
             return (
@@ -874,7 +877,10 @@ const InvoiceTemplateEnterprise = React.forwardRef(
       [items],
     );
     const showHnSac = !business || business.showHnSac !== false;
-    const cols = entColumnList(showHnSac);
+    // V45: per-line discounts add a Disc % column here too — every template
+    // renders Individual discounts, not just the e-Invoice one.
+    const individual = discountType === "INDIVIDUAL";
+    const cols = entColumnList(showHnSac, individual);
     const isProforma = type === "PROFORMA_INVOICE";
     const showTax = !isProforma;
     const displayInvNo = invoiceNumber || "DRAFT";
@@ -906,7 +912,7 @@ const InvoiceTemplateEnterprise = React.forwardRef(
     const totalsRows = [
       { label: "Sub Total", value: formatINR(calc.subtotal), strong: false },
       ...(calc.discountAmount > 0
-        ? [{ label: `Discount (${calc.discountPercent}%)`, value: "- " + formatINR(calc.discountAmount), strong: false }]
+        ? [{ label: individual ? "Discount" : `Discount (${calc.discountPercent}%)`, value: "- " + formatINR(calc.discountAmount), strong: false }]
         : []),
       ...(showTax ? (igstMode
         ? [{ label: "IGST", value: formatINR(calc.igst), strong: false }]
@@ -955,8 +961,8 @@ const InvoiceTemplateEnterprise = React.forwardRef(
     const maxRowH = openBudget(false);
     const rowMeta = useMemo(
       () => validItems.map((it) =>
-        resolveEntRow(it, { showHnSac, maxH: maxRowH, measure: measureDesc })),
-      [validItems, showHnSac, maxRowH, measureDesc],
+        resolveEntRow(it, { showHnSac, showDisc: individual, maxH: maxRowH, measure: measureDesc })),
+      [validItems, showHnSac, individual, maxRowH, measureDesc],
     );
     const heights = rowMeta.map((m) => m.height);
     const packed = packEntPages(heights, {
@@ -1063,7 +1069,7 @@ const InvoiceTemplateEnterprise = React.forwardRef(
           const isLast = i === pages.length - 1;
           const chunkItems = p.chunk.map((idx) => {
             const item = validItems[idx];
-            return { ...item, __taxable: (parseFloat(item.taxableValue) || 0) * calc.ratio };
+            return { ...item, __taxable: calc.perItem[idx]?.taxable ?? (parseFloat(item.taxableValue) || 0) * calc.ratio };
           });
           // Compact natural rows — exactly the estimated heights, no page-fill
           // inflation. The frame is content-height, so the table closes at the

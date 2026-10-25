@@ -51,12 +51,25 @@ export const RULE_X = [
 // imports them directly.
 export const COLS_NO_HSN = { no: 44, particulars: 338, qty: 76, rate: 100, rs: 104, ps: 48 };
 
-export const retroCols = (showHnSac = true) => (showHnSac ? COLS : COLS_NO_HSN);
+// V45 per-line (INDIVIDUAL) discounts: a DISC.% column appears in EVERY
+// template, funded by PARTICULARS so the frame width stays 710. Absent for
+// FULL/none — the classic layout is untouched.
+export const COLS_DISC = { no: 44, particulars: 220, hsn: 62, qty: 76, rate: 100, disc: 56, rs: 104, ps: 48 };
+export const COLS_NO_HSN_DISC = { no: 44, particulars: 282, qty: 76, rate: 100, disc: 56, rs: 104, ps: 48 };
+
+export const retroCols = (showHnSac = true, showDisc = false) =>
+  showDisc
+    ? (showHnSac ? COLS_DISC : COLS_NO_HSN_DISC)
+    : (showHnSac ? COLS : COLS_NO_HSN);
 
 export const retroRuleX = (cols = COLS) => {
-  const keys = cols.hsn !== undefined
-    ? ["no", "particulars", "hsn", "qty", "rate", "rs"]
-    : ["no", "particulars", "qty", "rate", "rs"];
+  const keys = cols.disc !== undefined
+    ? cols.hsn !== undefined
+      ? ["no", "particulars", "hsn", "qty", "rate", "disc", "rs"]
+      : ["no", "particulars", "qty", "rate", "disc", "rs"]
+    : cols.hsn !== undefined
+      ? ["no", "particulars", "hsn", "qty", "rate", "rs"]
+      : ["no", "particulars", "qty", "rate", "rs"];
   let x = 0;
   return keys.map((k) => {
     x += cols[k];

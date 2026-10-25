@@ -400,7 +400,7 @@ export default function PublicInvoicePage() {
           type={renderType}
           invoiceNumber={data.invoiceNumber}
           paperSize={paperSize}
-          template={templateProps.discountType === "INDIVIDUAL" ? "template-33" : data.template || undefined}
+          template={data.template || undefined}
         />
       </div>
 
@@ -481,7 +481,7 @@ export default function PublicInvoicePage() {
             type={renderType}
             invoiceNumber={data.invoiceNumber}
             paperSize={paperSize}
-            template={templateProps.discountType === "INDIVIDUAL" ? "template-33" : data.template || undefined}
+            template={data.template || undefined}
           />
         </ZoomPanViewer>
       </main>

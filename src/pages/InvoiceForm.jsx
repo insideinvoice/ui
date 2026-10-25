@@ -411,10 +411,8 @@ export default function InvoiceForm() {
   const [discountPercent, setDiscountPercent] = useState("");
   const [discountEnabled, setDiscountEnabled] = useState(false);
   // V45 discount presentation: FULL = one invoice-level % (the original
-  // flow), INDIVIDUAL = a % per item line. Individual discounts are only
-  // rendered by the e-Invoice template, so selecting it pins the document to
-  // template-33 (preview + PDF + share) — the global template choice is left
-  // untouched for every other invoice.
+  // flow), INDIVIDUAL = a % per item line. The Disc.% column renders
+  // dynamically on EVERY invoice template — any template may be used.
   const [discountType, setDiscountType] = useState("FULL");
   const individualDiscount = discountEnabled && discountType === "INDIVIDUAL";
   // Construction billing representation. COMPLETE_PROJECT bills one agreed
@@ -872,10 +870,7 @@ export default function InvoiceForm() {
   // Individual discounts only render on the e-Invoice template's Disc. %
   // column — the document is pinned to template-33 for as long as that mode
   // is on, whatever the business's saved template preference says.
-  const previewTemplate = useMemo(
-    () => (individualDiscount ? "template-33" : getInvoiceTemplate(effectiveType)),
-    [effectiveType, individualDiscount]
-  );
+  const previewTemplate = useMemo(() => getInvoiceTemplate(effectiveType), [effectiveType]);
 
   // Auto-switch — the IGST condition is INTER-STATE supply: place of supply
   // differing from the business (supplier) state switches IGST ON by default.
@@ -2190,7 +2185,6 @@ export default function InvoiceForm() {
                       checked={discountType === "INDIVIDUAL"}
                       onChange={() => {
                         setDiscountType("INDIVIDUAL");
-                        toast.info("Individual discount: set a % per item in the Items table — this invoice is fixed to the e-Invoice template");
                       }}
                       className="accent-blue-500"
                     />
@@ -2199,8 +2193,7 @@ export default function InvoiceForm() {
                 </div>
                 {discountType === "INDIVIDUAL" ? (
                   <p className="text-xs text-slate-500 leading-relaxed">
-                    Set a discount % on each line in the Items table — GST applies to each line&rsquo;s net value.
-                    This invoice is fixed to the <span className="font-medium text-slate-700">e-Invoice template</span>; other templates cannot be selected.
+                    Set a discount % on each line in the Items table — GST applies to each line&rsquo;s net value and the Disc % column prints on every invoice template.
                     {totals.discountAmount > 0 && (
                       <span className="block text-emerald-600 font-medium mt-1">
                         -Rs. {totals.discountAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}

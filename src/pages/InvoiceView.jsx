@@ -217,7 +217,7 @@ export default function InvoiceView() {
   const [discountPercent, setDiscountPercent] = useState("");
   const [discountEnabled, setDiscountEnabled] = useState(false);
   // V45: FULL = invoice-level % (original flow), INDIVIDUAL = per-line % on
-  // each item (e-Invoice template only — the document is pinned to it).
+  // each item (the Disc.% column prints on EVERY invoice template).
   const [discountType, setDiscountType] = useState("FULL");
   const individualDiscount = discountEnabled && discountType === "INDIVIDUAL";
   const [discountDirty, setDiscountDirty] = useState(false);
@@ -723,18 +723,9 @@ export default function InvoiceView() {
   }), [form.customerName, form.billingAddress, form.customerGstIn, form.customerPhone, form.customerEmail, form.placeOfSupply]);
 
   const previewPaperSize = useMemo(() => (getPrintSettings()[invoiceType] || {}).paperSize || "A4_PORTRAIT", [invoiceType]);
-  // Individual discounts only render on the e-Invoice template's Disc. %
-  // column, so the document is pinned to template-33 for as long as that
-  // mode is on (mirrors the backend's public-share template resolution).
-  const previewTemplate = useMemo(
-    () => (individualDiscount ? "template-33" : getInvoiceTemplate(invoiceType)),
-    [invoiceType, individualDiscount]
-  );
+  const previewTemplate = useMemo(() => getInvoiceTemplate(invoiceType), [invoiceType]);
   const proformaPaperSize = useMemo(() => (getPrintSettings()["PROFORMA_INVOICE"] || {}).paperSize || "A4_PORTRAIT", []);
-  const proformaTemplate = useMemo(
-    () => (individualDiscount ? "template-33" : getInvoiceTemplate("PROFORMA_INVOICE")),
-    [individualDiscount]
-  );
+  const proformaTemplate = useMemo(() => getInvoiceTemplate("PROFORMA_INVOICE"), []);
 
   // Mounts the hidden document for `type` and resolves once its DOM is committed
   // so the capture ref is usable, mirroring InvoiceForm's mountPdfPreview().
@@ -1565,8 +1556,7 @@ export default function InvoiceView() {
                 </div>
                 {discountType === "INDIVIDUAL" ? (
                   <p className="text-xs text-slate-500 leading-relaxed">
-                    Set a discount % on each line in the Items table — GST applies to each line&rsquo;s net value.
-                    This invoice is fixed to the <span className="font-medium text-slate-700">e-Invoice template</span>; other templates cannot be selected.
+                    Set a discount % on each line in the Items table — GST applies to each line&rsquo;s net value and the Disc % column prints on every invoice template.
                     {totals.discountAmount > 0 && (
                       <span className="block text-emerald-600 font-medium mt-1">
                         -Rs. {totals.discountAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}

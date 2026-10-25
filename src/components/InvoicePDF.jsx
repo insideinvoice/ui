@@ -91,7 +91,16 @@ const InvoicePDF = React.memo(React.forwardRef(({ business, customer, form, item
   // When HSN is hidden the freed 76px is folded into the description column, so
   // the outer table width (TABLE_W) and every template's page fit are unchanged.
   const itemCols = useMemo(
-    () => (showHnSac ? ITEM_COLS : ITEM_COLS.map((c) => (c.key === "hsn" ? null : c.key === "desc" ? { ...c, w: c.w + 76 } : c)).filter(Boolean)),
+    () => {
+      // V45: per-line (INDIVIDUAL) discounts add a Disc. % column here too —
+      // every template renders Individual discounts, funded by Description
+      // so the 714px table width never changes.
+      const cols = showHnSac ? ITEM_COLS : ITEM_COLS.map((c) => (c.key === "hsn" ? null : c.key === "desc" ? { ...c, w: c.w + 76 } : c)).filter(Boolean);
+      if (discountType !== "INDIVIDUAL") return cols;
+      // Disc. % sits immediately before Amount (mirrors the cells below and
+      // every other template); its 46px comes out of Description.
+      return cols.flatMap((c) => (c.key === "desc" ? [{ ...c, w: c.w - 46 }] : c.key === "per" ? [c, { w: 46, key: "disc" }] : [c]));
+    },
     [showHnSac],
   );
   const rightRowsRaw = getTemplateRightRows(industryConfig, form, displayInvNo, isProforma);
@@ -266,27 +275,30 @@ const InvoicePDF = React.memo(React.forwardRef(({ business, customer, form, item
                           lineHeight: "1.5",
                           whiteSpace: "normal",
                         }}>
-                          {col.key === "rate" ? "Rate (Incl. of Tax)" : col.key === "sl" ? "Sl No" : col.key === "desc" ? itemDescLabel : col.key === "hsn" ? "HSN/SAC" : col.key === "gst" ? "GST Rate" : col.key === "qty" ? "Quantity" : col.key === "per" ? "per" : "Amount"}
+                          {col.key === "rate" ? "Rate (Incl. of Tax)" : col.key === "sl" ? "Sl No" : col.key === "desc" ? itemDescLabel : col.key === "hsn" ? "HSN/SAC" : col.key === "gst" ? "GST Rate" : col.key === "qty" ? "Quantity" : col.key === "per" ? "per" : col.key === "disc" ? "Disc. %" : "Amount"}
                        </th>
                      ))}
                    </tr>
                 </thead>
                 <tbody>
                   {validItems.length > 0 ? validItems.map((item, idx) => {
-                    const iTaxable = (parseFloat(item.taxableValue) || 0) * discRatio;
-                    const iGst = parseFloat(item.gstPercentage) || 0;
-                    const iTax = (iTaxable * iGst) / 100;
-                    const iTotal = iTaxable + iTax;
+                    // Engine-computed line values — identical to the ratio math
+                    // on FULL, and per-line NET on INDIVIDUAL (V45).
+                    const p = calc.perItem[idx] || {};
+                    const iTaxable = p.taxable ?? (parseFloat(item.taxableValue) || 0) * discRatio;
+                    const iTax = p.tax ?? (iTaxable * (parseFloat(item.gstPercentage) || 0)) / 100;
+                    const iTotal = p.total ?? (iTaxable + iTax);
                     // Legacy items with no unit render "Piece" — exactly what every
                     // template has always printed in the per column.
                     const cells = [
                       { key: "sl", a: "center", v: idx + 1, w: 52 },
-                      { key: "desc", a: "left", v: item.itemName, w: showHnSac ? 262 : 338 },
+                      { key: "desc", a: "left", v: item.itemName, w: (showHnSac ? 262 : 338) - (discountType === "INDIVIDUAL" ? 46 : 0) },
                       ...(showHnSac ? [{ key: "hsn", a: "center", v: item.hsn || "-", w: 76 }] : []),
                       { key: "gst", a: "center", v: (parseFloat(item.gstPercentage) || 0).toFixed(1) + "%", w: 62 },
                       { key: "qty", a: "center", v: parseFloat(item.qty) || "", w: 72 },
                       { key: "rate", a: "center", v: formatINR(item.rate), w: 76 },
                       { key: "per", a: "center", v: uqcFor(item.unit || "Piece"), w: 42 },
+                      ...(discountType === "INDIVIDUAL" ? [{ key: "disc", a: "center", v: parseFloat(item.discountPercent) > 0 ? `${Math.min(Math.max(parseFloat(item.discountPercent) || 0, 0), 100)}%` : "—", w: 46 }] : []),
                       { key: "amt", a: "right", v: formatINR(iTotal), w: 72 },
                     ];
                     return (
@@ -365,7 +377,7 @@ const InvoicePDF = React.memo(React.forwardRef(({ business, customer, form, item
                     <td style={{ width: "28%", padding: "6px 10px", verticalAlign: "top" }}>
                       {discAmt > 0 && (
                         <div style={{ fontSize: "9px", fontWeight: "bold", textAlign: "left", color: "#16a34a", marginBottom: "2px" }}>
-                          Discount ({discPct}%): -Rs. {formatINR(discAmt)}
+                          Discount ({discountType === "INDIVIDUAL" ? "individual" : `${discPct}%`}): -Rs. {formatINR(discAmt)}
                         </div>
                       )}
                       <div style={{ fontSize: "10px", fontWeight: "bold", marginBottom: "2px", textAlign: "left" }}>
@@ -444,7 +456,7 @@ const InvoicePDF = React.memo(React.forwardRef(({ business, customer, form, item
                     <td style={{ width: "28%", padding: "6px 10px", verticalAlign: "top" }}>
                       {discAmt > 0 && (
                         <div style={{ fontSize: "9px", fontWeight: "bold", textAlign: "left", color: "#16a34a", marginBottom: "2px" }}>
-                          Discount ({discPct}%): -Rs. {formatINR(discAmt)}
+                          Discount ({discountType === "INDIVIDUAL" ? "individual" : `${discPct}%`}): -Rs. {formatINR(discAmt)}
                         </div>
                       )}
                       <div style={{ fontSize: "10px", fontWeight: "bold", marginBottom: "2px", textAlign: "left" }}>

@@ -319,6 +319,9 @@ const ItemHead = ({ layout }) => {
           )}
           <td rowSpan={2} style={{ ...span, width: cols.qty }}>QTY.</td>
           <td rowSpan={2} style={{ ...span, width: cols.rate }}>RATE</td>
+          {cols.disc !== undefined && (
+          <td rowSpan={2} style={{ ...span, width: cols.disc, fontSize: "11px" }}>DISC.%</td>
+          )}
           <td style={amount} colSpan={2}>AMOUNT</td>
         </tr>
         <tr>
@@ -374,6 +377,11 @@ const ItemBox = ({ pageItems, startIndex, height = RETRO_PAGE_METRICS.body, layo
               )}
               <td style={{ ...td, width: cols.qty, textAlign: "center" }}>{fmtQtyUnit(item.qty, item.unit)}</td>
               <td style={{ ...td, width: cols.rate, textAlign: "right" }}>{formatINR(item.rate)}</td>
+              {cols.disc !== undefined && (
+              <td style={{ ...td, width: cols.disc, textAlign: "center" }}>
+                {parseFloat(item.discountPercent) > 0 ? `${Math.min(Math.max(parseFloat(item.discountPercent) || 0, 0), 100)}%` : "—"}
+              </td>
+              )}
               <td style={{ ...td, width: cols.rs, textAlign: "right" }}>{splitAmount(item.__amount).rs}</td>
               <td style={{ ...td, width: cols.ps, textAlign: "right" }}>{splitAmount(item.__amount).ps}</td>
             </tr>
@@ -390,7 +398,7 @@ const ItemBox = ({ pageItems, startIndex, height = RETRO_PAGE_METRICS.body, layo
 
 /* -------------------------------------------------------------- totals */
 
-const Totals = ({ gross, discAmt, discPct, cgst, sgst, igst, igstMode = false, grand, words, pctLabel, showTax = true, layout }) => {
+const Totals = ({ gross, discAmt, discPct, discIndividual = false, cgst, sgst, igst, igstMode = false, grand, words, pctLabel, showTax = true, layout }) => {
   const { cols, ruleX, showHnSac } = layout;
   const shade = { background: "#d6d6d6" };
   const rs = splitAmount;
@@ -398,7 +406,7 @@ const Totals = ({ gross, discAmt, discPct, cgst, sgst, igst, igstMode = false, g
   const rows = [
     { key: "total", text: "TOTAL", val: gross, shade: true },
     ...(showDiscount
-      ? [{ key: "discount", text: `Discount (${discPct}%)`, val: -Math.abs(parseFloat(discAmt) || 0), shade: false, discount: true }]
+      ? [{ key: "discount", text: discIndividual ? "Discount" : `Discount (${discPct}%)`, val: -Math.abs(parseFloat(discAmt) || 0), shade: false, discount: true }]
       : []),
     ...(showTax
       ? (igstMode
@@ -666,6 +674,7 @@ const RetroPage = ({ pageId, chunks, startIndex, shared, isLast = false }) => (
       gross={shared.gross}
       discAmt={shared.discAmt}
       discPct={shared.discPct}
+      discIndividual={shared.discIndividual}
       cgst={shared.cgst}
       sgst={shared.sgst}
       igst={shared.igst}
@@ -699,7 +708,11 @@ const InvoiceTemplateRetro = React.forwardRef(
     // Display-only HSN/SAC switch: hidden means the whole column disappears
     // and PARTICULARS absorbs its width — frame width and cut points unchanged.
     const showHnSac = !business || business.showHnSac !== false;
-    const cols = retroCols(showHnSac);
+    // V45: per-line discounts add a DISC.% column here too (funded by
+    // PARTICULARS) — every template renders Individual discounts, not just
+    // the e-Invoice one.
+    const individual = discountType === "INDIVIDUAL";
+    const cols = retroCols(showHnSac, individual);
     const ruleX = retroRuleX(cols);
     // The Specialist In line grows the letterhead; take the same height out of
     // the open item box so the outer frame always equals one A4 page — the PDF
@@ -752,6 +765,7 @@ const InvoiceTemplateRetro = React.forwardRef(
       gross: calc.subtotal,
       discAmt: calc.discountAmount,
       discPct: calc.discountPercent,
+      discIndividual: individual,
       cgst: calc.cgst,
       sgst: calc.sgst,
       igst: calc.igst,

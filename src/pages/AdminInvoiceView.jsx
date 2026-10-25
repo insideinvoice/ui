@@ -252,8 +252,6 @@ export default function AdminInvoiceView() {
               taxMode={effectiveTaxMode}
               type={form.invoiceType}
               invoiceNumber={form.invoiceNumber}
-              // Individual discounts only render on the e-Invoice template.
-              template={activeDiscountType === "INDIVIDUAL" ? "template-33" : undefined}
             />
           </div>
         )}

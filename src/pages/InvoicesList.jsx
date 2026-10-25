@@ -257,8 +257,7 @@ export default function InvoicesList() {
             taxMode={taxMode}
             type={invoice.invoiceType}
             invoiceNumber={invoice.invoiceNumber}
-            // Individual discounts only render on the e-Invoice template.
-            template={invoice.discountType === "INDIVIDUAL" ? "template-33" : getInvoiceTemplate(invoice.invoiceType)}
+            template={getInvoiceTemplate(invoice.invoiceType)}
           />
         );
       });

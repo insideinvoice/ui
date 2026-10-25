@@ -37,7 +37,15 @@ export const ENT_PAGE_METRICS = {
 export const ENT_COLS = { sl: 44, desc: 292, hsn: 76, gst: 52, qty: 92, rate: 74, amount: 84 };
 export const ENT_COLS_NO_HSN = { sl: 44, desc: 368, gst: 52, qty: 92, rate: 74, amount: 84 };
 
-export const entCols = (showHnSac = true) => (showHnSac ? ENT_COLS : ENT_COLS_NO_HSN);
+// V45 per-line (INDIVIDUAL) discounts: a Disc % column appears in EVERY
+// template, funded by DESCRIPTION (sum stays 714). Absent for FULL/none.
+export const ENT_COLS_DISC = { sl: 44, desc: 236, hsn: 76, gst: 52, qty: 92, rate: 74, disc: 56, amount: 84 };
+export const ENT_COLS_NO_HSN_DISC = { sl: 44, desc: 312, gst: 52, qty: 92, rate: 74, disc: 56, amount: 84 };
+
+export const entCols = (showHnSac = true, showDisc = false) =>
+  showDisc
+    ? (showHnSac ? ENT_COLS_DISC : ENT_COLS_NO_HSN_DISC)
+    : (showHnSac ? ENT_COLS : ENT_COLS_NO_HSN);
 
 // Text budget for DESCRIPTION wrap estimates: the (292|368)px description
 // column minus cell padding at ~5.2px/char for the 10px row font, with one
@@ -58,8 +66,9 @@ export const ENT_DESC_PADDING_X = 16;   // the cell's "0 8px" on both sides
 export const ENT_BASE_ROW_H = 24;        // one text line + the row's rule
 export const ENT_FONT_STACK = "'Segoe UI', Arial, Helvetica, sans-serif";
 
-/** Width of the DESCRIPTION column (HSN hidden → the column widens). */
-export const entDescWidth = (showHnSac = true) => (showHnSac ? 292 : 368);
+/** Width of the DESCRIPTION column (HSN hidden → widens; Disc column → narrows). */
+export const entDescWidth = (showHnSac = true, showDisc = false) =>
+  showDisc ? (showHnSac ? 236 : 312) : (showHnSac ? 292 : 368);
 
 /**
  * How many lines a description really wraps to. With a measurer (canvas
@@ -69,9 +78,9 @@ export const entDescWidth = (showHnSac = true) => (showHnSac ? 292 : 368);
  * used and the page ended early with empty space. Without a measurer (SSR /
  * node tests) it falls back to a conservative character estimate.
  */
-export function entDescLines(text, { showHnSac = true, measure = null } = {}) {
+export function entDescLines(text, { showHnSac = true, showDisc = false, measure = null } = {}) {
   const s = String(text ?? "");
-  const contentW = entDescWidth(showHnSac) - ENT_DESC_PADDING_X;
+  const contentW = entDescWidth(showHnSac, showDisc) - ENT_DESC_PADDING_X;
   if (measure) {
     const w = measure(s) || 0;
     if (w > 0) return Math.max(1, Math.ceil(w / contentW));
@@ -89,7 +98,7 @@ export function entDescLines(text, { showHnSac = true, measure = null } = {}) {
  * Returns { height, fontSize, lines, text, truncated } — the packer uses
  * `height`, the renderer uses `fontSize` + `text`, so both always agree.
  */
-export function resolveEntRow(item, { showHnSac = true, maxH = Infinity, measure = null } = {}) {
+export function resolveEntRow(item, { showHnSac = true, showDisc = false, maxH = Infinity, measure = null } = {}) {
   const text = String(item?.itemName ?? "");
   const lineHeightFor = (f) => Math.round(f * 1.3);
   const heightFor = (f, l) => Math.max(ENT_BASE_ROW_H, l * lineHeightFor(f) + 8);
@@ -98,11 +107,11 @@ export function resolveEntRow(item, { showHnSac = true, maxH = Infinity, measure
       const w = measure(text) || 0;
       return (w * f) / ENT_DESC_FONT_SIZE;
     }
-    const cpl = Math.max(8, Math.floor((entDescWidth(showHnSac) - ENT_DESC_PADDING_X) / (f * 0.52)));
+    const cpl = Math.max(8, Math.floor((entDescWidth(showHnSac, showDisc) - ENT_DESC_PADDING_X) / (f * 0.52)));
     return cpl * text.length;
   };
   const linesFor = (f) => {
-    const contentW = entDescWidth(showHnSac) - ENT_DESC_PADDING_X;
+    const contentW = entDescWidth(showHnSac, showDisc) - ENT_DESC_PADDING_X;
     return Math.max(1, Math.ceil(widthFor(f) / contentW));
   };
 
@@ -119,7 +128,7 @@ export function resolveEntRow(item, { showHnSac = true, maxH = Infinity, measure
       // Last resort: clip the text so a single row can never exceed the page.
       const lineH = lineHeightFor(fontSize);
       const maxLines = Math.max(1, Math.floor((maxH - 8) / lineH));
-      const cpl = Math.max(8, Math.floor((entDescWidth(showHnSac) - ENT_DESC_PADDING_X) / (fontSize * 0.52)));
+      const cpl = Math.max(8, Math.floor((entDescWidth(showHnSac, showDisc) - ENT_DESC_PADDING_X) / (fontSize * 0.52)));
       if (text.length > maxLines * cpl) {
         out = text.slice(0, Math.max(1, maxLines * cpl - 1)) + "\u2026";
       }

@@ -133,13 +133,10 @@ export default function EInvoiceSettingsCard({ business }) {
               if (!window.confirm("Disable e-invoicing? Existing invoices and any government registration records are kept untouched.")) return;
               save({ enabled: false });
             } else {
-              // The Mock provider never talks to an IRP, so it needs no
-              // credentials; real providers must have them stored (or typed
-              // right now) before automation can be switched on.
-              if (draft.provider !== "MOCK" && !hasCredentials && !draft.clientId && !draft.clientSecret) {
-                toast.error("Enter the provider API credentials below before enabling");
-                return;
-              }
+              // Enabling is always free — the feature is opt-in and nothing
+              // is sent to an IRP by the toggle itself. Missing credentials
+              // surface as an honest warning below and registration refuses
+              // with a clear message until they are added.
               save({ enabled: true });
             }
           }}
@@ -266,6 +263,14 @@ export default function EInvoiceSettingsCard({ business }) {
               Credentials are encrypted at rest and never shown again
             </span>
           </div>
+
+          {enabled && draft.provider !== "MOCK" && !hasCredentials && !draft.clientId && !draft.clientSecret && (
+            <div className="text-xs rounded-lg border px-3 py-2 leading-relaxed bg-amber-50 border-amber-200 text-amber-700">
+              <span className="font-semibold">No credentials stored yet.</span> Enabling is fine — but the connection
+              test will fail and registering an invoice will refuse with a clear message until you add the provider
+              credentials and save.
+            </div>
+          )}
 
           {testResult && (
             <div

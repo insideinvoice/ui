@@ -46,6 +46,10 @@ export default function EInvoiceSettingsCard({ business }) {
     autoRegister: false,
     clientId: MOCK_CREDENTIALS.clientId,
     clientSecret: MOCK_CREDENTIALS.clientSecret,
+    apiUsername: "",
+    apiPassword: "",
+    appKey: "",
+    baseUrl: "",
   });
 
   useEffect(() => {
@@ -73,6 +77,8 @@ export default function EInvoiceSettingsCard({ business }) {
   const gstin = config?.gstin || business?.gstIn || "";
   const enabled = draft.enabled;
   const hasCredentials = !!config?.hasCredentials;
+  const hasPortalCredentials = !!config?.hasPortalCredentials;
+  const hasAppKey = !!config?.hasAppKey;
   const providerLabel = draft.provider === "MOCK" ? "Mock (sandbox testing)" : draft.provider === "IRIS_IRP" ? "IRIS IRP" : draft.provider;
   const status = STATUS_META[config?.connectionStatus] || STATUS_META.NOT_TESTED;
 
@@ -88,9 +94,22 @@ export default function EInvoiceSettingsCard({ business }) {
         autoRegister: next.autoRegister,
         clientId: next.clientId || undefined,
         clientSecret: next.clientSecret || undefined,
+        apiUsername: next.apiUsername || undefined,
+        apiPassword: next.apiPassword || undefined,
+        appKey: next.appKey || undefined,
+        baseUrl: next.baseUrl || undefined,
       });
       setConfig(res.data.data);
-      setDraft((d) => ({ ...d, enabled: !!res.data.data.enabled, clientId: "", clientSecret: "" }));
+      setDraft((d) => ({
+        ...d,
+        enabled: !!res.data.data.enabled,
+        clientId: "",
+        clientSecret: "",
+        apiUsername: "",
+        apiPassword: "",
+        appKey: "",
+        baseUrl: "",
+      }));
       setTestResult(null);
       toast.success(
         res.data.data.enabled
@@ -260,6 +279,82 @@ export default function EInvoiceSettingsCard({ business }) {
               />
             </div>
           </div>
+
+          {/* Everything the government API auth flow needs, configured here —
+              the Mock provider needs none of it. */}
+          {draft.provider !== "MOCK" && (
+          <div className="rounded-lg border border-slate-200 bg-slate-50/60 p-4 space-y-3">
+            <div className="flex flex-wrap items-center gap-2 text-[11px]">
+              <span className="font-semibold text-slate-600 uppercase tracking-wide">Government API credentials</span>
+              <span className={`px-1.5 py-0.5 rounded-full border ${hasCredentials ? "text-emerald-600 bg-emerald-50 border-emerald-200" : "text-slate-500 bg-white border-slate-200"}`}>
+                Client ID/Secret {hasCredentials ? "✓" : "—"}
+              </span>
+              <span className={`px-1.5 py-0.5 rounded-full border ${hasPortalCredentials ? "text-emerald-600 bg-emerald-50 border-emerald-200" : "text-slate-500 bg-white border-slate-200"}`}>
+                Portal user/pass {hasPortalCredentials ? "✓" : "—"}
+              </span>
+              <span className={`px-1.5 py-0.5 rounded-full border ${hasAppKey ? "text-emerald-600 bg-emerald-50 border-emerald-200" : "text-slate-500 bg-white border-slate-200"}`}>
+                App key {hasAppKey ? "✓" : "—"}
+              </span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className={labelCls}>
+                  API username {hasPortalCredentials && <span className="text-slate-400 font-normal">(stored — leave blank to keep)</span>}
+                </label>
+                <input
+                  type="text"
+                  value={draft.apiUsername}
+                  onChange={(e) => setDraft((d) => ({ ...d, apiUsername: e.target.value }))}
+                  placeholder="e-invoice portal API username"
+                  className={`${inputCls} font-mono`}
+                  autoComplete="off"
+                />
+              </div>
+              <div>
+                <label className={labelCls}>
+                  API password {hasPortalCredentials && <span className="text-slate-400 font-normal">(stored — leave blank to keep)</span>}
+                </label>
+                <input
+                  type="password"
+                  value={draft.apiPassword}
+                  onChange={(e) => setDraft((d) => ({ ...d, apiPassword: e.target.value }))}
+                  placeholder="e-invoice portal API password"
+                  className={`${inputCls} font-mono`}
+                  autoComplete="new-password"
+                />
+              </div>
+              <div>
+                <label className={labelCls}>
+                  App key (32-char) {hasAppKey && <span className="text-slate-400 font-normal">(stored — leave blank to keep)</span>}
+                </label>
+                <input
+                  type="password"
+                  value={draft.appKey}
+                  onChange={(e) => setDraft((d) => ({ ...d, appKey: e.target.value }))}
+                  placeholder="Issued at IRP registration — encrypts the session key"
+                  className={`${inputCls} font-mono`}
+                  autoComplete="off"
+                />
+              </div>
+              <div>
+                <label className={labelCls}>Endpoint URL <span className="text-slate-400 font-normal">(optional — documented default used when blank)</span></label>
+                <input
+                  type="text"
+                  value={draft.baseUrl}
+                  onChange={(e) => setDraft((d) => ({ ...d, baseUrl: e.target.value }))}
+                  placeholder="https://… (provider sandbox/production URL)"
+                  className={`${inputCls} font-mono`}
+                  autoComplete="off"
+                />
+              </div>
+            </div>
+            <p className="text-[11px] text-slate-400 leading-relaxed">
+              Issued during your IRP/GSP onboarding (NIC sandbox or IRIS). Stored encrypted at rest,
+              never shown again, never logged — this is the complete set the authentication and
+              IRN calls need.
+            </p>
+          </div>
+          )}
 
           <label className="flex items-center gap-2 text-sm text-slate-700 select-none w-fit cursor-pointer">
             <input

@@ -565,6 +565,14 @@ const InvoicePDF = React.memo(React.forwardRef(({ business, customer, form, item
           </>
           )}
 
+          {/* Terms & Conditions — the business's saved defaults (Settings owns
+              them), full width, sitting between the tax-amount-in-words row and
+              the bank/declaration/signature band. InvoiceTermsRow draws its own
+              bottom rule — that rule IS the divider between this strip and the
+              band below; without it the two blocks share an open edge and read
+              as one. Collapses away entirely when no terms are saved. */}
+          <InvoiceTermsRow business={business} border={S.border} />
+
           {/* BOTTOM SECTION: Bank + UPI QR | Declaration | Signature */}
           <tr id="section-footer">
             <td colSpan={2} style={{ borderLeft: S.border, borderRight: S.border, borderBottom: S.border, padding: 0 }}>
@@ -621,22 +629,6 @@ const InvoicePDF = React.memo(React.forwardRef(({ business, customer, form, item
             </td>
           </tr>
 
-          {/* Terms & Conditions — the business's saved defaults (Settings owns
-              them), full width directly under the bank/declaration/signature
-              band. InvoiceTermsRow draws its own bottom rule, so there is
-              always a divider between that band and this strip; the row
-              collapses away entirely when no terms are saved. */}
-          <InvoiceTermsRow business={business} border={S.border} />
-
-          {/* Jurisdiction — immediately below Terms, inside the frame. */}
-          {jurLine && (
-            <tr id="section-jurisdiction">
-              <td colSpan={2} style={{ borderLeft: S.border, borderRight: S.border, borderBottom: S.border, padding: "6px 10px", textAlign: "center" }}>
-                <span style={{ fontSize: "10px", fontWeight: "bold" }}>{jurLine}</span>
-              </td>
-            </tr>
-          )}
-
           {/* FOOTER */}
           <tr id="section-bottom-note">
             <td colSpan={2} style={{ padding: "6px 10px" }}>
@@ -644,7 +636,10 @@ const InvoicePDF = React.memo(React.forwardRef(({ business, customer, form, item
                 <tbody>
                   <tr>
                     <td style={{ textAlign: "center", padding: 0 }}>
-                      <div style={{ fontSize: "10px" }}>{isProforma ? "This is a Computer Generated Proforma Invoice" : "This is a Computer Generated Invoice"}</div>
+                      {jurLine && (
+                        <div style={{ fontSize: "10px", fontWeight: "bold" }}>{jurLine}</div>
+                      )}
+                      <div style={{ fontSize: "10px", marginTop: "1px" }}>{isProforma ? "This is a Computer Generated Proforma Invoice" : "This is a Computer Generated Invoice"}</div>
                     </td>
                   </tr>
                 </tbody>

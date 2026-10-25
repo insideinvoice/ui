@@ -15,8 +15,13 @@ const MAX_ZOOM_FACTOR = 5;
  * anchored top-left — plus optional desktop zoom controls and a hint slot.
  * <usePinchZoomPan> owns every gesture; this component owns the FIT:
  *
- *   fit = clamp(containerWidth / paperWidth, [minFit, fitCap])
+ *   fit = clamp((containerWidth − 2 × gutter) / paperWidth, [minFit, fitCap])
  *   band = [fit, 5 × fit]
+ *
+ * `gutter` reserves that many pixels on EACH side of the surface for the fit
+ * maths only (the paper still pans freely across the full surface), so a host
+ * can keep the sheet from going full-bleed on narrow screens. It defaults to
+ * 0, which is exactly the old behaviour.
  *
  * The fit re-computes on resize/rotation via ResizeObserver on the surface's
  * CONTENT box (padding excluded, matching the old per-page measurement) and
@@ -26,8 +31,9 @@ const MAX_ZOOM_FACTOR = 5;
  *
  * Props:
  *   paperWidth — natural pixel width of the sheet (794 = A4 portrait).
- *   fitCap     — maximum fit scale (1 = full-bleed; the share page caps 0.8).
+ *   fitCap     — maximum fit scale (1 = full-bleed; the share page caps it below 1).
  *   minFit     — legibility floor for absurdly small viewports.
+ *   gutter     — px reserved on each side of the surface for the fit (default 0).
  *   className  — layout classes for the surface element itself.
  *   controls   — "none" | "desktop": on-screen +/−/Reset (fine pointers only).
  *   surfaceTestId / paperTestId — passthrough for the gesture tests.
@@ -40,6 +46,7 @@ const ZoomPanViewer = forwardRef(function ZoomPanViewer(
     paperWidth = 794,
     fitCap = 1,
     minFit = 0.2,
+    gutter = 0,
     className = "",
     style,
     children,
@@ -56,11 +63,12 @@ const ZoomPanViewer = forwardRef(function ZoomPanViewer(
   const [containerW, setContainerW] = useState(0);
 
   // The measure→fit loop mirrors the old per-page code verbatim: content-box
-  // width of the surface over the paper's natural width, floored so an A4
-  // stays legible on a watch-sized viewport and capped by fitCap (the share
-  // page's 80% default — wide monitors open at 80% with breathing room).
+  // width of the surface (minus the optional side gutters) over the paper's
+  // natural width, floored so an A4 stays legible on a watch-sized viewport
+  // and capped by fitCap — the share page opens a touch under full size so
+  // the sheet never reads as edge-to-edge wide.
   const fitScale = containerW
-    ? Math.min(fitCap, Math.max(minFit, containerW / paperWidth))
+    ? Math.min(fitCap, Math.max(minFit, (containerW - 2 * gutter) / paperWidth))
     : fitCap;
 
   // Live zoom band for the once-attached engine; refit on every fit change.

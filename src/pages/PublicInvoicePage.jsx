@@ -108,6 +108,9 @@ function mapToTemplateProps(data, typeOverride) {
     taxableValue: i.taxableValue,
     taxAmount: i.taxAmount,
     total: i.total,
+    // V45 per-line discount % — only rendered by the e-Invoice template,
+    // which the backend already pins this share link to for INDIVIDUAL.
+    discountPercent: i.discountPercent,
   }));
 
   const discountPct = toNum(data.discountPercent);
@@ -115,7 +118,8 @@ function mapToTemplateProps(data, typeOverride) {
   // legacy links (no taxMode in the payload) fall back to seller state vs
   // place of supply, else the intra-state split (pre-V34 rendering).
   const taxMode = resolveTaxMode(data.taxMode, s.state, data.placeOfSupply);
-  const calc = computeInvoiceTotals(items, discountPct, taxMode);
+  const discountType = data.discountType === "INDIVIDUAL" ? "INDIVIDUAL" : "FULL";
+  const calc = computeInvoiceTotals(items, discountPct, taxMode, 0, discountType);
   const totals = {
     subtotal: calc.subtotal,
     discountAmount: calc.discountAmount,
@@ -124,7 +128,7 @@ function mapToTemplateProps(data, typeOverride) {
     grandTotal: calc.grandTotal,
   };
 
-  return { business, customer, form, items, totals, taxMode };
+  return { business, customer, form, items, totals, taxMode, discountType };
 }
 
 function StatusCard({ icon, title, body, action }) {
@@ -392,6 +396,7 @@ export default function PublicInvoicePage() {
           totals={templateProps.totals}
           discountPercent={data.discountPercent != null ? String(data.discountPercent) : "0"}
           taxMode={templateProps.taxMode}
+          discountType={templateProps.discountType === "INDIVIDUAL" ? "INDIVIDUAL" : undefined}
           type={renderType}
           invoiceNumber={data.invoiceNumber}
           paperSize={paperSize}
@@ -450,7 +455,16 @@ export default function PublicInvoicePage() {
             fight the pan"). */}
         <ZoomPanViewer
           paperWidth={widthPx}
-          fitCap={0.8}
+          // PRINT SIZE while viewing: cap the fit at 1 = the sheet's natural
+          // geometry, i.e. exactly the A4 you'd print (794 × 1123 px at 96dpi;
+          // the 714-wide Enterprise sheet sits centred inside that frame with
+          // its 40px print margins). Wide screens show true 1:1 paper, the
+          // sheet is centred by the pan bounds; screens narrower than A4 scale
+          // down to fit with 16px of breathing room on each side (pinch brings
+          // 1:1 back). Display-only — the PDF renders from the hidden
+          // natural-size source below, so downloads are unaffected.
+          fitCap={1}
+          gutter={16}
           minFit={0.2}
           controls="desktop"
           className="flex-1 w-full"
@@ -463,6 +477,7 @@ export default function PublicInvoicePage() {
             totals={templateProps.totals}
             discountPercent={data.discountPercent != null ? String(data.discountPercent) : "0"}
             taxMode={templateProps.taxMode}
+            discountType={templateProps.discountType === "INDIVIDUAL" ? "INDIVIDUAL" : undefined}
             type={renderType}
             invoiceNumber={data.invoiceNumber}
             paperSize={paperSize}

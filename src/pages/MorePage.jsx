@@ -58,7 +58,6 @@ export default function MorePage() {
               { label: "Payments", icon: CreditCard, path: "/payments" },
               ...(isAdmin ? [
                 { label: "All Users", icon: UserCheck, path: "/admin/users-list", badge: "Admin" },
-                { label: "Registered Products", icon: Package, path: "/admin/products", badge: "Admin" },
                 { label: "All Invoices", icon: FileText, path: "/admin/invoices", badge: "Admin" },
                 { label: "All Customers", icon: Users, path: "/admin/customers", badge: "Admin" },
               ] : []),

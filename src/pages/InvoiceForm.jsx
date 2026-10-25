@@ -3,7 +3,7 @@ import { useLocation } from "react-router-dom";
 import LoadingDots from "../components/LoadingDots";
 import Spinner from "../components/Spinner";
 import PageHeader from "../components/PageHeader";
-import { invoiceAPI, customerAPI, businessAPI, productAPI, deliveryChallanAPI } from "../api/auth";
+import { invoiceAPI, customerAPI, businessAPI, productAPI, deliveryChallanAPI, createCustomerOrAdopt } from "../api/auth";
 import toast from "react-hot-toast";
 import {
   ArrowLeft, Plus, Trash2, Zap, FileText, Download,
@@ -32,10 +32,18 @@ import {
 } from "../constants/industryConfig";
 
 const uid = () => (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `i${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`);
-const emptyItem = { itemName: "", hsn: "", unit: "Unit", qty: "", rate: "", gstPercentage: "18", taxableValue: 0, taxAmount: 0, total: 0 };
+const emptyItem = { itemName: "", hsn: "", unit: "Unit", qty: "", rate: "", gstPercentage: "18", taxableValue: 0, taxAmount: 0, total: 0, discountPercent: "" };
 const inputClass = "w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-400/30 focus:border-slate-400 bg-white transition-all min-h-[44px]";
 const selectClass = "w-full pl-3 pr-9 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-400/30 focus:border-slate-400 bg-white transition-all min-h-[44px] appearance-none cursor-pointer text-slate-800 font-normal";
 const labelClass = "block text-xs font-semibold text-slate-600 mb-1.5 tracking-wide uppercase";
+
+// The five fields the customer block owns, serialized with the SAME
+// normalization the save payload uses (name trimmed, blanks as ""). Used to
+// compare the live form against the last state we know the server has, so a
+// change that is typed back to its original value reads as "not dirty" again.
+const CUSTOMER_FIELDS = ["name", "email", "phone", "billingAddress", "gstIn"];
+const serializeCustomer = (c) =>
+  JSON.stringify(CUSTOMER_FIELDS.map((k) => (k === "name" ? (c?.[k] || "").trim() : c?.[k] || "")));
 // Safety-net labels if an industry profile ever misses one of the V29 fields.
 const EXTENDED_FALLBACK_LABELS = {
   agreementNumber: "Rental Agreement No.",
@@ -72,10 +80,15 @@ const focusNext = (currentName) => {
 const FOCUS_FIELDS = ["hsn", "desc", "qty", "rate", "gst"];
 // When the business hides HSN/SAC, the field is not rendered, so the Enter
 // chain skips it entirely (same rule as the invoice-header focus order).
-const focusFieldsFor = (showHnSac) => (showHnSac ? FOCUS_FIELDS : FOCUS_FIELDS.filter((f) => f !== "hsn"));
+const focusFieldsFor = (showHnSac, showDisc = false) => {
+  const fields = showHnSac ? FOCUS_FIELDS : FOCUS_FIELDS.filter((f) => f !== "hsn");
+  // The Disc.% input sits right of GST % in the table, so it joins the Enter
+  // chain last.
+  return showDisc ? [...fields, "disc"] : fields;
+};
 
-const ItemRow = memo(({ item, calc, idx, onItemChange, onRemove, onAdd, onHsnLookup, showHnSac = true, locked = false }) => {
-  const focusFields = focusFieldsFor(showHnSac);
+const ItemRow = memo(({ item, calc, idx, onItemChange, onRemove, onAdd, onHsnLookup, showHnSac = true, locked = false, showDisc = false }) => {
+  const focusFields = focusFieldsFor(showHnSac, showDisc);
   const handleKeyDown = (e, field) => {
     if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
@@ -168,6 +181,23 @@ const ItemRow = memo(({ item, calc, idx, onItemChange, onRemove, onAdd, onHsnLoo
         <span className="absolute right-1 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none">%</span>
       </div>
     </td>
+    {showDisc && (
+    <td className="py-3 px-1 border-b border-slate-100 text-center">
+      <div className="relative w-[56px] min-w-[56px] mx-auto">
+        <input type="text" value={item.discountPercent ?? ""} name={`disc-${idx + 1}`}
+          onChange={(e) => onItemChange(idx, "discountPercent", e.target.value.replace(/[^0-9.]/g, "").slice(0, 5))}
+          onKeyDown={(e) => handleKeyDown(e, "disc")}
+          onBlur={() => {
+            const n = parseFloat(item.discountPercent);
+            if (!Number.isNaN(n)) onItemChange(idx, "discountPercent", String(Math.min(Math.max(n, 0), 100)));
+          }}
+          inputMode="decimal"
+          placeholder="0"
+          className="w-full min-w-0 px-1.5 py-1.5 border border-slate-200 rounded text-xs text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono pr-4" />
+        <span className="absolute right-1 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none">%</span>
+      </div>
+    </td>
+    )}
     <td className="py-3 px-3 text-right font-mono text-xs text-slate-700 border-b border-slate-100 whitespace-nowrap tabular-nums min-w-0">
       {((calc?.taxable ?? parseFloat(item.taxableValue)) || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
     </td>
@@ -188,8 +218,8 @@ const ItemRow = memo(({ item, calc, idx, onItemChange, onRemove, onAdd, onHsnLoo
   );
 });
 
-const ItemCard = memo(({ item, calc, idx, onItemChange, onRemove, onAdd, onHsnLookup, descLabel = "Description", showHnSac = true, locked = false }) => {
-  const focusFields = focusFieldsFor(showHnSac);
+const ItemCard = memo(({ item, calc, idx, onItemChange, onRemove, onAdd, onHsnLookup, descLabel = "Description", showHnSac = true, locked = false, showDisc = false }) => {
+  const focusFields = focusFieldsFor(showHnSac, showDisc);
   const handleKeyDown = (e, field) => {
     if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
@@ -283,13 +313,40 @@ const ItemCard = memo(({ item, calc, idx, onItemChange, onRemove, onAdd, onHsnLo
               <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">%</span>
             </div>
           </div>
+          {showDisc ? (
+          <div>
+            <label className="block text-[10px] font-semibold text-slate-500 uppercase mb-1">Disc %</label>
+            <div className="relative">
+              <input type="text" value={item.discountPercent ?? ""} data-mobile-field={`disc-${idx}`}
+                onChange={(e) => onItemChange(idx, "discountPercent", e.target.value.replace(/[^0-9.]/g, "").slice(0, 5))}
+                onKeyDown={(e) => handleKeyDown(e, "disc")}
+                onBlur={() => {
+                  const n = parseFloat(item.discountPercent);
+                  if (!Number.isNaN(n)) onItemChange(idx, "discountPercent", String(Math.min(Math.max(n, 0), 100)));
+                }}
+                inputMode="decimal"
+                placeholder="0"
+                className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono min-h-[44px] pr-7" />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">%</span>
+            </div>
+          </div>
+          ) : (
           <div>
             <label className="block text-[10px] font-semibold text-slate-500 uppercase mb-1">Amount</label>
             <div className="w-full px-3 py-2.5 border border-slate-100 rounded-lg text-sm text-right bg-slate-50 font-mono text-slate-700 min-h-[44px] flex items-center justify-end">
               Rs. {((calc?.total ?? parseFloat(item.total)) || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
             </div>
           </div>
+          )}
         </div>
+        {showDisc && (
+        <div>
+          <label className="block text-[10px] font-semibold text-slate-500 uppercase mb-1">Amount</label>
+          <div className="w-full px-3 py-2.5 border border-slate-100 rounded-lg text-sm text-right bg-slate-50 font-mono text-slate-700 min-h-[44px] flex items-center justify-end">
+            Rs. {((calc?.total ?? parseFloat(item.total)) || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+          </div>
+        </div>
+        )}
       </div>
     </div>
   );
@@ -353,6 +410,13 @@ export default function InvoiceForm() {
   }, [business]);
   const [discountPercent, setDiscountPercent] = useState("");
   const [discountEnabled, setDiscountEnabled] = useState(false);
+  // V45 discount presentation: FULL = one invoice-level % (the original
+  // flow), INDIVIDUAL = a % per item line. Individual discounts are only
+  // rendered by the e-Invoice template, so selecting it pins the document to
+  // template-33 (preview + PDF + share) — the global template choice is left
+  // untouched for every other invoice.
+  const [discountType, setDiscountType] = useState("FULL");
+  const individualDiscount = discountEnabled && discountType === "INDIVIDUAL";
   // Construction billing representation. COMPLETE_PROJECT bills one agreed
   // amount line; ITEMIZED bills category lines. Both are ordinary line-item
   // invoices — the flag only restores the right editor when re-opened.
@@ -404,6 +468,11 @@ export default function InvoiceForm() {
   const [existingCustomer, setExistingCustomer] = useState(null);
   const [customerCheckLoading, setCustomerCheckLoading] = useState(false);
   const [customerSaved, setCustomerSaved] = useState(false);
+  // Last state we know the SERVER holds for these fields. Dirty is DERIVED from
+  // it — an edit that is typed back to its original value stops being dirty, so
+  // the "Update Customer" button disappears again instead of sticking around.
+  const [customerBaseline, setCustomerBaseline] = useState(() => serializeCustomer(customer));
+  const customerDirty = serializeCustomer(customer) !== customerBaseline;
 
   const [form, setForm] = useState({
     invoiceType: "TAX_INVOICE",
@@ -430,6 +499,11 @@ export default function InvoiceForm() {
     reverseCharge: false,
     cessPercent: "",
     ewayBillNumber: "",
+    // e-Invoice acknowledgement (Zone A of template-33): IRN, Ack No. and
+    // Ack Date as issued by the IRP. Empty until the portal hands them back.
+    irn: prefilledData?.irn || "",
+    ackNo: prefilledData?.ackNo || "",
+    ackDate: prefilledData?.ackDate || "",
     notes: "",
     // V29 industry-extended reference fields (Rental & Healthcare).
     // Always present in state so updates round-trip loaded values; fields the
@@ -545,7 +619,7 @@ export default function InvoiceForm() {
 
   useEffect(() => {
     processQueue(
-      (data) => customerAPI.create(data),
+      createCustomerOrAdopt,
       (data) => invoiceAPI.create(data)
     ).then((count) => {
       if (count > 0) toast.success(`${count} pending invoice${count > 1 ? 's' : ''} synced`);
@@ -569,7 +643,11 @@ export default function InvoiceForm() {
   const handleCustomerChange = (e) => {
     const { name, value } = e.target;
     setCustomer((prev) => ({ ...prev, [name]: value }));
-    if (existingCustomer) setExistingCustomer(null);
+    // Nothing to reset here: dirtiness and the "Customer saved" badge are both
+    // derived from the baseline, so typing a value back reverts them by itself.
+    // A different phone number is a different customer — drop the loaded id
+    // so the button offers "Save Customer" instead of overwriting a record.
+    if (name === "phone") setExistingCustomer(null);
   };
 
   const handleCheckCustomer = useCallback((phone) => {
@@ -587,26 +665,62 @@ export default function InvoiceForm() {
             billingAddress: found.billingAddress || "",
             gstIn: found.gstIn || "",
           });
+          // Fields now mirror the stored record, so nothing to save yet.
+          setCustomerSaved(false);
+          setCustomerBaseline(serializeCustomer({
+            name: found.name || "",
+            email: found.email || "",
+            phone: found.phone || "",
+            billingAddress: found.billingAddress || "",
+            gstIn: found.gstIn || "",
+          }));
         }
       })
       .catch(() => setExistingCustomer(null))
       .finally(() => setCustomerCheckLoading(false));
   }, []);
 
+  const customerPayload = () => ({
+    name: customer.name.trim(),
+    email: customer.email || undefined,
+    phone: customer.phone || undefined,
+    billingAddress: customer.billingAddress || undefined,
+    gstIn: customer.gstIn || undefined,
+  });
+
+  // POST /customers rejects with 409 when the phone/email already belongs to a
+  // customer of THIS business (other businesses may share the same details —
+  // that never conflicts). Adopt that record so the save still links to the
+  // right customer instead of failing.
+  const createOrAdoptCustomer = async () => {
+    const res = await createCustomerOrAdopt(customerPayload());
+    const data = res.data.data;
+    setExistingCustomer({ ...(data || {}) });
+    if (res.adopted) toast.success(`Using existing customer "${data?.name || ""}"`);
+    return data;
+  };
+
   const handleSaveCustomer = async () => {
     if (!customer.name.trim() || (!customer.email && !customer.phone)) return;
+    const payload = customerPayload();
+    const updatingId = existingCustomer?.id;
     try {
-      await customerAPI.create({
-        name: customer.name.trim(),
-        email: customer.email || undefined,
-        phone: customer.phone || undefined,
-        billingAddress: customer.billingAddress || undefined,
-        gstIn: customer.gstIn || undefined,
+      const data = updatingId
+        ? (await customerAPI.update(updatingId, payload)).data.data
+        : await createOrAdoptCustomer();
+      // Keep the id so the next save edits this record instead of creating a
+      // duplicate customer (the response echoes it back as well).
+      setExistingCustomer({
+        ...(data || {}),
+        ...payload,
+        id: data?.id ?? updatingId,
       });
       setCustomerSaved(true);
-      toast.success("Customer saved");
+      setCustomerBaseline(serializeCustomer(customer));
+      toast.success(updatingId ? "Customer updated" : "Customer saved");
     } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to save customer");
+      toast.error(err.response?.data?.message
+        || (updatingId ? "Failed to update customer" : "Failed to save customer"));
     }
   };
 
@@ -724,7 +838,7 @@ export default function InvoiceForm() {
     });
   }, []);
 
-  const totals = useMemo(() => computeInvoiceTotals(items, discountEnabled ? discountPercent : "0", form.taxMode, form.cessPercent), [items, discountEnabled, discountPercent, form.taxMode, form.cessPercent]);
+  const totals = useMemo(() => computeInvoiceTotals(items, discountEnabled ? discountPercent : "0", form.taxMode, form.cessPercent, individualDiscount ? "INDIVIDUAL" : "FULL"), [items, discountEnabled, discountPercent, form.taxMode, form.cessPercent, individualDiscount]);
 
   const validItemsCount = useMemo(
     () => items.filter((i) => i.itemName.trim() && parseFloat(i.qty) > 0).length,
@@ -743,10 +857,11 @@ export default function InvoiceForm() {
         items: items.map(({ taxableValue, taxAmount, total, ...rest }) => rest),
         discountEnabled,
         discountPercent,
+        discountType,
         billingMode,
         project,
       }),
-    [form, customer, items, discountEnabled, discountPercent, billingMode, project]
+    [form, customer, items, discountEnabled, discountPercent, discountType, billingMode, project]
   );
   const taxInvoiceGenerated = !!generatedSignature && generatedSignature === contentSignature;
 
@@ -754,7 +869,13 @@ export default function InvoiceForm() {
   // type instead of on every render of the hidden capture document.
   const effectiveType = captureType || form.invoiceType;
   const previewPaperSize = useMemo(() => (getPrintSettings()[effectiveType] || {}).paperSize || "A4_PORTRAIT", [effectiveType]);
-  const previewTemplate = useMemo(() => getInvoiceTemplate(effectiveType), [effectiveType]);
+  // Individual discounts only render on the e-Invoice template's Disc. %
+  // column — the document is pinned to template-33 for as long as that mode
+  // is on, whatever the business's saved template preference says.
+  const previewTemplate = useMemo(
+    () => (individualDiscount ? "template-33" : getInvoiceTemplate(effectiveType)),
+    [effectiveType, individualDiscount]
+  );
 
   // Auto-switch — the IGST condition is INTER-STATE supply: place of supply
   // differing from the business (supplier) state switches IGST ON by default.
@@ -865,15 +986,26 @@ export default function InvoiceForm() {
       reverseCharge: form.reverseCharge === true,
       cessPercentage: parseFloat(form.cessPercent) || 0,
       ewayBillNumber: opt("ewayBillNumber", form.ewayBillNumber),
+      // e-Invoice acknowledgement — printed by template-33, dropped by the
+      // backend until its Invoice columns exist (see CreateInvoiceRequest).
+      irn: opt("irn", form.irn),
+      ackNo: opt("ackNo", form.ackNo),
+      ackDate: opt("ackDate", form.ackDate),
       // V29 extended fields: always round-trip whatever is in form state so an
       // update never clears loaded values (backend sets them unconditionally).
       // Unexposed fields stay "" -> undefined -> dropped by JSON serialization.
       ...Object.fromEntries(ALL_EXTENDED_FIELDS.map((f) => [f, form[f] || undefined])),
       ...(ghostMode && customInvoiceNumber.trim() ? { invoiceNumber: customInvoiceNumber.trim() } : {}),
+      // V45 discount presentation: FULL keeps the invoice-level percent,
+      // INDIVIDUAL moves the discount onto each line (the invoice-level value
+      // is sent as 0 and the backend forces 0 in storage too). Disabled ->
+      // null, which the backend stores as "no discount configured" (legacy).
+      discountType: discountEnabled ? discountType : null,
       discountPercent: discountEnabled ? Math.min(Math.max(parseFloat(discountPercent) || 0, 0), 100) : 0,
       items: items.filter((i) => i.itemName.trim() && parseFloat(i.qty) > 0 && parseFloat(i.rate) > 0).map((i, idx) => ({
         sno: idx + 1, itemName: i.itemName, hsn: i.hsn || undefined, unit: i.unit || undefined,
         qty: Math.floor(parseFloat(i.qty)) || 0, rate: parseFloat(i.rate), gstPercentage: parseFloat(i.gstPercentage) || 0,
+        discountPercent: individualDiscount ? Math.min(Math.max(parseFloat(i.discountPercent) || 0, 0), 100) : undefined,
       })),
     };
   };
@@ -882,15 +1014,17 @@ export default function InvoiceForm() {
     recalcAll();
     // Reuse the customer found via phone/email check instead of creating a duplicate every save
     let customerId = existingCustomer?.id;
-    if (!customerId) {
-      const custRes = await customerAPI.create({
-        name: customer.name,
-        email: customer.email || undefined,
-        phone: customer.phone || undefined,
-        billingAddress: customer.billingAddress || undefined,
-        gstIn: customer.gstIn || undefined,
-      });
-      customerId = custRes.data.data?.id;
+    if (customerId && customerDirty) {
+      // Edits typed into the form are persisted on the same record before the
+      // invoice links to it — no duplicate customer, no silently lost edits.
+      await customerAPI.update(customerId, customerPayload());
+      setCustomerSaved(true);
+      setCustomerBaseline(serializeCustomer(customer));
+    } else if (!customerId) {
+      const custRes = await createOrAdoptCustomer();
+      customerId = custRes?.id;
+      setCustomerSaved(true);
+      setCustomerBaseline(serializeCustomer(customer));
     }
     let res;
     if (savedInvoiceId) {
@@ -1023,17 +1157,15 @@ export default function InvoiceForm() {
       // Persist with the customer first — only when the user clicks this
       // button — so the challan can be re-downloaded from Delivery Challans.
       let customerId = existingCustomer?.id;
-      if (!customerId) {
-        const custRes = await customerAPI.create({
-          name: customer.name,
-          email: customer.email || undefined,
-          phone: customer.phone || undefined,
-          billingAddress: customer.billingAddress || undefined,
-          gstIn: customer.gstIn || undefined,
-        });
-        customerId = custRes.data.data?.id;
-        setExistingCustomer(custRes.data.data);
+      if (customerId && customerDirty) {
+        await customerAPI.update(customerId, customerPayload());
         setCustomerSaved(true);
+        setCustomerBaseline(serializeCustomer(customer));
+      } else if (!customerId) {
+        const custRes = await createOrAdoptCustomer();
+        customerId = custRes?.id;
+        setCustomerSaved(true);
+        setCustomerBaseline(serializeCustomer(customer));
       }
       const po = form.otherReferences && form.otherReferences !== "N/A" ? form.otherReferences : "";
       const res = await deliveryChallanAPI.create({
@@ -1491,9 +1623,9 @@ export default function InvoiceForm() {
               })}
             </span>
           </div>
-          {discountEnabled && discountVal > 0 && (
+          {discountEnabled && (individualDiscount ? totals.discountAmount > 0 : discountVal > 0) && (
             <div className="flex justify-between gap-3 text-emerald-600">
-              <span>Discount ({discountVal}%):</span>
+              <span>{individualDiscount ? "Discount (individual):" : `Discount (${discountVal}%):`}</span>
               <span className="font-mono">
                 -Rs.{" "}
                 {totals.discountAmount.toLocaleString("en-US", {
@@ -1588,6 +1720,7 @@ export default function InvoiceForm() {
             items={items}
             totals={totals}
             discountPercent={discountEnabled ? discountPercent : "0"}
+            discountType={individualDiscount ? "INDIVIDUAL" : undefined}
             taxMode={form.taxMode}
             type={effectiveType}
             invoiceNumber={savedInvoiceNumber || customInvoiceNumber || nextInvoiceNumber || ""}
@@ -1626,7 +1759,7 @@ export default function InvoiceForm() {
                   {existingCustomer && (
                     <span className="text-[11px] font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">Existing customer</span>
                   )}
-                  {customerSaved && (
+                  {customerSaved && !customerDirty && (
                     <span className="text-[11px] font-medium text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">Customer saved</span>
                   )}
                 </div>
@@ -1695,12 +1828,14 @@ export default function InvoiceForm() {
                     rows={2} className={inputClass + " resize-none"} placeholder="Delivery address, when it differs from the billing address" />
                 </div>
               </div>
-              {!existingCustomer && !customerSaved && customer.name.trim() && customer.phone && (
+              {/* Shown only while the fields actually differ from the last state
+                  we saved/loaded — reverting an edit hides it again. */}
+              {customerDirty && customer.name.trim() && (customer.email || customer.phone) && (
                 <div className="mt-4 pt-4 border-t border-slate-100 flex justify-end">
                   <button onClick={handleSaveCustomer}
                     className="flex items-center gap-1.5 px-4 py-2 bg-slate-800 text-white text-sm font-medium rounded-lg hover:bg-slate-700 transition-all shadow-sm min-h-[44px]">
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" /></svg>
-                    Save Customer
+                    {existingCustomer?.id ? "Update Customer" : "Save Customer"}
                   </button>
                 </div>
               )}
@@ -1762,6 +1897,29 @@ export default function InvoiceForm() {
                     onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); focusNext("dueDate"); } }}
                     className={inputClass} />
                 </div>
+                {/* e-Invoice acknowledgement — only relevant to (and only shown
+                    for) the e-Invoice template, which prints them in Zone A
+                    beside the "Tax Invoice" title. */}
+                {previewTemplate === "template-33" && (
+                  <>
+                    <div>
+                      <label className={labelClass}>IRN <span className="font-normal text-slate-400">(e-Invoice)</span></label>
+                      <input type="text" name="irn" value={form.irn} onChange={handleFieldChange}
+                        placeholder="64-character Invoice Reference Number" className={inputClass + " font-mono"} />
+                    </div>
+                    <div>
+                      <label className={labelClass}>Ack No.</label>
+                      <input type="text" name="ackNo" value={form.ackNo} onChange={handleFieldChange}
+                        placeholder="IRP acknowledgement no." className={inputClass + " font-mono"} />
+                    </div>
+                    <div>
+                      <label className={labelClass}>Ack Date</label>
+                      <input type="date" name="ackDate" value={form.ackDate} onChange={handleFieldChange}
+                        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); focusNext("ackDate"); } }}
+                        className={inputClass} />
+                    </div>
+                  </>
+                )}
                 <div>
                   <label className={labelClass}>Place of Supply</label>
                   <div className="relative">
@@ -2011,6 +2169,45 @@ export default function InvoiceForm() {
                 </button>
               </div>
               {discountEnabled && (
+                <>
+                <div className="flex items-center gap-4 mb-3" role="radiogroup" aria-label="Discount type">
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="discountType"
+                      value="FULL"
+                      checked={discountType === "FULL"}
+                      onChange={() => setDiscountType("FULL")}
+                      className="accent-blue-500"
+                    />
+                    <span className="text-sm text-slate-700">Full Discount</span>
+                  </label>
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="discountType"
+                      value="INDIVIDUAL"
+                      checked={discountType === "INDIVIDUAL"}
+                      onChange={() => {
+                        setDiscountType("INDIVIDUAL");
+                        toast.info("Individual discount: set a % per item in the Items table — this invoice is fixed to the e-Invoice template");
+                      }}
+                      className="accent-blue-500"
+                    />
+                    <span className="text-sm text-slate-700">Individual</span>
+                  </label>
+                </div>
+                {discountType === "INDIVIDUAL" ? (
+                  <p className="text-xs text-slate-500 leading-relaxed">
+                    Set a discount % on each line in the Items table — GST applies to each line&rsquo;s net value.
+                    This invoice is fixed to the <span className="font-medium text-slate-700">e-Invoice template</span>; other templates cannot be selected.
+                    {totals.discountAmount > 0 && (
+                      <span className="block text-emerald-600 font-medium mt-1">
+                        -Rs. {totals.discountAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                      </span>
+                    )}
+                  </p>
+                ) : (
                 <div className="flex items-center gap-2">
                   <input
                     type="number"
@@ -2032,6 +2229,8 @@ export default function InvoiceForm() {
                     </span>
                   )}
                 </div>
+                )}
+                </>
               )}
             </div>
             {sealEnabled && (
@@ -2169,20 +2368,23 @@ export default function InvoiceForm() {
 
           {/* Desktop table */}
           <div className="hidden md:block border border-slate-200 rounded-lg w-full overflow-x-auto">
-            <table className="w-full min-w-[780px] text-sm border-collapse" style={{ tableLayout: "auto" }}>
+            <table className={`w-full text-sm border-collapse ${individualDiscount ? "min-w-[860px]" : "min-w-[780px]"}`} style={{ tableLayout: "auto" }}>
               <colgroup>
                 {/* # takes 4% (was 2.5%), funded by Taxable (12.5 -> 11%): a
                     3-digit row number must sit on one straight line even with
-                    the sidebar squeezing the table. */}
+                    the sidebar squeezing the table. The Disc.% column (V45,
+                    individual discounts only) takes its 6% from HSN, Taxable,
+                    Tax and Total so the percentages still foot to 100. */}
                 <col style={{ width: "4%" }} />
-                <col style={{ width: showHnSac ? "13%" : "0%" }} />
-                <col style={{ width: showHnSac ? "20%" : "33%" }} />
+                <col style={{ width: showHnSac ? (individualDiscount ? "11%" : "13%") : "0%" }} />
+                <col style={{ width: showHnSac ? (individualDiscount ? "19%" : "20%") : "33%" }} />
                 <col style={{ width: "12%" }} />
                 <col style={{ width: "8.5%" }} />
                 <col style={{ width: "4.5%" }} />
-                <col style={{ width: "11%" }} />
-                <col style={{ width: "11%" }} />
-                <col style={{ width: "13.5%" }} />
+                {individualDiscount && <col style={{ width: "6%" }} />}
+                <col style={{ width: individualDiscount ? "10%" : "11%" }} />
+                <col style={{ width: individualDiscount ? "10%" : "11%" }} />
+                <col style={{ width: individualDiscount ? "12.5%" : "13.5%" }} />
                 <col style={{ width: "2.5%" }} />
               </colgroup>
               <thead>
@@ -2193,6 +2395,7 @@ export default function InvoiceForm() {
                   <th className="text-white text-xs font-semibold py-3.5 px-2 text-center whitespace-nowrap min-w-[120px]">Qty</th>
                   <th className="text-white text-xs font-semibold py-3.5 px-2 text-center whitespace-nowrap min-w-[85px]">Rate</th>
                   <th className="text-white text-xs font-semibold py-3.5 px-1 text-center whitespace-nowrap min-w-[56px]">GST %</th>
+                  {individualDiscount && <th className="text-white text-xs font-semibold py-3.5 px-1 text-center whitespace-nowrap min-w-[56px]">Disc %</th>}
                   <th className="text-white text-xs font-semibold py-3.5 px-3 text-right whitespace-nowrap min-w-[110px]">Taxable</th>
                   <th className="text-white text-xs font-semibold py-3.5 px-3 text-right whitespace-nowrap min-w-[100px]">Tax</th>
                   <th className="text-white text-xs font-semibold py-3.5 px-3 text-right whitespace-nowrap min-w-[120px]">Total</th>
@@ -2201,7 +2404,7 @@ export default function InvoiceForm() {
               </thead>
               <tbody>
                 {items.map((item, idx) => (
-                  <ItemRow key={item.id ?? idx} item={item} calc={totals.perItem[idx]} idx={idx} onItemChange={handleItemChange} onRemove={removeItem} onAdd={addItem} onHsnLookup={handleHsnLookup} showHnSac={showHnSac} locked={isConstruction && billingMode === "COMPLETE_PROJECT"} />
+                  <ItemRow key={item.id ?? idx} item={item} calc={totals.perItem[idx]} idx={idx} onItemChange={handleItemChange} onRemove={removeItem} onAdd={addItem} onHsnLookup={handleHsnLookup} showHnSac={showHnSac} locked={isConstruction && billingMode === "COMPLETE_PROJECT"} showDisc={individualDiscount} />
                 ))}
               </tbody>
             </table>
@@ -2210,7 +2413,7 @@ export default function InvoiceForm() {
           {/* Mobile cards */}
           <div className="md:hidden space-y-3">
             {items.map((item, idx) => (
-              <ItemCard key={item.id ?? idx} item={item} calc={totals.perItem[idx]} idx={idx} onItemChange={handleItemChange} onRemove={removeItem} onAdd={addItem} onHsnLookup={handleHsnLookup} descLabel={labelFor("itemName", "Description")} showHnSac={showHnSac} locked={isConstruction && billingMode === "COMPLETE_PROJECT"} />
+              <ItemCard key={item.id ?? idx} item={item} calc={totals.perItem[idx]} idx={idx} onItemChange={handleItemChange} onRemove={removeItem} onAdd={addItem} onHsnLookup={handleHsnLookup} descLabel={labelFor("itemName", "Description")} showHnSac={showHnSac} locked={isConstruction && billingMode === "COMPLETE_PROJECT"} showDisc={individualDiscount} />
             ))}
             <button onClick={addItem}
               className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-slate-800 text-white text-sm font-semibold rounded-lg hover:bg-slate-700 transition-all shadow-lg min-h-[48px]">

@@ -186,6 +186,7 @@ export default function InvoicesList() {
     const items = (invoice.items || []).map((i) => ({
       itemName: i.itemName, hsn: i.hsn || "", qty: String(i.qty), rate: String(i.rate),
       gstPercentage: String(i.gstPercentage), taxableValue: i.taxableValue, taxAmount: i.taxAmount, total: i.total,
+      discountPercent: i.discountPercent,
     }));
     const totals = {
       subtotal: invoice.subtotal || 0,
@@ -227,9 +228,22 @@ export default function InvoicesList() {
               destination: invoice.destination || "",
               termsOfDelivery: invoice.termsOfDelivery || "",
               paymentTerms: invoice.paymentTerms || "",
+              paymentMode: invoice.paymentMode || "CASH",
               deliveryNote: invoice.deliveryNote || "",
               otherReferences: invoice.otherReferences || "",
               notes: invoice.notes || "",
+              // Rule 46 fields the list-page download used to drop — without
+              // them the printed document silently lost the cess leg (so the
+              // Total no longer matched the stored invoice) and the consignee
+              // address fell back to billing.
+              shippingAddress: invoice.shippingAddress || "",
+              reverseCharge: invoice.reverseCharge === true,
+              cessPercent: invoice.cessPercentage > 0 ? String(invoice.cessPercentage) : "",
+              ewayBillNumber: invoice.ewayBillNumber || "",
+              vehicleNumber: invoice.vehicleNumber || "",
+              irn: invoice.irn || "",
+              ackNo: invoice.ackNo || "",
+              ackDate: invoice.ackDate || "",
               deliveryNoteDate: invoice.deliveryNoteDate || "",
               referenceNumber: invoice.referenceNumber || "",
               buyerOrderNumber: invoice.buyerOrderNumber || "",
@@ -239,10 +253,12 @@ export default function InvoicesList() {
             items={items}
             totals={totals}
             discountPercent={String(invoice.discountPercent || "0")}
+            discountType={invoice.discountType === "INDIVIDUAL" ? "INDIVIDUAL" : undefined}
             taxMode={taxMode}
             type={invoice.invoiceType}
             invoiceNumber={invoice.invoiceNumber}
-            template={getInvoiceTemplate(invoice.invoiceType)}
+            // Individual discounts only render on the e-Invoice template.
+            template={invoice.discountType === "INDIVIDUAL" ? "template-33" : getInvoiceTemplate(invoice.invoiceType)}
           />
         );
       });

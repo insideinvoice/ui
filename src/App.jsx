@@ -33,7 +33,6 @@ import InvoicesList from "./pages/InvoicesList";
 import AddCustomer from "./pages/AddCustomer";
 import AddProduct from "./pages/AddProduct";
 import ProductsList from "./pages/ProductsList";
-import AdminProductsList from "./pages/AdminProductsList";
 import InvoiceTemplates from "./pages/InvoiceTemplates";
 import PaymentsList from "./pages/PaymentsList";
 import Profile from "./pages/Profile";
@@ -53,6 +52,7 @@ import DeliveryChallanView from "./pages/DeliveryChallanView";
 import MorePage from "./pages/MorePage";
 import PublicInvoicePage from "./pages/PublicInvoicePage";
 import ZoomLab from "./pages/ZoomLab";
+import EInvoiceStressLab from "./pages/EInvoiceStressLab";
 import SeoHead from "./components/SeoHead";
 
 function ScrollToTop() {
@@ -127,6 +127,8 @@ function AppRoutes() {
       <Route path="/i/:shareToken" element={<PublicInvoicePage />} />
       {/* Dev-only DocZoomSurface gesture bench for scripts/zoomGesture.test.mjs */}
       {import.meta.env.DEV && <Route path="/__zoomlab" element={<ZoomLab />} />}
+      {/* Dev-only e-Invoice stress bench for scripts/einvoice-stress.mjs */}
+      {import.meta.env.DEV && <Route path="/__einv-lab" element={<EInvoiceStressLab />} />}
       <Route path="/business-setup" element={<PrivateRoute><BusinessSetup /></PrivateRoute>} />
       <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
       <Route path="/invoice" element={<PrivateRoute><InvoiceForm /></PrivateRoute>} />
@@ -157,7 +159,6 @@ function AppRoutes() {
       <Route path="/admin" element={<PrivateRoute><AdminDashboard /></PrivateRoute>} />
       <Route path="/admin/businesses" element={<PrivateRoute><AdminBusinessesList /></PrivateRoute>} />
       <Route path="/admin/customers" element={<PrivateRoute><AdminCustomersList /></PrivateRoute>} />
-      <Route path="/admin/products" element={<PrivateRoute><AdminProductsList /></PrivateRoute>} />
       <Route path="/admin/invoices" element={<PrivateRoute><AdminInvoicesList /></PrivateRoute>} />
       <Route path="/admin/businesses/:businessId/invoices" element={<PrivateRoute><BusinessInvoices /></PrivateRoute>} />
       <Route path="/admin/invoices/:id" element={<PrivateRoute><AdminInvoiceView /></PrivateRoute>} />

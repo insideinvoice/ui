@@ -18,9 +18,44 @@ const PRESET_OPTIONS = [
   { value: "FNSKU_30UP", label: "FNSKU 30-up" },
 ];
 
-const SIZES = ["4x6in", "4x3in", "4x4in", "4x8in", "100x100mm", "100x150mm", "a4-2up", "a4-4up", "letter-2up", "letter-30up"];
+// Label sizes in both unit systems — carriers worldwide quote inches, the rest
+// of the world quotes millimetres, so every option shows both.
+const SIZES = [
+  ["4x6in", "4 × 6 in — 101.6 × 152.4 mm"],
+  ["4x3in", "4 × 3 in — 101.6 × 76.2 mm"],
+  ["4x4in", "4 × 4 in — 101.6 × 101.6 mm"],
+  ["4x8in", "4 × 8 in — 101.6 × 203.2 mm"],
+  ["100x100mm", "100 × 100 mm"],
+  ["100x150mm", "100 × 150 mm"],
+  ["a4-2up", "A4 sheet — 2-up"],
+  ["a4-4up", "A4 sheet — 4-up"],
+  ["letter-2up", "US Letter — 2-up"],
+  ["letter-30up", "US Letter — 30-up (Avery 5167)"],
+];
 
-const emptyAddress = () => ({ name: "", company: "", addressLines: [], city: "", state: "", pincode: "", country: "India", phone: "" });
+const BILLING_OPTIONS = [
+  ["", "Not specified"],
+  ["PREPAID", "Prepaid"],
+  ["COD", "Cash on delivery (COD)"],
+  ["THIRD_PARTY", "Third-party billing"],
+];
+
+// Global carrier set: worldwide express, national posts and the big regional
+// players — anyone creating a label, anywhere, gets a sensible suggestion.
+const CARRIERS = [
+  "DHL", "DHL Express", "FedEx", "UPS", "USPS", "Royal Mail", "Canada Post",
+  "Australia Post", "New Zealand Post", "Deutsche Post", "La Poste", "Correos",
+  "Poste Italiane", "Japan Post", "China Post", "SF Express", "Yamato Transport",
+  "Sagawa Express", "J&T Express", "Ninja Xpress", "Aramex", "Emirates Post",
+  "Qatar Post", "Saudi Post SPL", "Israel Post", "SingPost", "Pos Malaysia",
+  "Thailand Post", "Vietnam Post", "Pos Indonesia", "Korea Post", "India Post",
+  "Delhivery", "Blue Dart", "DTDC", "Ekart", "Xpressbees", "Ecom Express",
+  "Amazon Logistics",
+];
+
+// Address without a forced country: the shipper picks the destination, this
+// form never assumes one.
+const emptyAddress = () => ({ name: "", company: "", addressLines: [], city: "", state: "", pincode: "", country: "", phone: "" });
 
 export default function ShippingLabelForm() {
   const navigate = useNavigate();
@@ -137,35 +172,42 @@ export default function ShippingLabelForm() {
     onChange: (e) => setForm((f) => ({ ...f, [key]: e.target.type === "number" ? Number(e.target.value) : e.target.value })),
   });
 
+  const inputCls = "w-full border border-slate-300 rounded-lg px-3 py-2 text-xs focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/15";
+  const labelCls = "text-[11px] font-semibold text-slate-600";
+  const gridCls = "rounded-xl border border-slate-200 p-4 bg-white grid grid-cols-1 sm:grid-cols-2 gap-2.5";
+  const headingCls = "sm:col-span-2 text-xs font-semibold text-slate-700 uppercase tracking-wider";
+
   return (
     <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 to-gray-100">
       <div className="px-4 sm:px-5 lg:px-6 py-3 sm:py-4 lg:py-5 max-w-[1900px] mx-auto">
         <PageHeader title={editing ? "Edit Shipping Label" : "New Shipping Label"} />
         <div className="grid grid-cols-1 xl:grid-cols-5 gap-4">
           <form onSubmit={submit} className="xl:col-span-3 space-y-4">
-            <div className="rounded-xl border border-slate-200 p-4 bg-white grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-              <label className="sm:col-span-1 text-[11px] font-semibold text-slate-600">Preset
+            {/* ---------------------------------------------------- format */}
+            <div className={gridCls}>
+              <h3 className={headingCls}>Format &amp; print</h3>
+              <label className={labelCls}>Preset
                 <select value={form.preset} onChange={(e) => setForm((f) => ({ ...f, preset: e.target.value }))}
-                  className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2 text-xs bg-white">
+                  className={"mt-1 w-full border border-slate-300 rounded-lg px-3 py-2 text-xs bg-white cursor-pointer"}>
                   {PRESET_OPTIONS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
                 </select>
               </label>
-              <label className="text-[11px] font-semibold text-slate-600">Size
+              <label className={labelCls}>Size
                 <select value={form.sizeKey} onChange={(e) => setForm((f) => ({ ...f, sizeKey: e.target.value }))}
-                  className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2 text-xs bg-white">
-                  {SIZES.map((s) => <option key={s} value={s}>{s}</option>)}
+                  className={"mt-1 w-full border border-slate-300 rounded-lg px-3 py-2 text-xs bg-white cursor-pointer"}>
+                  {SIZES.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
                 </select>
               </label>
-              <label className="text-[11px] font-semibold text-slate-600">DPI
+              <label className={labelCls}>Resolution
                 <select value={form.dpi} onChange={(e) => setForm((f) => ({ ...f, dpi: Number(e.target.value) }))}
-                  className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2 text-xs bg-white">
-                  <option value={203}>203</option>
-                  <option value={300}>300</option>
+                  className={"mt-1 w-full border border-slate-300 rounded-lg px-3 py-2 text-xs bg-white cursor-pointer"}>
+                  <option value={203}>203 dpi (thermal)</option>
+                  <option value={300}>300 dpi (thermal / laser)</option>
                 </select>
               </label>
-              <label className="text-[11px] font-semibold text-slate-600">Cartons
+              <label className={labelCls}>Cartons
                 <input type="number" min={1} max={999} {...field("cartonCount")}
-                  className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2 text-xs" />
+                  className={inputCls} />
               </label>
               <div className="sm:col-span-2 flex items-center gap-4 text-xs text-slate-700 pt-1">
                 <label className="flex items-center gap-1.5">
@@ -177,31 +219,66 @@ export default function ShippingLabelForm() {
               </div>
             </div>
 
-            <div className="rounded-xl border border-slate-200 p-4 bg-white grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-              <h3 className="sm:col-span-2 text-xs font-semibold text-slate-700 uppercase tracking-wider">Shipment</h3>
-              <input list="indian-carriers" placeholder="Carrier (e.g. Delhivery)" {...field("carrier")} className="border border-slate-300 rounded-lg px-3 py-2 text-xs" />
-              <datalist id="indian-carriers">
-                <option value="Delhivery" /><option value="Blue Dart" /><option value="DTDC" /><option value="India Post" /><option value="Ekart" /><option value="Xpressbees" /><option value="Ecom Express" /><option value="Trackon" /><option value="Rivigo" /><option value="FedEx" /><option value="DHL" /><option value="Amazon Logistics" /><option value="Aramex" />
-              </datalist>
-              <input placeholder="Service level" {...field("serviceLevel")} className="border border-slate-300 rounded-lg px-3 py-2 text-xs" />
-              <input placeholder="Service code" {...field("serviceCode")} className="border border-slate-300 rounded-lg px-3 py-2 text-xs" />
-              <input placeholder="Tracking number(s), comma-sep." {...field("trackingNumber")} className="border border-slate-300 rounded-lg px-3 py-2 text-xs" />
-              <input placeholder="Weight (kg)" {...field("weightKg")} className="border border-slate-300 rounded-lg px-3 py-2 text-xs" />
-              <input placeholder="Dims LxWxH (cm)" {...field("dimsCm")} className="border border-slate-300 rounded-lg px-3 py-2 text-xs" />
-              <input placeholder="Billing type" {...field("billingType")} className="border border-slate-300 rounded-lg px-3 py-2 text-xs" />
-              <input placeholder="COD amount (₹)" {...field("codAmount")} className="border border-slate-300 rounded-lg px-3 py-2 text-xs" />
-              <input placeholder="Invoice no." {...field("invoiceNo")} className="border border-slate-300 rounded-lg px-3 py-2 text-xs" />
-              <input placeholder="PO number" {...field("poNumber")} className="border border-slate-300 rounded-lg px-3 py-2 text-xs" />
-              <input placeholder="Reference 1" {...field("ref1")} className="border border-slate-300 rounded-lg px-3 py-2 text-xs" />
-              <input placeholder="Reference 2" {...field("ref2")} className="border border-slate-300 rounded-lg px-3 py-2 text-xs" />
-              <textarea placeholder="Notes" rows={2} {...field("notes")} className="sm:col-span-2 border border-slate-300 rounded-lg px-3 py-2 text-xs" />
-              <div className="sm:col-span-2 flex flex-wrap items-center gap-4 text-xs text-slate-700">
+            {/* ------------------------------------------- carrier & service */}
+            <div className={gridCls}>
+              <h3 className={headingCls}>Carrier &amp; service</h3>
+              <label className={labelCls}>Carrier
+                <input list="carriers" placeholder="e.g. DHL, FedEx, UPS, USPS…" {...field("carrier")}
+                  className={inputCls} />
+                <datalist id="carriers">
+                  {CARRIERS.map((c) => <option key={c} value={c} />)}
+                </datalist>
+              </label>
+              <label className={labelCls}>Service level
+                <input placeholder="e.g. Ground, Express, Overnight" {...field("serviceLevel")} className={inputCls} />
+              </label>
+              <label className={labelCls}>Service code
+                <input placeholder="e.g. PMD, EXP, 2D" {...field("serviceCode")} className={inputCls} />
+              </label>
+              <label className={labelCls}>Tracking number(s)
+                <input placeholder="Comma-separated for multiple cartons" {...field("trackingNumber")} className={inputCls} />
+              </label>
+              <label className={labelCls}>Weight (kg)
+                <input placeholder="e.g. 2.5" {...field("weightKg")} className={inputCls} />
+              </label>
+              <label className={labelCls}>Dimensions L×W×H (cm)
+                <input placeholder="e.g. 40x30x20" {...field("dimsCm")} className={inputCls} />
+              </label>
+              <div className="sm:col-span-2 flex flex-wrap items-center gap-4 text-xs text-slate-700 pt-1">
                 {[["thisWayUp", "This way up"], ["fragile", "Fragile"], ["keepDry", "Keep dry"], ["doNotStack", "Do not stack"], ["handleWithCare", "Handle with care"]].map(([k, label]) => (
                   <label key={k} className="flex items-center gap-1.5">
                     <input type="checkbox" checked={form[k]} onChange={(e) => setForm((f) => ({ ...f, [k]: e.target.checked }))} /> {label}
                   </label>
                 ))}
               </div>
+            </div>
+
+            {/* ---------------------------------------- billing & references */}
+            <div className={gridCls}>
+              <h3 className={headingCls}>Billing &amp; references</h3>
+              <label className={labelCls}>Billing
+                <select value={form.billingType} onChange={(e) => setForm((f) => ({ ...f, billingType: e.target.value }))}
+                  className={"mt-1 w-full border border-slate-300 rounded-lg px-3 py-2 text-xs bg-white cursor-pointer"}>
+                  {BILLING_OPTIONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                </select>
+              </label>
+              <label className={labelCls}>COD amount
+                <input placeholder="Amount in your billing currency" {...field("codAmount")} className={inputCls} />
+              </label>
+              <label className={labelCls}>Invoice no.
+                <input placeholder="e.g. INV-2026-0042" {...field("invoiceNo")} className={inputCls} />
+              </label>
+              <label className={labelCls}>PO number
+                <input placeholder="Purchase order reference" {...field("poNumber")} className={inputCls} />
+              </label>
+              <label className={labelCls}>Reference 1
+                <input placeholder="ASN, order no., etc." {...field("ref1")} className={inputCls} />
+              </label>
+              <label className={labelCls}>Reference 2
+                <input placeholder="Secondary reference" {...field("ref2")} className={inputCls} />
+              </label>
+              <textarea placeholder="Notes printed on the label" rows={2} {...field("notes")}
+                className="sm:col-span-2 border border-slate-300 rounded-lg px-3 py-2 text-xs focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/15" />
             </div>
 
             <LabelAddressBlock title="Ship From" value={form.shipFrom} onChange={(v) => setForm((f) => ({ ...f, shipFrom: v }))} />

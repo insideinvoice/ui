@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import LoadingDots from "../components/LoadingDots";
 import PageHeader from "../components/PageHeader";
 import { customerAPI } from "../api/auth";
 import toast from "react-hot-toast";
-import { Building2, Phone, MapPin, Hash, Save, User, Mail, X } from "lucide-react";
+import { Building2, Phone, MapPin, Hash, Save, User, Mail, X, AlertCircle, Pencil } from "lucide-react";
 
 // Shared form tokens — same medium scale (40px controls) and violet focus
 // language as AddProduct, so every "add" page feels identical.
@@ -18,6 +18,13 @@ export default function AddCustomer() {
   const navigate = useNavigate();
   const [form, setForm] = useState({ name: "", email: "", phone: "", billingAddress: "", gstIn: "" });
   const [saving, setSaving] = useState(false);
+  const emailRef = useRef(null);
+  const phoneRef = useRef(null);
+  // Duplicate phone/email found in THIS business (other businesses may hold the
+  // same contact details — that is never a conflict).
+  const [dupError, setDupError] = useState(null); // { message, customerId }
+  // Avoids firing the same lookup twice (blur → submit both run the check).
+  const lastCheck = useRef({ key: "", ok: true });
 
   const handleChange = (e) => {
     let value = e.target.value;
@@ -25,11 +32,50 @@ export default function AddCustomer() {
       value = value.replace(/\D/g, "").replace(/^0+/, "").slice(0, 10);
     }
     setForm((p) => ({ ...p, [e.target.name]: value }));
+    setDupError(null);
+  };
+
+  // Pre-flight duplicate lookup (POST /customers/check). Returns false when the
+  // value already belongs to a customer of this business; failures fall through
+  // so the server-side check still decides on save.
+  const checkDuplicate = async (field, value) => {
+    const v = (value || "").trim();
+    setDupError(null);
+    if (!v) {
+      lastCheck.current = { key: "", ok: true };
+      return true;
+    }
+    const key = `${field}:${v.toLowerCase()}`;
+    if (lastCheck.current.key === key) return lastCheck.current.ok;
+    try {
+      const res = await customerAPI.check({ [field]: v });
+      const existing = res.data?.data;
+      if (existing) {
+        setDupError({
+          field,
+          message: field === "phone"
+            ? `Phone ${v} already belongs to "${existing.name}"`
+            : `Email ${v} already belongs to "${existing.name}"`,
+          customerId: existing.id,
+        });
+        lastCheck.current = { key, ok: false };
+        return false;
+      }
+      lastCheck.current = { key, ok: true };
+      return true;
+    } catch {
+      lastCheck.current = { key, ok: true };
+      return true;
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.name.trim()) { toast.error("Customer name is required"); return; }
+    const phoneOk = await checkDuplicate("phone", form.phone);
+    if (!phoneOk) { phoneRef.current?.focus(); return; }
+    const emailOk = await checkDuplicate("email", form.email);
+    if (!emailOk) { emailRef.current?.focus(); return; }
     setSaving(true);
     try {
       await customerAPI.create({
@@ -38,11 +84,34 @@ export default function AddCustomer() {
       });
       toast.success("Customer created successfully");
       setForm({ name: "", email: "", phone: "", billingAddress: "", gstIn: "" });
+      lastCheck.current = { key: "", ok: true };
     } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to create customer");
+      const msg = err.response?.data?.message || "Failed to create customer";
+      // 409 = the server-side duplicate guard (race or lookup failure). Point the
+      // red border at the offending field and resolve the existing record so the
+      // banner can link straight to it.
+      if (err.response?.status === 409) {
+        const lower = msg.toLowerCase();
+        const field = lower.startsWith("phone") ? "phone" : lower.startsWith("email") ? "email" : null;
+        let customerId = null;
+        try {
+          const probe = field === "phone" ? { phone: form.phone }
+            : field === "email" ? { email: form.email }
+            : { phone: form.phone || undefined, email: form.email || undefined };
+          customerId = (await customerAPI.check(probe)).data?.data?.id ?? null;
+        } catch {
+          /* no match / lookup unavailable — banner still shows the message */
+        }
+        setDupError({ field, message: msg, customerId });
+      }
+      toast.error(msg);
     } finally {
       setSaving(false);
     }
+  };
+
+  const goToExisting = () => {
+    if (dupError?.customerId) navigate(`/customers?edit=${dupError.customerId}`);
   };
 
   return (
@@ -91,11 +160,13 @@ export default function AddCustomer() {
                   <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4 pointer-events-none" />
                   <input
                     id="customer-email"
+                    ref={emailRef}
                     name="email"
                     type="email"
                     value={form.email}
                     onChange={handleChange}
-                    className={inputClass}
+                    onBlur={() => checkDuplicate("email", form.email)}
+                    className={inputClass + (dupError?.field === "email" ? " border-rose-400 bg-rose-50/40 focus:border-rose-500 focus:ring-rose-500/10" : "")}
                     placeholder="customer@email.com"
                   />
                 </div>
@@ -106,18 +177,47 @@ export default function AddCustomer() {
                   <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4 pointer-events-none" />
                   <input
                     id="customer-phone"
+                    ref={phoneRef}
                     name="phone"
                     type="tel"
                     inputMode="numeric"
                     maxLength={10}
                     value={form.phone}
                     onChange={handleChange}
-                    className={inputClass + " tabular-nums"}
+                    onBlur={() => checkDuplicate("phone", form.phone)}
+                    className={inputClass + " tabular-nums" + (dupError?.field === "phone" ? " border-rose-400 bg-rose-50/40 focus:border-rose-500 focus:ring-rose-500/10" : "")}
                     placeholder="e.g. 9036843735"
                   />
                 </div>
               </div>
             </div>
+
+            {/* Duplicate phone/email — blocked, with a shortcut to the existing record */}
+            {dupError && (
+              <div className="flex flex-col gap-2 p-3 rounded-lg border border-rose-200 bg-rose-50/60">
+                <p className="flex items-start gap-1.5 text-xs font-medium text-rose-600">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                  <span>{dupError.message}. Update that customer instead of creating a duplicate.</span>
+                </p>
+                {dupError.customerId ? (
+                  <button
+                    type="button"
+                    onClick={goToExisting}
+                    className="self-start inline-flex items-center gap-1.5 px-3 py-1.5 min-h-[32px] text-xs font-semibold text-indigo-700 bg-white border border-indigo-200 hover:bg-indigo-50 rounded-lg transition-all"
+                  >
+                    <Pencil className="w-3.5 h-3.5" /> Edit existing customer
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => navigate("/customers")}
+                    className="self-start inline-flex items-center gap-1.5 px-3 py-1.5 min-h-[32px] text-xs font-semibold text-indigo-700 bg-white border border-indigo-200 hover:bg-indigo-50 rounded-lg transition-all"
+                  >
+                    <Pencil className="w-3.5 h-3.5" /> Go to customers
+                  </button>
+                )}
+              </div>
+            )}
 
             {/* GSTIN */}
             <div>

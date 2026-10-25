@@ -114,7 +114,6 @@ const sections = (isAdmin, documentAccess) => {
       items: [
         { label: "Add User", icon: UserPlus, path: "/admin/users" },
         { label: "All Users", icon: UserCheck, path: "/admin/users-list" },
-        { label: "Registered Products", icon: Package, path: "/admin/products" },
       ],
     },
   ] : []),

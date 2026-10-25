@@ -28,7 +28,7 @@ import {
  * table's lines CLOSE at every page edge (the PDF slicer cuts precisely
  * on the "ent-page-*" frame boundaries — nothing is ever sliced open).
  *
- * Page 1 carries a letterhead with the business logo in a fixed 75×75
+ * Page 1 carries a letterhead with the business logo in a fixed 80×80
  * square top-left box (upload from Settings → Business Logo; no upload
  * → the company block alone sits at the left margin). Page furniture:
  * seller | bill-to | invoice-details
@@ -66,12 +66,12 @@ const nowrap = { whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellips
 
 /* --------------------------------------------------------------- logo */
 
-// Fixed SQUARE box: 75×75 — the only permitted logo box on this template, so a
+// Fixed SQUARE box: 80×80 — the only permitted logo box on this template, so a
 // round/landscape/square upload always prints identically (object-fit contain
 // letterboxes a non-square image inside the square frame). Sized to sit
 // comfortably inside the 120px letterhead, and shared by EVERY invoice that
 // uses this template (preview, PDF, e-mail, public share page).
-const LOGO_BOX_W = 75;
+const LOGO_BOX_W = 80;
 const LOGO_BOX_H = 80;
 
 /* html2canvas — the PDF engine — ignores `object-fit`, so a non-square upload
@@ -868,7 +868,7 @@ const EntPage = ({ pageId, showItems, sumRows, sumWithTotal, closing, chunkItems
 /* ----------------------------------------------------------- component */
 
 const InvoiceTemplateEnterprise = React.forwardRef(
-  ({ business, customer, form, items, discountPercent, type, invoiceNumber, taxMode }, ref) => {
+  ({ business, customer, form, items, discountPercent, type, invoiceNumber, taxMode, discountType }, ref) => {
     const validItems = useMemo(
       () => (items || []).filter((i) => i?.itemName?.trim() && parseFloat(i?.qty) > 0),
       [items],
@@ -878,7 +878,7 @@ const InvoiceTemplateEnterprise = React.forwardRef(
     const isProforma = type === "PROFORMA_INVOICE";
     const showTax = !isProforma;
     const displayInvNo = invoiceNumber || "DRAFT";
-    const calc = computeInvoiceTotals(items, discountPercent, taxMode);
+    const calc = computeInvoiceTotals(items, discountPercent, taxMode, undefined, discountType);
     // IGST (inter-state) replaces the CGST/SGST pair in the totals stack and
     // the HSN breakup table — the two structures never render together.
     const igstMode = taxMode === "IGST";

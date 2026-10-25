@@ -16,11 +16,13 @@ export default function AddProduct() {
   // Cache of the last HSN lookup so the Enter-key check and the follow-up
   // blur (focus moves to the next field) don't fire the same API call twice.
   const lastHsnCheck = useRef({ value: "", ok: true });
+  const lastNameCheck = useRef({ value: "", ok: true });
   const [form, setForm] = useState({ name: "", hsn: "", rate: "", gstPercentage: "18" });
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(isEdit);
   const [loadError, setLoadError] = useState("");
   const [hsnError, setHsnError] = useState("");
+  const [nameError, setNameError] = useState("");
 
   useEffect(() => {
     if (!isEdit) hsnRef.current?.focus();
@@ -54,6 +56,7 @@ export default function AddProduct() {
   const handleChange = (e) => {
     setForm((p) => ({ ...p, [e.target.name]: e.target.value }));
     if (e.target.name === "hsn") setHsnError("");
+    if (e.target.name === "name") setNameError("");
   };
 
   const checkHsnUnique = async (value) => {
@@ -91,6 +94,34 @@ export default function AddProduct() {
     }
   };
 
+  // Same idea as checkHsnUnique: catch a duplicate product name before the
+  // round-trip so the user can fix it inline instead of reading a 409 toast.
+  const checkNameUnique = async (value) => {
+    const name = (value || "").trim();
+    setNameError("");
+    if (!name) {
+      lastNameCheck.current = { value: "", ok: true };
+      return true;
+    }
+    if (lastNameCheck.current.value === name) return lastNameCheck.current.ok;
+    try {
+      const res = await productAPI.findByName(name);
+      const existing = res.data?.data;
+      // In edit mode the match may be this very product — that's not a conflict.
+      if (existing && String(existing.id) !== String(editId)) {
+        setNameError(`A product named "${existing.name}" already exists in your catalogue`);
+        lastNameCheck.current = { value: name, ok: false };
+        return false;
+      }
+      lastNameCheck.current = { value: name, ok: true };
+      return true;
+    } catch {
+      /* lookup failed - let the server-side check decide on save */
+      lastNameCheck.current = { value: name, ok: true };
+      return true;
+    }
+  };
+
   const handleNameKeyDown = (e) => {
     if (e.key === "Enter") {
       e.preventDefault();
@@ -106,6 +137,8 @@ export default function AddProduct() {
     if (gst < 0 || gst > 100) { toast.error("GST % must be between 0 and 100"); return; }
     const hsnOk = await checkHsnUnique(form.hsn);
     if (!hsnOk) { hsnRef.current?.focus(); return; }
+    const nameOk = await checkNameUnique(form.name);
+    if (!nameOk) { nameRef.current?.focus(); return; }
     setSaving(true);
     try {
       const payload = {
@@ -126,10 +159,18 @@ export default function AddProduct() {
       toast.success("Product created successfully");
       setForm({ name: "", hsn: "", rate: "", gstPercentage: "18" });
       setHsnError("");
+      setNameError("");
+      lastHsnCheck.current = { value: "", ok: true };
+      lastNameCheck.current = { value: "", ok: true };
       hsnRef.current?.focus();
     } catch (err) {
       const msg = err.response?.data?.message || (isEdit ? "Failed to update product" : "Failed to create product");
-      if (msg.toLowerCase().includes("hsn")) setHsnError(msg);
+      const lower = msg.toLowerCase();
+      // Server messages: "HSN/SAC 'x' is already used by product 'y'" vs
+      // "Product name 'x' already exists ..." — match on the stable wording so a
+      // product literally called "HSN Table" doesn't light up the wrong field.
+      if (lower.includes("hsn/sac")) setHsnError(msg);
+      else if (lower.includes("product name")) setNameError(msg);
       toast.error(msg);
     } finally {
       setSaving(false);
@@ -213,10 +254,15 @@ export default function AddProduct() {
                   value={form.name}
                   onChange={handleChange}
                   onKeyDown={handleNameKeyDown}
-                  className={inputClass}
+                  onBlur={() => checkNameUnique(form.name)}
+                  className={inputClass + (nameError ? " border-rose-400 bg-rose-50/40 focus:border-rose-500 focus:ring-rose-500/10" : "")}
                   placeholder="e.g. Service Fee"
+                  autoComplete="off"
                 />
               </div>
+              {nameError && (
+                <p className={errorText}><AlertCircle className="w-3.5 h-3.5 shrink-0" />{nameError}</p>
+              )}
             </div>
 
             {/* HSN/SAC */}

@@ -95,6 +95,14 @@ const sampleForm = {
   paymentTerms: "Net 30",
   otherReferences: "Quotation Q-2026-118",
   destination: "Bengaluru",
+  // Rule 46 extras the e-Invoice meta grid prints (Due Date / Payment Mode /
+  // Reverse Charge / e-Way Bill / Notes) — without them the gallery would
+  // preview half-empty rows.
+  paymentMode: "UPI",
+  reverseCharge: false,
+  ewayBillNumber: "1212 3434 5656 7878",
+  vehicleNumber: "KA05 MJ 4521",
+  notes: "Delivery within 7 working days against this order.",
 };
 
 const sampleItems = [

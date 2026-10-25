@@ -5,7 +5,7 @@ import InvoicePDF from "../components/InvoicePDF";
 import SealOverlay from "../components/SealOverlay";
 import { authAPI, businessAPI } from "../api/auth";
 import { invalidateBusinessProfile } from "../utils/businessProfile";
-import { normalizeSealConfig, sealBoxMm, sealEdgeRange, SEAL_LIMITS, SEAL_PAGE, SEAL_DEFAULT_COLOR, PX_PER_MM } from "../utils/sealConfig";
+import { normalizeSealConfig, sealBoxMm, sealEdgeRange, SEAL_LIMITS, SEAL_PAGE, SEAL_MARGIN_MM, SEAL_DEFAULT_COLOR, PX_PER_MM } from "../utils/sealConfig";
 import { formatInvoiceNumber } from "../utils/invoiceConvention";
 import { formatJurisdiction } from "../utils/jurisdiction";
 import { JURISDICTION_CENTRES } from "../constants/indianRegions";
@@ -154,15 +154,18 @@ export default function Profile() {
     }));
   };
 
-  // Click-to-place on the preview: the click point becomes the seal's new
+  // Click/drag-to-place on the preview: the pointer becomes the seal's new
   // home, so both frame gaps are written together in one update. Memoised so
   // an open preview is not re-rendered (with its full miniature invoice) on
-  // every unrelated keystroke elsewhere on the page.
+  // every unrelated keystroke elsewhere on the page — and a drag that rounds
+  // to the same millimetre returns the state untouched so React bails out
+  // instead of re-rendering the whole settings page for nothing.
   const placeSealAt = useCallback((rightMm, bottomMm) => {
-    setSealConfig((current) => ({
-      ...current,
-      [sealType]: { ...current[sealType], rightMm, bottomMm },
-    }));
+    setSealConfig((current) => {
+      const variant = current[sealType];
+      if (variant.rightMm === rightMm && variant.bottomMm === bottomMm) return current;
+      return { ...current, [sealType]: { ...variant, rightMm, bottomMm } };
+    });
   }, [sealType]);
 
   const chooseSealType = (type) => {
@@ -1608,7 +1611,9 @@ export default function Profile() {
                       {words}/{TERMS_MAX_WORDS}
                     </span>
                     {/* Line 1 is permanent: no X (aligned spacer keeps the
-                        counter column even across rows). */}
+                        counter column even across rows). Hidden below md —
+                        the word counter it mirrors is hidden there too, and
+                        it was eating the input's width on mobile. */}
                     {index > 0 ? (
                       <button type="button" onClick={() => removeTermRow(index)} disabled={savingTerms}
                         title="Remove this line" aria-label="Remove this terms line"
@@ -1616,26 +1621,30 @@ export default function Profile() {
                         <X className="w-4 h-4" />
                       </button>
                     ) : (
-                      <span aria-hidden className="shrink-0 w-9" />
+                      <span aria-hidden className="hidden md:block shrink-0 w-9" />
                     )}
                   </div>
                 );
               })}
-              {/* One action line: Add line sits right next to Save/Cancel. */}
-              <div className="flex flex-col items-stretch gap-2 md:flex-row md:items-center">
+              {/* Actions: Add line is full-width on mobile, Save + Cancel share
+                  one row 50/50 (md:contents unwraps them back into the desktop
+                  row so nothing changes from md up). */}
+              <div className="flex flex-col gap-2 md:flex-row md:items-center">
                 <button type="button" onClick={addTermRow} disabled={termsList.length >= 5 || savingTerms}
                   className="w-full md:w-auto flex items-center justify-center gap-1.5 px-3 py-2.5 text-xs font-semibold text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all">
                   <Plus className="w-3.5 h-3.5" /> Add line ({termsList.length}/5)
                 </button>
-                <button type="submit" disabled={savingTerms}
-                  className="px-4 py-2.5 bg-slate-800 text-white text-sm font-semibold rounded-lg hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm">
-                  {savingTerms ? "Saving..." : "Save"}
-                </button>
-                <button type="button" onClick={cancelTermsEdit} disabled={savingTerms}
-                  title="Discard changes" aria-label="Discard changes"
-                  className="px-3 py-2.5 text-sm font-semibold text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all">
-                  Cancel
-                </button>
+                <div className="flex gap-2 md:contents">
+                  <button type="submit" disabled={savingTerms}
+                    className="flex-1 md:flex-none px-4 py-2.5 bg-slate-800 text-white text-sm font-semibold rounded-lg hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm">
+                    {savingTerms ? "Saving..." : "Save"}
+                  </button>
+                  <button type="button" onClick={cancelTermsEdit} disabled={savingTerms}
+                    title="Discard changes" aria-label="Discard changes"
+                    className="flex-1 md:flex-none px-3 py-2.5 text-sm font-semibold text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all">
+                    Cancel
+                  </button>
+                </div>
               </div>
             </form>
           )}
@@ -1811,11 +1820,13 @@ const SealPreview = memo(function SealPreview({ business, type, config, onPlace 
     [business]
   );
 
-  // Click-to-place: map the click back onto the frame's natural pixel grid,
+  // Pointer-to-seal: map the pointer back onto the frame's natural pixel grid,
   // then into millimetres with PX_PER_MM — the exact conversion SealOverlay
-  // applies to the stored gaps. The seal centres on the click point, clamped
-  // inside the invoice's frame so a click can never push it off the document.
-  const handlePageClick = (event) => {
+  // applies to the stored gaps. The seal CENTRES on the pointer. The gap may
+  // go negative down to the sheet's margin (SEAL_MARGIN_MM), so the mark can
+  // be dragged all the way to the END of the page — but never past it: the
+  // clamp here, the overlay's own clamp and the PDF's page clamp all agree.
+  const placeFromPointer = (event) => {
     if (!onPlace) return;
     const node = frameRef.current;
     if (!node || natSize.w <= 0 || natSize.h <= 0) return;
@@ -1825,20 +1836,47 @@ const SealPreview = memo(function SealPreview({ business, type, config, onPlace 
     const yMm = ((event.clientY - rect.top) * natSize.h) / rect.height / PX_PER_MM;
     const frameWMm = natSize.w / PX_PER_MM;
     const frameHMm = natSize.h / PX_PER_MM;
-    const clamp = (value, max) =>
-      Math.min(Math.max(Math.round(value), 0), Math.max(0, Math.floor(max)));
+    const clamp = (value, min, max) =>
+      Math.min(Math.max(Math.round(value), min), Math.max(min, Math.floor(max)));
 
     onPlace(
-      clamp(frameWMm - (xMm + box.w / 2), frameWMm - box.w),
-      clamp(frameHMm - (yMm + box.h / 2), frameHMm - box.h)
+      clamp(frameWMm - (xMm + box.w / 2), -SEAL_MARGIN_MM, frameWMm - box.w),
+      clamp(frameHMm - (yMm + box.h / 2), -SEAL_MARGIN_MM, frameHMm - box.h)
     );
+  };
+
+  // Press places, drag follows, release commits — pointer capture keeps the
+  // events flowing even when the pointer leaves the sheet mid-drag, so the
+  // seal tracks the mouse instead of jumping once per click.
+  const draggingRef = useRef(false);
+  const handlePointerDown = (event) => {
+    if (!onPlace) return;
+    draggingRef.current = true;
+    try {
+      event.currentTarget.setPointerCapture?.(event.pointerId);
+    } catch { /* capture is a nicety — placement still works without it */ }
+    // Stop the browser from selecting the invoice's text under the drag.
+    event.preventDefault();
+    placeFromPointer(event);
+  };
+  const handlePointerMove = (event) => {
+    if (draggingRef.current) placeFromPointer(event);
+  };
+  const handlePointerEnd = (event) => {
+    draggingRef.current = false;
+    try {
+      event.currentTarget.releasePointerCapture?.(event.pointerId);
+    } catch { /* already released (pointer left the window, etc.) */ }
   };
 
   return (
     <div className="flex flex-col items-center gap-2">
       <div
-        onPointerDown={handlePageClick}
-        title={onPlace ? "Click or tap anywhere to place the seal" : undefined}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerEnd}
+        onPointerCancel={handlePointerEnd}
+        title={onPlace ? "Click or drag to place the seal" : undefined}
         style={{
           position: "relative",
           width: pageWidth,
@@ -1849,8 +1887,10 @@ const SealPreview = memo(function SealPreview({ business, type, config, onPlace 
           boxShadow: "0 1px 3px rgba(15, 23, 42, 0.08)",
           overflow: "hidden",
           cursor: onPlace ? "crosshair" : undefined,
-          // Keep a touch from scrolling the page instead of placing the seal.
+          // Keep a touch from scrolling the page instead of placing the seal,
+          // and keep the invoice's text from being selected under the drag.
           touchAction: onPlace ? "none" : undefined,
+          userSelect: "none",
         }}
       >
         {/* The sheet's 10 mm printable margin — the invoice sits inside it,
@@ -1888,15 +1928,16 @@ const SealPreview = memo(function SealPreview({ business, type, config, onPlace 
             invoiceNumber="INV-2026-001"
           />
           {/* Same overlay the shared link renders, anchored to the frame we
-              just measured — pixel-identical placement logic. */}
-          <SealOverlay business={previewBusiness} type={variant} config={cfg} />
+              just measured — pixel-identical placement logic. bleedMm opens
+              the sheet's margin so a negative gap can reach the page edge. */}
+          <SealOverlay business={previewBusiness} type={variant} config={cfg} bleedMm={SEAL_MARGIN_MM} />
         </div>
       </div>
       <p className="text-[10px] text-slate-400">
         {box.w.toFixed(0)}×{box.h.toFixed(0)} mm · {variantCfg.tilt}° · {variantCfg.rightMm}/{variantCfg.bottomMm} mm from the invoice’s bottom-right corner
       </p>
       {onPlace && (
-        <p className="text-[10px] text-slate-400 italic">Click or tap anywhere on the invoice to place the seal</p>
+        <p className="text-[10px] text-slate-400 italic">Click or drag anywhere on the page to place the seal</p>
       )}
     </div>
   );

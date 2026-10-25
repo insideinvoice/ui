@@ -694,7 +694,7 @@ const RetroPage = ({ pageId, chunks, startIndex, shared, isLast = false }) => (
 /* ----------------------------------------------------------- component */
 
 const InvoiceTemplateRetro = React.forwardRef(
-  ({ business, customer, form, items, discountPercent, type, invoiceNumber, taxMode }, ref) => {
+  ({ business, customer, form, items, discountPercent, type, invoiceNumber, taxMode, discountType }, ref) => {
     const all = (items || []).filter((i) => i?.itemName?.trim() && parseFloat(i?.qty) > 0);
     // Display-only HSN/SAC switch: hidden means the whole column disappears
     // and PARTICULARS absorbs its width — frame width and cut points unchanged.
@@ -711,7 +711,7 @@ const InvoiceTemplateRetro = React.forwardRef(
       (business?.additionalPhone ? ADDITIONAL_PHONE_EXTRA_H : 0);
     const chunks = chunkRetroItems(all, bodyH, retroTextArea(cols));
 
-    const calc = computeInvoiceTotals(items, discountPercent, taxMode);
+    const calc = computeInvoiceTotals(items, discountPercent, taxMode, undefined, discountType);
     const isProforma = type === "PROFORMA_INVOICE";
     const igstMode = taxMode === "IGST";
     // A Discount row takes one extra totals line (ROW_H). Shrink the open item

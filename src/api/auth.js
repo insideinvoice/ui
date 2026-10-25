@@ -53,6 +53,29 @@ export const customerAPI = {
   check: (data) => api.post("/customers/check", data),
 };
 
+/**
+ * POST /customers rejects with 409 when the phone/email already belongs to a
+ * customer of the CALLER's business — uniqueness is per tenant, so another
+ * business holding the same details never conflicts. When that happens, look
+ * the existing record up and return it in the same shape as create() so the
+ * caller links to it instead of failing (invoice saves, offline sync queue).
+ */
+export const createCustomerOrAdopt = async (data) => {
+  try {
+    return await api.post("/customers", data);
+  } catch (err) {
+    if (err.response?.status !== 409) throw err;
+    let found = null;
+    try {
+      found = (await api.post("/customers/check", data)).data?.data;
+    } catch {
+      /* 404 = no match, fall through to rethrow the original conflict */
+    }
+    if (!found) throw err;
+    return { data: { data: found }, adopted: true };
+  }
+};
+
 export const productAPI = {
   create: (data) => api.post("/products", data),
   getAll: (params) => api.get("/products", { params }),
@@ -60,6 +83,7 @@ export const productAPI = {
   update: (id, data) => api.put(`/products/${id}`, data),
   delete: (id) => api.delete(`/products/${id}`),
   findByHsn: (hsn) => api.get(`/products/by-hsn/${encodeURIComponent(hsn.trim())}`),
+  findByName: (name) => api.get("/products/by-name", { params: { name: name.trim() } }),
 };
 
 export const invoiceAPI = {
@@ -160,7 +184,6 @@ export const adminAPI = {
   createBusinessInvoice: (businessId, data) => api.post(`/admin/businesses/${businessId}/invoices`, data),
   deleteInvoiceAsAdmin: (invoiceId) => api.delete(`/admin/invoices/${invoiceId}`),
   deleteCustomerAsAdmin: (customerId) => api.delete(`/admin/customers/${customerId}`),
-  deleteProductAsAdmin: (productId) => api.delete(`/admin/products/${productId}`),
   getInvoice: (id) => api.get(`/admin/invoices/${id}`),
   updateInvoice: (id, data) => api.put(`/admin/invoices/${id}`, data),
   updatePassword: (id, data) => api.put(`/admin/users/${id}/password`, data),
@@ -173,5 +196,4 @@ export const adminAPI = {
   getAnalytics: () => api.get("/admin/analytics"),
   // SQL-side aggregates (KPIs/charts) — { businessId? } → SalesAnalyticsResponse.
   getSalesAnalytics: (params) => api.get("/admin/sales-analytics", { params }),
-  getAllProducts: (params) => api.get("/admin/products", { params }),
 };

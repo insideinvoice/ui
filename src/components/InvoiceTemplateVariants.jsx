@@ -48,7 +48,7 @@ const tStyleSep = {
 };
 
 
-const InvoiceTemplateVariants = React.memo(React.forwardRef(({ theme, business, customer, form, items, discountPercent, type, invoiceNumber, taxMode }, ref) => {
+const InvoiceTemplateVariants = React.memo(React.forwardRef(({ theme, business, customer, form, items, discountPercent, type, invoiceNumber, taxMode, discountType }, ref) => {
   const t = TEMPLATE_THEMES[theme] || TEMPLATE_THEMES["template-3"];
   // The retro shop-bill layout is a self-contained fixed page (repeated per
   // overflow page), so it renders outside the shared table skeleton.
@@ -98,6 +98,7 @@ const InvoiceTemplateVariants = React.memo(React.forwardRef(({ theme, business, 
         type={type}
         invoiceNumber={invoiceNumber}
         taxMode={taxMode}
+        discountType={discountType}
       />
     );
   }

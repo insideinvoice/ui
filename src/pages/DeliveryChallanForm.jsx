@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import PageHeader from "../components/PageHeader";
 import LoadingDots from "../components/LoadingDots";
 import SelectMenu from "../components/SelectMenu";
-import { deliveryChallanAPI, customerAPI, businessAPI } from "../api/auth";
+import { deliveryChallanAPI, customerAPI, businessAPI, createCustomerOrAdopt } from "../api/auth";
 import { renderDeliveryChallanPdf } from "../components/DeliveryChallanDownload";
 import { goBack } from "../utils/navigation";
 import toast from "react-hot-toast";
@@ -113,7 +113,7 @@ export default function DeliveryChallanForm() {
     }
     setCreatingCustomer(true);
     try {
-      const res = await customerAPI.create({
+      const res = await createCustomerOrAdopt({
         name,
         email: newCustomer.email || undefined,
         phone: newCustomer.phone || undefined,
@@ -121,7 +121,7 @@ export default function DeliveryChallanForm() {
         gstIn: newCustomer.gstIn || undefined,
       });
       const created = res.data.data;
-      setCustomers((list) => [...list, created]);
+      setCustomers((list) => (list.some((c) => c.id === created.id) ? list : [...list, created]));
       setField("customerId", String(created.id));
       setShowCustomerModal(false);
       setNewCustomer({
@@ -131,7 +131,7 @@ export default function DeliveryChallanForm() {
         gstIn: "",
         billingAddress: "",
       });
-      toast.success("Customer created & selected");
+      toast.success(res.adopted ? `Existing customer "${created.name}" selected` : "Customer created & selected");
     } catch (err) {
       toast.error(err.response?.data?.message || "Failed to create customer");
     } finally {

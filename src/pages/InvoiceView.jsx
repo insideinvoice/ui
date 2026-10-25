@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import LoadingDots from "../components/LoadingDots";
 import Spinner from "../components/Spinner";
 import PageHeader from "../components/PageHeader";
-import { invoiceAPI, businessAPI, customerAPI } from "../api/auth";
+import { invoiceAPI, businessAPI, customerAPI, createCustomerOrAdopt } from "../api/auth";
 import toast from "react-hot-toast";
 import { ArrowLeft, Download, Save, Edit3, Plus, Trash2, FileText, AlertCircle, User, Building2, Phone, MapPin, Hash, Package, Mail, Globe, X, Share2, Smartphone, Link2, Copy, RotateCw, Unlink, ChevronDown, MessageSquare, Info } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
@@ -28,11 +28,12 @@ const emptyItem = () => ({ id: uid(), itemName: "", hsn: "", unit: "", qty: "1",
 // Serialized snapshot of everything the Save button persists (invoice fields,
 // line items, discount). Save/Cancel stay disabled until the live state
 // diverges from the last-saved baseline.
-const serializeEditableState = (form, items, discountEnabled, discountPercent) => JSON.stringify({
+const serializeEditableState = (form, items, discountEnabled, discountPercent, discountType = "FULL") => JSON.stringify({
   form,
   items,
   discountEnabled,
   discountPercent: discountEnabled ? String(parseFloat(discountPercent) || 0) : "",
+  discountType,
 });
 const fmt = (v) => parseFloat(v || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 });
 // Screen (CSS px) width of each paper — mirrors InvoiceTemplateRenderer's map;
@@ -59,7 +60,7 @@ const breakAtGroups = (s) => String(s).replace(/,(?=\d)/g, ",\u200B");
 const cellInput = "w-full min-w-0 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs hover:border-slate-300 focus:border-blue-400 focus:ring-2 focus:ring-blue-500/15 focus:outline-none";
 const cellTd = "py-1 px-1 border-b border-slate-100 text-xs focus-within:bg-blue-50/40";
 
-const ViewItemRow = memo(({ item, calc, idx, isEditing, onItemChange, onRemove, onAddRowAndFocus, showHnSac = true }) => {
+const ViewItemRow = memo(({ item, calc, idx, isEditing, onItemChange, onRemove, onAddRowAndFocus, showHnSac = true, showDisc = false }) => {
   // Spreadsheet navigation: Enter/↓ commits and drops to the same column of
   // the next row, ↑ climbs back, and on the last row Enter spawns a new row
   // with the cursor already in it. Tab keeps the browser's natural order.
@@ -81,6 +82,11 @@ const ViewItemRow = memo(({ item, calc, idx, isEditing, onItemChange, onRemove, 
       <td className="py-3 px-2 text-center font-mono text-xs text-slate-700 border-b border-slate-100 whitespace-nowrap">{item.qty}</td>
       <td className="py-3 px-2 text-center font-mono text-xs text-slate-700 border-b border-slate-100 [overflow-wrap:anywhere]">{breakAtGroups(fmt(item.rate))}</td>
       <td className="py-3 px-2 text-center font-mono text-xs text-slate-600 border-b border-slate-100 whitespace-nowrap">{item.gstPercentage}%</td>
+      {showDisc && (
+      <td className="py-3 px-2 text-center font-mono text-xs text-slate-600 border-b border-slate-100 whitespace-nowrap">
+        {parseFloat(item.discountPercent) > 0 ? `${Math.min(Math.max(parseFloat(item.discountPercent) || 0, 0), 100)}%` : "-"}
+      </td>
+      )}
       <td className="py-3 px-3 text-center font-mono text-xs border-b border-slate-100 [overflow-wrap:anywhere] text-slate-700">
         {breakAtGroups(fmt(calc?.taxable ?? item.taxableValue))}
       </td>
@@ -143,6 +149,23 @@ const ViewItemRow = memo(({ item, calc, idx, isEditing, onItemChange, onRemove, 
           <span className="shrink-0 text-xs text-slate-400">%</span>
         </div>
       </td>
+      {showDisc && (
+      <td className={cellTd}>
+        <div className="flex items-center justify-center gap-1">
+          <input type="text" value={item.discountPercent ?? ""} name={`disc-${idx + 1}`}
+            onChange={(e) => onItemChange(idx, "discountPercent", e.target.value.replace(/[^0-9.]/g, "").slice(0, 5))}
+            onKeyDown={nav("disc")}
+            onBlur={() => {
+              const n = parseFloat(item.discountPercent);
+              if (!Number.isNaN(n)) onItemChange(idx, "discountPercent", String(Math.min(Math.max(n, 0), 100)));
+            }}
+            inputMode="decimal"
+            placeholder="0"
+            className={cellInput + " max-w-[52px] text-center font-mono"} />
+          <span className="shrink-0 text-xs text-slate-400">%</span>
+        </div>
+      </td>
+      )}
       <td className="py-2 px-2 text-center font-mono text-xs border-b border-slate-100 [overflow-wrap:anywhere] text-slate-700">
         {breakAtGroups(fmt(calc?.taxable ?? item.taxableValue))}
       </td>
@@ -193,6 +216,10 @@ export default function InvoiceView() {
   const ghostMode = localStorage.getItem("ghost_mode") === "true";
   const [discountPercent, setDiscountPercent] = useState("");
   const [discountEnabled, setDiscountEnabled] = useState(false);
+  // V45: FULL = invoice-level % (original flow), INDIVIDUAL = per-line % on
+  // each item (e-Invoice template only — the document is pinned to it).
+  const [discountType, setDiscountType] = useState("FULL");
+  const individualDiscount = discountEnabled && discountType === "INDIVIDUAL";
   const [discountDirty, setDiscountDirty] = useState(false);
   // Baseline for the Save/Cancel enable check: the editable state exactly as
   // last loaded/saved. Null until the invoice finishes loading.
@@ -239,6 +266,9 @@ export default function InvoiceView() {
     invoiceDate: "", dueDate: "", placeOfSupply: "", destination: "", termsOfDelivery: "",
     paymentTerms: "", paymentMode: "CASH", deliveryNote: "", otherReferences: "", notes: "", invoiceNumber: "",
     shippingAddress: "", reverseCharge: false, cessPercent: "", ewayBillNumber: "",
+    // e-Invoice acknowledgement (Zone A of template-33) — dropped by the
+    // backend until its Invoice columns exist, so it stays "" until then.
+    irn: "", ackNo: "", ackDate: "",
     // GST structure — replaced by the stored selection (or the legal
     // heuristic for legacy invoices) once the invoice loads.
     taxMode: "CGST_SGST",
@@ -503,10 +533,15 @@ export default function InvoiceView() {
       const cachedToken = readCachedShareToken(id);
       if (cachedToken) setShareToken(cachedToken);
       setInvoiceType(inv.invoiceType || "TAX_INVOICE");
+      // V45: an INDIVIDUAL invoice carries its discounts on the lines — the
+      // invoice-level percent is stored 0, so "discount on" comes from the
+      // type. Legacy/FULL rows keep the original >0 heuristic.
+      const dType = inv.discountType === "INDIVIDUAL" ? "INDIVIDUAL" : "FULL";
       const dPct = parseFloat(inv.discountPercent);
-      const dOn = !Number.isNaN(dPct) && dPct > 0;
-      const dVal = dOn ? String(inv.discountPercent) : "";
+      const dOn = dType === "INDIVIDUAL" || (!Number.isNaN(dPct) && dPct > 0);
+      const dVal = dType === "INDIVIDUAL" ? "" : dOn ? String(inv.discountPercent) : "";
       setDiscountEnabled(dOn);
+      setDiscountType(dType);
       setDiscountPercent(dVal);
       setDiscountDirty(false);
       // Tax mode: the stored selection wins outright; legacy invoices (null)
@@ -540,6 +575,7 @@ export default function InvoiceView() {
         reverseCharge: inv.reverseCharge === true,
         cessPercent: parseFloat(inv.cessPercentage) > 0 ? String(inv.cessPercentage) : "",
         ewayBillNumber: inv.ewayBillNumber || "",
+        irn: inv.irn || "", ackNo: inv.ackNo || "", ackDate: inv.ackDate || "",
       };
       setForm(loadedForm);
       buyerSnapshotRef.current = {
@@ -552,11 +588,12 @@ export default function InvoiceView() {
         itemName: i.itemName, hsn: i.hsn || "", unit: i.unit || "", qty: String(i.qty), rate: String(i.rate),
         gstPercentage: String(i.gstPercentage), taxableValue: String(i.taxableValue || 0),
         taxAmount: String(i.taxAmount || 0), total: String(i.total || 0),
+        discountPercent: i.discountPercent != null ? String(i.discountPercent) : "",
       })) : [{ ...emptyItem() }];
       setItems(loadedItems);
       // The just-loaded state IS the saved state — a no-op save would send it
       // back unchanged, so Save/Cancel start out disabled.
-      setSavedBaseline(serializeEditableState(loadedForm, loadedItems, dOn, dVal));
+      setSavedBaseline(serializeEditableState(loadedForm, loadedItems, dOn, dVal, dType));
     })
     .catch(() => setError("Failed to load invoice"))
     .finally(() => setLoading(false));
@@ -601,7 +638,7 @@ export default function InvoiceView() {
   // Offline-saved customers/invoices sync here once the connection returns.
   useEffect(() => {
     processQueue(
-      (data) => customerAPI.create(data),
+      createCustomerOrAdopt,
       (data) => invoiceAPI.create(data)
     ).then((count) => {
       if (count > 0) toast.success(`${count} pending invoice${count > 1 ? 's' : ''} synced`);
@@ -667,7 +704,7 @@ export default function InvoiceView() {
     setItems((prev) => prev.length > 1 ? prev.filter((_, i) => i !== idx) : prev);
   }, []);
 
-  const totals = useMemo(() => computeInvoiceTotals(items, discountEnabled ? discountPercent : "0", form.taxMode, form.cessPercent), [items, discountEnabled, discountPercent, form.taxMode, form.cessPercent]);
+  const totals = useMemo(() => computeInvoiceTotals(items, discountEnabled ? discountPercent : "0", form.taxMode, form.cessPercent, individualDiscount ? "INDIVIDUAL" : "FULL"), [items, discountEnabled, discountPercent, form.taxMode, form.cessPercent, individualDiscount]);
 
   const validItemsCount = useMemo(
     () => items.filter((i) => i.itemName.trim() && parseFloat(i.qty) > 0).length,
@@ -686,9 +723,18 @@ export default function InvoiceView() {
   }), [form.customerName, form.billingAddress, form.customerGstIn, form.customerPhone, form.customerEmail, form.placeOfSupply]);
 
   const previewPaperSize = useMemo(() => (getPrintSettings()[invoiceType] || {}).paperSize || "A4_PORTRAIT", [invoiceType]);
-  const previewTemplate = useMemo(() => getInvoiceTemplate(invoiceType), [invoiceType]);
+  // Individual discounts only render on the e-Invoice template's Disc. %
+  // column, so the document is pinned to template-33 for as long as that
+  // mode is on (mirrors the backend's public-share template resolution).
+  const previewTemplate = useMemo(
+    () => (individualDiscount ? "template-33" : getInvoiceTemplate(invoiceType)),
+    [invoiceType, individualDiscount]
+  );
   const proformaPaperSize = useMemo(() => (getPrintSettings()["PROFORMA_INVOICE"] || {}).paperSize || "A4_PORTRAIT", []);
-  const proformaTemplate = useMemo(() => getInvoiceTemplate("PROFORMA_INVOICE"), []);
+  const proformaTemplate = useMemo(
+    () => (individualDiscount ? "template-33" : getInvoiceTemplate("PROFORMA_INVOICE")),
+    [individualDiscount]
+  );
 
   // Mounts the hidden document for `type` and resolves once its DOM is committed
   // so the capture ref is usable, mirroring InvoiceForm's mountPdfPreview().
@@ -716,8 +762,8 @@ export default function InvoiceView() {
   // True once any editable field, line item or the discount drifted from the
   // last-saved baseline. Gates the Save/Cancel buttons in edit mode.
   const hasUnsavedChanges = useMemo(
-    () => savedBaseline !== null && (sealDirty || serializeEditableState(form, items, discountEnabled, discountPercent) !== savedBaseline),
-    [savedBaseline, sealDirty, form, items, discountEnabled, discountPercent]
+    () => savedBaseline !== null && (sealDirty || serializeEditableState(form, items, discountEnabled, discountPercent, discountType) !== savedBaseline),
+    [savedBaseline, sealDirty, form, items, discountEnabled, discountPercent, discountType]
   );
 
   const validate = () => {
@@ -784,6 +830,7 @@ export default function InvoiceView() {
       items: items.map((i) => ({ ...i })),
       discountEnabled,
       discountPercent,
+      discountType,
       sealType,
     };
   };
@@ -796,6 +843,7 @@ export default function InvoiceView() {
       setForm(snap.form);
       setItems(snap.items);
       setDiscountEnabled(snap.discountEnabled);
+      setDiscountType(snap.discountType || "FULL");
       setDiscountPercent(snap.discountPercent);
       setDiscountDirty(false);
       if (snap.sealType) setSealType(snap.sealType);
@@ -840,15 +888,20 @@ export default function InvoiceView() {
         reverseCharge: form.reverseCharge === true,
         cessPercentage: parseFloat(form.cessPercent) || 0,
         ewayBillNumber: form.ewayBillNumber || undefined,
+        irn: form.irn || undefined,
+        ackNo: form.ackNo || undefined,
+        ackDate: form.ackDate || undefined,
         billingMode: form.billingMode || undefined,
         // V29 extended fields: always re-sent so loaded values survive the
         // update path (backend assigns them unconditionally). Empty -> dropped.
         ...Object.fromEntries(ALL_EXTENDED_FIELDS.map((f) => [f, form[f] || undefined])),
+        discountType: discountEnabled ? discountType : null,
         discountPercent: discountEnabled ? parseFloat(discountPercent) || 0 : 0,
         items: items.filter((i) => i.itemName.trim() && parseFloat(i.qty) > 0 && parseFloat(i.rate) > 0)
           .map((i, idx) => ({
             sno: idx + 1, itemName: i.itemName, hsn: i.hsn || undefined, unit: i.unit || undefined,
             qty: parseFloat(i.qty), rate: parseFloat(i.rate), gstPercentage: parseFloat(i.gstPercentage) || 0,
+            discountPercent: individualDiscount ? Math.min(Math.max(parseFloat(i.discountPercent) || 0, 0), 100) : undefined,
           })),
       });
       toast.success("Invoice updated successfully");
@@ -856,8 +909,8 @@ export default function InvoiceView() {
       setDiscountDirty(false);
       // What was just written is the new saved baseline, so Save/Cancel go
       // back to disabled until the next real edit.
-      setSavedBaseline(serializeEditableState(form, items, discountEnabled, discountPercent));
-      editSnapshotRef.current = { form: { ...form }, items: items.map((i) => ({ ...i })), discountEnabled, discountPercent, sealType };
+      setSavedBaseline(serializeEditableState(form, items, discountEnabled, discountPercent, discountType));
+      editSnapshotRef.current = { form: { ...form }, items: items.map((i) => ({ ...i })), discountEnabled, discountPercent, discountType, sealType };
       return true;
     } catch (err) {
       const msg = err.response?.data?.message || err.response?.data?.error || "Failed to update invoice";
@@ -1049,6 +1102,7 @@ export default function InvoiceView() {
             items={items}
             totals={totals}
             discountPercent={discountEnabled ? discountPercent : "0"}
+            discountType={individualDiscount ? "INDIVIDUAL" : undefined}
             taxMode={form.taxMode}
             type={invoiceType}
             invoiceNumber={form.invoiceNumber}
@@ -1068,6 +1122,7 @@ export default function InvoiceView() {
             items={items}
             totals={totals}
             discountPercent={discountEnabled ? discountPercent : "0"}
+            discountType={individualDiscount ? "INDIVIDUAL" : undefined}
             taxMode={form.taxMode}
             type="PROFORMA_INVOICE"
             invoiceNumber={form.invoiceNumber}
@@ -1210,6 +1265,26 @@ export default function InvoiceView() {
                     <label className={labelClass}>Due Date</label>
                     <input type="date" name="dueDate" value={form.dueDate} onChange={handleFieldChange} className={inputClass} />
                   </div>
+                  {/* e-Invoice acknowledgement — printed in Zone A by the
+                      e-Invoice template (template-33) only. */}
+                  {previewTemplate === "template-33" && (
+                    <>
+                      <div>
+                        <label className={labelClass}>IRN <span className="font-normal text-slate-400">(e-Invoice)</span></label>
+                        <input type="text" name="irn" value={form.irn} onChange={handleFieldChange}
+                          placeholder="64-character Invoice Reference Number" className={inputClass + " font-mono"} />
+                      </div>
+                      <div>
+                        <label className={labelClass}>Ack No.</label>
+                        <input type="text" name="ackNo" value={form.ackNo} onChange={handleFieldChange}
+                          placeholder="IRP acknowledgement no." className={inputClass + " font-mono"} />
+                      </div>
+                      <div>
+                        <label className={labelClass}>Ack Date</label>
+                        <input type="date" name="ackDate" value={form.ackDate} onChange={handleFieldChange} className={inputClass} />
+                      </div>
+                    </>
+                  )}
                   <div>
                     <label className={labelClass}>Place of Supply</label>
                     <div className="relative">
@@ -1463,6 +1538,42 @@ export default function InvoiceView() {
                 </button>
               </div>
               {discountEnabled && (
+                <>
+                <div className="flex items-center gap-4 mb-3" role="radiogroup" aria-label="Discount type">
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="viewDiscountType"
+                      value="FULL"
+                      checked={discountType === "FULL"}
+                      onChange={() => { setDiscountType("FULL"); setDiscountDirty(true); }}
+                      className="accent-blue-500"
+                    />
+                    <span className="text-sm text-slate-700">Full Discount</span>
+                  </label>
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="viewDiscountType"
+                      value="INDIVIDUAL"
+                      checked={discountType === "INDIVIDUAL"}
+                      onChange={() => { setDiscountType("INDIVIDUAL"); setDiscountDirty(true); }}
+                      className="accent-blue-500"
+                    />
+                    <span className="text-sm text-slate-700">Individual</span>
+                  </label>
+                </div>
+                {discountType === "INDIVIDUAL" ? (
+                  <p className="text-xs text-slate-500 leading-relaxed">
+                    Set a discount % on each line in the Items table — GST applies to each line&rsquo;s net value.
+                    This invoice is fixed to the <span className="font-medium text-slate-700">e-Invoice template</span>; other templates cannot be selected.
+                    {totals.discountAmount > 0 && (
+                      <span className="block text-emerald-600 font-medium mt-1">
+                        -Rs. {totals.discountAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                      </span>
+                    )}
+                  </p>
+                ) : (
                 <div className="flex items-center gap-2">
                   <input
                     type="text"
@@ -1482,6 +1593,8 @@ export default function InvoiceView() {
                     </span>
                   )}
                 </div>
+                )}
+                </>
               )}
             </div>
             )}
@@ -1715,11 +1828,12 @@ export default function InvoiceView() {
                           numbers never wrap — percentage alone (~3%) is too narrow
                           once padding is paid. Description funds the difference. */}
                       <col style={{ width: "6%" }} />
-                      <col style={{ width: isEditing ? (showHnSac ? "20.5%" : "29.5%") : (showHnSac ? "29%" : "38%") }} />
+                      <col style={{ width: individualDiscount ? (isEditing ? (showHnSac ? "15%" : "24%") : (showHnSac ? "23.5%" : "32.5%")) : (isEditing ? (showHnSac ? "20.5%" : "29.5%") : (showHnSac ? "29%" : "38%")) }} />
                       {showHnSac && <col style={{ width: isEditing ? "8%" : "9%" }} />}
                       <col style={{ width: isEditing ? "14%" : "8%" }} />
                       <col style={{ width: isEditing ? "8%" : "10%" }} />
                       <col style={{ width: isEditing ? "8.5%" : "7%" }} />
+                      {individualDiscount && <col style={{ width: "6.5%" }} />}
                       <col style={{ width: isEditing ? "9.75%" : "11%" }} />
                       <col style={{ width: isEditing ? "9.75%" : "11%" }} />
                       <col style={{ width: isEditing ? "9.75%" : "11%" }} />
@@ -1733,6 +1847,7 @@ export default function InvoiceView() {
                         <th className="text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">Qty</th>
                         <th className="text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">Rate</th>
                         <th className="text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">GST %</th>
+                        {individualDiscount && <th className="text-white text-xs font-semibold py-3.5 px-2 text-center whitespace-nowrap">Disc %</th>}
                         <th className="text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">Taxable</th>
                         <th className="text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap">Tax</th>
                         {/* Centered over its column; the values keep text-right
@@ -1743,7 +1858,7 @@ export default function InvoiceView() {
                     </thead>
                     <tbody>
                       {items.map((item, idx) => (
-                        <ViewItemRow key={item.id ?? idx} item={item} calc={totals.perItem[idx]} idx={idx} isEditing={isEditing} onItemChange={handleItemChange} onRemove={removeItem} onAddRowAndFocus={addRowAndFocus} showHnSac={showHnSac} />
+                        <ViewItemRow key={item.id ?? idx} item={item} calc={totals.perItem[idx]} idx={idx} isEditing={isEditing} onItemChange={handleItemChange} onRemove={removeItem} onAddRowAndFocus={addRowAndFocus} showHnSac={showHnSac} showDisc={individualDiscount} />
                       ))}
                     </tbody>
                   </table>
@@ -1804,6 +1919,20 @@ export default function InvoiceView() {
                                 className="w-full px-3 py-2 border border-slate-200 rounded text-sm text-right bg-white font-mono min-h-[44px]" />
                             </div>
                           </div>
+                          {individualDiscount && (
+                          <div>
+                            <label className="text-[10px] font-semibold text-slate-500 uppercase">Disc %</label>
+                            <input type="text" value={item.discountPercent ?? ""}
+                              onChange={(e) => handleItemChange(idx, "discountPercent", e.target.value.replace(/[^0-9.]/g, "").slice(0, 5))}
+                              onBlur={() => {
+                                const n = parseFloat(item.discountPercent);
+                                if (!Number.isNaN(n)) handleItemChange(idx, "discountPercent", String(Math.min(Math.max(n, 0), 100)));
+                              }}
+                              inputMode="decimal"
+                              placeholder="0"
+                              className="w-full px-3 py-2 border border-slate-200 rounded text-sm text-right bg-white font-mono min-h-[44px]" />
+                          </div>
+                          )}
                           <div>
                             <label className="text-[10px] font-semibold text-slate-500 uppercase">Total</label>
                             <div className="w-full px-3 py-2 border border-slate-200 rounded text-sm text-right bg-slate-100 font-mono min-h-[44px] flex items-center justify-end text-slate-700">
@@ -1819,6 +1948,7 @@ export default function InvoiceView() {
                             <div><span className="text-slate-400">Qty:</span> <span className="font-mono">{item.qty}</span></div>
                             <div><span className="text-slate-400">Rate:</span> <span className="font-mono">{fmt(item.rate)}</span></div>
                             <div><span className="text-slate-400">GST:</span> <span className="font-mono">{item.gstPercentage}%</span></div>
+                            {individualDiscount && <div><span className="text-slate-400">Disc:</span> <span className="font-mono">{parseFloat(item.discountPercent) > 0 ? `${Math.min(Math.max(parseFloat(item.discountPercent) || 0, 0), 100)}%` : "-"}</span></div>}
                             <div className="col-span-2"><span className="text-slate-400">Total:</span> <span className="font-mono font-semibold">{fmt(item.total)}</span></div>
                           </div>
                         </>

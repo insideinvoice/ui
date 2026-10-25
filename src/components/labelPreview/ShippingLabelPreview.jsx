@@ -67,6 +67,8 @@ export default function ShippingLabelPreview({ payload }) {
   const barcodeRef = useRef(null);
 
   const tracking = String(p.trackingNumber || "").split(",")[0].trim();
+  // Mirrors the backend hero barcode: real tracking first, else the label's own
+  // reference (invoice / order no.) — never a placeholder word.
   const barcodeValue = tracking || String(p.invoiceNo || p.ref1 || "000000000").trim();
   const thermal = p.thermalMode !== false;
   const ink = "#000000";
@@ -131,7 +133,7 @@ export default function ShippingLabelPreview({ payload }) {
     p.weightKg ? `${p.weightKg} kg` : null,
     Number(p.cartonCount) > 1 ? `${p.cartonCount} CTN` : null,
     p.dimsCm ? p.dimsCm : null,
-    p.codAmount ? `COD ₹${p.codAmount}` : null,
+    p.codAmount ? `COD ${p.codAmount}` : null,
     p.billingType || null,
   ].filter(Boolean);
   const refs = [
@@ -179,6 +181,9 @@ export default function ShippingLabelPreview({ payload }) {
 
       {/* barcode */}
       <g transform={`translate(${pad} ${barcodeY})`}>
+        <Text x={w - 2 * pad} y={-6} size={11} weight="700" fill={muted} anchor="end">
+          {tracking ? "TRACKING #" : "LABEL #"}
+        </Text>
         <svg ref={barcodeRef} x="0" y="0" width={w - 2 * pad} height={barH} />
         <Text x={(w - 2 * pad) / 2} y={barH + 20} size={17} weight="700" anchor="middle">
           {barcodeValue}

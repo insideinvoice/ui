@@ -118,7 +118,7 @@ export default function AdminDashboard() {
     { label: "Businesses", value: Number(stats?.totalBusinesses) || 0, icon: Building2, gradient: "from-amber-500 to-amber-600", path: "/admin/businesses" },
     { label: "Customers", value: Number(stats?.totalCustomers) || 0, icon: UserCheck, gradient: "from-emerald-500 to-emerald-600", path: "/admin/customers" },
     { label: "Invoices", value: Number(stats?.totalInvoices) || 0, icon: FileText, gradient: "from-blue-500 to-blue-600", path: "/admin/invoices" },
-    { label: "Products", value: Number(stats?.totalProducts) || 0, icon: Package, gradient: "from-violet-500 to-violet-600", path: "/admin/products" },
+    { label: "Products", value: Number(stats?.totalProducts) || 0, icon: Package, gradient: "from-violet-500 to-violet-600" },
     { label: "Platform Sales", value: `₹ ${platformSales.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`, icon: IndianRupee, gradient: "from-teal-500 to-teal-600", path: "/admin/invoices" },
   ];
 
@@ -278,8 +278,8 @@ export default function AdminDashboard() {
             {kpiLoading
               ? [0, 1, 2, 3, 4, 5].map((i) => <StatSkeleton key={i} />)
               : kpis.map((card) => (
-                <div key={card.label} onClick={() => navigate(card.path)}
-                  className="bg-white rounded-xl border border-slate-200 p-3 sm:p-4 shadow-sm cursor-pointer active:scale-[0.97] transition-all hover:shadow-md">
+                <div key={card.label} onClick={() => card.path && navigate(card.path)}
+                  className={`bg-white rounded-xl border border-slate-200 p-3 sm:p-4 shadow-sm transition-all ${card.path ? "cursor-pointer active:scale-[0.97] hover:shadow-md" : ""}`}>
                   <div className="flex items-center gap-2 mb-1.5">
                     <div className={`w-7 h-7 rounded-lg bg-gradient-to-br ${card.gradient} flex items-center justify-center`}>
                       <card.icon className="w-3.5 h-3.5 text-white" />

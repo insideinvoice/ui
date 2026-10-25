@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { customerAPI } from "../api/auth";
 import LoadingDots from "../components/LoadingDots";
 import PageHeader from "../components/PageHeader";
@@ -21,12 +21,44 @@ export default function CustomersList() {
   const [editForm, setEditForm] = useState(emptyEdit);
   const [saving, setSaving] = useState(false);
   const ghostMode = useMemo(() => localStorage.getItem("ghost_mode") === "true", []);
+  const [searchParams, setSearchParams] = useSearchParams();
 
   useEffect(() => {
-    customerAPI.getAll({ size: 100 })
-      .then((res) => setCustomers(res.data.data?.content || []))
-      .catch((err) => console.error(err))
-      .finally(() => setLoading(false));
+    (async () => {
+      try {
+        const res = await customerAPI.getAll({ size: 100 });
+        const list = res.data.data?.content || [];
+        setCustomers(list);
+
+        // Deep link from the duplicate guard on /customers/new:
+        // /customers?edit=<id> opens that customer's row for updating.
+        const editId = Number(searchParams.get("edit"));
+        if (editId) {
+          let target = list.find((c) => c.id === editId);
+          if (!target) {
+            try {
+              const single = await customerAPI.getById(editId);
+              target = single.data?.data || null;
+              if (target) setCustomers((prev) => [target, ...prev]);
+            } catch {
+              target = null;
+            }
+          }
+          if (target) {
+            startEdit(target);
+            setTimeout(() => {
+              document.getElementById(`customer-${target.id}`)?.scrollIntoView({ block: "center", behavior: "smooth" });
+            }, 150);
+          }
+          setSearchParams({}, { replace: true });
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const filtered = useMemo(() => customers.filter((c) => {
@@ -148,7 +180,7 @@ export default function CustomersList() {
               </thead>
               <tbody>
                 {filtered.map((c, i) => (
-                  <tr key={c.id} className={`border-b border-slate-100 transition-colors ${i % 2 === 1 ? "bg-slate-50/40" : ""} ${editingId === c.id ? "bg-indigo-50/40" : "hover:bg-slate-100"}`}>
+                  <tr key={c.id} id={`customer-${c.id}`} className={`border-b border-slate-100 transition-colors ${i % 2 === 1 ? "bg-slate-50/40" : ""} ${editingId === c.id ? "bg-indigo-50/40" : "hover:bg-slate-100"}`}>
                     {editingId === c.id ? (
                       <>
                         <td className="py-2 px-3"><input value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} className={inputClass} /></td>
@@ -204,7 +236,7 @@ export default function CustomersList() {
           {/* Mobile cards */}
           <div className="md:hidden space-y-3 p-3">
             {filtered.map((c) => (
-              <div key={c.id} className="bg-white rounded-xl shadow-sm border border-slate-100 p-4">
+              <div key={c.id} id={`customer-${c.id}`} className="bg-white rounded-xl shadow-sm border border-slate-100 p-4">
                 {editingId === c.id ? (
                   <div className="space-y-2">
                     <input value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} placeholder="Name" className={inputClass} />

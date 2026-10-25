@@ -162,9 +162,14 @@ export async function buildInvoicePdf(element, paperSizeId, fit = 1) {
     }
 
     if (!pageEndPx) {
-      // No section boundary fits in the remaining space: end the page at the
-      // next boundary anyway so the block is never split across pages.
-      pageEndPx = cutPoints.find((cut) => cut > pageStartPx) || H;
+      // No section boundary fits in the remaining space, which means the block
+      // starting here is taller than a whole page (a multi-thousand character
+      // description, an uncapped Terms strip). Cutting at the block's END used
+      // to place a slice 796mm tall on 277mm paper — everything past the edge
+      // silently fell off the sheet. Cut at the page limit instead and carry
+      // the block onto the next sheet: content is never lost, and the closing
+      // rule below keeps the columns shut at the break.
+      pageEndPx = Math.floor(pageEndLimit);
     }
     pageEndPx = Math.min(pageEndPx, H);
 

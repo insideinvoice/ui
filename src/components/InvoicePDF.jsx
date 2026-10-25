@@ -62,12 +62,15 @@ const tStyleSep = {
   boxSizing: "border-box",
 };
 
-const InvoicePDF = React.memo(React.forwardRef(({ business, customer, form, items, discountPercent, type, invoiceNumber, taxMode }, ref) => {
+const InvoicePDF = React.memo(React.forwardRef(({ business, customer, form, items, discountPercent, type, invoiceNumber, taxMode, discountType }, ref) => {
   const displayInvNo = invoiceNumber || "DRAFT";
   const isProforma = type === "PROFORMA_INVOICE";
   const validItems = (items || []).filter((i) => i.itemName?.trim() && parseFloat(i.qty) > 0);
   const sigSrc = asImageSrc(business?.signature);
-  const calc = computeInvoiceTotals(items, discountPercent, taxMode, form?.cessPercent);
+  // This layout has no per-line Disc. column, so INDIVIDUAL invoices are
+  // pinned to the e-Invoice template everywhere — but honouring the type here
+  // keeps the totals right if one ever slips through anyway.
+  const calc = computeInvoiceTotals(items, discountPercent, taxMode, form?.cessPercent, discountType);
   // IGST (inter-state) replaces the CGST/SGST pair everywhere below — the two
   // structures never render together for the same taxable line.
   const igstMode = taxMode === "IGST";

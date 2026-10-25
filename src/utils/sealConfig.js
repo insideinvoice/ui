@@ -54,12 +54,23 @@ export function normalizeSealColor(value, fallback) {
  */
 export const SEAL_PAGE = Object.freeze({ widthMm: 210, heightMm: 297 });
 
+/**
+ * The paper margin around the invoice's content frame. The gaps are measured
+ * from that frame, so a NEGATIVE gap of up to this much reaches into the
+ * margin — letting the mark sit flush with the paper's edge — while never
+ * travelling past the margin itself (renderers clamp against it too, and the
+ * PDF stamp clamps inside the sheet).
+ */
+export const SEAL_MARGIN_MM = 10;
+
 export const SEAL_LIMITS = Object.freeze({
   round: Object.freeze({ minSize: 5, maxSize: 120 }),
   stamp: Object.freeze({ minSize: 10, maxSize: 180 }),
   minTilt: -45,
   maxTilt: 45,
-  minEdge: 0,
+  // Negative = into the sheet's margin, so the seal can be moved all the way to
+  // the end of the page (but never off it).
+  minEdge: -SEAL_MARGIN_MM,
   // Coarse ceiling only (the whole page); per-variant travel is tighter and is
   // derived from the seal footprint in sealEdgeRange().
   maxEdge: SEAL_PAGE.widthMm,

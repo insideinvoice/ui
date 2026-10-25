@@ -8,7 +8,7 @@
     "build": "vite build && node scripts/prerender-seo.mjs",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test:unit": "node scripts/jurisdiction.test.mjs && node scripts/whatsappShare.test.mjs && node scripts/enterprisePaging.test.mjs && node scripts/taxMode.test.mjs && node scripts/panZoom.test.mjs && node scripts/sealConfig.test.mjs && node scripts/sealStamp.test.mjs"
+    "test:unit": "node scripts/jurisdiction.test.mjs && node scripts/whatsappShare.test.mjs && node scripts/enterprisePaging.test.mjs && node scripts/taxMode.test.mjs && node scripts/individualDiscount.test.mjs && node scripts/panZoom.test.mjs && node scripts/sealConfig.test.mjs && node scripts/sealStamp.test.mjs"
   },
   "dependencies": {
     "@emailjs/browser": "^4.4.1",

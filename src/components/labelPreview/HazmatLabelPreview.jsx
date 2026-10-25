@@ -142,18 +142,32 @@ function symbolArt(kind, ink) {
   }
 }
 
-function Footer({ x = 14, y = H - 10, anchor = "start", width = W }) {
+function Footer({ x = 14, y = H - 10, anchor = "start", width = W, right }) {
   return (
-    <text
-      x={anchor === "start" ? x : width - x}
-      y={y}
-      fontSize="10"
-      fill="#64748b"
-      textAnchor={anchor}
-      fontFamily="Inter, Helvetica, Arial, sans-serif"
-    >
-      {FOOTER}
-    </text>
+    <>
+      <text
+        x={anchor === "start" ? x : width - x}
+        y={y}
+        fontSize="10"
+        fill="#64748b"
+        textAnchor={anchor}
+        fontFamily="Inter, Helvetica, Arial, sans-serif"
+      >
+        {FOOTER}
+      </text>
+      {right && (
+        <text
+          x={width - x}
+          y={y}
+          fontSize="10"
+          fill="#64748b"
+          textAnchor="end"
+          fontFamily="Inter, Helvetica, Arial, sans-serif"
+        >
+          {right}
+        </text>
+      )}
+    </>
   );
 }
 
@@ -281,20 +295,33 @@ function Diamond({ payload, cls }) {
         </text>
       )}
 
-      {cls.symbol === "trefoil" && payload.radiationCategory && (
+      {cls.symbol === "trefoil" && (
         <g>
-          {["I", "II", "III"].map((cat, i) => (
-            <g key={cat} transform={`translate(${cx + 62} ${cy - 96 + i * 34})`}>
-              <rect width="32" height="30" fill={WHITE} stroke={BLACK} strokeWidth="2.5" />
-              <text x="16" y="21" fontSize="15" fontWeight="700" fill={BLACK} textAnchor="middle" fontFamily="Inter, Helvetica, Arial, sans-serif">
-                {cat}
-              </text>
-            </g>
-          ))}
+          {/* Mirrors the backend: boxes always shown for class 7, the selected
+              category printed white-on-black (defaults to Category I). */}
+          {["I", "II", "III"].map((cat, i) => {
+            const on = cat === String(payload.radiationCategory || "I").trim().toUpperCase();
+            return (
+              <g key={cat} transform={`translate(${cx + 62} ${cy - 96 + i * 34})`}>
+                <rect width="32" height="30" fill={on ? BLACK : WHITE} stroke={BLACK} strokeWidth="2.5" />
+                <text
+                  x="16"
+                  y="21"
+                  fontSize="15"
+                  fontWeight="700"
+                  fill={on ? WHITE : BLACK}
+                  textAnchor="middle"
+                  fontFamily="Inter, Helvetica, Arial, sans-serif"
+                >
+                  {cat}
+                </text>
+              </g>
+            );
+          })}
         </g>
       )}
 
-      <Footer />
+      <Footer right={payload?.labelNumber} />
     </g>
   );
 }
@@ -340,7 +367,7 @@ function Lithium({ payload }) {
           IATA PI {payload.lithiumPackingInstruction}
         </text>
       )}
-      <Footer x={hatchBand + 8} y={H - hatchBand - 14} />
+      <Footer x={hatchBand + 8} y={H - hatchBand - 14} right={payload?.labelNumber} />
     </g>
   );
 }
@@ -364,7 +391,7 @@ function Excepted({ payload }) {
           {consignor.toUpperCase()}
         </text>
       )}
-      <Footer x={hatchBand + 8} y={H - hatchBand - 14} />
+      <Footer x={hatchBand + 8} y={H - hatchBand - 14} right={payload?.labelNumber} />
     </g>
   );
 }
@@ -391,12 +418,12 @@ function EnvHazard({ payload }) {
           {psn}
         </text>
       )}
-      <Footer y={H - 14} />
+      <Footer y={H - 14} right={payload?.labelNumber} />
     </g>
   );
 }
 
-function Orientation() {
+function Orientation({ payload }) {
   const color = RED;
   const arrow = (x, y, w, h) => {
     const headH = h * 0.34;
@@ -424,7 +451,7 @@ function Orientation() {
       <text x={W / 2} y={top + arrowH + H * 0.06} fontSize="34" fontWeight="800" fill={color} textAnchor="middle" fontFamily="Inter, Helvetica, Arial, sans-serif">
         THIS WAY UP
       </text>
-      <Footer y={H - 14} />
+      <Footer y={H - 14} right={payload?.labelNumber} />
     </g>
   );
 }
@@ -449,7 +476,7 @@ function Cao({ payload }) {
           {un}
         </text>
       )}
-      <Footer y={H - 14} />
+      <Footer y={H - 14} right={payload?.labelNumber} />
     </g>
   );
 }
@@ -468,7 +495,7 @@ function Overpack({ payload }) {
           {un}
         </text>
       )}
-      <Footer y={H - 14} />
+      <Footer y={H - 14} right={payload?.labelNumber} />
     </g>
   );
 }
@@ -502,7 +529,7 @@ function LimitedQuantity({ payload }) {
       <text x={cx} y={cy + S * 0.42} fontSize="18" fontWeight="800" fill={BLACK} textAnchor="middle" fontFamily="Inter, Helvetica, Arial, sans-serif">
         LIMITED QUANTITY
       </text>
-      <Footer y={H - 14} />
+      <Footer y={H - 14} right={payload?.labelNumber} />
     </g>
   );
 }
@@ -515,7 +542,7 @@ export default function HazmatLabelPreview({ payload }) {
   if (type === "LITHIUM") body = <Lithium payload={payload} />;
   else if (type === "EXCEPTED_QTY") body = <Excepted payload={payload} />;
   else if (type === "ENV_HAZARD") body = <EnvHazard payload={payload} />;
-  else if (type === "ORIENTATION") body = <Orientation />;
+  else if (type === "ORIENTATION") body = <Orientation payload={payload} />;
   else if (type === "CAO") body = <Cao payload={payload} />;
   else if (type === "OVERPACK") body = <Overpack payload={payload} />;
   else if (type === "LIMITED_QTY") body = <LimitedQuantity payload={payload} />;

@@ -19,19 +19,29 @@ export default function SealOverlay({
   // with the paper's 10 mm margins outside it. Passing the margin here keeps
   // the on-screen position measured from the same paper edge as the PDF.
   insetMm = 0,
+  // Extra paper drawn OUTSIDE this container (on top of insetMm): how far a
+  // negative gap may push the mark beyond the container's own edge. Surfaces
+  // that show a sheet of paper around the content — the Settings preview —
+  // pass the sheet margin so the seal can sit flush with the paper's edge;
+  // containers without visible paper keep the seal inside their own box.
+  bleedMm = 0,
 }) {
   const variant = type === "stamp" ? "stamp" : "round";
   const cfg = normalizeSealConfig(config || resolveSealConfig(business));
   const variantCfg = cfg[variant];
   const box = sealBoxMm(variant, cfg);
+  // Never let the mark travel past the paper that this container sits on.
+  const bleed = insetMm + bleedMm;
+  const rightOffset = Math.max(variantCfg.rightMm - insetMm, -bleed);
+  const bottomOffset = Math.max(variantCfg.bottomMm - insetMm, -bleed);
 
   return (
     <div
       className={`ii-seal-dom${className ? ` ${className}` : ""}`}
       style={{
         position: "absolute",
-        right: `${(variantCfg.rightMm - insetMm) * pxPerMm}px`,
-        bottom: `${(variantCfg.bottomMm - insetMm) * pxPerMm}px`,
+        right: `${rightOffset * pxPerMm}px`,
+        bottom: `${bottomOffset * pxPerMm}px`,
         width: `${box.w * pxPerMm}px`,
         height: `${box.h * pxPerMm}px`,
         zIndex: 4,

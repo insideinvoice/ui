@@ -16,10 +16,19 @@
 // Formula (mirrors backend InvoiceMapper.calculateInvoiceTotals):
 //   base_i         = item.taxableValue  (= qty × rate), rounded to 2dp
 //   subtotal       = round2(Σ base_i)
+//
+//   FULL (default — invoice-level discount, GST pro-rated):
 //   discountAmount = round2(subtotal × clamp(discount%, 0..100) / 100)
 //   taxableAmount  = subtotal − discountAmount
 //   ratio          = taxableAmount / subtotal          (pro-rata allocation)
 //   item.tax       = round2(base_i × ratio × gst% / 100)   ← GST on discounted value
+//
+//   INDIVIDUAL (per-line discount, e-Invoice template only):
+//   disc_i         = round2(base_i × clamp(item.discount%, 0..100) / 100)
+//   net_i          = base_i − disc_i
+//   discountAmount = round2(Σ disc_i)     taxableAmount = subtotal − discountAmount
+//   item.tax       = round2(net_i × gst% / 100)  ← each line's GST on ITS OWN net
+//
 //   taxAmount      = round2(Σ item.tax)
 //   grandTotal     = taxableAmount + taxAmount
 
@@ -45,9 +54,18 @@ const round10 = (n) => Math.round((n + Number.EPSILON) * 1e10) / 1e10;
  * @param {number} discountPercent invoice-level discount %
  * @param {string} [taxMode]     "CGST_SGST" (default) | "IGST" — picks the
  *                               tax STRUCTURE only; totals never change.
+ * @param {number} [cessPercent] invoice-level compensation cess %
+ * @param {string} [discountType] "FULL" (default) | "INDIVIDUAL" — INDIVIDUAL
+ *                               reads each line's own discountPercent and every
+ *                               line's GST applies to its own NET value (no
+ *                               invoice-level pro-rating). Mirrors the backend
+ *                               InvoiceMapper.calculateInvoiceTotals INDIVIDUAL
+ *                               branch so the stored invoice and every screen
+ *                               agree to the paisa.
  */
-export function computeInvoiceTotals(items, discountPercent, taxMode, cessPercent = 0) {
+export function computeInvoiceTotals(items, discountPercent, taxMode, cessPercent = 0, discountType = "FULL") {
   const igstMode = taxMode === "IGST";
+  const individual = discountType === "INDIVIDUAL";
   const valid = (items || []).filter(
     (i) => i?.itemName?.trim() && parseFloat(i?.qty) > 0
   );
@@ -61,17 +79,55 @@ export function computeInvoiceTotals(items, discountPercent, taxMode, cessPercen
 
   const subtotal = round2(bases.reduce((s, b) => s + b, 0));
 
-  const pct = Math.min(Math.max(parseFloat(discountPercent) || 0, 0), 100);
-  const discountAmount = round2((subtotal * pct) / 100);
-  const taxableAmount = round2(subtotal - discountAmount);
+  let pct;
+  let discountAmount;
+  let taxableAmount;
+  let taxes;
+  let taxableCol;
+  let lineMeta;
+
+  if (individual) {
+    // Per-line discounts (V45): each line's discount and GST are computed on
+    // that line alone, exactly like the backend's INDIVIDUAL branch.
+    pct = Math.min(Math.max(parseFloat(discountPercent) || 0, 0), 100);
+    const linePcts = valid.map((i) =>
+      Math.min(Math.max(parseFloat(i.discountPercent) || 0, 0), 100)
+    );
+    const lineDiscounts = bases.map((b, idx) => round2((b * linePcts[idx]) / 100));
+    discountAmount = round2(lineDiscounts.reduce((s, d) => s + d, 0));
+    taxableAmount = round2(subtotal - discountAmount);
+    taxes = valid.map((item, idx) => {
+      const gst = parseFloat(item.gstPercentage) || 0;
+      return round2(((bases[idx] - lineDiscounts[idx]) * gst) / 100);
+    });
+    // The taxable column is the per-line NET value — every entry is already
+    // 2dp, so the column foots to taxableAmount with no residual to absorb.
+    taxableCol = bases.map((b, idx) => round2(b - lineDiscounts[idx]));
+    if (taxableCol.length > 0) {
+      const sumOthers = taxableCol.slice(0, -1).reduce((s, v) => s + v, 0);
+      taxableCol[taxableCol.length - 1] = round2(taxableAmount - sumOthers);
+    }
+    // per-line % / amount for the item grid's Disc. column and every screen.
+    lineMeta = valid.map((item, idx) => ({
+      discountPercent: linePcts[idx],
+      discountAmount: lineDiscounts[idx],
+    }));
+  } else {
+    pct = Math.min(Math.max(parseFloat(discountPercent) || 0, 0), 100);
+    discountAmount = round2((subtotal * pct) / 100);
+    taxableAmount = round2(subtotal - discountAmount);
+  }
+
   const ratio = subtotal > 0 ? round10(taxableAmount / subtotal) : 1;
 
-  // Per-item tax on the DISCOUNTED value, rounded like the backend so the
-  // invoice-level taxAmount matches what the server stored to the paisa.
-  const taxes = valid.map((item, idx) => {
-    const gst = parseFloat(item.gstPercentage) || 0;
-    return round2((bases[idx] * ratio * gst) / 100);
-  });
+  if (!individual) {
+    // Per-item tax on the DISCOUNTED value, rounded like the backend so the
+    // invoice-level taxAmount matches what the server stored to the paisa.
+    taxes = valid.map((item, idx) => {
+      const gst = parseFloat(item.gstPercentage) || 0;
+      return round2((bases[idx] * ratio * gst) / 100);
+    });
+  }
   const taxAmount = round2(taxes.reduce((s, t) => s + t, 0));
 
   // Invoice-level tax structure. IGST (inter-state) is the single full-rate
@@ -88,11 +144,14 @@ export function computeInvoiceTotals(items, discountPercent, taxMode, cessPercen
 
   // Discounted taxable value per line. The last line absorbs any rounding
   // residual so the Taxable column adds up EXACTLY to the Taxable Amount
-  // total (a GST invoice must foot line-by-line).
-  const taxableCol = bases.map((b) => round2(b * ratio));
-  if (taxableCol.length > 0) {
-    const sumOthers = taxableCol.slice(0, -1).reduce((s, v) => s + v, 0);
-    taxableCol[taxableCol.length - 1] = round2(taxableAmount - sumOthers);
+  // total (a GST invoice must foot line-by-line). (INDIVIDUAL already built
+  // its own per-line NET column above.)
+  if (!individual) {
+    taxableCol = bases.map((b) => round2(b * ratio));
+    if (taxableCol.length > 0) {
+      const sumOthers = taxableCol.slice(0, -1).reduce((s, v) => s + v, 0);
+      taxableCol[taxableCol.length - 1] = round2(taxableAmount - sumOthers);
+    }
   }
 
   const perItem = valid.map((item, idx) => {
@@ -104,12 +163,13 @@ export function computeInvoiceTotals(items, discountPercent, taxMode, cessPercen
       igst: igstMode ? taxes[idx] : 0,
       tax: taxes[idx],
       total: round2(taxableCol[idx] + taxes[idx]),
+      ...(lineMeta ? lineMeta[idx] : {}),
     };
   });
 
   return {
     subtotal,
-    discountPercent: pct,
+    discountPercent: individual ? 0 : pct,
     discountAmount,
     taxableAmount,
     ratio,
@@ -121,5 +181,6 @@ export function computeInvoiceTotals(items, discountPercent, taxMode, cessPercen
     cessAmount,
     grandTotal: round2(taxableAmount + taxAmount + cessAmount),
     perItem,
+    discountType: individual ? "INDIVIDUAL" : "FULL",
   };
 }

@@ -71,6 +71,7 @@ export default function AdminInvoiceView() {
           taxableValue: item.taxableValue,
           taxAmount: item.taxAmount,
           total: item.total,
+          discountPercent: item.discountPercent != null ? String(item.discountPercent) : "",
         })) || []);
         if (inv.businessId) {
           return adminAPI.getBusiness(inv.businessId).then((bRes) => {
@@ -119,9 +120,10 @@ export default function AdminInvoiceView() {
     ),
     [editing, form.taxMode, invoice?.taxMode, business?.state, form.placeOfSupply, invoice?.placeOfSupply],
   );
+  const activeDiscountType = invoice?.discountType === "INDIVIDUAL" ? "INDIVIDUAL" : "FULL";
   const totals = useMemo(
-    () => computeInvoiceTotals(items, activeDiscount, effectiveTaxMode),
-    [items, activeDiscount, effectiveTaxMode]
+    () => computeInvoiceTotals(items, activeDiscount, effectiveTaxMode, 0, activeDiscountType),
+    [items, activeDiscount, effectiveTaxMode, activeDiscountType]
   );
 
   // Stable object identity keeps React.memo'd templates from re-rendering on
@@ -246,9 +248,12 @@ export default function AdminInvoiceView() {
               items={items}
               totals={totals}
               discountPercent={activeDiscount}
+              discountType={activeDiscountType === "INDIVIDUAL" ? "INDIVIDUAL" : undefined}
               taxMode={effectiveTaxMode}
               type={form.invoiceType}
               invoiceNumber={form.invoiceNumber}
+              // Individual discounts only render on the e-Invoice template.
+              template={activeDiscountType === "INDIVIDUAL" ? "template-33" : undefined}
             />
           </div>
         )}

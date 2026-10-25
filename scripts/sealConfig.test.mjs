@@ -30,12 +30,15 @@ assert.equal(parsed.stamp.sizeMm, SEAL_DEFAULTS.stamp.sizeMm);
 
 // Out-of-range and malformed values clamp instead of leaking into the PDF.
 const clamped = normalizeSealConfig({
-  round: { sizeMm: 999, tilt: -999, rightMm: -5, bottomMm: 500 },
+  round: { sizeMm: 999, tilt: -999, rightMm: -50, bottomMm: 500 },
   stamp: { sizeMm: "not-a-number", tilt: 20, rightMm: "12", bottomMm: 3 },
 });
 assert.equal(clamped.round.sizeMm, 120);
 assert.equal(clamped.round.tilt, -45);
-assert.equal(clamped.round.rightMm, 0);
+// A gap reaches INTO the sheet's 10 mm margin so the mark can sit flush with
+// the paper's edge — the floor is -10, and even that is clamped on the page.
+assert.equal(clamped.round.rightMm, -10);
+assert.equal(normalizeSealConfig({ round: { rightMm: -5 } }).round.rightMm, -5);
 // Edge travel is capped by the page minus the seal footprint: a 120 mm round
 // seal can only move 210-120 = 90 mm right and 297-120 = 177 mm up.
 assert.equal(clamped.round.bottomMm, 177);

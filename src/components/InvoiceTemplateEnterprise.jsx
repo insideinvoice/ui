@@ -725,7 +725,7 @@ const BankBand = ({ business, sigSrc, isProforma, payAmount, payRef, payNote }) 
             src={sigSrc}
             alt="signature"
             style={{
-              height: "56px", maxWidth: "78%", objectFit: "contain",
+              height: "78px", maxWidth: "88%", objectFit: "contain",
               display: "block",
             }}
           />

@@ -14,6 +14,11 @@ import { eInvoiceAPI } from "../../api/einvoice";
  * ever fabricated). Disabling flips the local flag only: it never cancels
  * government registrations and keeps all history.
  */
+// Sandbox Mock credentials pre-filled for EVERY business: the Mock provider
+// never contacts an IRP, so these placeholders make enable + test work out of
+// the box. Selecting IRIS IRP is the real path — it demands real credentials.
+const MOCK_CREDENTIALS = { clientId: "mock-sandbox", clientSecret: "mock-sandbox" };
+
 const STATUS_META = {
   CONNECTED: { label: "Connected", cls: "text-emerald-600 bg-emerald-50 border-emerald-200" },
   AUTH_FAILED: { label: "Authentication failed", cls: "text-red-600 bg-red-50 border-red-200" },
@@ -35,12 +40,12 @@ export default function EInvoiceSettingsCard({ business }) {
   // until the user saves. Credential fields stay blank after loading: the
   // backend never echoes them back, and blank means "keep stored values".
   const [draft, setDraft] = useState({
-    provider: "IRIS_IRP",
+    provider: "MOCK",
     environment: "SANDBOX",
     enabled: false,
     autoRegister: false,
-    clientId: "",
-    clientSecret: "",
+    clientId: MOCK_CREDENTIALS.clientId,
+    clientSecret: MOCK_CREDENTIALS.clientSecret,
   });
 
   useEffect(() => {
@@ -102,6 +107,21 @@ export default function EInvoiceSettingsCard({ business }) {
   const runTest = async () => {
     setTesting(true);
     try {
+      // Nothing saved yet? Persist the current draft first so the test has a
+      // configuration to run against — the button is never a dead end.
+      if (!config) {
+        const saved = await eInvoiceAPI.saveConfig({
+          gstin: "",
+          provider: draft.provider,
+          environment: draft.environment,
+          enabled: draft.enabled,
+          autoRegister: draft.autoRegister,
+          clientId: draft.clientId || undefined,
+          clientSecret: draft.clientSecret || undefined,
+        });
+        setConfig(saved.data.data);
+        setDraft((d) => ({ ...d, clientId: "", clientSecret: "" }));
+      }
       const res = await eInvoiceAPI.testConnection();
       setTestResult(res.data.data);
       setConfig((c) => (c ? { ...c, connectionStatus: res.data.data.connectionStatus } : c));
@@ -166,7 +186,9 @@ export default function EInvoiceSettingsCard({ business }) {
           {/* Read-only summary line */}
           <div className="flex flex-wrap items-center gap-2 text-xs">
             <span className="text-slate-400">GSTIN</span>
-            <span className="font-mono text-slate-700">{gstin || "— add the business GSTIN in Settings first —"}</span>
+            <span className={`font-mono ${gstin ? "text-slate-700" : "text-amber-600"}`}>
+              {gstin || "add the business GSTIN above and save — the IRP requires it"}
+            </span>
             {config && (
               <span className={`ml-auto px-2 py-0.5 rounded-full border text-[11px] font-medium ${status.cls}`}>
                 {status.label}
@@ -180,7 +202,18 @@ export default function EInvoiceSettingsCard({ business }) {
               <label className={labelCls}>Authorised provider</label>
               <select
                 value={draft.provider}
-                onChange={(e) => setDraft((d) => ({ ...d, provider: e.target.value }))}
+                onChange={(e) => {
+                  const provider = e.target.value;
+                  setDraft((d) => ({
+                    ...d,
+                    provider,
+                    // Back to the no-IRP Mock default; real providers start
+                    // blank so real secrets must be typed.
+                    clientId: provider === "MOCK" && !hasCredentials ? MOCK_CREDENTIALS.clientId : "",
+                    clientSecret: provider === "MOCK" && !hasCredentials ? MOCK_CREDENTIALS.clientSecret : "",
+                  }));
+                  setTestResult(null);
+                }}
                 className={inputCls}
               >
                 <option value="IRIS_IRP">IRIS IRP</option>
@@ -252,7 +285,7 @@ export default function EInvoiceSettingsCard({ business }) {
             <button
               type="button"
               onClick={runTest}
-              disabled={testing || saving || !config}
+              disabled={testing || saving}
               className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-slate-700 border border-slate-300 hover:bg-slate-50 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all min-h-[40px]"
             >
               {testing ? <Loader2 className="w-4 h-4 animate-spin" /> : <PlugZap className="w-4 h-4" />}

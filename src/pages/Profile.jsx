@@ -45,6 +45,9 @@ export default function Profile() {
   const [editingSeal, setEditingSeal] = useState(false);
   const sealSnapshotRef = useRef(null);
   const [signature, setSignature] = useState(null);
+  // Signature size on the printed invoice (px height) — rides the sealConfig
+  // JSON so the shared page and the PDFs all follow the same choice.
+  const [signatureSizePx, setSignatureSizePx] = useState(78);
   const [uploadingSig, setUploadingSig] = useState(false);
   const [logo, setLogo] = useState(null);
   const [uploadingLogo, setUploadingLogo] = useState(false);
@@ -96,6 +99,12 @@ export default function Profile() {
           localStorage.setItem("seal_type", savedType);
         }
         setSealConfig(normalizeSealConfig(b?.sealConfig ?? localStorage.getItem("seal_config")));
+        try {
+          const parsedSig = JSON.parse(b?.sealConfig || "{}");
+          if (parsedSig.signatureSize) setSignatureSizePx(parsedSig.signatureSize);
+        } catch {
+          /* malformed seal config — the default size applies */
+        }
         setBankForm({
           bankName: b?.bankName || "",
           accountNo: b?.accountNo || "",
@@ -391,6 +400,16 @@ export default function Profile() {
     } finally {
       setUploadingSig(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const handleSignatureSize = async (px) => {
+    setSignatureSizePx(px);
+    try {
+      await businessAPI.update({ sealConfig: { ...normalizeSealConfig(sealConfig), signatureSize: px } });
+      toast.success("Signature size updated");
+    } catch {
+      toast.error("Failed to update the signature size");
     }
   };
 
@@ -1555,6 +1574,16 @@ export default function Profile() {
                     </button>
                   )}
                 </div>
+              </div>
+              <div className="flex items-center gap-3 mt-2 flex-wrap">
+                <span className="text-[11px] text-slate-500 shrink-0">Size on invoice:</span>
+                {[["Small", 56], ["Default", 78], ["Large", 100]].map(([label, px]) => (
+                  <label key={label} className="flex items-center gap-1.5 cursor-pointer">
+                    <input type="radio" name="signatureSize" checked={signatureSizePx === px}
+                      onChange={() => handleSignatureSize(px)} className="accent-blue-500" />
+                    <span className="text-xs text-slate-700">{label}</span>
+                  </label>
+                ))}
               </div>
             </div>
           </div>

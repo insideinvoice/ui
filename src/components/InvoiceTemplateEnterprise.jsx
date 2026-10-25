@@ -664,7 +664,7 @@ const WordsStrip = ({ isProforma, words, showTax, taxAmount }) => {
 
 /* --------------------------------------------------------------- band */
 
-const BankBand = ({ business, sigSrc, isProforma, payAmount, payRef, payNote }) => (
+const BankBand = ({ business, sigSrc, isProforma, payAmount, payRef, payNote, sigHeight = 78 }) => (
   <div style={{
     height: M.band, boxSizing: "border-box", display: "flex",
     // The band sits directly under the words strip (whose bottom rule is its
@@ -727,7 +727,7 @@ const BankBand = ({ business, sigSrc, isProforma, payAmount, payRef, payNote }) 
             src={sigSrc}
             alt="signature"
             style={{
-              height: "78px", maxWidth: "88%", objectFit: "contain",
+              height: `${Math.min(120, Math.max(48, sigHeight))}px`, maxWidth: "88%", objectFit: "contain",
               display: "block",
             }}
           />
@@ -845,6 +845,7 @@ const EntPage = ({ pageId, showItems, sumRows, sumWithTotal, closing, chunkItems
           <BankBand
             business={business}
             sigSrc={shared.sigSrc}
+            sigHeight={(() => { try { return Math.min(120, Math.max(48, JSON.parse(business?.sealConfig || "{}").signatureSize || 78)); } catch { return 78; } })()}
             isProforma={shared.isProforma}
             payAmount={shared.calc.grandTotal}
             payRef={shared.displayInvNo}

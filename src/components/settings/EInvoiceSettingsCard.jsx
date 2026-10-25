@@ -133,7 +133,10 @@ export default function EInvoiceSettingsCard({ business }) {
               if (!window.confirm("Disable e-invoicing? Existing invoices and any government registration records are kept untouched.")) return;
               save({ enabled: false });
             } else {
-              if (!hasCredentials && !draft.clientId && !draft.clientSecret) {
+              // The Mock provider never talks to an IRP, so it needs no
+              // credentials; real providers must have them stored (or typed
+              // right now) before automation can be switched on.
+              if (draft.provider !== "MOCK" && !hasCredentials && !draft.clientId && !draft.clientSecret) {
                 toast.error("Enter the provider API credentials below before enabling");
                 return;
               }

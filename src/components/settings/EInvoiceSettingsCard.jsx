@@ -66,6 +66,10 @@ export default function EInvoiceSettingsCard({ business }) {
             environment: c.environment || d.environment,
             enabled: !!c.enabled,
             autoRegister: !!c.autoRegister,
+            // A Mock config never needs typing: keep the placeholders visible
+            // whenever no real credentials are stored.
+            clientId: c.provider === "MOCK" && !c.hasCredentials ? MOCK_CREDENTIALS.clientId : d.clientId,
+            clientSecret: c.provider === "MOCK" && !c.hasCredentials ? MOCK_CREDENTIALS.clientSecret : d.clientSecret,
           }));
         }
       })
@@ -235,12 +239,15 @@ export default function EInvoiceSettingsCard({ business }) {
                   setDraft((d) => ({
                     ...d,
                     provider,
-                    // Real users go straight to the production IRP; Mock is
-                    // sandbox-only. Mock keeps its placeholder credentials;
-                    // IRIS starts blank so real secrets must be typed.
                     environment: provider === "MOCK" ? "SANDBOX" : "PRODUCTION",
-                    clientId: provider === "MOCK" && !hasCredentials ? MOCK_CREDENTIALS.clientId : "",
-                    clientSecret: provider === "MOCK" && !hasCredentials ? MOCK_CREDENTIALS.clientSecret : "",
+                    // Mock is fully self-simulating: every related config is
+                    // filled automatically — the user ONLY flips enable.
+                    clientId: provider === "MOCK" ? MOCK_CREDENTIALS.clientId : "",
+                    clientSecret: provider === "MOCK" ? MOCK_CREDENTIALS.clientSecret : "",
+                    apiUsername: "",
+                    apiPassword: "",
+                    appKey: "",
+                    baseUrl: "",
                   }));
                   setTestResult(null);
                 }}

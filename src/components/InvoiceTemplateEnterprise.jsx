@@ -712,7 +712,9 @@ const BankBand = ({ business, sigSrc, isProforma, payAmount, payRef, payNote }) 
       flex: 1, padding: "8px 12px", position: "relative", overflow: "hidden",
       display: "flex", flexDirection: "column",
     }}>
-      {capsLabel("FOR " + (business?.businessName || "").toUpperCase())}
+      <div style={{ fontSize: "10px", fontWeight: 700, letterSpacing: "1.2px", color: MUTED, marginBottom: "3px" }}>
+          {"FOR " + (business?.businessName || "").toUpperCase()}
+        </div>
       {/* signature sits CENTERED directly above the signatory label — the
           original template's convention — at a readable size; the seal inks
           over its right edge like a rubber stamp landing on a signed copy */}
@@ -732,7 +734,7 @@ const BankBand = ({ business, sigSrc, isProforma, payAmount, payRef, payNote }) 
         )}
       </div>
       <div style={{
-        textAlign: "center", fontSize: "9px", color: MUTED, paddingBottom: "4px",
+        textAlign: "center", fontSize: "11px", fontWeight: 600, color: INK, paddingBottom: "4px",
       }}>
         Authorised Signatory
       </div>

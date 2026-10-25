@@ -1,10 +1,11 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback, memo } from "react";
 import { useAuth } from "../context/AuthContext";
 import JurisdictionRegionSelect from "../components/JurisdictionRegionSelect";
-import SealMark from "../components/SealMark";
+import InvoicePDF from "../components/InvoicePDF";
+import SealOverlay from "../components/SealOverlay";
 import { authAPI, businessAPI } from "../api/auth";
 import { invalidateBusinessProfile } from "../utils/businessProfile";
-import { normalizeSealConfig, sealBoxMm, sealEdgeRange, SEAL_LIMITS, SEAL_PAGE, SEAL_DEFAULT_COLOR } from "../utils/sealConfig";
+import { normalizeSealConfig, sealBoxMm, sealEdgeRange, SEAL_LIMITS, SEAL_PAGE, SEAL_DEFAULT_COLOR, PX_PER_MM } from "../utils/sealConfig";
 import { formatInvoiceNumber } from "../utils/invoiceConvention";
 import { formatJurisdiction } from "../utils/jurisdiction";
 import { JURISDICTION_CENTRES } from "../constants/indianRegions";
@@ -54,7 +55,8 @@ export default function Profile() {
   // on every size change so the inputs can never push the mark off-sheet.
   const sealTravel = sealEdgeRange(sealType, sealConfig);
   // The A4 preview is opt-in: the controls themselves are the primary surface,
-  // and the preview costs a real SealMark render on every keystroke.
+  // and the preview renders a real miniature invoice (memoised below, so it
+  // only re-renders when the seal's own state changes).
   const [showSealPreview, setShowSealPreview] = useState(false);
   const [savingSeal, setSavingSeal] = useState(false);
   const [businessData, setBusinessData] = useState(null);
@@ -62,6 +64,15 @@ export default function Profile() {
   const [savingBank, setSavingBank] = useState(false);
   const [bizForm, setBizForm] = useState({ businessName: "", industry: DEFAULT_INDUSTRY, gstIn: "", phone: "", additionalPhone: "", email: "", website: "", addressLine1: "", addressLine2: "", city: "", state: "", country: "", pincode: "", invoicePrefix: "", specialistIn: "", specialistInEnabled: false, showHnSac: true, jurisdictionEnabled: true, jurisdictionRegion: "", jurisdictionCity: "" });
   const [savingBiz, setSavingBiz] = useState(false);
+  // Identity-stable business payload for the seal preview, so opening it does
+  // not tie every later keystroke on this page to a full invoice re-render.
+  const sealPreviewBusiness = useMemo(
+    () => ({
+      ...(businessData || {}),
+      businessName: bizForm.businessName || businessData?.businessName,
+    }),
+    [businessData, bizForm.businessName]
+  );
   const fileInputRef = useRef(null);
   const logoInputRef = useRef(null);
 
@@ -143,14 +154,16 @@ export default function Profile() {
     }));
   };
 
-  // Click-to-place on the A4 preview: the click point becomes the seal's new
-  // home, so both edge gaps are written together in one update.
-  const placeSealAt = (rightMm, bottomMm) => {
+  // Click-to-place on the preview: the click point becomes the seal's new
+  // home, so both frame gaps are written together in one update. Memoised so
+  // an open preview is not re-rendered (with its full miniature invoice) on
+  // every unrelated keystroke elsewhere on the page.
+  const placeSealAt = useCallback((rightMm, bottomMm) => {
     setSealConfig((current) => ({
       ...current,
       [sealType]: { ...current[sealType], rightMm, bottomMm },
     }));
-  };
+  }, [sealType]);
 
   const chooseSealType = (type) => {
     const previous = sealType;
@@ -1078,7 +1091,7 @@ export default function Profile() {
                     {showSealPreview ? (
                       <div className="flex flex-1 items-center justify-center rounded-lg bg-white border border-slate-100 py-4">
                         <SealPreview
-                          business={{ ...businessData, businessName: bizForm.businessName || businessData?.businessName }}
+                          business={sealPreviewBusiness}
                           type={sealType}
                           config={sealConfig}
                           onPlace={placeSealAt}
@@ -1691,38 +1704,133 @@ function SealNumberField({ label, value, onChange, min, max, step = 1 }) {
   );
 }
 
-// Mini A4 sheet (168 px ≈ 210 mm) with the seal placed at the configured
-// right/bottom edge and size, so the four numbers have an immediate visual.
-function SealPreview({ business, type, config, onPlace }) {
-  const pageWidth = 168;
-  const scale = pageWidth / 210;
-  const pageHeight = 297 * scale;
+// Stand-in party, references and line items for the seal placement preview.
+// The header still shows the owner's own profile (merged in below); the items
+// fill close to one full A4 page so the preview behaves like a real printed
+// invoice rather than a half-empty sheet.
+const SEAL_PREVIEW_CUSTOMER = {
+  name: "Good Luck Traders",
+  billingAddress: "15, MG Road, Ashok Nagar, Bengaluru - 560001",
+  phone: "+91 87654 32109",
+  email: "orders@goodluck.in",
+  gstIn: "29PQRST5678K1Z3",
+};
+
+const SEAL_PREVIEW_FORM = {
+  invoiceDate: "2026-10-01",
+  dueDate: "2026-10-31",
+  placeOfSupply: "Karnataka",
+  referenceNumber: "REF-001",
+  buyerOrderNumber: "PO-2026-142",
+  paymentTerms: "Net 30",
+  otherReferences: "Quotation Q-2026-118",
+};
+
+const SEAL_PREVIEW_ITEMS = [
+  { itemName: "Premium Office Chair", hsn: "940130", qty: "5", rate: "8500", gstPercentage: "18", taxableValue: 42500, taxAmount: 7650, total: 50150 },
+  { itemName: "Standing Desk (Electric)", hsn: "940310", qty: "3", rate: "22500", gstPercentage: "18", taxableValue: 67500, taxAmount: 12150, total: 79650 },
+  { itemName: "LED Monitor 27 inch", hsn: "852852", qty: "8", rate: "18500", gstPercentage: "18", taxableValue: 148000, taxAmount: 26640, total: 174640 },
+  { itemName: "Executive Desk (Walnut)", hsn: "940330", qty: "2", rate: "34500", gstPercentage: "18", taxableValue: 69000, taxAmount: 12420, total: 81420 },
+  { itemName: "Filing Cabinet (4 Drawer)", hsn: "940310", qty: "6", rate: "9800", gstPercentage: "18", taxableValue: 58800, taxAmount: 10584, total: 69384 },
+  { itemName: "Ergonomic Keyboard", hsn: "847160", qty: "15", rate: "2400", gstPercentage: "18", taxableValue: 36000, taxAmount: 6480, total: 42480 },
+  { itemName: "Laser Printer (Mono)", hsn: "844399", qty: "4", rate: "27500", gstPercentage: "18", taxableValue: 110000, taxAmount: 19800, total: 129800 },
+  { itemName: "Conference Table (6 Seater)", hsn: "940330", qty: "1", rate: "48000", gstPercentage: "18", taxableValue: 48000, taxAmount: 8640, total: 56640 },
+];
+
+// Fallback header fields so a profile that is still loading (or missing
+// optional keys) still renders a complete invoice instead of a hollow frame.
+const SEAL_PREVIEW_BUSINESS_FALLBACK = {
+  businessName: "Your Company",
+  addressLine1: "42, Industrial Layout",
+  city: "Bengaluru",
+  state: "Karnataka",
+  pincode: "560100",
+  phone: "+91 98765 43210",
+  email: "billing@company.in",
+  gstIn: "29ABCDE1234F1Z5",
+};
+
+// The preview renders a REAL miniature invoice — the same <InvoicePDF> the app
+// and the shared link use — with a miniature A4 sheet (168 px ≈ 210 mm) around
+// it, so the seal lands exactly where it lands on a document: anchored to the
+// invoice's CONTENT frame, never to the sheet's edges. That is the same grid
+// SealOverlay draws on and the PDF stamps from, so preview, shared link and
+// print all agree.
+const SealPreview = memo(function SealPreview({ business, type, config, onPlace }) {
+  const pageWidth = 168;                              // 210 mm at 0.8 px/mm
+  const pxPerMm = pageWidth / SEAL_PAGE.widthMm;
+  const pageHeight = SEAL_PAGE.heightMm * pxPerMm;
+  const marginPx = 10 * pxPerMm;                      // the sheet's 10 mm margin
   const cfg = normalizeSealConfig(config);
   const variant = type === "stamp" ? "stamp" : "round";
   const variantCfg = cfg[variant];
   const box = sealBoxMm(variant, cfg);
 
-  // Click-to-place: turn the clicked pixel into millimetres and centre the
-  // seal on that point. clientLeft/clientTop strip the 1px border so the
-  // maths lines up with the content box the seal is positioned inside.
+  const frameRef = useRef(null);
+  const [natSize, setNatSize] = useState({ w: 0, h: 0 });
+
+  // The invoice's natural (pre-transform) size. offsetWidth/offsetHeight
+  // ignore the CSS scale, so one measurement drives both fit axes; a layout
+  // effect + ResizeObserver re-fit when a late-loading logo or a longer
+  // draft changes the height, with no visible jump.
+  useLayoutEffect(() => {
+    const node = frameRef.current;
+    if (!node) return undefined;
+    const measure = () => {
+      const w = node.offsetWidth;
+      const h = node.offsetHeight;
+      setNatSize((prev) => (prev.w === w && prev.h === h ? prev : { w, h }));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(node);
+    return () => ro.disconnect();
+  }, []);
+
+  // Contain-fit inside the sheet's printable box. Width-fit is the normal case
+  // (190 mm frame inside a 210 mm sheet); height-fit only kicks in for a draft
+  // taller than one page, keeping the seal visible instead of clipping it.
+  const availW = pageWidth - 2 * marginPx;
+  const availH = pageHeight - 2 * marginPx;
+  const widthScale = natSize.w > 0 ? availW / natSize.w : 0;
+  const heightScale = natSize.h > 0 ? availH / natSize.h : 0;
+  const scale = Math.min(widthScale, heightScale);
+  const frameLeft = marginPx + (availW - natSize.w * scale) / 2;
+
+  // Identity-stable so a slider drag only re-renders the overlay above, not
+  // the whole miniature invoice (InvoicePDF is memoised on this object).
+  const previewBusiness = useMemo(
+    () => ({
+      ...SEAL_PREVIEW_BUSINESS_FALLBACK,
+      ...business,
+      businessName: business?.businessName || SEAL_PREVIEW_BUSINESS_FALLBACK.businessName,
+      // The preview exists to place the mark, so it always shows one; the
+      // overlay below draws it from the draft config being edited.
+      sealEnabled: false,
+    }),
+    [business]
+  );
+
+  // Click-to-place: map the click back onto the frame's natural pixel grid,
+  // then into millimetres with PX_PER_MM — the exact conversion SealOverlay
+  // applies to the stored gaps. The seal centres on the click point, clamped
+  // inside the invoice's frame so a click can never push it off the document.
   const handlePageClick = (event) => {
     if (!onPlace) return;
-    const node = event.currentTarget;
+    const node = frameRef.current;
+    if (!node || natSize.w <= 0 || natSize.h <= 0) return;
     const rect = node.getBoundingClientRect();
-    const xPx = event.clientX - rect.left - node.clientLeft;
-    const yPx = event.clientY - rect.top - node.clientTop;
-    const xMm = xPx / scale;
-    const yMm = yPx / scale;
-
-    // The stored gaps run from the page edge to the seal's box edge, so
-    // centring means backing off by half the seal in each direction.
-    const maxRight = Math.max(0, SEAL_PAGE.widthMm - box.w);
-    const maxBottom = Math.max(0, SEAL_PAGE.heightMm - box.h);
-    const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
+    if (rect.width <= 0 || rect.height <= 0) return;
+    const xMm = ((event.clientX - rect.left) * natSize.w) / rect.width / PX_PER_MM;
+    const yMm = ((event.clientY - rect.top) * natSize.h) / rect.height / PX_PER_MM;
+    const frameWMm = natSize.w / PX_PER_MM;
+    const frameHMm = natSize.h / PX_PER_MM;
+    const clamp = (value, max) =>
+      Math.min(Math.max(Math.round(value), 0), Math.max(0, Math.floor(max)));
 
     onPlace(
-      clamp(Math.round(SEAL_PAGE.widthMm - (xMm + box.w / 2)), 0, maxRight),
-      clamp(Math.round(SEAL_PAGE.heightMm - (yMm + box.h / 2)), 0, maxBottom)
+      clamp(frameWMm - (xMm + box.w / 2), frameWMm - box.w),
+      clamp(frameHMm - (yMm + box.h / 2), frameHMm - box.h)
     );
   };
 
@@ -1745,40 +1853,51 @@ function SealPreview({ business, type, config, onPlace }) {
           touchAction: onPlace ? "none" : undefined,
         }}
       >
-        <span
-          style={{
-            position: "absolute",
-            inset: 0,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: 10,
-            color: "#cbd5e1",
-            letterSpacing: "0.08em",
-            textTransform: "uppercase",
-            pointerEvents: "none",
-          }}
-        >
-          A4 preview
-        </span>
+        {/* The sheet's 10 mm printable margin — the invoice sits inside it,
+            exactly where the PDF places the captured page. */}
         <div
           style={{
             position: "absolute",
-            right: variantCfg.rightMm * scale,
-            bottom: variantCfg.bottomMm * scale,
-            width: box.w * scale,
-            height: box.h * scale,
+            left: marginPx,
+            top: marginPx,
+            right: marginPx,
+            bottom: marginPx,
+            border: "1px dashed #e2e8f0",
+            pointerEvents: "none",
+          }}
+        />
+        <div
+          ref={frameRef}
+          style={{
+            position: "absolute",
+            left: frameLeft,
+            top: marginPx,
+            transform: `scale(${scale})`,
+            transformOrigin: "top left",
+            // The sheet itself owns the clicks; the document only shows.
+            pointerEvents: "none",
           }}
         >
-          <SealMark business={business} type={variant} config={cfg} pxWidth={box.w * scale} />
+          <InvoicePDF
+            business={previewBusiness}
+            customer={SEAL_PREVIEW_CUSTOMER}
+            form={SEAL_PREVIEW_FORM}
+            items={SEAL_PREVIEW_ITEMS}
+            discountPercent="0"
+            type="TAX_INVOICE"
+            invoiceNumber="INV-2026-001"
+          />
+          {/* Same overlay the shared link renders, anchored to the frame we
+              just measured — pixel-identical placement logic. */}
+          <SealOverlay business={previewBusiness} type={variant} config={cfg} />
         </div>
       </div>
       <p className="text-[10px] text-slate-400">
-        {box.w.toFixed(0)}×{box.h.toFixed(0)} mm · {variantCfg.tilt}° · {variantCfg.rightMm}/{variantCfg.bottomMm} mm from edges
+        {box.w.toFixed(0)}×{box.h.toFixed(0)} mm · {variantCfg.tilt}° · {variantCfg.rightMm}/{variantCfg.bottomMm} mm from the invoice’s bottom-right corner
       </p>
       {onPlace && (
-        <p className="text-[10px] text-slate-400 italic">Click or tap anywhere on the page to place the seal</p>
+        <p className="text-[10px] text-slate-400 italic">Click or tap anywhere on the invoice to place the seal</p>
       )}
     </div>
   );
-}
+});

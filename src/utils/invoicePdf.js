@@ -141,6 +141,16 @@ export async function buildInvoicePdf(element, paperSizeId, fit = 1) {
   let pageStartPx = 0;
   let isFirstPage = true;
 
+  // The invoice's content-frame geometry, in millimetres from the paper's
+  // top-left: the raster is placed at (LEFT, 10) on every page, so the frame's
+  // right edge is shared and each page's bottom is 10 + its slice height. The
+  // bottom is capped at the usable content box so an over-full slice can never
+  // anchor the seal past the printable area. This is the SAME frame the
+  // on-screen overlay (and the shared invoice link) measures from — the seal is
+  // stamped against it instead of the paper edges, so the printed mark lands
+  // where the owner placed it.
+  const frame = { right: LEFT + CONTENT_W, bottoms: [] };
+
   while (pageStartPx < canvas.height) {
     const pageEndLimit = pageStartPx + onePagePx;
 
@@ -161,6 +171,7 @@ export async function buildInvoicePdf(element, paperSizeId, fit = 1) {
     const sliceHeightPx = pageEndPx - pageStartPx;
     if (sliceHeightPx <= 0) break;
     const sliceHeightMM = sliceHeightPx * pxToMm;
+    frame.bottoms.push(Math.min(10 + sliceHeightMM, 10 + PAGE_H));
 
     const sliceCanvas = document.createElement("canvas");
     sliceCanvas.width = canvas.width;
@@ -210,9 +221,10 @@ export async function buildInvoicePdf(element, paperSizeId, fit = 1) {
     isFirstPage = false;
   }
 
-  // Every page gets the seal at the configured size/tilt, anchored to the
-  // paper's right/bottom edge — not just the last page's footer.
-  await stampSealOnEveryPage(pdf, element);
+  // Every page gets the seal at the configured size/tilt, anchored to that
+  // page's content frame — the same spot the shared link shows it — so the
+  // mark can never drift down/right into the printer's non-printable margin.
+  await stampSealOnEveryPage(pdf, element, frame);
 
   return pdf;
 }

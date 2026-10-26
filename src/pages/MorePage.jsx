@@ -2,7 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import {
   Plus, List, Users, UserPlus, Package, FileText,
-  Settings, LogOut, CreditCard, UserCheck, Shield, ClipboardList
+  Settings, LogOut, CreditCard, UserCheck, Shield, ClipboardList, KeyRound
 } from "lucide-react";
 
 export default function MorePage() {
@@ -56,6 +56,7 @@ export default function MorePage() {
               { label: "View Customers", icon: Users, path: "/customers" },
               { label: "Product Items", icon: Package, path: "/products" },
               { label: "Payments", icon: CreditCard, path: "/payments" },
+              { label: "Personal Access Tokens", icon: KeyRound, path: "/settings/pats" },
               ...(isAdmin ? [
                 { label: "All Users", icon: UserCheck, path: "/admin/users-list", badge: "Admin" },
                 { label: "All Invoices", icon: FileText, path: "/admin/invoices", badge: "Admin" },

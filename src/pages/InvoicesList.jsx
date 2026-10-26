@@ -12,6 +12,7 @@ import { ArrowLeft, FileText, Download, PlusCircle, Share2, Trash2, Search, X, L
 import WhatsAppIcon from "../components/WhatsAppIcon";
 import { downloadInvoicePDF, preloadInvoicePdf } from "../utils/downloadInvoicePdf";
 import { exportInvoicesExcel, invoiceMatchesFilters } from "../utils/exportInvoicesExcel";
+import { applyInvoiceSeal } from "../utils/seal";
 import InvoiceTemplateRenderer from "../components/InvoiceTemplateRenderer";
 import { getInvoiceTemplate } from "../constants/paperSizes";
 import { buildInvoiceWhatsAppMessage, openWhatsAppChat } from "../utils/whatsapp";
@@ -213,7 +214,7 @@ export default function InvoicesList() {
                 waitForPaint(el).then(() => downloadInvoicePDF(el, filename)).then(resolve).catch(reject);
               }
             }}
-            business={business}
+            business={applyInvoiceSeal(business, invoice)}
             customer={{
               name: invoice.customerName || "",
               billingAddress: invoice.billingAddress || "",

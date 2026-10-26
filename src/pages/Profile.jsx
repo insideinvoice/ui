@@ -13,11 +13,13 @@ import { formatJurisdiction } from "../utils/jurisdiction";
 import { JURISDICTION_CENTRES } from "../constants/indianRegions";
 import { INDUSTRY_LIST, DEFAULT_INDUSTRY, INDUSTRY_PROFILES } from "../constants/industryConfig";
 import toast from "react-hot-toast";
-import { User, Lock, Upload, Trash2, Pen, Eye, EyeOff, Landmark, Building, Image as ImageIcon, MapPin, Stamp, Check, X, Info, ScrollText, Plus, Settings, ChevronDown, FileSignature, Images } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { User, Lock, Upload, Trash2, Pen, Eye, EyeOff, Landmark, Building, Image as ImageIcon, MapPin, Stamp, Check, X, Info, ScrollText, Plus, Settings, ChevronDown, FileSignature, Images, KeyRound } from "lucide-react";
 import PageHeader from "../components/PageHeader";
 
 export default function Profile() {
   const { user, setUser, refreshBusiness } = useAuth();
+  const navigate = useNavigate();
 
   // The field edits the Instagram-style handle: the same value feeds both
   // name and username. originalName tracks the SAVED value (setUser below
@@ -1607,15 +1609,20 @@ export default function Profile() {
           </div>
         </div>
 
+        {/* Half-width pair — Terms and Ghost Mode share one row from sm up,
+            stacked one-below-the-other on phones. Own nested grid so the rest
+            of the settings cards keep their current breakpoints. */}
+        <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-6">
         {/* Terms & Conditions — up to five lines the owner writes once; the
             invoice footer prints them on every invoice (template rendering
             lands with the redesign — this stores the data). Same read-only +
-            pencil pattern as the other cards. */}
-        <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+            pencil pattern as the other cards. Half-width (one of the two
+            columns) so it shares its row with Ghost Mode. */}
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
           <div className="flex items-center gap-2 mb-5">
             <ScrollText className="w-5 h-5 text-slate-600" />
             <h2 className="text-base font-semibold text-slate-900">Terms &amp; Conditions</h2>
-            <span className="ml-auto text-[11px] text-slate-400 hidden sm:block">Up to 5 lines · max 20 words each · printed on every invoice</span>
+            <span className="ml-auto text-[11px] text-slate-400 hidden xl:block truncate min-w-0" title="Up to 5 lines · max 20 words each · printed on every invoice">Up to 5 lines · max 20 words each · printed on every invoice</span>
             {!editingTerms && (
               <button type="button" onClick={startTermsEdit}
                 title="Edit terms & conditions" aria-label="Edit terms and conditions"
@@ -1702,9 +1709,9 @@ export default function Profile() {
           )}
         </div>
 
-        {/* Ghost Mode — moved out of the profile card to its own card at the
-            very end of the settings page, below Business Logo & Signature. */}
-        <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+        {/* Ghost Mode — the last of the half-width pair: sits next to Terms &
+            Conditions so the two small cards share one row. */}
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2 min-w-0">
               <Eye className="w-5 h-5 text-slate-600" />
@@ -1734,6 +1741,26 @@ export default function Profile() {
               ? "On — enter invoice numbers manually on the invoice form. Auto-numbering resumes the moment it is off."
               : "Off — invoice numbers are generated automatically. Turn it on to enter numbers yourself."}
           </p>
+        </div>
+        </div>
+
+        {/* Personal Access Tokens — kept at the very end of settings, after
+            Ghost Mode: it is an integration concern, not an everyday one.
+            "Manage tokens" routes to /settings/pats. */}
+        <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 shrink-0 rounded-lg bg-slate-100 flex items-center justify-center">
+              <KeyRound className="w-5 h-5 text-slate-600" />
+            </div>
+            <div className="min-w-0">
+              <h2 className="text-base font-semibold text-slate-900">Personal Access Tokens</h2>
+              <p className="text-xs text-slate-500 mt-0.5">Create tokens for third-party integrations to call the Inside Invoice APIs</p>
+            </div>
+          </div>
+          <button type="button" onClick={() => navigate("/settings/pats")}
+            className="shrink-0 px-4 py-2 bg-slate-800 text-white text-sm font-semibold rounded-lg hover:bg-slate-700 transition-all shadow-sm">
+            Manage tokens
+          </button>
         </div>
         </div>
         </div>

@@ -117,6 +117,9 @@ const sections = (isAdmin, documentAccess) => {
       ],
     },
   ] : []),
+  // The PAT entry used to live in its own "Settings" section here; it moved
+  // to a card at the END of the Settings page instead. The footer Settings
+  // button below still opens /settings, so nothing is lost.
   ];
 };
 

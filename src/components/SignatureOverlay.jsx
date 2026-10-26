@@ -1,3 +1,4 @@
+import { forwardRef } from "react";
 import { PX_PER_MM, normalizeSealConfig, signatureBoxMm } from "../utils/sealConfig";
 
 /**
@@ -8,8 +9,12 @@ import { PX_PER_MM, normalizeSealConfig, signatureBoxMm } from "../utils/sealCon
  * keeps its inline signature image untouched, so existing documents never
  * change appearance. The overlay floats above the frame like the seal, and
  * travels with drag-placement in the Settings preview.
+ *
+ * The optional ref points at the <img> itself so the placement modal can hit-
+ * test it on pointerdown (grab the signature where it is instead of making
+ * its corner jump to the cursor).
  */
-export default function SignatureOverlay({
+const SignatureOverlay = forwardRef(function SignatureOverlay({
   business,
   sigSrc,
   config,
@@ -17,7 +22,7 @@ export default function SignatureOverlay({
   pxPerMm = PX_PER_MM,
   insetMm = 0,
   bleedMm = 0,
-}) {
+}, ref) {
   if (!sigSrc) return null;
   const cfg = normalizeSealConfig(config || business?.sealConfig || null);
   const sig = cfg.signature;
@@ -30,6 +35,7 @@ export default function SignatureOverlay({
 
   return (
     <img
+      ref={ref}
       src={sigSrc}
       alt=""
       aria-hidden="true"
@@ -49,4 +55,6 @@ export default function SignatureOverlay({
       }}
     />
   );
-}
+});
+
+export default SignatureOverlay;

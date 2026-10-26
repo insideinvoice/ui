@@ -373,7 +373,13 @@ const InvoiceTemplateEInvoice = React.memo(React.forwardRef(
             </div>
             <div style={{ width: "184px", textAlign: "center" }}>
               <div style={{ fontSize: "13px", fontWeight: "bold", paddingTop: "2px" }}>e-Invoice</div>
-              <div style={{ display: "inline-block", marginTop: "8px" }}>
+              <div
+                style={{ display: "inline-block", marginTop: "8px" }}
+                // The exact string handed to the QR encoder, so an automated
+                // check can assert what the code really carries (it is the
+                // same data already printed on the invoice — nothing extra).
+                data-qr-payload={qrPayload}
+              >
                 <QRCodeSVG value={qrPayload} size={150} level="M" />
               </div>
             </div>

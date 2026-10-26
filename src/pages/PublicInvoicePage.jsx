@@ -160,6 +160,11 @@ export default function PublicInvoicePage() {
   const typeOverride = requestedType === "PROFORMA_INVOICE" || requestedType === "TAX_INVOICE"
     ? requestedType
     : null;
+  // ?print=1 — consumed ONLY by the server's headless PDF engine: the backend
+  // prints this page so API/PAT emails can attach the exact template the user
+  // selected in the UI. A human visitor never sees this mode (no flag, no
+  // chrome, no viewer — just the sheet the engine photographs).
+  const printMode = (searchParams.get("print") || "") === "1";
   const [status, setStatus] = useState("loading");
   const [data, setData] = useState(null);
   const [actionError, setActionError] = useState("");
@@ -191,9 +196,10 @@ export default function PublicInvoicePage() {
   // the "stuck, can't move freely after zooming" feel. With the document
   // locked, every gesture is owned by the viewer engine (<ZoomPanViewer>).
   useEffect(() => {
+    if (printMode) return undefined; // the print sheet must not fight the printed layout
     document.documentElement.classList.add("pip-locked");
     return () => document.documentElement.classList.remove("pip-locked");
-  }, []);
+  }, [printMode]);
 
   const paperSize = data?.paperSize || "A4_PORTRAIT";
   const widthPx = PAPER_WIDTH[paperSize] || 794;
@@ -373,6 +379,17 @@ export default function PublicInvoicePage() {
   }
 
   const docKind = renderType === "PROFORMA_INVOICE" ? "Proforma invoice" : "Tax invoice";
+
+  if (printMode) {
+    return (
+      <PrintSheet
+        data={data}
+        templateProps={templateProps}
+        renderType={renderType}
+        paperSize={paperSize}
+      />
+    );
+  }
 
   return (
     <div

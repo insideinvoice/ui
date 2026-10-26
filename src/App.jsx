@@ -45,6 +45,7 @@ import AdminUserWorkspace from "./pages/AdminUserWorkspace";
 import AdminBusinessesList from "./pages/AdminBusinessesList";
 import AdminCustomersList from "./pages/AdminCustomersList";
 import AdminInvoicesList from "./pages/AdminInvoicesList";
+import PatManagement from "./pages/PatManagement";
 import CustomersList from "./pages/CustomersList";
 import DeliveryChallanForm from "./pages/DeliveryChallanForm";
 import DeliveryChallansList from "./pages/DeliveryChallansList";
@@ -153,6 +154,7 @@ function AppRoutes() {
       <Route path="/settings" element={<PrivateRoute><Profile /></PrivateRoute>} />
       <Route path="/more" element={<PrivateRoute><MorePage /></PrivateRoute>} />
       <Route path="/profile" element={<Navigate to="/settings" replace />} />
+      <Route path="/settings/pats" element={<PrivateRoute><PatManagement /></PrivateRoute>} />
       <Route path="/admin/users" element={<PrivateRoute><AdminAddUsers /></PrivateRoute>} />
       <Route path="/admin/users-list" element={<PrivateRoute><AdminUsersList /></PrivateRoute>} />
       <Route path="/admin/users/:userId" element={<PrivateRoute><AdminUserWorkspace /></PrivateRoute>} />

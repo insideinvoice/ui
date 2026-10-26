@@ -19,6 +19,7 @@ import { getPrintSettings, getInvoiceTemplate } from "../constants/paperSizes";
 import EInvoiceDetailsPanel from "../components/EInvoiceDetailsPanel";
 import { computeInvoiceTotals, round2 } from "../utils/invoiceTotals";
 import { resolveTaxMode, validateTaxMode } from "../utils/taxMode";
+import { applyInvoiceSeal } from "../utils/seal";
 import { goBack } from "../utils/navigation";
 import { INDIAN_STATES, DELIVERY_TERMS, PAYMENT_TERMS } from "../constants/indianStates";
 import { UNITS } from "../constants/units";
@@ -225,6 +226,9 @@ export default function InvoiceView() {
   // Baseline for the Save/Cancel enable check: the editable state exactly as
   // last loaded/saved. Null until the invoice finishes loading.
   const [savedBaseline, setSavedBaseline] = useState(null);
+  // The Summary block at the bottom of the Actions card collapses to give the
+  // rail more room on phones — open by default so totals show immediately.
+  const [summaryOpen, setSummaryOpen] = useState(true);
   const discountVal = parseFloat(discountPercent) || 0;
   const [business, setBusiness] = useState(null);
   // NOTE: these must come after `business` is declared — reading `business` from
@@ -525,10 +529,14 @@ export default function InvoiceView() {
           /* customer record may be deleted — render without contact details */
         }
       }
-      setBusiness(bizRes?.data?.data || null);
-      // Seed the seal type from the saved business profile so the radio and the
-      // rendered document agree with what the share page/email will show.
-      if (bizRes?.data?.data?.sealType) setSealType(bizRes.data.data.sealType);
+      const bizData = bizRes?.data?.data || null;
+      // Per-invoice seal (V51): an API/PAT invoice may pin ROUND/STAMP/NONE —
+      // it overrides the business profile for THIS document only.
+      const effectiveBusiness = applyInvoiceSeal(bizData, inv);
+      setBusiness(effectiveBusiness);
+      // Seed the seal type so the radio and the rendered document agree with
+      // what the share page/email will show (invoice override first).
+      if (effectiveBusiness?.sealType) setSealType(effectiveBusiness.sealType);
       // Restore a share token the user already consented to on this device, so
       // the first WhatsApp/share tap needs no network and stays in-gesture.
       const cachedToken = readCachedShareToken(id);
@@ -1159,6 +1167,9 @@ export default function InvoiceView() {
         {/* Two columns in BOTH modes: the right rail (Discount / Company
             Stamp / Actions) stays visible while editing — the Actions card
             carries Save/Cancel in edit mode. */}
+        <div className="w-full mb-6">
+          <EInvoiceDetailsPanel invoiceId={id} />
+        </div>
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.34fr)] side-fixed-grid">
           <div ref={leftPaneRef} className="space-y-6">
             {/* Seller & Buyer Info */}
@@ -1507,10 +1518,10 @@ export default function InvoiceView() {
             {/* Government-generated e-invoice registration details (IRN, ack,
                 signed QR) — read-only, backend-driven; hidden entirely while
                 e-invoicing is disabled for the business. */}
-            <EInvoiceDetailsPanel invoiceId={id} />
-            {/* Discount + Company Stamp are EDIT-ONLY controls: set them here,
-                save, then come back and download — the read-only rail keeps
-                just the actions and the invoice facts. */}
+            {/* Discount is an EDIT-ONLY control; the Company Stamp card below
+                is too: whatever seal was saved (at creation or last edit) is
+                the one the view, share link and download print. To switch
+                round/stamp the owner enters Edit, saves, then downloads. */}
             {isEditing && (
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
               <div className="flex items-center justify-between mb-3">
@@ -1586,7 +1597,7 @@ export default function InvoiceView() {
               )}
             </div>
             )}
-            {sealEnabled && (
+            {isEditing && sealEnabled && (
               <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
                 <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Company Stamp</h3>
                 <div className="space-y-2 md:space-y-0 md:flex md:items-center md:gap-4">
@@ -1738,8 +1749,20 @@ export default function InvoiceView() {
               </div>
 
               <div className="mt-6 pt-4 border-t border-slate-100">
-                <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Summary</h3>
-                <div className="space-y-2 text-sm">
+                {/* Collapsible: whole header row is the toggle, open by
+                    default. Chevron flips up while open (standard accordion). */}
+                <button
+                  type="button"
+                  onClick={() => setSummaryOpen((o) => !o)}
+                  aria-expanded={summaryOpen}
+                  aria-controls="invoice-view-summary"
+                  className="w-full flex items-center justify-between gap-2 group -mt-1 pt-1"
+                >
+                  <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Summary</h3>
+                  <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform group-hover:text-slate-600 ${summaryOpen ? "rotate-180" : ""}`} />
+                </button>
+                {summaryOpen && (
+                <div id="invoice-view-summary" className="space-y-2 text-sm mt-3">
                   <div className="flex justify-between">
                     <span className="text-slate-500">Items:</span>
                     <span className="font-semibold text-slate-800">{validItemsCount}</span>
@@ -1767,6 +1790,7 @@ export default function InvoiceView() {
                     <span className="font-mono text-right [overflow-wrap:anywhere]">{breakAtGroups(`Rs. ${fmt(totals.grandTotal)}`)}</span>
                   </div>
                 </div>
+                )}
               </div>
             </div>
           </div>

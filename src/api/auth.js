@@ -197,3 +197,8 @@ export const adminAPI = {
   // SQL-side aggregates (KPIs/charts) — { businessId? } → SalesAnalyticsResponse.
   getSalesAnalytics: (params) => api.get("/admin/sales-analytics", { params }),
 };
+export const patAPI = {
+  list: () => api.get("/pats"),
+  create: (data) => api.post("/pats", data),
+  revoke: (id) => api.delete(`/pats/${id}`),
+};

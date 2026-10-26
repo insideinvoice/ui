@@ -47,6 +47,14 @@ const ITEM_COLS = [
 ];
 const TABLE_W = ITEM_COLS.reduce((s, c) => s + c.w, 0);
 
+/**
+ * The content frame's pixel width. Exported because anything that places a
+ * mark RELATIVE to this frame (the signature placement modal's preview) must
+ * use the same number — the sheet is A4 and this box sits centred on it with
+ * ~10 mm margins, exactly as the PDF path mounts it (10 mm frame origin).
+ */
+export const INVOICE_PDF_WIDTH_PX = TABLE_W + 2;
+
 const tStyle = {
   width: "100%",
   borderCollapse: "separate",
@@ -102,7 +110,7 @@ const InvoicePDF = React.memo(React.forwardRef(({ business, customer, form, item
       // every other template); its 46px comes out of Description.
       return cols.flatMap((c) => (c.key === "desc" ? [{ ...c, w: c.w - 46 }] : c.key === "per" ? [c, { w: 46, key: "disc" }] : [c]));
     },
-    [showHnSac],
+    [showHnSac, discountType],
   );
   const rightRowsRaw = getTemplateRightRows(industryConfig, form, displayInvNo, isProforma);
   // The right meta column is a fixed part of the classic GST layout (13 ruled
@@ -140,7 +148,7 @@ const InvoicePDF = React.memo(React.forwardRef(({ business, customer, form, item
       ref={ref}
       data-ii-seal-spec={sealSpecAttribute(business)}
       style={{
-      width: `${TABLE_W + 2}px`,
+      width: `${INVOICE_PDF_WIDTH_PX}px`,
       margin: "0 auto",
       background: "#fff",
       fontFamily: "Arial, Helvetica, sans-serif",

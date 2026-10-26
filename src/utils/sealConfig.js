@@ -8,9 +8,12 @@ import { resolveSeal } from "./seal.js";
 export const PX_PER_MM = 96 / 25.4;
 
 /**
- * Built-in defaults. These reproduce the historical look: the round seal at
- * its 80 px A4 diameter, the rubber stamp at its 240 px width, both in the
- * bottom-right corner with the components' hand-stamped tilts.
+ * Built-in defaults. The mark sits NEXT TO the Authorised Signatory band:
+ * horizontally its right edge lands just left of the signatory label (the
+ * band's text starts ~42-52 mm from the paper's right edge), vertically its
+ * centre rides the signature band above the footer (~24 mm up the sheet).
+ * Owners can still drag it anywhere in Settings — these values are only the
+ * out-of-the-box placement, with the components' hand-stamped tilts.
  *
  * allPages defaults to OFF — a fresh business stamps only the final page, the
  * one carrying the grand total and the signature band. Owners opt into
@@ -18,8 +21,8 @@ export const PX_PER_MM = 96 / 25.4;
  */
 export const SEAL_DEFAULTS = Object.freeze({
   allPages: false,
-  round: Object.freeze({ sizeMm: 21, tilt: -8, rightMm: 10, bottomMm: 8, color: "#0A4BFF" }),
-  stamp: Object.freeze({ sizeMm: 64, tilt: -6, rightMm: 10, bottomMm: 8, color: "#0000CC" }),
+  round: Object.freeze({ sizeMm: 21, tilt: -8, rightMm: 48, bottomMm: 14, color: "#0A4BFF" }),
+  stamp: Object.freeze({ sizeMm: 64, tilt: -6, rightMm: 48, bottomMm: 12, color: "#0000CC" }),
 });
 
 /**
@@ -82,7 +85,13 @@ export const SIGNATURE_LIMITS = Object.freeze({
   maxSize: 140,
   minTilt: -45,
   maxTilt: 45,
-  minEdge: -SEAL_MARGIN_MM,
+  // Rendered reality, not aspiration: templates render SignatureOverlay with
+  // bleed 0, so any negative gap is floored at the CONTENT frame's edge — a
+  // saved negative value would show in Settings yet print somewhere else (and
+  // the PDF captures the content box, so past-it positions could be cut).
+  // 0 = the honest bound: the signature's corner may sit exactly on the
+  // frame's edge and travels inward from there.
+  minEdge: 0,
   maxEdge: SEAL_PAGE.widthMm,
 });
 

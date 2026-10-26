@@ -1,12 +1,14 @@
 import assert from "node:assert/strict";
 import { normalizeSealConfig, normalizeSealColor, SEAL_DEFAULTS, sealBoxMm, sealEdgeRange, sealSpecAttribute } from "../src/utils/sealConfig.js";
 
-// Defaults preserve the historical round/stamp geometry, but multi-page is OFF:
-// a fresh business stamps only the final page (grand total + signature).
+// Defaults park the mark next to the Authorised Signatory band (right edge
+// ~48 mm from the paper's right edge, centre riding the signature band), and
+// multi-page is OFF: a fresh business stamps only the final page (grand total
+// + signature).
 const defaults = normalizeSealConfig(null);
 assert.equal(defaults.allPages, false);
-assert.deepEqual(defaults.round, { sizeMm: 21, tilt: -8, rightMm: 10, bottomMm: 8, color: "#0A4BFF" });
-assert.deepEqual(defaults.stamp, { sizeMm: 64, tilt: -6, rightMm: 10, bottomMm: 8, color: "#0000CC" });
+assert.deepEqual(defaults.round, { sizeMm: 21, tilt: -8, rightMm: 48, bottomMm: 14, color: "#0A4BFF" });
+assert.deepEqual(defaults.stamp, { sizeMm: 64, tilt: -6, rightMm: 48, bottomMm: 12, color: "#0000CC" });
 
 // Colour normalises to upper-case #RRGGBB; the historical inks are the
 // fallback, so a config saved before colour existed renders unchanged.

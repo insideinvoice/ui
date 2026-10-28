@@ -518,27 +518,55 @@ export default function PublicInvoicePage() {
  * "ii-print|<paperSize>|<template>|<WxH>".
  */
 function PrintSheet({ data, templateProps, renderType, paperSize }) {
-  // The paper width is ALWAYS known from paperSize — it must never be derived
-  // from viewport-dependent intrinsic sizing. A fit-content wrapper resolved
-  // to the headless viewport width in one observed run, which printed the
-  // invoice parked small in the top-left of an oversized page. Pin the page
-  // box to the paper; only the height is measured from real layout.
-  const paperWidth = PAPER_WIDTH[paperSize] || 794;
+  // The printed sheet is ALWAYS the full fixed paper — never a crop to content.
+  // The manual (UI) download lays the invoice onto the whole page so the A4's
+  // own white space above the title and below the footer is part of the
+  // document; the headless print must be ditto. Paper px @96dpi mirrors the
+  // renderer's PAPER_WIDTHS and the manual PDF_DIMENSIONS (mm → px exact).
+  const FIXED_PAPER = {
+    A4_PORTRAIT: [794, 1123],
+    A4_LANDSCAPE: [1123, 794],
+    A5: [559, 794],
+    LETTER: [816, 1056],
+  };
+  const fixed = FIXED_PAPER[paperSize];
+  // Non-thermal papers: the page box is the paper, full stop. A short
+  // invoice leaves the page's white remainder BELOW the content — exactly like
+  // the manual download. Thermal receipts (58/80mm) have no fixed height and
+  // keep the content-fit strip.
+  const pageW = (fixed ? fixed[0] : PAPER_WIDTH[paperSize]) || 794;
+  // ~10mm top_page breathing on paper-sized pages, mirroring the manual
+  // builder's 10mm top margin; 0 for thermal strips.
+  const topMm = fixed ? 10 : 0;
+  const [pageH, setPageH] = useState(fixed ? fixed[1] : 1123);
   const sheetWrapRef = useRef(null);
   const [pageRule, setPageRule] = useState(
-    `@page { size: ${paperWidth}px 1123px; margin: 0; }`
+    `@page { size: ${pageW}px ${pageH}px; margin: ${topMm}mm 0 0 0; }`
   );
 
   useEffect(() => {
     let alive = true;
     (async () => {
+      if (fixed) {
+        // Paper-sized page: geometry is static, nothing to measure. Fonts and
+        // images still must settle before the engine prints.
+        try {
+          if (document.fonts && document.fonts.ready) await document.fonts.ready;
+        } catch {
+          // older engines without document.fonts — proceed with what we have
+        }
+        await new Promise((resolve) => setTimeout(resolve, 150));
+        if (!alive) return;
+        document.title = `ii-print|${paperSize}|${data?.template || "default"}|${pageW}x${pageH}`;
+        document.body.setAttribute("data-ii-print-ready", "true");
+        return;
+      }
+      // Thermal strip: pin the width, fit the height to the rendered receipt.
       try {
         if (document.fonts && document.fonts.ready) await document.fonts.ready;
       } catch {
         // older engines without document.fonts — proceed with what we have
       }
-      // Base64 logo/signature decode asynchronously; wait for every image so
-      // the measured height is the FINAL layout, then cap the wait.
       const pending = Array.from(document.images || [])
         .filter((img) => !img.complete)
         .map((img) => new Promise((resolve) => {
@@ -551,21 +579,21 @@ function PrintSheet({ data, templateProps, renderType, paperSize }) {
       if (!alive || !sheetWrapRef.current) return;
       const el = sheetWrapRef.current;
       const rect = el.getBoundingClientRect();
-      // scrollHeight covers absolutely-positioned paper pieces that getRect misses
       const height = Math.ceil(Math.max(rect.height, el.scrollHeight || 0, 100));
-      setPageRule(`@page { size: ${paperWidth}px ${height}px; margin: 0; }`);
+      setPageH(height);
+      setPageRule(`@page { size: ${pageW}px ${height}px; margin: 0; }`);
       await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
       if (!alive) return;
-      document.title = `ii-print|${paperSize}|${data?.template || "default"}|${paperWidth}x${height}`;
+      document.title = `ii-print|${paperSize}|${data?.template || "default"}|${pageW}x${height}`;
       document.body.setAttribute("data-ii-print-ready", "true");
     })();
     return () => { alive = false; };
-  }, [paperSize, data?.template, paperWidth]);
+  }, [fixed, pageW, pageH, paperSize, data?.template]);
 
   return (
     <div style={{ background: "#ffffff", margin: 0, padding: 0 }}>
       <style>{pageRule}</style>
-      <div ref={sheetWrapRef} style={{ width: `${paperWidth}px`, margin: 0, background: "#ffffff" }}>
+      <div ref={sheetWrapRef} style={{ width: `${pageW}px`, margin: 0, background: "#ffffff" }}>
         <InvoiceTemplateRenderer
           business={templateProps.business}
           customer={templateProps.customer}

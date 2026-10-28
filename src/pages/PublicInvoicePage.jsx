@@ -505,3 +505,76 @@ export default function PublicInvoicePage() {
     </div>
   );
 }
+
+/**
+ * ?print=1 sheet — consumed ONLY by the server's headless PDF engine (the
+ * backend prints this page to attach the exact template to API/PAT emails).
+ * Renders exclusively the document — no toolbar, no zoom viewer — then, once
+ * fonts and images have settled, measures the sheet's real pixel geometry and
+ * pins the matching @page rule so Chromium's output is 1:1 with the on-screen
+ * paper (CSS px in, CSS px out — no mm rounding drift). Finally it flips
+ * body[data-ii-print-ready] so the engine knows everything is rendered.
+ * document.title doubles as a machine-readable label:
+ * "ii-print|<paperSize>|<template>".
+ */
+function PrintSheet({ data, templateProps, renderType, paperSize }) {
+  const sheetWrapRef = useRef(null);
+  const [pageRule, setPageRule] = useState(
+    `@page { size: ${PAPER_WIDTH[paperSize] || 794}px 1123px; margin: 0; }`
+  );
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        if (document.fonts && document.fonts.ready) await document.fonts.ready;
+      } catch {
+        // older engines without document.fonts — proceed with what we have
+      }
+      // Base64 logo/signature decode asynchronously; wait for every image so
+      // the measured height is the FINAL layout, then cap the wait.
+      const pending = Array.from(document.images || [])
+        .filter((img) => !img.complete)
+        .map((img) => new Promise((resolve) => {
+          img.onload = resolve;
+          img.onerror = resolve;
+        }));
+      if (pending.length) {
+        await Promise.race([Promise.all(pending), new Promise((r) => setTimeout(r, 4000))]);
+      }
+      if (!alive || !sheetWrapRef.current) return;
+      const el = sheetWrapRef.current;
+      const rect = el.getBoundingClientRect();
+      // scrollHeight covers absolutely-positioned paper pieces that getRect misses
+      const height = Math.ceil(Math.max(rect.height, el.scrollHeight || 0));
+      setPageRule(`@page { size: ${Math.ceil(rect.width)}px ${height}px; margin: 0; }`);
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      if (!alive) return;
+      document.title = `ii-print|${paperSize}|${data?.template || "default"}`;
+      document.body.setAttribute("data-ii-print-ready", "true");
+    })();
+    return () => { alive = false; };
+  }, [paperSize, data?.template]);
+
+  return (
+    <div style={{ background: "#ffffff", minHeight: "100dvh", margin: 0, padding: 0 }}>
+      <style>{pageRule}</style>
+      <div ref={sheetWrapRef} style={{ width: "fit-content", margin: 0, background: "#ffffff" }}>
+        <InvoiceTemplateRenderer
+          business={templateProps.business}
+          customer={templateProps.customer}
+          form={templateProps.form}
+          items={templateProps.items}
+          totals={templateProps.totals}
+          discountPercent={data.discountPercent != null ? String(data.discountPercent) : "0"}
+          taxMode={templateProps.taxMode}
+          discountType={templateProps.discountType === "INDIVIDUAL" ? "INDIVIDUAL" : undefined}
+          type={renderType}
+          invoiceNumber={data.invoiceNumber}
+          paperSize={paperSize}
+          template={data.template || undefined}
+        />
+      </div>
+    </div>
+  );
+}

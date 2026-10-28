@@ -95,6 +95,8 @@ const INDEXABLE_PAGES = {
 
 const NO_INDEX_PATHS = new Set([
   "/login",
+  "/register",
+  "/verify-email",
   "/forgot-password",
   "/change-password",
   "/video",

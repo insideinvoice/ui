@@ -79,7 +79,18 @@ export default function AuthPage() {
         navigate(data.businessSetupCompleted ? "/dashboard" : "/business-setup");
       }
     } catch (err) {
-      const message = err.response?.data?.message || err.response?.data?.error || "Something went wrong. Please try again.";
+      const status = err.response?.status;
+      const body = err.response?.data;
+      // Correct credentials but the inbox was never proven: 403 with a machine
+      // code (never 401 — that would trigger the axios force-logout). Send the
+      // visitor to the OTP screen with the address pre-filled; the backend
+      // re-mailable there via "Resend code".
+      if (status === 403 && body?.code === "EMAIL_NOT_VERIFIED") {
+        const email = String(formData.email || "").trim().toLowerCase();
+        navigate(`/verify-email?email=${encodeURIComponent(email)}`, { replace: true });
+        return;
+      }
+      const message = body?.message || body?.error || "Something went wrong. Please try again.";
       setApiError(message);
     } finally {
       setIsLoading(false);
@@ -362,6 +373,18 @@ export default function AuthPage() {
                   className="text-slate-900 font-semibold hover:underline"
                 >
                   Sign in
+                </Link>
+              </p>
+            )}
+
+            {!isForgotMode && (
+              <p className="mt-5 text-center text-[13px] text-slate-500">
+                Don&apos;t have an account?{" "}
+                <Link
+                  to="/register"
+                  className="text-slate-900 font-semibold hover:underline"
+                >
+                  Create account
                 </Link>
               </p>
             )}

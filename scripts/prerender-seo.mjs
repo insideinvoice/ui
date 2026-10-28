@@ -420,6 +420,7 @@ const pages = [
   // sitemap; /i/* is routed to /i/index.html by the static host configs.
   ...[
     "/login",
+    "/register",
     "/forgot-password",
     "/change-password",
     "/video",

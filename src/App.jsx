@@ -17,6 +17,8 @@ import InsideInvoiceVideoTutorials from "./Landing/InsideInvoiceVideoTutorials";
 import GSTCalculator from "./Landing/Services/GSTCalculator";
 import QRCodeGenerator from "./Landing/Services/QRCodeGenerator";
 import Login from "./Authentication/Login";
+import Register from "./Authentication/Register";
+import VerifyEmail from "./Authentication/VerifyEmail";
 import ForgotPassword from "./Authentication/ForgotPassword";
 import ChangePassword from "./Authentication/ChangePassword";
 import BarcodeGenerator from "./Landing/Services/BarcodeGenerator";
@@ -80,7 +82,7 @@ const PUBLIC_PATHS = [
   // "/i" — NOT "/i/": the matcher below tests startsWith(path + "/"), so a
   // trailing-slash entry would demand "/i//<token>" and never match, which is
   // how the logged-in owner's own share link ended up wearing the app sidebar.
-  "/", "/i", "/login", "/forgot-password", "/change-password",
+  "/", "/i", "/login", "/register", "/verify-email", "/forgot-password", "/change-password",
   "/privacy-policy", "/terms-and-condition", "/refund-policy", "/updates",
   "/contact", "/documentation", "/help", "/video", "/gst-calculator",
   "/qr-generator", "/barcode-generator", "/business-card",
@@ -110,6 +112,8 @@ function AppRoutes() {
       <Routes>
       <Route path="/" element={<GSTBillingLanding />} />
       <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
+      <Route path="/verify-email" element={<VerifyEmail />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/change-password" element={<ChangePassword />} />
       <Route path="/privacy-policy" element={<PrivacyPolicy />} />

@@ -2,6 +2,13 @@ import api from "./axios";
 
 export const authAPI = {
   signup: (data) => api.post("/auth/signup", data),
+  // Public self-service registration (name/email/password only — the server
+  // derives the username, provisions the business and forces the USER role).
+  // Returns an email-verification PENDING payload: no session is issued until
+  // verifyEmail accepts the 6-digit code mailed to the address.
+  register: (data) => api.post("/auth/register", data),
+  verifyEmail: (data) => api.post("/auth/verify-email", data),
+  resendVerification: (data) => api.post("/auth/resend-verification", data),
   login: (data) => api.post("/auth/login", data),
   forgotPassword: (data) => api.post("/auth/forgot-password", data),
   resetPassword: (data) => api.post("/auth/reset-password", data),

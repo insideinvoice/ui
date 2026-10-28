@@ -121,9 +121,12 @@ export function AuthProvider({ children }) {
     }).catch(() => {});
   }, [session]);
 
-  const login = useCallback(async (email, password, rememberMe = false) => {
-    const res = await authAPI.login({ email, password, rememberMe });
-    const data = res.data.data;
+  /**
+   * Stores a freshly issued session the same way everywhere one can arrive —
+   * login, and the email-verification step that mints a token too — so the two
+   * entry points can never drift apart.
+   */
+  const adoptSession = useCallback((data, rememberMe = false) => {
     setAuthToken(data.accessToken);
     writeStorage(TOKEN_KEY, data.accessToken);
     writeStorage(USER_KEY, JSON.stringify(data));
@@ -140,6 +143,13 @@ export function AuthProvider({ children }) {
     } else {
       localStorage.removeItem("mustChangePassword");
     }
+    return data;
+  }, []);
+
+  const login = useCallback(async (email, password, rememberMe = false) => {
+    const res = await authAPI.login({ email, password, rememberMe });
+    const data = res.data.data;
+    adoptSession(data, rememberMe);
     // JwtResponse carries no template field — fetch the account copy now,
     // before navigation, so downloads match what share links serve from
     // the server.
@@ -152,7 +162,42 @@ export function AuthProvider({ children }) {
       // Best effort: local/template fallbacks still apply.
     }
     return data;
+  }, [adoptSession]);
+
+  const register = useCallback(async ({ name, email, password }) => {
+    // NO session is issued at sign-up: the server returns an email-verification
+    // pending payload and the visitor is parked on the OTP screen. The session
+    // is created by verifyEmail below, once the inbox is proven.
+    const res = await authAPI.register({
+      name,
+      email,
+      password,
+      confirmPassword: password,
+    });
+    return res.data.data;
   }, []);
+
+  /**
+   * Confirms the mailed 6-digit code and adopts the session the server hands
+   * back — identical bookkeeping to login, so a verified user continues into
+   * the ordinary journey (business setup if it is still outstanding).
+   */
+  const verifyEmail = useCallback(async ({ email, otp }) => {
+    const res = await authAPI.verifyEmail({ email, otp });
+    const data = res.data.data;
+    adoptSession(data);
+    // Same eager profile hydration as login: the template/print settings must
+    // be right before the first invoice renders.
+    try {
+      const profile = await businessAPI.getProfile();
+      const { b, tpl } = applyAccountSettings(profile);
+      if (b) setBusiness(b);
+      if (tpl) setSelectedTemplate(tpl);
+    } catch {
+      // Best effort: local/template fallbacks still apply.
+    }
+    return data;
+  }, [adoptSession]);
 
   const refreshBusiness = useCallback(async () => {
     try {
@@ -236,6 +281,8 @@ export function AuthProvider({ children }) {
     user,
     token,
     login,
+    register,
+    verifyEmail,
     setupBusiness,
     logout,
     setUser,
@@ -252,7 +299,7 @@ export function AuthProvider({ children }) {
     industryConfig,
     documentAccess,
   }), [
-    user, token, login, setupBusiness, logout, setUser, setToken,
+    user, token, login, register, verifyEmail, setupBusiness, logout, setUser, setToken,
     isAuthenticated, isBusinessSetupComplete, isAdmin, mustChangePassword,
     selectedTemplate, updateTemplate, business, refreshBusiness,
     industryConfig, documentAccess,

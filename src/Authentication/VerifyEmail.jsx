@@ -142,6 +142,9 @@ export default function VerifyEmail() {
     setError("");
     try {
       const data = await verifyEmail({ email, otp: code });
+      // Confirmation before we hand off to the app — the redirect is instant,
+      // so without this the user never sees that the code was accepted.
+      toast.success("Email verified! Your account is ready.", { id: "email-verified" });
       // Normal flow resumes exactly where a login would have dropped them.
       navigate(data.businessSetupCompleted ? "/dashboard" : "/business-setup", { replace: true });
     } catch (err) {

@@ -515,12 +515,18 @@ export default function PublicInvoicePage() {
  * paper (CSS px in, CSS px out — no mm rounding drift). Finally it flips
  * body[data-ii-print-ready] so the engine knows everything is rendered.
  * document.title doubles as a machine-readable label:
- * "ii-print|<paperSize>|<template>".
+ * "ii-print|<paperSize>|<template>|<WxH>".
  */
 function PrintSheet({ data, templateProps, renderType, paperSize }) {
+  // The paper width is ALWAYS known from paperSize — it must never be derived
+  // from viewport-dependent intrinsic sizing. A fit-content wrapper resolved
+  // to the headless viewport width in one observed run, which printed the
+  // invoice parked small in the top-left of an oversized page. Pin the page
+  // box to the paper; only the height is measured from real layout.
+  const paperWidth = PAPER_WIDTH[paperSize] || 794;
   const sheetWrapRef = useRef(null);
   const [pageRule, setPageRule] = useState(
-    `@page { size: ${PAPER_WIDTH[paperSize] || 794}px 1123px; margin: 0; }`
+    `@page { size: ${paperWidth}px 1123px; margin: 0; }`
   );
 
   useEffect(() => {
@@ -546,20 +552,20 @@ function PrintSheet({ data, templateProps, renderType, paperSize }) {
       const el = sheetWrapRef.current;
       const rect = el.getBoundingClientRect();
       // scrollHeight covers absolutely-positioned paper pieces that getRect misses
-      const height = Math.ceil(Math.max(rect.height, el.scrollHeight || 0));
-      setPageRule(`@page { size: ${Math.ceil(rect.width)}px ${height}px; margin: 0; }`);
+      const height = Math.ceil(Math.max(rect.height, el.scrollHeight || 0, 100));
+      setPageRule(`@page { size: ${paperWidth}px ${height}px; margin: 0; }`);
       await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
       if (!alive) return;
-      document.title = `ii-print|${paperSize}|${data?.template || "default"}`;
+      document.title = `ii-print|${paperSize}|${data?.template || "default"}|${paperWidth}x${height}`;
       document.body.setAttribute("data-ii-print-ready", "true");
     })();
     return () => { alive = false; };
-  }, [paperSize, data?.template]);
+  }, [paperSize, data?.template, paperWidth]);
 
   return (
-    <div style={{ background: "#ffffff", minHeight: "100dvh", margin: 0, padding: 0 }}>
+    <div style={{ background: "#ffffff", margin: 0, padding: 0 }}>
       <style>{pageRule}</style>
-      <div ref={sheetWrapRef} style={{ width: "fit-content", margin: 0, background: "#ffffff" }}>
+      <div ref={sheetWrapRef} style={{ width: `${paperWidth}px`, margin: 0, background: "#ffffff" }}>
         <InvoiceTemplateRenderer
           business={templateProps.business}
           customer={templateProps.customer}

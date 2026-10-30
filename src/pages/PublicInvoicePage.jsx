@@ -538,10 +538,23 @@ function PrintSheet({ data, templateProps, renderType, paperSize }) {
   // ~10mm top_page breathing on paper-sized pages, mirroring the manual
   // builder's 10mm top margin; 0 for thermal strips.
   const topMm = fixed ? 10 : 0;
+  const topPx = Math.ceil((topMm * 96) / 25.4); // 10mm ≈ 38px @96dpi
   const [pageH, setPageH] = useState(fixed ? fixed[1] : 1123);
   const sheetWrapRef = useRef(null);
+  // The @page rule alone is NOT enough for a pure-white sheet. This app's
+  // global CSS paints html #f8fafc (slate-50) for the viewer chrome, and with
+  // printBackground:true that slate bleeds onto every region of the printed
+  // page no element explicitly paints — the @page top margin band and the
+  // page remainder behind a short invoice (sampled #F8FAFC in the emailed
+  // PDF). Force the print canvas white and flatten in-sheet shadows so the
+  // printed page is #FFFFFF edge to edge — ditto the manual download.
+  const pageStyle = (sizePx, topM) => `
+    @page { size: ${sizePx}; margin: ${topM}mm 0 0 0; }
+    html, body { background: #ffffff !important; margin: 0 !important; padding: 0 !important; }
+    #root { background: #ffffff !important; }
+    #ii-print-sheet, #ii-print-sheet * { box-shadow: none !important; }`;
   const [pageRule, setPageRule] = useState(
-    `@page { size: ${pageW}px ${pageH}px; margin: ${topMm}mm 0 0 0; }`
+    pageStyle(`${pageW}px ${pageH}px`, topMm)
   );
 
   useEffect(() => {
@@ -581,7 +594,7 @@ function PrintSheet({ data, templateProps, renderType, paperSize }) {
       const rect = el.getBoundingClientRect();
       const height = Math.ceil(Math.max(rect.height, el.scrollHeight || 0, 100));
       setPageH(height);
-      setPageRule(`@page { size: ${pageW}px ${height}px; margin: 0; }`);
+      setPageRule(pageStyle(`${pageW}px ${height}px`, 0));
       await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
       if (!alive) return;
       document.title = `ii-print|${paperSize}|${data?.template || "default"}|${pageW}x${height}`;
@@ -591,7 +604,18 @@ function PrintSheet({ data, templateProps, renderType, paperSize }) {
   }, [fixed, pageW, pageH, paperSize, data?.template]);
 
   return (
-    <div style={{ background: "#ffffff", margin: 0, padding: 0 }}>
+    // minHeight = full page minus the @page top margin: this white box paints
+    // the ENTIRE content area, so what remains after a short invoice is
+    // genuine white sheet — never the app's slate canvas showing through.
+    <div
+      id="ii-print-sheet"
+      style={{
+        background: "#ffffff",
+        margin: 0,
+        padding: 0,
+        minHeight: fixed ? pageH - topPx : undefined,
+      }}
+    >
       <style>{pageRule}</style>
       <div ref={sheetWrapRef} style={{ width: `${pageW}px`, margin: 0, background: "#ffffff" }}>
         <InvoiceTemplateRenderer

@@ -23,7 +23,18 @@ export default defineConfig([
       },
     },
     rules: {
-      'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
+      // ignoreRestSiblings: the `const { derived, ...rest }` idiom intentionally
+      // extracts fields to OMIT them (see contentSignature in InvoiceForm.jsx);
+      // without this, every intentionally-dropped key reports as unused.
+      'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]', ignoreRestSiblings: true }],
+    },
+  },
+  {
+    // Vite executes its config in Node, not the browser — `process.cwd()`
+    // there is legitimate, so it needs node globals rather than browser ones.
+    files: ['vite.config.js'],
+    languageOptions: {
+      globals: globals.node,
     },
   },
 ])

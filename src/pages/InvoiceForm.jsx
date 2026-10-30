@@ -1066,9 +1066,10 @@ export default function InvoiceForm() {
   };
 
   // PDF-email send: create the share link, render the SAME client PDF the
-  // Download button produces (seal/stamp included) and POST it. Fully
-  // synchronous — the caller's busy state holds until the backend reports
-  // the email as sent; the single success/failure toast lives here.
+  // Download button produces (seal/stamp included) and POST it. The backend
+  // accepts the request (202) in milliseconds and delivers on a background
+  // worker, so this returns fast — the busy state holds only for the share +
+  // render + accept, not for the mail round-trip.
   const runPdfEmailJob = async (invoiceId, invNo) => {
     const email = (customer.email || "").trim();
     try {
@@ -1082,19 +1083,25 @@ export default function InvoiceForm() {
       // Attach the SAME PDF the Download button produces (seal/stamp
       // included) so the emailed document matches the download exactly.
       const pdfFile = await buildTaxInvoicePdfFile(invNo);
-      await invoiceAPI.sendInvoiceEmail(invoiceId, window.location.origin, pdfFile);
-      toast.success(`Email sent to ${email}`);
+      const res = await invoiceAPI.sendInvoiceEmail(invoiceId, window.location.origin, pdfFile);
+      // The server names the recipient it accepted (it validated the customer
+      // has an address before queueing), so trust that over local state.
+      const to = res?.data?.data?.recipient || email;
+      toast.success(`Email queued to ${to}`);
     } catch (err) {
       console.error("Invoice email failed:", err);
-      toast.error("Email failed");
+      // Surface the server's reason (e.g. "customer has no email address")
+      // instead of a generic dead-end.
+      toast.error(err.response?.data?.message || "Email failed");
     }
   };
 
   // Generate Tax Invoice — one action that saves the invoice to the DB
-  // (create or update) and emails it to the customer's registered email with
-  // its share link. Sync end-to-end: save → PDF render → email send, all
-  // awaited while the button is busy. Editing the invoice brings Generate
-  // back (see contentSignature).
+  // (create or update) and queues an email to the customer's registered
+  // address with its share link. Save is awaited; delivery itself runs on a
+  // backend worker, so the busy state covers only save + client PDF render +
+  // the fast 202 accept — never the mail round-trip. Editing the invoice
+  // brings Generate back (see contentSignature).
   const handleGenerateTaxInvoice = async () => {
     if (saving) return;
     // Without validate(), an invalid save still reached saveInvoice(), which
@@ -1118,8 +1125,9 @@ export default function InvoiceForm() {
       return;
     }
 
-    // Save landed — keep the busy states on while the render + email send
-    // run to completion (fully synchronous).
+    // Save landed — keep the busy states on only for the client PDF render
+    // and the 202 accept. The backend then delivers asynchronously, so this
+    // returns in milliseconds rather than after a ~10s mail round-trip.
     setGeneratedSignature(signature);
     toast.success(`Tax Invoice ${invNo} saved`);
     if (customer.email?.trim()) {
@@ -1331,8 +1339,9 @@ export default function InvoiceForm() {
 
   const sendInvoiceEmailToCustomer = async () => {
     if (emailBusy || !savedInvoiceId) return;
-    // Fully synchronous: share link → PDF render → email send all run while
-    // the button stays busy; runPdfEmailJob surfaces the single result toast.
+    // Share link → client PDF render → 202 accept run while the button is
+    // busy; delivery is queued server-side. runPdfEmailJob surfaces the
+    // single result toast (naming the recipient from the 202 body).
     setEmailBusy(true);
     try {
       await runPdfEmailJob(savedInvoiceId, savedInvoiceNumber);

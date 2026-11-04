@@ -549,10 +549,36 @@ function PrintSheet({ data, templateProps, renderType, paperSize }) {
   // PDF). Force the print canvas white and flatten in-sheet shadows so the
   // printed page is #FFFFFF edge to edge — ditto the manual download.
   const pageStyle = (sizePx, topM) => `
-    @page { size: ${sizePx}; margin: ${topM}mm 0 0 0; }
+    @page { size: ${sizePx}; margin: ${topM}mm 0 ${topM}mm 0; }
     html, body { background: #ffffff !important; margin: 0 !important; padding: 0 !important; }
     #root { background: #ffffff !important; }
-    #ii-print-sheet, #ii-print-sheet * { box-shadow: none !important; }`;
+    #ii-print-sheet, #ii-print-sheet * { box-shadow: none !important; }
+    /* Page-break contract, every template: an ITEM ROW closes whole at the
+       sheet's end (or moves entirely to the next one) — Chrome otherwise paints
+       the NEXT row's empty top slice at the bottom of the current page (the
+       "empty sliver" bug) and only its content on the continuation. Scoped to
+       the real anchors: a blanket tr rule also hits each template's giant
+       outer wrapper row (the row that CONTAINS the whole items table), which
+       can never fit a sheet — Chrome then skips the rest of the page entirely.
+       Fixed page frames (Retro/Enterprise/e-Invoice) and closing blocks never
+       straddle two sheets. The bottom margin mirrors PDF_DIMENSIONS (usableH =
+       page − 10mm top − 10mm bottom), so print geometry matches the manual
+       Download PDF path.
+       Continuation pages (product decision): NO repeated Sl No / Description
+       header — the thead renders once on page 1 only (table-row-group = no
+       paged repeat). Every item cell then carries its own top rule while
+       border-collapse merges it with the row above's bottom rule, so each
+       sheet closes with a proper line under the last row and reopens with a
+       proper line over the next item — never an open box, never a split row. */
+    [id^="section-item-row-"], [id^="section-hsn-row-"],
+    [id^="retro-page-"], [id^="ent-page-"],
+    #section-footer, #section-subtotals, #section-amount-words, #section-terms,
+    #section-hsn-header, #section-hsn-total, #section-hsn-words,
+    #section-bottom-note { break-inside: avoid; page-break-inside: avoid; }
+    thead { display: table-row-group; }
+    #ii-print-sheet table { border-collapse: collapse !important; }
+    #ii-print-sheet [id^="section-item-row-"] > td,
+    #ii-print-sheet [id^="section-hsn-row-"] > td { border-top: 1px solid #000; }`;
   const [pageRule, setPageRule] = useState(
     pageStyle(`${pageW}px ${pageH}px`, topMm)
   );

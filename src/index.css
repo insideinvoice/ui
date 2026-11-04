@@ -111,6 +111,30 @@ html.pip-locked #root {
    drop the zoom transform so the document lays out at its natural print
    width, and hide the one-time gesture hint. */
 @media print {
+  /* Page-break contract for any DOM print: ITEM rows (real anchors, not the
+     wrapper rows — see PublicInvoicePage pageStyle) close whole at a sheet's
+     end; the column header renders once on page 1 only (no per-page Sl No /
+     Description repeat); every item cell carries a top rule that collapses
+     with the row above's bottom rule, so each sheet reopens with a proper
+     line over the next item. */
+  [id^="section-item-row-"],
+  [id^="section-hsn-row-"],
+  #section-footer,
+  #section-subtotals,
+  #section-amount-words {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  thead {
+    display: table-row-group;
+  }
+  table {
+    border-collapse: collapse !important;
+  }
+  [id^="section-item-row-"] > td,
+  [id^="section-hsn-row-"] > td {
+    border-top: 1px solid #000;
+  }
   html.pip-locked,
   html.pip-locked body {
     overflow: visible !important;

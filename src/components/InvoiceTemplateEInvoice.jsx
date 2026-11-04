@@ -387,9 +387,16 @@ const InvoiceTemplateEInvoice = React.memo(React.forwardRef(
         </div>
 
         {/* ================= ZONE B — the framed document ================= */}
-        <div style={{ width: `${ROOT_W}px`, boxSizing: "border-box", border: B }}>
+        {/* The frame's SIDE borders live on each child table, not this div:
+            the div straddles every page of a long invoice and would dangle
+            its sides below the last row on each one; a table's borders stop
+            at its own last row. Top/bottom stay on the div (they paint once,
+            on the first/last fragment). Removing the side borders widens the
+            content box by 1px per side, which the children's own 1px side
+            borders take back — so the frame lands on the exact same pixels. */}
+        <div style={{ width: `${ROOT_W}px`, boxSizing: "border-box", borderTop: B, borderBottom: B }}>
           {/* ---------- header: party column | meta column ---------------- */}
-          <table style={{ ...tStyle, borderBottom: B }}>
+          <table style={{ ...tStyle, borderLeft: B, borderRight: B, borderBottom: B }}>
             <tbody>
               <tr>
                 {/* party column — its own 3 blocks and its own 2 rules */}
@@ -536,7 +543,7 @@ const InvoiceTemplateEInvoice = React.memo(React.forwardRef(
           {/* ---------- item table ----------------------------------------
               Every row draws its own bottom rule, so the table itself adds none —
               one line per boundary, never two. */}
-          <table style={tStyle} id="einv-items">
+          <table style={{ ...tStyle, borderLeft: B, borderRight: B }} id="einv-items">
             <thead>
               <tr>
                 {itemCols.map((col, i) => (
@@ -757,7 +764,7 @@ const InvoiceTemplateEInvoice = React.memo(React.forwardRef(
           </table>
 
           {/* ---------- amount chargeable -------------------------------- */}
-          <table style={{ ...tStyle, borderBottom: B }}>
+          <table style={{ ...tStyle, borderLeft: B, borderRight: B, borderBottom: B }}>
             <tbody>
               <tr id="section-amount-words">
                 <td colSpan={itemCols.length} style={{ padding: "5px 8px 6px" }}>
@@ -782,7 +789,7 @@ const InvoiceTemplateEInvoice = React.memo(React.forwardRef(
 
           {/* ---------- HSN/SAC statutory breakup ------------------------
               The closing Total row owns the block's bottom rule. */}
-          <table style={tStyle} id="einv-hsn">
+          <table style={{ ...tStyle, borderLeft: B, borderRight: B }} id="einv-hsn">
             <thead id="section-hsn-header">
               {igstMode ? (
                 <tr>
@@ -932,7 +939,7 @@ const InvoiceTemplateEInvoice = React.memo(React.forwardRef(
           </table>
 
           {/* ---------- tax amount in words ------------------------------ */}
-          <table style={{ ...tStyle, borderBottom: B }}>
+          <table style={{ ...tStyle, borderLeft: B, borderRight: B, borderBottom: B }}>
             <tbody>
               <tr id="section-hsn-words">
                 <td colSpan={itemCols.length} style={{ padding: "5px 8px" }}>
@@ -952,7 +959,7 @@ const InvoiceTemplateEInvoice = React.memo(React.forwardRef(
               `#section-terms` is a PDF cut anchor, so a page break can never
               land mid-block. */}
           {terms.length > 0 ? (
-            <table style={tStyle}>
+            <table style={{ ...tStyle, borderLeft: B, borderRight: B }}>
               <tbody>
                 <tr id="section-terms">
                   <td colSpan={itemCols.length} style={{ borderBottom: B, padding: "6px 9px 7px" }}>
@@ -986,7 +993,7 @@ const InvoiceTemplateEInvoice = React.memo(React.forwardRef(
           ) : null}
 
           {/* ---------- declaration | authorised signatory ---------------- */}
-          <table style={tStyle}>
+          <table style={{ ...tStyle, borderLeft: B, borderRight: B }}>
             <tbody>
               <tr id="section-footer">
                 <td colSpan={itemCols.length} style={{ padding: 0, verticalAlign: "top" }}>

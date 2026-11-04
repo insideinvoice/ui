@@ -975,8 +975,12 @@ const InvoiceTemplateVariants = React.memo(React.forwardRef(({ theme, business, 
 
           {/* ITEM TABLE */}
           <tr>
-            <td colSpan={2} style={{ padding: "0", borderTop: S.border, borderLeft: S.border, borderRight: S.border }}>
-              <table style={tStyleSep}>
+            {/* Side borders live on the ITEMS TABLE, not this wrapper: the
+                wrapper straddles pages and would paint its borders through the
+                empty gap below the last row on every continuation page, while
+                a table's borders stop at its own last row. */}
+            <td colSpan={2} style={{ padding: "0", borderTop: S.border }}>
+              <table style={{ ...tStyleSep, borderLeft: S.border, borderRight: S.border }}>
                 <thead>
                   <tr style={{ height: t.compact ? "28px" : "32px" }}>
                     {itemCols.map((col, idx) => (
@@ -1192,8 +1196,10 @@ const InvoiceTemplateVariants = React.memo(React.forwardRef(({ theme, business, 
 
           {/* TAX BREAKUP TABLE */}
           <tr>
-            <td colSpan={2} style={{ borderLeft: S.border, borderRight: S.border, borderBottom: S.border, padding: 0 }}>
-              <table style={tStyleSep}>
+            {/* Side borders on the tax table itself — same straddle rule as
+                the items table above; the wrapper keeps only its closing rule. */}
+            <td colSpan={2} style={{ borderBottom: S.border, padding: 0 }}>
+              <table style={{ ...tStyleSep, borderLeft: S.border, borderRight: S.border }}>
                 <thead id="section-hsn-header">
                   {igstMode ? (
                     // Inter-state: one IGST rate/amount pair; the freed width

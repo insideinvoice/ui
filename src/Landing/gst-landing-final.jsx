@@ -104,7 +104,7 @@ const faqs = [
     {
       question: "Do I need to download any software?",
       answer:
-        "No downloads needed! Inside Invoice is a 100% web-based Progressive Web App (PWA). Simply log in and access it from any device - install it on your home screen like a native app, or use it directly in your browser.",
+        "No downloads needed! Inside Invoice is a 100% web-based Progressive Web App (PWA). Create your free account and access it from any device - install it on your home screen like a native app, or use it directly in your browser.",
     },
     {
       question: "Does it support all GST types?",
@@ -340,9 +340,9 @@ export default function GSTBillingLanding() {
               </p>
 
               <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-                <Link to="/login" className="w-full sm:w-auto">
+                <Link to="/register" className="w-full sm:w-auto">
                   <button className="w-full sm:w-auto px-6 sm:px-7 py-3 bg-gradient-to-r from-slate-700 via-gray-700 to-slate-800 text-white rounded-lg hover:shadow-lg hover:shadow-slate-500/30 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 font-medium text-base flex items-center justify-center gap-2 min-h-[48px]">
-                    Start Billing
+                    Get Started Free
                     <ArrowRight className="w-4 h-4" />
                   </button>
                 </Link>
@@ -352,6 +352,16 @@ export default function GSTBillingLanding() {
                   </button>
                 </Link>
               </div>
+
+              <p className="text-xs sm:text-sm text-slate-500 font-normal">
+                Already have an account?{" "}
+                <Link
+                  to="/login"
+                  className="font-semibold text-slate-700 hover:text-slate-900 underline underline-offset-2"
+                >
+                  Log in
+                </Link>
+              </p>
 
               <div className="grid grid-cols-3 gap-4 sm:gap-6 pt-4 sm:pt-6">
                 <div className="text-center">
@@ -713,7 +723,7 @@ export default function GSTBillingLanding() {
                   any time without losing a single invoice.
                 </p>
               </div>
-              <Link to="/login" className="shrink-0">
+              <Link to="/register" className="shrink-0">
                 <button className="w-full sm:w-auto px-5 py-2.5 bg-gradient-to-r from-slate-700 via-gray-700 to-slate-800 text-white rounded-lg hover:shadow-lg hover:shadow-slate-500/30 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 font-medium text-sm flex items-center justify-center gap-2 min-h-[44px]">
                   Start Billing
                   <ArrowRight className="w-4 h-4" />
@@ -1319,7 +1329,7 @@ export default function GSTBillingLanding() {
             streamline their operations
           </p>
           <div className="flex flex-col sm:flex-row justify-center gap-3 sm:gap-4">
-            <Link to="/login" className="w-full sm:w-auto">
+            <Link to="/register" className="w-full sm:w-auto">
               <button className="w-full sm:w-auto px-5 sm:px-6 py-3 bg-white text-slate-700 rounded-lg hover:bg-slate-50 transition-all duration-200 font-medium text-sm sm:text-base shadow-xl hover:scale-[1.02] active:scale-[0.98] min-h-[48px]">
                 Start Billing →
               </button>
@@ -1484,6 +1494,22 @@ export default function GSTBillingLanding() {
                     className="hover:text-slate-400 transition-colors"
                   >
                     Contact Us
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    to="/register"
+                    className="hover:text-slate-400 transition-colors"
+                  >
+                    Sign Up Free
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    to="/login"
+                    className="hover:text-slate-400 transition-colors"
+                  >
+                    Log In
                   </Link>
                 </li>
               </ul>

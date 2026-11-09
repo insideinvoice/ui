@@ -67,11 +67,28 @@ function ScrollToTop() {
 }
 
 function PrivateRoute({ children }) {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isBusinessSetupComplete, isAdmin } = useAuth();
+  const { pathname } = useLocation();
+  // Setup gate: every app page stays locked until the business profile has
+  // been saved at least once (business name is the floor). Admins are
+  // platform staff and keep the old Dashboard-only exemption; /business-setup
+  // itself must stay reachable or completing setup would loop back here.
+  const setupIncomplete =
+    isAuthenticated && !isBusinessSetupComplete && !isAdmin && pathname !== "/business-setup";
+  if (setupIncomplete) return <Navigate to="/business-setup" replace />;
   // Bottom padding clears the fixed mobile tab bar + home indicator — scoped to app pages
-  // only, so landing/legal pages don't get a white strip below their footer
+  // only, so landing/legal pages don't get a white strip below their footer.
+  // While setup bootstrap is in progress the app chrome is unmounted entirely
+  // (no sidebar, no tab bar → no navigation escape hatch), so the shell also
+  // loses its md:ml-60 sidebar offset; the setup card renders centered.
+  const bareSetup =
+    pathname === "/business-setup" && !isBusinessSetupComplete && !isAdmin;
   return isAuthenticated ? (
-    <div className="app-shell md:ml-60 pb-[calc(env(safe-area-inset-bottom,0px)_+_64px)] md:pb-0">
+    <div
+      className={`app-shell ${bareSetup ? "" : "md:ml-60"} ${
+        bareSetup ? "" : "pb-[calc(env(safe-area-inset-bottom,0px)_+_64px)] md:pb-0"
+      }`}
+    >
       {children}
     </div>
   ) : <Navigate to="/login" />;
@@ -96,8 +113,16 @@ function isPublicPath(pathname) {
 }
 
 function AppRoutes() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isBusinessSetupComplete, isAdmin } = useAuth();
   const location = useLocation();
+  // During first-run business setup the sidebar/tab bar must not exist at
+  // all — it is the escape hatch that let users bypass the mandatory setup
+  // (they could click straight into New Invoice / Invoices from it).
+  const hideChromeForSetup =
+    isAuthenticated &&
+    location.pathname === "/business-setup" &&
+    !isBusinessSetupComplete &&
+    !isAdmin;
   return (
     <>
       <ScrollToTop />
@@ -108,7 +133,7 @@ function AppRoutes() {
           mobile top-nav (CSS transitions replayed → the sidebar "blinked"
           on every click). Mounted here it survives route changes; public
           and landing routes are gated off exactly like before. */}
-      {isAuthenticated && !isPublicPath(location.pathname) && <AppNavbar />}
+      {isAuthenticated && !isPublicPath(location.pathname) && !hideChromeForSetup && <AppNavbar />}
       <Routes>
       <Route path="/" element={<GSTBillingLanding />} />
       <Route path="/login" element={<Login />} />

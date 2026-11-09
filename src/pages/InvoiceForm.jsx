@@ -33,8 +33,8 @@ import {
 
 const uid = () => (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `i${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`);
 const emptyItem = { itemName: "", hsn: "", unit: "Unit", qty: "", rate: "", gstPercentage: "18", taxableValue: 0, taxAmount: 0, total: 0, discountPercent: "" };
-const inputClass = "w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-400/30 focus:border-slate-400 bg-white transition-all min-h-[44px]";
-const selectClass = "w-full pl-3 pr-9 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-400/30 focus:border-slate-400 bg-white transition-all min-h-[44px] appearance-none cursor-pointer text-slate-800 font-normal";
+const inputClass = "w-full px-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-400/30 focus:border-slate-400 bg-white transition-all min-h-[36px]";
+const selectClass = "w-full pl-3 pr-9 py-1.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-400/30 focus:border-slate-400 bg-white transition-all min-h-[36px] appearance-none cursor-pointer text-slate-800 font-normal";
 const labelClass = "block text-xs font-semibold text-slate-600 mb-1.5 tracking-wide uppercase";
 
 // The five fields the customer block owns, serialized with the SAME
@@ -131,7 +131,7 @@ const ItemRow = memo(({ item, calc, idx, onItemChange, onRemove, onAdd, onHsnLoo
           handleKeyDown(e, "hsn");
         }}
         onBlur={(e) => { if (e.target.value && !e.target.dataset.enterPressed) onHsnLookup(idx, e.target.value); delete e.target.dataset.enterPressed; }}
-        className="w-full min-w-0 px-2 py-1.5 border border-slate-200 rounded text-xs focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono"
+        className="w-full min-w-0 px-3 py-1.5 border border-slate-300 rounded-lg text-sm min-h-[36px] focus:outline-none focus:ring-2 focus:ring-slate-400/30 focus:border-slate-400 bg-white font-mono"
         placeholder="Scan or type" />
     </td>
     )}
@@ -140,50 +140,50 @@ const ItemRow = memo(({ item, calc, idx, onItemChange, onRemove, onAdd, onHsnLoo
         onChange={(e) => onItemChange(idx, "itemName", e.target.value)}
         onKeyDown={(e) => handleKeyDown(e, "desc")}
         readOnly={locked}
-        className={`w-full min-w-[120px] px-2 py-1.5 border border-slate-200 rounded text-xs focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white ${locked ? "bg-slate-50 text-slate-500 cursor-not-allowed" : ""}`}
+        className={`w-full min-w-[120px] px-3 py-1.5 border border-slate-300 rounded-lg text-sm min-h-[36px] focus:outline-none focus:ring-2 focus:ring-slate-400/30 focus:border-slate-400 bg-white ${locked ? "bg-slate-50 text-slate-500 cursor-not-allowed" : ""}`}
         placeholder="Item name" />
     </td>
     <td className="py-3 px-2 border-b border-slate-100">
-      <div className="flex items-center gap-1.5 w-full min-w-[110px]">
+      <div className="flex items-center gap-1.5 w-full min-w-[134px]">
         <input type="text" value={item.qty} name={`qty-${idx + 1}`}
           onChange={(e) => onItemChange(idx, "qty", e.target.value)}
           onKeyDown={(e) => handleKeyDown(e, "qty")}
           inputMode="numeric"
           placeholder="Qty"
-          className="flex-[7] min-w-[40px] w-0 px-2 py-1.5 border border-slate-200 rounded text-xs text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono" />
+          className="w-[64px] shrink-0 px-3 py-1.5 border border-slate-300 rounded-lg text-sm min-h-[36px] text-right focus:outline-none focus:ring-2 focus:ring-slate-400/30 focus:border-slate-400 bg-white font-mono" />
         <select value={item.unit ?? "Unit"} name={`unit-${idx + 1}`}
           onChange={(e) => onItemChange(idx, "unit", e.target.value)}
           onKeyDown={(e) => handleKeyDown(e, "unit")}
           title="Unit of measurement"
-          className="flex-[10] min-w-[64px] w-0 px-1 py-2 border border-slate-200 rounded text-xs focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white text-slate-600">
+          className="flex-[10] min-w-[64px] w-0 px-2.5 py-1.5 border border-slate-300 rounded-lg text-sm min-h-[36px] focus:outline-none focus:ring-2 focus:ring-slate-400/30 focus:border-slate-400 bg-white text-slate-600">
           {UNITS.map((u) => (
             <option key={u} value={u}>{u === "" ? "No unit" : u}</option>
           ))}
         </select>
       </div>
     </td>
-    <td className="py-3 px-2 border-b border-slate-100">
+    <td className="py-3 px-2 border-b border-slate-100 text-center">
       <input type="text" value={item.rate} name={`rate-${idx + 1}`}
         onChange={(e) => onItemChange(idx, "rate", e.target.value)}
         onKeyDown={(e) => handleKeyDown(e, "rate")}
         readOnly={locked}
         inputMode="decimal"
         placeholder="0.00"
-        className="w-full min-w-[70px] px-2 py-1.5 border border-slate-200 rounded text-xs text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono" />
+        className="w-[64px] px-3 py-1.5 border border-slate-300 rounded-lg text-sm min-h-[36px] text-right focus:outline-none focus:ring-2 focus:ring-slate-400/30 focus:border-slate-400 bg-white font-mono" />
     </td>
     <td className="py-3 px-1 border-b border-slate-100 text-center">
-      <div className="relative w-[56px] min-w-[56px] mx-auto">
+      <div className="relative w-[64px] min-w-[64px] mx-auto">
         <input type="text" value={item.gstPercentage} name={`gst-${idx + 1}`}
           onChange={(e) => onItemChange(idx, "gstPercentage", e.target.value)}
           onKeyDown={(e) => handleKeyDown(e, "gst")}
           inputMode="decimal"
-          className="w-full min-w-0 px-1.5 py-1.5 border border-slate-200 rounded text-xs text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono pr-4" />
-        <span className="absolute right-1 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none">%</span>
+          className="w-full min-w-0 px-1.5 py-1.5 border border-slate-300 rounded-lg text-sm min-h-[36px] text-right focus:outline-none focus:ring-2 focus:ring-slate-400/30 focus:border-slate-400 bg-white font-mono pr-5" />
+        <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none">%</span>
       </div>
     </td>
     {showDisc && (
     <td className="py-3 px-1 border-b border-slate-100 text-center">
-      <div className="relative w-[56px] min-w-[56px] mx-auto">
+      <div className="relative w-[64px] min-w-[64px] mx-auto">
         <input type="text" value={item.discountPercent ?? ""} name={`disc-${idx + 1}`}
           onChange={(e) => onItemChange(idx, "discountPercent", e.target.value.replace(/[^0-9.]/g, "").slice(0, 5))}
           onKeyDown={(e) => handleKeyDown(e, "disc")}
@@ -193,18 +193,18 @@ const ItemRow = memo(({ item, calc, idx, onItemChange, onRemove, onAdd, onHsnLoo
           }}
           inputMode="decimal"
           placeholder="0"
-          className="w-full min-w-0 px-1.5 py-1.5 border border-slate-200 rounded text-xs text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono pr-4" />
-        <span className="absolute right-1 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none">%</span>
+          className="w-full min-w-0 px-1.5 py-1.5 border border-slate-300 rounded-lg text-sm min-h-[36px] text-right focus:outline-none focus:ring-2 focus:ring-slate-400/30 focus:border-slate-400 bg-white font-mono pr-5" />
+        <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none">%</span>
       </div>
     </td>
     )}
-    <td className="py-3 px-3 text-right font-mono text-xs text-slate-700 border-b border-slate-100 whitespace-nowrap tabular-nums min-w-0">
+    <td className="py-3 px-3 text-center font-mono text-xs text-slate-700 border-b border-slate-100 whitespace-nowrap tabular-nums min-w-0">
       {((calc?.taxable ?? parseFloat(item.taxableValue)) || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
     </td>
-    <td className="py-3 px-3 text-right font-mono text-xs text-slate-600 border-b border-slate-100 whitespace-nowrap tabular-nums min-w-0">
+    <td className="py-3 px-3 text-center font-mono text-xs text-slate-600 border-b border-slate-100 whitespace-nowrap tabular-nums min-w-0">
       {((calc?.tax ?? parseFloat(item.taxAmount)) || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
     </td>
-    <td className="py-3 px-3 text-right font-mono text-xs font-semibold text-slate-900 border-b border-slate-100 whitespace-nowrap tabular-nums min-w-0">
+    <td className="py-3 px-3 text-center font-mono text-xs font-semibold text-slate-900 border-b border-slate-100 whitespace-nowrap tabular-nums min-w-0">
       {((calc?.total ?? parseFloat(item.total)) || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
     </td>
     <td className="py-3 px-1 text-center border-b border-slate-100 w-[45px] min-w-[45px]">
@@ -262,7 +262,7 @@ const ItemCard = memo(({ item, calc, idx, onItemChange, onRemove, onAdd, onHsnLo
               handleKeyDown(e, "hsn");
             }}
             onBlur={(e) => { if (e.target.value && !e.target.dataset.enterPressed) onHsnLookup(idx, e.target.value); delete e.target.dataset.enterPressed; }}
-            className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono min-h-[44px]" placeholder="Scan or type" />
+            className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono min-h-[36px]" placeholder="Scan or type" />
         </div>
         )}
         <div>
@@ -271,7 +271,7 @@ const ItemCard = memo(({ item, calc, idx, onItemChange, onRemove, onAdd, onHsnLo
             onChange={(e) => onItemChange(idx, "itemName", e.target.value)}
             onKeyDown={(e) => handleKeyDown(e, "desc")}
             readOnly={locked}
-            className={`w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white min-h-[44px] ${locked ? "bg-slate-50 text-slate-500 cursor-not-allowed" : ""}`} placeholder="Item name" />
+            className={`w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white min-h-[36px] ${locked ? "bg-slate-50 text-slate-500 cursor-not-allowed" : ""}`} placeholder="Item name" />
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
@@ -280,12 +280,12 @@ const ItemCard = memo(({ item, calc, idx, onItemChange, onRemove, onAdd, onHsnLo
               onChange={(e) => onItemChange(idx, "qty", e.target.value)}
               onKeyDown={(e) => handleKeyDown(e, "qty")}
               inputMode="numeric"
-              className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono min-h-[44px]" />
+              className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono min-h-[36px]" />
             <select value={item.unit ?? "Unit"} data-mobile-field={`unit-${idx}`}
               onChange={(e) => onItemChange(idx, "unit", e.target.value)}
               onKeyDown={(e) => handleKeyDown(e, "unit")}
               title="Unit of measurement"
-              className="mt-2 w-full px-2.5 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white text-slate-600 min-h-[44px]">
+              className="mt-2 w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white text-slate-600 min-h-[36px]">
               {UNITS.map((u) => (
             <option key={u} value={u}>{u === "" ? "No unit" : u}</option>
               ))}
@@ -298,7 +298,7 @@ const ItemCard = memo(({ item, calc, idx, onItemChange, onRemove, onAdd, onHsnLo
               onKeyDown={(e) => handleKeyDown(e, "rate")}
               readOnly={locked}
               inputMode="decimal"
-              className={`w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono min-h-[44px] ${locked ? "bg-slate-50 text-slate-500 cursor-not-allowed" : ""}`} />
+              className={`w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono min-h-[36px] ${locked ? "bg-slate-50 text-slate-500 cursor-not-allowed" : ""}`} />
           </div>
         </div>
         <div className="grid grid-cols-2 gap-3">
@@ -309,7 +309,7 @@ const ItemCard = memo(({ item, calc, idx, onItemChange, onRemove, onAdd, onHsnLo
                 onChange={(e) => onItemChange(idx, "gstPercentage", e.target.value)}
                 onKeyDown={(e) => handleKeyDown(e, "gst")}
                 inputMode="decimal"
-                className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono min-h-[44px] pr-7" />
+                className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono min-h-[36px] pr-7" />
               <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">%</span>
             </div>
           </div>
@@ -326,14 +326,14 @@ const ItemCard = memo(({ item, calc, idx, onItemChange, onRemove, onAdd, onHsnLo
                 }}
                 inputMode="decimal"
                 placeholder="0"
-                className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono min-h-[44px] pr-7" />
+                className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm text-right focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 bg-white font-mono min-h-[36px] pr-7" />
               <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">%</span>
             </div>
           </div>
           ) : (
           <div>
             <label className="block text-[10px] font-semibold text-slate-500 uppercase mb-1">Amount</label>
-            <div className="w-full px-3 py-2.5 border border-slate-100 rounded-lg text-sm text-right bg-slate-50 font-mono text-slate-700 min-h-[44px] flex items-center justify-end">
+            <div className="w-full px-3 py-1.5 border border-slate-100 rounded-lg text-sm text-right bg-slate-50 font-mono text-slate-700 min-h-[36px] flex items-center justify-end">
               Rs. {((calc?.total ?? parseFloat(item.total)) || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
             </div>
           </div>
@@ -342,7 +342,7 @@ const ItemCard = memo(({ item, calc, idx, onItemChange, onRemove, onAdd, onHsnLo
         {showDisc && (
         <div>
           <label className="block text-[10px] font-semibold text-slate-500 uppercase mb-1">Amount</label>
-          <div className="w-full px-3 py-2.5 border border-slate-100 rounded-lg text-sm text-right bg-slate-50 font-mono text-slate-700 min-h-[44px] flex items-center justify-end">
+          <div className="w-full px-3 py-1.5 border border-slate-100 rounded-lg text-sm text-right bg-slate-50 font-mono text-slate-700 min-h-[36px] flex items-center justify-end">
             Rs. {((calc?.total ?? parseFloat(item.total)) || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
           </div>
         </div>
@@ -2004,7 +2004,7 @@ export default function InvoiceForm() {
                     aria-labelledby="tax-mode-label"
                     onClick={toggleTaxMode}
                     title="Inter-state supply: IGST at the full rate. Intra-state supply: CGST + SGST/UTGST split in half."
-                    className={`w-full flex items-center justify-between gap-2 px-3 rounded-lg border bg-white hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-400/30 transition-all min-h-[44px] ${
+                    className={`w-full flex items-center justify-between gap-2 px-3 rounded-lg border bg-white hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-400/30 transition-all min-h-[36px] ${
                       taxValidation.level === "warning" ? "border-amber-400" : "border-slate-300"
                     }`}>
                     <span className="text-sm font-medium text-slate-700">IGST</span>
@@ -2222,7 +2222,7 @@ export default function InvoiceForm() {
                       if (!Number.isNaN(n)) setDiscountPercent(String(Math.min(Math.max(n, 0), 100)));
                     }}
                     placeholder="0"
-                    className="w-20 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-400/30 focus:border-slate-400 min-h-[44px]"
+                    className="w-20 px-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-400/30 focus:border-slate-400 min-h-[36px]"
                   />
                   <span className="text-sm text-slate-600">%</span>
                   {discountVal > 0 && (
@@ -2392,15 +2392,15 @@ export default function InvoiceForm() {
               <thead>
                 <tr className="bg-slate-800">
                   <th className="text-white text-xs font-semibold py-3.5 px-2 text-center whitespace-nowrap w-[44px] min-w-[44px]">#</th>
-                  {showHnSac && <th className="text-white text-xs font-semibold py-3.5 px-2 text-left whitespace-nowrap min-w-[100px]">HSN/SAC</th>}
+                  {showHnSac && <th className="text-white text-xs font-semibold py-3.5 px-2 text-center whitespace-nowrap min-w-[100px]">HSN/SAC</th>}
                   <th className="text-white text-xs font-semibold py-3.5 px-2 text-left whitespace-nowrap min-w-[150px]">{labelFor("itemName", "Description")}</th>
                   <th className="text-white text-xs font-semibold py-3.5 px-2 text-center whitespace-nowrap min-w-[120px]">Qty</th>
                   <th className="text-white text-xs font-semibold py-3.5 px-2 text-center whitespace-nowrap min-w-[85px]">Rate</th>
                   <th className="text-white text-xs font-semibold py-3.5 px-1 text-center whitespace-nowrap min-w-[56px]">GST %</th>
                   {individualDiscount && <th className="text-white text-xs font-semibold py-3.5 px-1 text-center whitespace-nowrap min-w-[56px]">Disc %</th>}
-                  <th className="text-white text-xs font-semibold py-3.5 px-3 text-right whitespace-nowrap min-w-[110px]">Taxable</th>
-                  <th className="text-white text-xs font-semibold py-3.5 px-3 text-right whitespace-nowrap min-w-[100px]">Tax</th>
-                  <th className="text-white text-xs font-semibold py-3.5 px-3 text-right whitespace-nowrap min-w-[120px]">Total</th>
+                  <th className="text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap min-w-[110px]">Taxable</th>
+                  <th className="text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap min-w-[100px]">Tax</th>
+                  <th className="text-white text-xs font-semibold py-3.5 px-3 text-center whitespace-nowrap min-w-[120px]">Total</th>
                   <th className="text-white py-3.5 px-1 w-[45px] min-w-[45px]"></th>
                 </tr>
               </thead>

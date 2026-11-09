@@ -63,9 +63,9 @@ export default function InvoiceNav({ scrolled, setIsMenuOpen, isMenuOpen }) {
             <Link to="/login" className="px-3 py-2 text-sm text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-lg transition-colors font-medium">
               Login
             </Link>
-            <Link to="/login" className="ml-2">
+            <Link to="/register" className="ml-2">
               <button className="px-5 py-2 bg-slate-900 text-white text-sm font-semibold rounded-lg hover:bg-slate-800 active:scale-[0.98] transition-all duration-200 shadow-sm">
-                Start Billing
+                Sign Up Free
               </button>
             </Link>
           </div>
@@ -109,9 +109,9 @@ export default function InvoiceNav({ scrolled, setIsMenuOpen, isMenuOpen }) {
             Login
           </Link>
           <div className={`px-4 pt-2 pb-4 transition-opacity duration-300 ease-out ${isMenuOpen ? "opacity-100 delay-150" : "opacity-0"}`}>
-            <Link to="/login" className="block">
+            <Link to="/register" className="block">
               <button className="w-full px-6 py-3 bg-slate-900 text-white rounded-xl font-bold min-h-[48px] text-sm hover:bg-slate-800 active:scale-[0.98] transition-all duration-200 shadow-sm">
-                Start Billing
+                Sign Up Free
               </button>
             </Link>
           </div>
